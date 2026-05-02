@@ -1,26 +1,168 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+@import "../styles/tokens.css";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+/*
+ * globals.css
+ * Tailwind + shadcn/ui wiring. Design tokens live in styles/tokens.css.
+ * This file maps shadcn's expected CSS variable names onto our token system
+ * so that shadcn/ui primitives work without modification.
+ *
+ * Rule: never add colour, spacing, or typographic values here directly.
+ *       All values must come via var(--token-name) from tokens.css.
+ */
 
+/* shadcn/ui uses the .dark class for its dark-mode variant utility.
+   Our theme is dark by default; we toggle TO light via data-theme="light".
+   This custom variant lets Tailwind dark: utilities still work against .dark,
+   but in practice our components reference tokens directly, not dark: utilities. */
+@custom-variant dark (&:is(.dark *));
+
+/* ── Tailwind theme: bridge from shadcn variable names to Tailwind utilities ── */
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  /* Colours — all wired to shadcn primitives defined below */
+  --color-background:               var(--background);
+  --color-foreground:               var(--foreground);
+  --color-card:                     var(--card);
+  --color-card-foreground:          var(--card-foreground);
+  --color-popover:                  var(--popover);
+  --color-popover-foreground:       var(--popover-foreground);
+  --color-primary:                  var(--primary);
+  --color-primary-foreground:       var(--primary-foreground);
+  --color-secondary:                var(--secondary);
+  --color-secondary-foreground:     var(--secondary-foreground);
+  --color-muted:                    var(--muted);
+  --color-muted-foreground:         var(--muted-foreground);
+  --color-accent:                   var(--accent);
+  --color-accent-foreground:        var(--accent-foreground);
+  --color-destructive:              var(--destructive);
+  --color-border:                   var(--border);
+  --color-input:                    var(--input);
+  --color-ring:                     var(--ring);
+
+  /* Sidebar (shadcn sidebar primitives) */
+  --color-sidebar:                  var(--sidebar);
+  --color-sidebar-foreground:       var(--sidebar-foreground);
+  --color-sidebar-primary:          var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent:           var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border:           var(--sidebar-border);
+  --color-sidebar-ring:             var(--sidebar-ring);
+
+  /* Chart colours (unused in Stelavox — kept for shadcn compatibility) */
+  --color-chart-1:                  var(--chart-1);
+  --color-chart-2:                  var(--chart-2);
+  --color-chart-3:                  var(--chart-3);
+  --color-chart-4:                  var(--chart-4);
+  --color-chart-5:                  var(--chart-5);
+
+  /* Radius — override shadcn's computed values with our token values */
+  --radius-sm:   var(--radius-sm-token);
+  --radius-md:   var(--radius-md-token);
+  --radius-lg:   var(--radius-lg-token);
+  --radius-xl:   var(--radius-lg-token);   /* no xl in our scale — maps to lg */
+  --radius-full: var(--radius-full);
+
+  /* Typography */
+  --font-sans:    var(--font-sans);
+  --font-mono:    var(--font-geist-mono);
+  --font-heading: var(--font-sans);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+/* ── shadcn/ui primitive variable definitions ──────────────────────────────
+   Dark mode is default (matches tokens.css :root).
+   Values reference our tokens — never hardcode hex here.
+   ─────────────────────────────────────────────────────────────────────────*/
+:root {
+  /* Map shadcn primitives → our tokens */
+  --background:          var(--color-bg-base);
+  --foreground:          var(--color-text-primary);
+  --card:                var(--color-bg-surface);
+  --card-foreground:     var(--color-text-primary);
+  --popover:             var(--color-bg-elevated);
+  --popover-foreground:  var(--color-text-primary);
+  --primary:             var(--color-accent);
+  --primary-foreground:  #ecf0f5;  /* light text on accent button */
+  --secondary:           var(--color-bg-elevated);
+  --secondary-foreground: var(--color-text-secondary);
+  --muted:               var(--color-bg-surface);
+  --muted-foreground:    var(--color-text-muted);
+  --accent:              var(--color-bg-hover);
+  --accent-foreground:   var(--color-text-primary);
+  --destructive:         var(--color-error);
+  --border:              var(--color-border-default);
+  --input:               var(--color-border-default);
+  --ring:                var(--color-border-strong);
+
+  /* Sidebar */
+  --sidebar:                       var(--color-bg-surface);
+  --sidebar-foreground:            var(--color-text-primary);
+  --sidebar-primary:               var(--color-accent);
+  --sidebar-primary-foreground:    #ecf0f5;
+  --sidebar-accent:                var(--color-bg-hover);
+  --sidebar-accent-foreground:     var(--color-text-primary);
+  --sidebar-border:                var(--color-border-subtle);
+  --sidebar-ring:                  var(--color-border-strong);
+
+  /* Charts — mapped to our status/semantic colours */
+  --chart-1: var(--color-accent);
+  --chart-2: var(--color-info);
+  --chart-3: var(--color-warning);
+  --chart-4: var(--color-error);
+  --chart-5: var(--color-status-locked);
+
+  /* Radius alias tokens (avoid collision with tokens.css --radius-sm/md/lg) */
+  --radius-sm-token:  var(--radius-sm);
+  --radius-md-token:  var(--radius-md);
+  --radius-lg-token:  var(--radius-lg);
+
+  /* shadcn's --radius primitive (used by some components) */
+  --radius: var(--radius-md);
+}
+
+/* ── Light mode override ────────────────────────────────────────────────────
+   Applied via data-theme="light" on <html> (matches tokens.css convention).
+   We also add .dark-mode-off so shadcn's .dark selector doesn't fire.
+   ─────────────────────────────────────────────────────────────────────────*/
+[data-theme="light"] {
+  /* tokens.css already overrides all --color-* tokens for light mode.
+     Here we only need to update any shadcn primitive that uses a hardcoded value. */
+  --primary-foreground:         #f2ede4;  /* parchment text on deep verdigris */
+  --sidebar-primary-foreground: #f2ede4;
+}
+
+/* ── Base layer ─────────────────────────────────────────────────────────────*/
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
   }
-}
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  html {
+    @apply font-sans;
+    /* Dark mode is default — no class needed.
+       Light mode is set via JS: document.documentElement.dataset.theme = "light" */
+  }
+
+  body {
+    background-color: var(--color-bg-base);
+    color: var(--color-text-primary);
+    font-size: var(--text-base);
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Scrollbar — dark theme */
+  ::-webkit-scrollbar              { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track        { background: var(--color-bg-base); }
+  ::-webkit-scrollbar-thumb        { background: var(--color-border-default); border-radius: var(--radius-full); }
+  ::-webkit-scrollbar-thumb:hover  { background: var(--color-border-strong); }
+
+  /* Focus visible — use our border-strong token, not browser default */
+  :focus-visible {
+    outline: 2px solid var(--color-border-strong);
+    outline-offset: 2px;
+  }
 }

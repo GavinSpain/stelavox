@@ -1,0 +1,191 @@
+/*
+ * styles/tokens.css
+ * Single source of truth for all CSS custom properties.
+ * Components reference tokens only — never hardcode hex or pixel values in component files.
+ * Exceptions: this file only.
+ *
+ * Rationale for colour choices: Brand Identity v2.0 §4 (halation research).
+ * Verdigris accent (#3d7858): exactly 9 sanctioned uses — see Brand Identity v2.0 §5.
+ */
+
+:root {
+  /* ──────────────────────────────────────────────────────
+     DARK MODE (default)
+     ────────────────────────────────────────────────────── */
+
+  /* ── Backgrounds ── */
+  --color-bg-base:          #0d1014;  /* 🔒 Deepest surface. App frame, Focus Mode, prose. NOT #000000 */
+  --color-bg-surface:       #131820;  /* Panels, header, sidebar */
+  --color-bg-elevated:      #1a2030;  /* Modals, dropdowns, popovers */
+  --color-bg-hover:         #1e2838;  /* Row hover states */
+  --color-bg-selected:      #1f2d45;  /* Selected rows */
+  --color-bg-active-node:   #1f2d45;  /* Currently open node in tree */
+
+  /* ── Borders ── */
+  --color-border-subtle:    #1e2535;  /* Panel dividers, quiet field borders */
+  --color-border-default:   #253045;  /* Standard borders */
+  --color-border-strong:    #3a4a62;  /* Focus rings, emphasis borders. NOT --color-accent */
+
+  /* ── Text hierarchy ── */
+  --color-text-primary:     #ecf0f5;  /* 🔒 Main text. ~14.8:1 on bg-base. NOT #ffffff */
+  --color-text-secondary:   #8aa0b8;  /* Labels, metadata, helper text */
+  --color-text-muted:       #4a6080;  /* Placeholder, secondary labels */
+  --color-text-disabled:    #2a3850;  /* Disabled states */
+
+  /* ── Accent: verdigris — EXACTLY 9 sanctioned uses, see Brand Identity v2.0 §5 ── */
+  --color-accent:           #3d7858;  /* 🔒 The single accent. 9 uses only. */
+  --color-accent-hover:     #5aa87a;  /* Hover on accent elements */
+  --color-accent-muted:     #1a3028;  /* Subtle fills, selection backgrounds */
+
+  /* ── Status ── */
+  --color-status-draft:     #4a6080;  /* Blue-grey. Neutral. */
+  --color-status-review:    #b87030;  /* Amber. Needs attention. */
+  --color-status-approved:  #3d7858;  /* 🔒 Same as --color-accent. Approved = completion. */
+  --color-status-locked:    #6a3888;  /* Purple. Protected. */
+
+  /* ── Semantic ── */
+  --color-success:          #3d7858;
+  --color-warning:          #b87030;
+  --color-error:            #b03c3c;
+  --color-info:             #3a6090;
+
+  /* ── Agent operation colours ── */
+  --color-agent-running:    #2e5a90;
+  --color-agent-complete:   #3d7858;
+  --color-agent-failed:     #b03c3c;
+
+  /* ──────────────────────────────────────────────────────
+     TYPOGRAPHY
+     ────────────────────────────────────────────────────── */
+
+  /* Scale — all UI chrome uses Inter */
+  --text-xs:   11px;   /* tracking +0.01em — timestamps, version numbers */
+  --text-sm:   12px;   /* tracking 0       — secondary labels, helper text */
+  --text-base: 14px;   /* tracking -0.01em — body text, node content */
+  --text-md:   15px;   /* tracking -0.01em — comfortable panel reading */
+  --text-lg:   17px;   /* tracking -0.02em — panel headings, section titles */
+  --text-xl:   20px;   /* tracking -0.02em — modal titles */
+  --text-2xl:  24px;   /* tracking -0.03em — page-level headings */
+
+  /* Prose surface — Lora only. UI Design Spec v1.0 §3.4 */
+  --text-prose-panel: 16px;  /* ProseEditor in Edit Mode detail panel */
+  --text-prose-focus: 18px;  /* 🔒 ProseEditor in Focus Mode */
+
+  /* ──────────────────────────────────────────────────────
+     SPACING (4px base unit — all values are multiples of 4)
+     ────────────────────────────────────────────────────── */
+  --space-1:   4px;
+  --space-2:   8px;
+  --space-3:   12px;
+  --space-4:   16px;
+  --space-5:   20px;
+  --space-6:   24px;
+  --space-8:   32px;
+  --space-10:  40px;
+  --space-12:  48px;
+
+  /* ──────────────────────────────────────────────────────
+     BORDER RADIUS
+     ────────────────────────────────────────────────────── */
+  --radius-sm:   4px;
+  --radius-md:   8px;
+  --radius-lg:   12px;
+  --radius-full: 9999px;
+
+  /* ──────────────────────────────────────────────────────
+     ELEVATION / SHADOW
+     ────────────────────────────────────────────────────── */
+  --shadow-sm:  0 1px 3px rgba(0,0,0,0.3);
+  --shadow-md:  0 4px 12px rgba(0,0,0,0.4);
+  --shadow-lg:  0 8px 32px rgba(0,0,0,0.5);
+
+  /* ──────────────────────────────────────────────────────
+     MOTION — durations and easings
+     UI Design Spec v1.0 §6
+     ────────────────────────────────────────────────────── */
+  --duration-instant:  0ms;    /* Reduced-motion fallback — maps all transitions to this */
+  --duration-fast:     80ms;   /* Micro-interactions: hover highlight, button press */
+  --duration-normal:   160ms;  /* Standard UI transitions: panel show/hide, tab switch */
+  --duration-slow:     280ms;  /* Mode transitions: Edit↔Focus, Edit↔Director */
+  --duration-emphasis: 400ms;  /* Emphasis animations: plan card expansion */
+
+  --easing-default: cubic-bezier(0.4, 0.0, 0.2, 1);  /* Expo-out. All mode transitions. */
+  --easing-smooth:  cubic-bezier(0.25, 0.1, 0.25, 1); /* Ease. Standard UI transitions. */
+  --easing-spring:  cubic-bezier(0.34, 1.56, 0.64, 1); /* Spring. Emphasis. */
+
+  /* ──────────────────────────────────────────────────────
+     Z-INDEX SCALE
+     ────────────────────────────────────────────────────── */
+  --z-base:    0;
+  --z-raised:  10;   /* Tree rows (hover), panel headers */
+  --z-sticky:  100;  /* Sticky headers, panel resizer */
+  --z-overlay: 200;  /* Tooltips, dropdowns */
+  --z-modal:   300;  /* Modals, command palette */
+  --z-toast:   400;  /* Toast notifications — always on top */
+
+  /* ──────────────────────────────────────────────────────
+     LAYOUT DIMENSIONS
+     UI Design Spec v1.0 §4 + Component Spec v2.0
+     ────────────────────────────────────────────────────── */
+  --sidebar-width:        240px;
+  --sidebar-collapsed:    48px;   /* Icon rail */
+  --tree-min-width:       240px;
+  --tree-default-width:   320px;
+  --panel-min-width:      320px;
+  --panel-default-width:  420px;
+  --header-height:        48px;
+  --node-row-height:      36px;   /* 🔒 Component Spec v2.0 §4.2. Never change without spec update. */
+  --node-indent:          16px;   /* Per depth level */
+
+  /* Prose surface — Component Spec v2.0 §5.4 */
+  --prose-max-width:      620px;  /* 66 chars at 18px Lora — Bringhurst's ideal */
+  --prose-padding-bottom: 120px;  /* Author writes into open space */
+}
+
+/* ──────────────────────────────────────────────────────
+   LIGHT MODE
+   Applied via data-theme="light" on <html>
+   Brand Identity v2.0 §4.4
+   ────────────────────────────────────────────────────── */
+[data-theme="light"] {
+  /* Backgrounds — warm parchment, not #ffffff */
+  --color-bg-base:          #f2ede4;  /* 🔒 Warm parchment. NOT #ffffff */
+  --color-bg-surface:       #f8f5ee;
+  --color-bg-elevated:      #ffffff;  /* True white only at highest elevation */
+  --color-bg-hover:         #ede8dc;
+  --color-bg-selected:      #e0dbd0;
+  --color-bg-active-node:   #e0dbd0;
+
+  /* Borders */
+  --color-border-subtle:    #e0d8cc;
+  --color-border-default:   #d4ccbc;
+  --color-border-strong:    #b8a898;
+
+  /* Text — warm dark ink, not #000000 */
+  --color-text-primary:     #1e1a12;  /* 🔒 Warm dark ink. NOT #000000 */
+  --color-text-secondary:   #6a6050;
+  --color-text-muted:       #9a9080;
+  --color-text-disabled:    #c0b8a8;
+
+  /* Accent */
+  --color-accent:           #254a38;  /* Deep verdigris for light mode */
+  --color-accent-hover:     #3d7858;
+  --color-accent-muted:     #deeee6;
+
+  /* Shadows — reduced opacity in light mode */
+  --shadow-sm:  0 1px 3px rgba(0,0,0,0.12);
+  --shadow-md:  0 4px 12px rgba(0,0,0,0.15);
+  --shadow-lg:  0 8px 32px rgba(0,0,0,0.2);
+}
+
+/* ──────────────────────────────────────────────────────
+   REDUCED MOTION — maps all transitions to instant
+   ────────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --duration-fast:     0ms;
+    --duration-normal:   0ms;
+    --duration-slow:     0ms;
+    --duration-emphasis: 0ms;
+  }
+}
