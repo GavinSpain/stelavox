@@ -1,0 +1,1108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stelavox — Director Mode Wireframe & Specification v1.0</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500&family=Cormorant+Garamond:ital,wght@1,300&family=Inter:wght@200;300;400;500;600;700&family=Lora:ital,wght@1,400&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
+
+:root {
+  --ink:      #0d1014;
+  --deep:     #131820;
+  --surface:  #1a2030;
+  --hover:    #1e2838;
+  --selected: #1f2d45;
+  --border-s: #1e2535;
+  --border-d: #253045;
+  --border-str:#3a4a62;
+  --text-p:   #ecf0f5;
+  --text-s:   #8aa0b8;
+  --text-m:   #4a6080;
+  --text-dis: #2a3850;
+  --verd:     #3d7858;
+  --verd-m:   #1a3028;
+  --verd-h:   #5aa87a;
+  --st-draft: #4a6080;
+  --st-rev:   #b87030;
+  --st-app:   #3d7858;
+  --st-lock:  #6a3888;
+  --ag-run:   #2e5a90;
+  --spec-bg:  #0a0d12;
+  --spec-pan: #111520;
+  --callout:  #e8b840;
+}
+
+body {
+  background:var(--spec-bg);
+  color:var(--text-p);
+  font-family:'Inter',sans-serif;
+  font-size:13px;
+  line-height:1.5;
+}
+
+/* ── Doc header ── */
+.doc-header {
+  background:var(--spec-pan);
+  border-bottom:1px solid var(--border-d);
+  padding:24px 48px;
+  display:flex;
+  align-items:baseline;
+  justify-content:space-between;
+}
+.wm-s{font-family:'Cinzel',serif;font-size:14px;font-weight:500;letter-spacing:.18em;color:var(--text-p);}
+.wm-v{font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:300;font-size:16px;letter-spacing:.08em;color:var(--text-p);opacity:.82;}
+.doc-meta{font-size:11px;font-weight:300;letter-spacing:.2em;text-transform:uppercase;color:var(--text-m);}
+
+.section{padding:40px 48px 0;}
+.slabel{font-size:9px;font-weight:400;letter-spacing:.45em;text-transform:uppercase;color:var(--text-m);margin-bottom:20px;padding-bottom:12px;border-bottom:1px solid var(--border-s);}
+
+/* ── Callout numbers ── */
+.cn{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;background:var(--callout);color:#0a0800;border-radius:50%;font-size:10px;font-weight:700;font-family:'Inter',sans-serif;flex-shrink:0;position:absolute;z-index:20;}
+
+/* ══════════════════════════════════════════════════════════
+   SECTION 1 — FULL SCREEN WIREFRAME
+   ══════════════════════════════════════════════════════════ */
+.wf-wrap{padding:40px 48px;position:relative;}
+
+.screen{
+  width:1280px;height:820px;
+  background:var(--ink);
+  border:1px solid var(--border-d);
+  border-radius:8px;
+  overflow:hidden;
+  display:flex;
+  flex-direction:column;
+  box-shadow:0 24px 80px rgba(0,0,0,.6);
+  position:relative;
+}
+
+/* ── Header ── */
+.hdr{
+  height:48px;min-height:48px;
+  background:var(--deep);
+  border-bottom:1px solid var(--border-s);
+  display:flex;align-items:center;
+  padding:0 20px;gap:0;flex-shrink:0;z-index:10;
+}
+.hdr-wm{display:flex;flex-direction:column;margin-right:28px;flex-shrink:0;}
+.hdr-wm-text{display:flex;align-items:baseline;line-height:1;}
+.hdr-wm-stela{font-family:'Cinzel',serif;font-size:15px;font-weight:500;letter-spacing:.18em;color:var(--text-p);}
+.hdr-wm-vox{font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:300;font-size:17px;letter-spacing:.08em;color:var(--text-p);opacity:.82;}
+.hdr-rule-wrap{position:relative;margin-top:3px;}
+.hdr-rule{width:88px;height:1px;background:linear-gradient(90deg,var(--verd) 0%,rgba(61,120,88,.3) 40%,transparent 80%);}
+.hdr-lozenge{position:absolute;left:-2px;top:-3px;width:7px;height:7px;background:var(--verd);transform:rotate(45deg);}
+.hdr-bc{font-size:12px;font-weight:300;color:var(--text-m);display:flex;align-items:center;gap:6px;flex:1;}
+.hdr-bc .sep{opacity:.4;}
+.mode-tabs{display:flex;gap:2px;background:var(--ink);padding:4px;border-radius:6px;margin:0 20px;}
+.mtab{font-size:12px;font-weight:400;padding:4px 14px;border-radius:4px;color:var(--text-m);}
+.mtab.active{background:var(--surface);color:var(--text-p);font-weight:500;}
+.mtab.active.director{position:relative;}
+.mtab.active.director::after{content:'';position:absolute;top:4px;right:4px;width:6px;height:6px;background:var(--ag-run);border-radius:50%;animation:pulse 1.5s ease-in-out infinite;}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1);}50%{opacity:.6;transform:scale(.8);}}
+.hdr-right{display:flex;align-items:center;gap:16px;margin-left:auto;}
+.hdr-icon{width:18px;height:18px;color:var(--text-m);font-size:9px;display:flex;align-items:center;justify-content:center;border:1px solid var(--border-s);border-radius:4px;font-family:'Inter',sans-serif;letter-spacing:.04em;}
+.uav{width:26px;height:26px;background:var(--selected);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:500;color:var(--text-s);}
+
+/* ── Body ── */
+.body{flex:1;display:flex;overflow:hidden;}
+
+/* ICON RAIL (sidebar collapsed) — 48px */
+.icon-rail{
+  width:48px;min-width:48px;
+  background:var(--deep);
+  border-right:1px solid var(--border-s);
+  display:flex;flex-direction:column;
+  align-items:center;
+  padding:8px 0;gap:4px;
+}
+.ir-icon{
+  width:32px;height:32px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:14px;border-radius:6px;cursor:pointer;
+  color:var(--text-m);
+}
+.ir-icon:hover{background:var(--hover);color:var(--text-s);}
+.ir-icon.active{background:var(--selected);color:var(--text-p);}
+.ir-icon.tip{margin-top:auto;margin-bottom:4px;}
+
+/* NODE TREE — flexible, ~45% of remaining width */
+.tree-pane{
+  flex:1;
+  display:flex;flex-direction:column;
+  border-right:1px solid var(--border-s);
+  overflow:hidden;
+}
+.tree-tb{
+  height:36px;min-height:36px;
+  background:var(--deep);
+  border-bottom:1px solid var(--border-s);
+  display:flex;align-items:center;
+  padding:0 12px;gap:8px;
+}
+.tree-search{flex:1;height:22px;background:var(--ink);border:1px solid var(--border-s);border-radius:3px;padding:0 8px;font-size:11px;color:var(--text-m);display:flex;align-items:center;gap:4px;}
+.tree-content{flex:1;overflow-y:auto;padding:4px 0;}
+
+/* Node rows */
+.nr{height:36px;display:flex;align-items:center;padding:0 8px;gap:2px;cursor:pointer;position:relative;font-size:12px;color:var(--text-s);}
+.nr:hover{background:var(--hover);}
+.nr.active{background:var(--selected);color:var(--text-p);border-left:2px solid var(--verd);}
+.chv{width:12px;font-size:8px;color:var(--text-m);flex-shrink:0;text-align:center;}
+.tic{width:16px;font-size:11px;flex-shrink:0;text-align:center;margin-right:2px;}
+.nn{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:12px;}
+
+/* Status badges */
+.bd{width:8px;height:8px;border-radius:50%;flex-shrink:0;margin-left:4px;}
+.bd-draft{background:var(--st-draft);}
+.bd-rev{background:var(--st-rev);}
+.bd-app{background:var(--st-app);}
+.bd-lock{background:var(--st-lock);}
+
+/* Workflow step indicators — replace status badge during Director execution */
+.ws{
+  width:16px;height:16px;font-size:9px;font-weight:600;
+  display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;margin-left:2px;border-radius:3px;
+}
+.ws-pending{color:var(--text-m);background:var(--surface);}
+.ws-running{color:white;background:var(--ag-run);animation:breathe 2s ease-in-out infinite;}
+.ws-done{color:white;background:var(--verd);}
+.ws-fail{color:white;background:#b03c3c;}
+@keyframes breathe{0%,100%{opacity:1;}50%{opacity:.5;}}
+
+.ld{height:1px;background:var(--border-s);margin:6px 12px;position:relative;}
+.ld-label{position:absolute;left:0;top:3px;font-size:9px;font-weight:500;letter-spacing:.28em;text-transform:uppercase;color:var(--text-m);background:var(--ink);padding-right:6px;}
+
+/* Indent helpers */
+.i0{padding-left:8px;}.i1{padding-left:24px;}.i2{padding-left:40px;}.i3{padding-left:56px;}.i4{padding-left:72px;}
+
+/* DIRECTOR PANEL — ~55% of remaining width */
+.dir-panel{
+  width:580px;min-width:580px;
+  background:var(--deep);
+  display:flex;flex-direction:column;
+  overflow:hidden;
+}
+
+/* Director header */
+.dir-hdr{
+  padding:12px 16px 10px;
+  border-bottom:1px solid var(--border-s);
+  flex-shrink:0;
+  display:flex;align-items:center;justify-content:space-between;
+}
+.dir-title{
+  font-size:13px;font-weight:600;color:var(--text-p);
+  display:flex;align-items:center;gap:8px;
+}
+.dir-doc-tag{
+  font-size:10px;font-weight:300;color:var(--text-m);
+  background:var(--ink);border:1px solid var(--border-s);
+  padding:2px 8px;border-radius:3px;
+}
+.dir-hist-btn{font-size:11px;font-weight:300;color:var(--text-m);cursor:pointer;border:1px solid var(--border-s);padding:3px 8px;border-radius:3px;}
+
+/* Conversation thread */
+.conv{flex:1;overflow-y:auto;padding:12px 14px;display:flex;flex-direction:column;gap:10px;}
+
+/* User message */
+.umsg{
+  align-self:flex-end;
+  max-width:78%;
+  background:var(--selected); /* NOT --color-accent-muted */
+  border-radius:8px 8px 2px 8px;
+  padding:10px 14px;
+  font-size:12px;font-weight:400;color:var(--text-p);line-height:1.55;
+}
+.umsg-meta{font-size:10px;font-weight:300;color:var(--text-m);text-align:right;margin-top:5px;}
+
+/* Director message */
+.dmsg{
+  align-self:flex-start;
+  max-width:90%;
+}
+.dmsg-who{
+  font-size:10px;font-weight:500;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--text-m);margin-bottom:6px;
+  display:flex;align-items:center;gap:6px;
+}
+.d-diamond{color:var(--verd);font-size:12px;}
+.dmsg-body{
+  font-size:12px;font-weight:400;color:var(--text-s);line-height:1.6;
+}
+.dmsg-body strong{color:var(--text-p);font-weight:500;}
+
+/* Plan card */
+.plan-card{
+  border:1px solid var(--border-d);
+  border-radius:6px;
+  overflow:hidden;
+  margin-top:4px;
+  background:var(--surface);
+}
+.plan-card-hdr{
+  padding:10px 14px;
+  background:var(--ink);
+  border-bottom:1px solid var(--border-s);
+  display:flex;align-items:center;justify-content:space-between;
+}
+.plan-card-title{font-size:12px;font-weight:600;color:var(--text-p);}
+.plan-card-meta{font-size:10px;font-weight:300;color:var(--text-m);}
+.plan-steps{padding:2px 0;}
+.plan-step{
+  display:flex;align-items:flex-start;gap:10px;
+  padding:8px 14px;
+  border-bottom:1px solid var(--border-s);
+  font-size:11px;
+}
+.plan-step:last-of-type{border-bottom:none;}
+.plan-step-cb{
+  width:14px;height:14px;min-width:14px;
+  border:1px solid var(--border-d);
+  border-radius:2px;margin-top:1px;
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;
+}
+.plan-step-cb.checked{background:var(--verd);border-color:var(--verd);}
+.plan-step-cb.checked::after{content:'✓';font-size:9px;color:white;}
+.plan-step-num{font-size:10px;font-weight:600;color:var(--text-m);min-width:14px;}
+.plan-step-body{flex:1;}
+.plan-step-title{font-size:12px;font-weight:500;color:var(--text-p);margin-bottom:2px;}
+.plan-step-desc{font-size:11px;font-weight:300;color:var(--text-m);line-height:1.5;}
+.plan-step-time{font-size:10px;font-weight:300;color:var(--text-dis);margin-left:auto;white-space:nowrap;padding-top:2px;}
+.plan-warn{
+  padding:7px 14px;
+  background:rgba(184,112,48,.08);
+  border-top:1px solid rgba(184,112,48,.2);
+  font-size:11px;font-weight:300;color:var(--st-rev);
+  display:flex;align-items:center;gap:6px;
+}
+.plan-card-ftr{
+  padding:8px 14px;
+  border-top:1px solid var(--border-s);
+  background:var(--ink);
+  display:flex;gap:8px;align-items:center;
+}
+.btn-approve{
+  background:var(--verd);color:white;
+  font-size:11px;font-weight:500;
+  padding:5px 14px;border-radius:4px;cursor:pointer;
+  border:none;
+}
+.btn-edit{
+  background:transparent;color:var(--text-s);
+  font-size:11px;font-weight:400;
+  padding:5px 10px;border-radius:4px;cursor:pointer;
+  border:1px solid var(--border-s);
+}
+.btn-cancel{
+  background:transparent;color:var(--text-m);
+  font-size:11px;font-weight:300;
+  padding:5px 8px;border-radius:4px;cursor:pointer;
+  border:none;margin-left:auto;
+}
+
+/* Thinking indicator */
+.thinking{
+  display:flex;align-items:center;gap:8px;
+  padding:8px 0;
+  font-size:12px;font-weight:300;color:var(--text-m);font-style:italic;
+}
+.think-dots{display:flex;gap:3px;align-items:center;}
+.think-dot{width:5px;height:5px;border-radius:50%;background:var(--text-m);animation:tpulse 1.2s ease-in-out infinite;}
+.think-dot:nth-child(2){animation-delay:.2s;}
+.think-dot:nth-child(3){animation-delay:.4s;}
+@keyframes tpulse{0%,100%{opacity:.3;transform:scale(.8);}50%{opacity:1;transform:scale(1);}}
+
+/* Director input area */
+.dir-input-area{
+  border-top:1px solid var(--border-s);
+  padding:10px 14px;
+  flex-shrink:0;
+}
+.dir-quick-actions{display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap;}
+.qa-chip{
+  font-size:10px;font-weight:400;color:var(--text-m);
+  padding:3px 8px;border-radius:12px;
+  border:1px solid var(--border-s);cursor:pointer;
+  white-space:nowrap;
+}
+.qa-chip:hover{border-color:var(--border-d);color:var(--text-s);}
+.dir-input-row{display:flex;gap:8px;align-items:flex-end;}
+.dir-textarea{
+  flex:1;background:var(--ink);
+  border:1px solid var(--border-s);
+  border-radius:5px;padding:8px 10px;
+  font-size:12px;font-weight:300;
+  color:var(--text-p);font-family:'Inter',sans-serif;
+  line-height:1.5;min-height:36px;resize:none;
+  outline:none;
+}
+.dir-send{
+  background:var(--verd);color:white;
+  width:32px;height:32px;border-radius:5px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:12px;cursor:pointer;flex-shrink:0;border:none;
+}
+
+/* ══════════════════════════════════════════════════════════
+   SECTION 2 — CARD CLOSE-UPS
+   ══════════════════════════════════════════════════════════ */
+.cards-grid{padding:0 48px 40px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:3px;}
+.card-panel{background:var(--spec-pan);border:1px solid var(--border-s);padding:20px;display:flex;flex-direction:column;gap:12px;}
+.cpanel-title{font-size:10px;font-weight:500;letter-spacing:.3em;text-transform:uppercase;color:var(--text-s);padding-bottom:10px;border-bottom:1px solid var(--border-s);}
+
+/* Execution card */
+.exec-card{border:1px solid var(--border-d);border-radius:6px;overflow:hidden;background:var(--surface);}
+.exec-hdr{padding:10px 14px;background:var(--ink);border-bottom:1px solid var(--border-s);}
+.exec-title{font-size:11px;font-weight:600;color:var(--text-p);}
+.exec-steps{padding:4px 0;}
+.exec-step{display:flex;align-items:center;gap:8px;padding:6px 14px;font-size:11px;border-bottom:1px solid var(--border-s);}
+.exec-step:last-of-type{border-bottom:none;}
+.exec-icon{font-size:12px;min-width:16px;text-align:center;}
+.exec-running{color:var(--ag-run);animation:breathe 2s ease-in-out infinite;}
+.exec-done{color:var(--verd);}
+.exec-pending{color:var(--text-dis);}
+.exec-name{flex:1;font-size:11px;color:var(--text-s);}
+.exec-name.running{color:var(--text-p);font-weight:500;}
+.exec-name.done{color:var(--text-m);}
+.exec-status{font-size:10px;font-weight:300;color:var(--text-m);}
+.exec-status.running{color:var(--ag-run);}
+.exec-status.done{color:var(--verd);}
+.exec-footer{padding:8px 14px;background:var(--ink);border-top:1px solid var(--border-s);display:flex;align-items:center;justify-content:space-between;}
+.exec-progress{font-size:10px;font-weight:300;color:var(--text-m);}
+.exec-btns{display:flex;gap:6px;}
+.btn-pause,.btn-stop{font-size:10px;font-weight:400;padding:3px 8px;border-radius:3px;cursor:pointer;border:1px solid var(--border-s);background:transparent;color:var(--text-m);}
+
+/* Research card */
+.research-card{border:1px solid var(--border-d);border-radius:6px;overflow:hidden;background:var(--surface);}
+.rc-hdr{padding:10px 14px;background:var(--ink);border-bottom:1px solid var(--border-s);display:flex;align-items:center;justify-content:space-between;}
+.rc-title{font-size:11px;font-weight:600;color:var(--text-p);}
+.rc-count{font-size:10px;font-weight:300;color:var(--text-m);}
+.rc-body{padding:10px 14px;}
+.rc-findings-label{font-size:9px;font-weight:500;letter-spacing:.25em;text-transform:uppercase;color:var(--text-m);margin-bottom:6px;}
+.rc-finding{font-size:11px;font-weight:300;color:var(--text-s);line-height:1.5;padding:3px 0;display:flex;align-items:flex-start;gap:6px;}
+.rc-finding::before{content:'·';color:var(--text-m);flex-shrink:0;margin-top:1px;}
+.rc-proposed-label{font-size:9px;font-weight:500;letter-spacing:.25em;text-transform:uppercase;color:var(--text-m);margin:10px 0 6px;}
+.rc-node{font-size:11px;font-weight:400;color:var(--verd-h);padding:2px 0;display:flex;align-items:center;gap:6px;}
+.rc-node-tag{font-size:9px;font-weight:300;background:var(--ink);border:1px solid var(--border-s);padding:1px 5px;border-radius:2px;color:var(--text-m);}
+.rc-warn{padding:7px 14px;background:rgba(184,112,48,.06);border-top:1px solid rgba(184,112,48,.15);font-size:10px;color:var(--st-rev);display:flex;gap:6px;}
+.rc-footer{padding:8px 14px;background:var(--ink);border-top:1px solid var(--border-s);display:flex;gap:8px;}
+.btn-review{background:transparent;color:var(--text-s);font-size:11px;font-weight:400;padding:4px 10px;border:1px solid var(--border-s);border-radius:4px;cursor:pointer;}
+.btn-approve-all{background:var(--verd);color:white;font-size:11px;font-weight:500;padding:4px 12px;border-radius:4px;cursor:pointer;border:none;}
+
+/* Input area close-up */
+.input-detail{background:var(--deep);border:1px solid var(--border-s);border-radius:4px;padding:12px;}
+
+/* ══════════════════════════════════════════════════════════
+   SECTION 3 — TREE STATES DURING WORKFLOW
+   ══════════════════════════════════════════════════════════ */
+.tree-states-grid{padding:0 48px 40px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:3px;}
+.tree-state-panel{background:var(--spec-pan);border:1px solid var(--border-s);padding:16px;}
+.tsp-label{font-size:9px;font-weight:400;letter-spacing:.35em;text-transform:uppercase;color:var(--text-m);margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--border-s);}
+.tsp-note{font-size:10px;font-weight:300;color:var(--text-m);margin-top:10px;line-height:1.5;}
+
+/* ══════════════════════════════════════════════════════════
+   ANNOTATIONS
+   ══════════════════════════════════════════════════════════ */
+.annotations{padding:0 48px 40px;}
+.ann-grid{display:grid;grid-template-columns:1fr 1fr;gap:2px;}
+.ann-item{background:var(--spec-pan);padding:16px 18px;display:flex;gap:14px;}
+.ann-num{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;min-width:22px;background:var(--callout);color:#0a0800;border-radius:50%;font-size:11px;font-weight:700;font-family:'Inter',sans-serif;}
+.ann-body{flex:1;}
+.ann-title{font-size:12px;font-weight:600;color:var(--text-p);margin-bottom:4px;}
+.ann-ref{font-size:10px;font-weight:400;letter-spacing:.15em;color:var(--verd);margin-bottom:6px;text-transform:uppercase;}
+.ann-desc{font-size:11px;font-weight:300;color:var(--text-s);line-height:1.6;}
+.ann-desc code{background:var(--ink);padding:1px 5px;border-radius:2px;font-family:'SF Mono','Fira Code',monospace;font-size:10px;color:var(--callout);}
+.critical{color:#b87030;font-weight:500;}
+.inviolable{color:var(--verd);font-weight:500;}
+
+/* ══════════════════════════════════════════════════════════
+   SPEC TABLES
+   ══════════════════════════════════════════════════════════ */
+.spec-section{padding:0 48px 80px;}
+.spec-block{background:var(--spec-pan);border:1px solid var(--border-s);border-radius:4px;margin-bottom:2px;overflow:hidden;}
+.spec-block-header{padding:12px 20px;background:var(--ink);border-bottom:1px solid var(--border-s);font-size:11px;font-weight:600;letter-spacing:.25em;text-transform:uppercase;color:var(--text-p);display:flex;justify-content:space-between;align-items:center;}
+.sbr{font-size:10px;font-weight:300;letter-spacing:.1em;color:var(--verd);}
+.spec-table{width:100%;border-collapse:collapse;}
+.spec-table th{font-size:10px;font-weight:500;letter-spacing:.2em;text-transform:uppercase;color:var(--text-m);text-align:left;padding:8px 20px;border-bottom:1px solid var(--border-s);background:rgba(255,255,255,.01);}
+.spec-table td{font-size:11px;font-weight:300;color:var(--text-s);padding:7px 20px;border-bottom:1px solid var(--border-s);vertical-align:top;}
+.spec-table tr:last-child td{border-bottom:none;}
+.spec-table td:first-child{color:var(--text-p);font-weight:400;min-width:200px;}
+.spec-table td code{background:var(--ink);padding:1px 5px;border-radius:2px;font-family:'SF Mono','Fira Code',monospace;font-size:10px;color:var(--callout);}
+.spec-table .note{font-size:10px;font-style:italic;color:var(--text-m);margin-top:2px;}
+.spec-table .critical{color:#b87030;font-weight:500;}
+.spec-table .inviolable{color:var(--verd);font-weight:500;}
+</style>
+</head>
+<body>
+
+<!-- Doc header -->
+<div class="doc-header">
+  <div>
+    <div style="display:flex;align-items:baseline;"><span class="wm-s">Stela</span><span class="wm-v">vox</span></div>
+    <div style="margin-top:6px;font-size:11px;font-weight:300;letter-spacing:.2em;text-transform:uppercase;color:var(--text-m);">Director Mode — Annotated Wireframe & Claude Code Specification · v1.0</div>
+  </div>
+  <div class="doc-meta">Companion: Brand Identity v1.1 · UI Design v0.3.1 · Wireframes 1–3</div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     SECTION 1 — FULL SCREEN WIREFRAME
+     ══════════════════════════════════════════════════════════ -->
+<div class="section"><div class="slabel">01 — Director Mode · 1280×820px · Icon Rail + Tree (~45%) + Director Panel (~55%) · Live Workflow State</div></div>
+
+<div class="wf-wrap">
+
+  <!-- Callout markers -->
+  <div class="cn" style="top:54px;left:60px;">1</div>
+  <div class="cn" style="top:54px;left:260px;">2</div>
+  <div class="cn" style="top:54px;left:340px;">3</div>
+  <div class="cn" style="top:180px;left:260px;">4</div>
+  <div class="cn" style="top:320px;left:260px;">5</div>
+  <div class="cn" style="top:54px;left:720px;">6</div>
+  <div class="cn" style="top:250px;left:720px;">7</div>
+  <div class="cn" style="top:450px;left:720px;">8</div>
+  <div class="cn" style="bottom:70px;left:720px;">9</div>
+
+  <div class="screen">
+
+    <!-- HEADER -->
+    <div class="hdr">
+      <div class="hdr-wm">
+        <div class="hdr-wm-text">
+          <span class="hdr-wm-stela">Stela</span><span class="hdr-wm-vox">vox</span>
+        </div>
+        <div class="hdr-rule-wrap">
+          <div class="hdr-rule"></div>
+          <div class="hdr-lozenge"></div>
+        </div>
+      </div>
+      <div class="hdr-bc">
+        <span>The Veil Chronicles</span><span class="sep">/</span>
+        <span>The Iron Veil</span>
+      </div>
+      <div class="mode-tabs">
+        <div class="mtab">Edit</div>
+        <div class="mtab active director">Director</div>
+      </div>
+      <div class="hdr-right">
+        <div class="hdr-icon" style="font-size:9px;letter-spacing:.04em;">⌘K</div>
+        <div class="hdr-icon">🔔</div>
+        <div class="uav">JA</div>
+      </div>
+    </div>
+
+    <!-- BODY -->
+    <div class="body">
+
+      <!-- ICON RAIL (sidebar collapsed in Director Mode) -->
+      <div class="icon-rail">
+        <div class="ir-icon">📚</div>
+        <div class="ir-icon active">📖</div>
+        <div class="ir-icon">🔬</div>
+        <div class="ir-icon tip">⚙</div>
+      </div>
+
+      <!-- NODE TREE — with live workflow indicators -->
+      <div class="tree-pane">
+        <div class="tree-tb">
+          <div class="tree-search"><span style="opacity:.5;">🔍</span><span style="opacity:.35;">Search...</span></div>
+        </div>
+
+        <div class="tree-content">
+          <!-- Book -->
+          <div class="nr i0">
+            <span class="chv">▼</span><span class="tic">📖</span>
+            <span class="nn">The Iron Veil</span>
+            <span class="bd bd-app"></span>
+          </div>
+
+          <div class="ld"><span class="ld-label">ACT ONE</span></div>
+
+          <div class="nr i1">
+            <span class="chv">▼</span><span class="tic">🎭</span>
+            <span class="nn">Act One: The Awakening</span>
+            <span class="bd bd-rev"></span>
+          </div>
+
+          <!-- Ch 4 — workflow step pending -->
+          <div class="nr i2">
+            <span class="chv" style="opacity:0;">▶</span><span class="tic">📄</span>
+            <span class="nn">Ch 4: The Silence</span>
+            <div class="ws ws-done">✓</div>
+          </div>
+
+          <!-- Ch 5 — workflow step running -->
+          <div class="nr i2 active">
+            <span class="chv" style="opacity:0;">▶</span><span class="tic">📄</span>
+            <span class="nn">Ch 5: The Confrontation</span>
+            <div class="ws ws-running" style="font-size:10px;">⟳</div>
+          </div>
+
+          <!-- Ch 6 — workflow step pending -->
+          <div class="nr i2">
+            <span class="chv" style="opacity:0;">▶</span><span class="tic">📄</span>
+            <span class="nn">Ch 6: The Reckoning</span>
+            <div class="ws ws-pending">◌</div>
+          </div>
+
+          <!-- Ch 7 — locked, not in workflow -->
+          <div class="nr i2" style="color:var(--text-m);">
+            <span class="chv" style="opacity:0;">▶</span><span class="tic">🔒</span>
+            <span class="nn" style="color:var(--text-m);">Ch 7: The Revelation</span>
+            <span class="bd bd-lock"></span>
+          </div>
+
+          <div class="ld" style="margin-top:8px;"><span class="ld-label">ACT TWO</span></div>
+
+          <div class="nr i1">
+            <span class="chv">▶</span><span class="tic">🎭</span>
+            <span class="nn">Act Two: The Unravelling</span>
+            <span class="bd bd-draft"></span>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- DIRECTOR PANEL -->
+      <div class="dir-panel">
+
+        <!-- Director header -->
+        <div class="dir-hdr">
+          <div class="dir-title">
+            <span>◆</span>
+            The Director
+            <span class="dir-doc-tag">The Iron Veil</span>
+          </div>
+          <div class="dir-hist-btn">History ▾</div>
+        </div>
+
+        <!-- Conversation thread -->
+        <div class="conv">
+
+          <!-- User message 1 -->
+          <div class="umsg">
+            Chapters 4, 5 and 6 feel weak — they're not building enough dread before the revelation in Chapter 7.
+            <div class="umsg-meta">You · 2:31pm</div>
+          </div>
+
+          <!-- Director response -->
+          <div class="dmsg">
+            <div class="dmsg-who"><span class="d-diamond">◆</span> Director · 2:32pm</div>
+            <div class="dmsg-body">
+              I've reviewed Chapters 4–6 in context. The problem is Chapter 5 currently resolves cleanly — Elena leaves with what she came for. This dissipates tension at exactly the wrong moment before Chapter 7.<br><br>
+              <strong>Chapter 4</strong> could use a recurring sensory detail that the reader will recognise later. <strong>Chapter 6</strong> needs to end without resolution — a direct threat unacknowledged, not a closing note. The plan below addresses both.
+            </div>
+
+            <!-- Plan card (approved state — currently executing) -->
+            <div class="plan-card" style="margin-top:10px;">
+              <div class="plan-card-hdr">
+                <div class="plan-card-title">Executing: Strengthen pre-revelation dread</div>
+                <div class="plan-card-meta">Step 3 of 4 · ~4 min remaining</div>
+              </div>
+              <div class="plan-steps">
+                <div class="plan-step">
+                  <div class="plan-step-cb checked"></div>
+                  <div class="plan-step-body">
+                    <div class="plan-step-title" style="color:var(--text-m);">Refine Chapter 4 summary</div>
+                    <div class="plan-step-desc" style="color:var(--text-dis);">Added recurring sensory detail (burning paper). Complete.</div>
+                  </div>
+                  <div class="plan-step-time" style="color:var(--verd);">✓</div>
+                </div>
+                <div class="plan-step" style="background:rgba(46,90,144,.06);">
+                  <div class="plan-step-cb checked"></div>
+                  <div class="plan-step-body">
+                    <div class="plan-step-title">Refine Chapter 5 summary</div>
+                    <div class="plan-step-desc" style="color:var(--ag-run);">Restructuring to end unresolved... generating</div>
+                  </div>
+                  <div class="plan-step-time" style="color:var(--ag-run);">⟳</div>
+                </div>
+                <div class="plan-step">
+                  <div class="plan-step-cb"></div>
+                  <div class="plan-step-body">
+                    <div class="plan-step-title" style="color:var(--text-m);">Refine Chapter 6 summary</div>
+                    <div class="plan-step-desc">End on direct threat. Elena does not escape clean.</div>
+                  </div>
+                  <div class="plan-step-time">~2 min</div>
+                </div>
+                <div class="plan-step">
+                  <div class="plan-step-cb"></div>
+                  <div class="plan-step-body">
+                    <div class="plan-step-title" style="color:var(--text-m);">Run Pacing Analysis</div>
+                    <div class="plan-step-desc">Verify tension curve across Act One. ~5 min</div>
+                  </div>
+                  <div class="plan-step-time">~5 min</div>
+                </div>
+              </div>
+              <div class="plan-warn">⚠ Chapter 7 is locked — not included. Plan works around it.</div>
+              <div class="plan-card-ftr">
+                <div style="font-size:11px;font-weight:300;color:var(--text-m);">Step 2 of 4 running...</div>
+                <div style="margin-left:auto;display:flex;gap:6px;">
+                  <button class="btn-edit" style="font-size:10px;padding:3px 8px;">Pause</button>
+                  <button class="btn-edit" style="font-size:10px;padding:3px 8px;color:#b03c3c;border-color:#b03c3c;">Stop</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Thinking indicator (at bottom, after last exchange) -->
+          <div class="thinking">
+            <span class="d-diamond" style="font-size:11px;">◆</span>
+            Director is refining Chapter 5
+            <div class="think-dots">
+              <div class="think-dot"></div>
+              <div class="think-dot"></div>
+              <div class="think-dot"></div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Input area -->
+        <div class="dir-input-area">
+          <div class="dir-quick-actions">
+            <div class="qa-chip">Review pacing</div>
+            <div class="qa-chip">Check continuity</div>
+            <div class="qa-chip">What next?</div>
+          </div>
+          <div class="dir-input-row">
+            <div class="dir-textarea" contenteditable="true" style="color:var(--text-dis);">Message the Director... (@ to reference a node)</div>
+            <div class="dir-send">↑</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     SECTION 2 — CARD CLOSE-UPS
+     ══════════════════════════════════════════════════════════ -->
+<div class="section" style="padding-bottom:20px;"><div class="slabel">02 — Card Close-Ups · Plan (Pre-Approval) · Execution · Research</div></div>
+
+<div class="cards-grid">
+
+  <!-- PLAN CARD — pre-approval state -->
+  <div class="card-panel">
+    <div class="cpanel-title">Plan Card · Pre-Approval · Interactive</div>
+    <div class="plan-card">
+      <div class="plan-card-hdr">
+        <div class="plan-card-title">Plan: Strengthen pre-revelation dread</div>
+        <div class="plan-card-meta">4 steps · ~11 min · 3 nodes</div>
+      </div>
+      <div class="plan-steps">
+        <div class="plan-step">
+          <div class="plan-step-cb checked"></div>
+          <div class="plan-step-num">1.</div>
+          <div class="plan-step-body">
+            <div class="plan-step-title">Refine Chapter 4 summary</div>
+            <div class="plan-step-desc">Add recurring sensory detail (burning paper) that foreshadows Ch 7.</div>
+          </div>
+          <div class="plan-step-time">~2 min</div>
+        </div>
+        <div class="plan-step">
+          <div class="plan-step-cb checked"></div>
+          <div class="plan-step-num">2.</div>
+          <div class="plan-step-body">
+            <div class="plan-step-title">Refine Chapter 5 summary</div>
+            <div class="plan-step-desc">Restructure to end unresolved. Elena must not leave clean.</div>
+          </div>
+          <div class="plan-step-time">~2 min</div>
+        </div>
+        <div class="plan-step" style="opacity:.55;">
+          <!-- unchecked — user deselected -->
+          <div class="plan-step-cb" style="opacity:.5;"></div>
+          <div class="plan-step-num" style="color:var(--text-dis);">3.</div>
+          <div class="plan-step-body">
+            <div class="plan-step-title" style="color:var(--text-m);">Add context links (2)</div>
+            <div class="plan-step-desc" style="color:var(--text-dis);">Link Vera's psychology to Chs 4+5. (Deselected)</div>
+          </div>
+          <div class="plan-step-time" style="color:var(--text-dis);">Instant</div>
+        </div>
+        <div class="plan-step">
+          <div class="plan-step-cb checked"></div>
+          <div class="plan-step-num">4.</div>
+          <div class="plan-step-body">
+            <div class="plan-step-title">Refine Chapter 6 summary</div>
+            <div class="plan-step-desc">End on direct threat, unresolved. ~2 min</div>
+          </div>
+          <div class="plan-step-time">~2 min</div>
+        </div>
+      </div>
+      <div class="plan-warn">⚠ Chapter 7 is locked — not included. Plan works around it.</div>
+      <div class="plan-card-ftr">
+        <button class="btn-approve">✓ Approve Selected</button>
+        <button class="btn-edit">Edit Steps</button>
+        <button class="btn-cancel">✕</button>
+      </div>
+    </div>
+    <div style="font-size:10px;font-weight:300;color:var(--text-m);line-height:1.6;">
+      Step 3 was deselected by the author — the Approve button reflects this as "Approve Selected" rather than "Approve All". The footer changes live as checkboxes are toggled.
+    </div>
+  </div>
+
+  <!-- EXECUTION CARD -->
+  <div class="card-panel">
+    <div class="cpanel-title">Execution Card · Mid-Workflow</div>
+    <div class="exec-card">
+      <div class="exec-hdr">
+        <div class="exec-title">Executing: Strengthen pre-revelation dread</div>
+        <div style="font-size:10px;font-weight:300;color:var(--text-m);margin-top:2px;">Step 2 of 3 · ~4 min remaining</div>
+      </div>
+      <div class="exec-steps">
+        <div class="exec-step">
+          <div class="exec-icon exec-done">✓</div>
+          <div class="exec-name done">Refine Chapter 4 summary</div>
+          <div class="exec-status done">Complete</div>
+        </div>
+        <div class="exec-step" style="background:rgba(46,90,144,.05);">
+          <div class="exec-icon exec-running">⟳</div>
+          <div class="exec-name running">Refine Chapter 5 summary</div>
+          <div class="exec-status running">Running...</div>
+        </div>
+        <div class="exec-step">
+          <div class="exec-icon exec-pending">◌</div>
+          <div class="exec-name">Refine Chapter 6 summary</div>
+          <div class="exec-status">Pending</div>
+        </div>
+      </div>
+      <div class="exec-footer">
+        <div class="exec-progress">Step 2 of 3 · ~4 min remaining</div>
+        <div class="exec-btns">
+          <button class="btn-pause">Pause</button>
+          <button class="btn-stop" style="color:#b03c3c;border-color:#b03c3c;">Stop</button>
+        </div>
+      </div>
+    </div>
+    <div style="font-size:10px;font-weight:300;color:var(--text-m);line-height:1.6;margin-top:8px;">
+      Tree shows matching ✓/⟳/◌ indicators on the affected chapter nodes in real time. The execution card and the tree are two views of the same operation.
+    </div>
+  </div>
+
+  <!-- RESEARCH CARD -->
+  <div class="card-panel">
+    <div class="cpanel-title">Research Card · Proposes Context Nodes</div>
+    <div class="research-card">
+      <div class="rc-hdr">
+        <div class="rc-title">Research: 8th Century Japanese Rural Life</div>
+        <div class="rc-count">4 sources reviewed</div>
+      </div>
+      <div class="rc-body">
+        <div class="rc-findings-label">Key Findings</div>
+        <div class="rc-finding">Farmhouses used earthen-tamped floors, not wooden</div>
+        <div class="rc-finding">Agricultural year governed by Buddhist calendar</div>
+        <div class="rc-finding">Water management was communal, not individual</div>
+
+        <div class="rc-proposed-label">Proposing 3 Context Nodes</div>
+        <div class="rc-node">
+          <span>+</span>
+          Kiyomizu Village
+          <span class="rc-node-tag">expanded</span>
+        </div>
+        <div class="rc-node">
+          <span>+</span>
+          8th Century Farming Cycle
+          <span class="rc-node-tag">new</span>
+        </div>
+        <div class="rc-node">
+          <span>+</span>
+          Buddhist Practice in Rural Japan
+          <span class="rc-node-tag">new</span>
+        </div>
+      </div>
+      <div class="rc-warn">⚠ One source conflict noted on floor type — see details in proposed nodes</div>
+      <div class="rc-footer">
+        <button class="btn-review">Review Proposals</button>
+        <button class="btn-approve-all">Approve All</button>
+        <button class="btn-cancel" style="margin-left:auto;">✕</button>
+      </div>
+    </div>
+    <div style="font-size:10px;font-weight:300;color:var(--text-m);line-height:1.6;margin-top:8px;">
+      Research results land as proposals — never auto-approved. Source conflicts are surfaced explicitly. The author reviews before any context nodes are created.
+    </div>
+  </div>
+
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     SECTION 3 — TREE WORKFLOW STATES
+     ══════════════════════════════════════════════════════════ -->
+<div class="section" style="padding-bottom:20px;"><div class="slabel">03 — Tree Node States During Director Workflow · All Four Step Indicators</div></div>
+
+<div class="tree-states-grid">
+
+  <!-- Pending -->
+  <div class="tree-state-panel">
+    <div class="tsp-label">◌ Pending — step not yet started</div>
+    <div class="nr i2" style="background:var(--ink);border:1px solid var(--border-s);">
+      <span class="chv" style="opacity:0;">▶</span><span class="tic">📄</span>
+      <span class="nn">Ch 6: The Reckoning</span>
+      <div class="ws ws-pending">◌</div>
+    </div>
+    <div class="tsp-note">The ◌ symbol replaces the standard status badge for the duration of the Director workflow. After workflow completion, the standard badge returns (with updated status).</div>
+  </div>
+
+  <!-- Running -->
+  <div class="tree-state-panel">
+    <div class="tsp-label">⟳ Running — step currently executing</div>
+    <div class="nr i2 active" style="background:rgba(46,90,144,.1);border:1px solid var(--border-s);">
+      <span class="chv" style="opacity:0;">▶</span><span class="tic">📄</span>
+      <span class="nn">Ch 5: The Confrontation</span>
+      <div class="ws ws-running" style="font-size:10px;">⟳</div>
+    </div>
+    <div class="tsp-note">The ⟳ indicator has a breathing animation (opacity 1→0.5→1, 2s ease-in-out) — calm, not urgent. Same animation principle as the agent-running type icon in Edit Mode.</div>
+  </div>
+
+  <!-- Done / Failed -->
+  <div class="tree-state-panel">
+    <div class="tsp-label">✓ Complete · ✗ Failed</div>
+    <div style="display:flex;flex-direction:column;gap:2px;">
+      <div class="nr i2" style="background:var(--ink);border:1px solid var(--border-s);">
+        <span class="chv" style="opacity:0;">▶</span><span class="tic">📄</span>
+        <span class="nn">Ch 4: The Silence</span>
+        <div class="ws ws-done">✓</div>
+      </div>
+      <div class="nr i2" style="background:var(--ink);border:1px solid var(--border-s);">
+        <span class="chv" style="opacity:0;">▶</span><span class="tic">📄</span>
+        <span class="nn">Ch 6: The Reckoning</span>
+        <div class="ws" style="background:#b03c3c;color:white;font-size:10px;width:16px;height:16px;border-radius:3px;display:flex;align-items:center;justify-content:center;margin-left:2px;">✗</div>
+      </div>
+    </div>
+    <div class="tsp-note">After all steps resolve: step indicators are replaced by the updated standard status badges. ✓ nodes show their new status (likely approved or in_review). ✗ nodes return to their previous status with a toast notification.</div>
+  </div>
+
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     SECTION 4 — ANNOTATIONS
+     ══════════════════════════════════════════════════════════ -->
+<div class="section"><div class="slabel">04 — Annotations</div></div>
+
+<div class="annotations">
+  <div class="ann-grid">
+
+    <div class="ann-item">
+      <div class="ann-num">1</div>
+      <div class="ann-body">
+        <div class="ann-title">Sidebar Collapses to Icon Rail in Director Mode</div>
+        <div class="ann-ref">UI Design §4.2 · §7.1</div>
+        <div class="ann-desc">
+          When Director Mode is entered, the sidebar auto-collapses from 220px to a 48px icon rail. This is automatic — the author does not trigger it. The space is needed by the Director panel. The rail shows project icons only; the context library is hidden (available via clicking the icon to expand temporarily). The transition: 200ms <code>--easing-smooth</code>, sidebar width animates, Director panel slides in from the right simultaneously.
+        </div>
+      </div>
+    </div>
+
+    <div class="ann-item">
+      <div class="ann-num">2</div>
+      <div class="ann-body">
+        <div class="ann-title">Director Panel Width — 55% Maximum</div>
+        <div class="ann-ref">UI Design §7.1 · Brand Identity §7.3</div>
+        <div class="ann-desc">
+          The Director panel never exceeds 55% of the viewport width. The node tree must always remain visible — the author needs to see what the Director is talking about as it talks. At 1280px: Director panel max 580px, tree gets the remaining ~652px (minus 48px icon rail = ~604px usable). At narrower viewports (1024–1279px): Director panel may compress to 50% to preserve tree legibility. <span class="critical">Never let the Director panel push the tree below 300px.</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="ann-item">
+      <div class="ann-num">3</div>
+      <div class="ann-body">
+        <div class="ann-title">Director Mode Indicator — Animated Dot</div>
+        <div class="ann-ref">UI Design §2.3</div>
+        <div class="ann-desc">
+          The Director tab in the mode switcher shows an animated blue pulse dot when an operation is actively running. The dot is <code>--color-agent-running</code> (<code>#2e5a90</code>), 6px diameter, breathing animation (opacity 1→0.6→1, scale 1→0.8→1, 1.5s ease-in-out). It appears only during active execution — not during normal conversation or planning. When execution completes, the dot disappears immediately.
+        </div>
+      </div>
+    </div>
+
+    <div class="ann-item">
+      <div class="ann-num">4</div>
+      <div class="ann-body">
+        <div class="ann-title">Workflow Step Indicators Replace Status Badges</div>
+        <div class="ann-ref">UI Design §5.4 · §7.2 · Brand Identity §8.3</div>
+        <div class="ann-desc">
+          During a Director workflow, the standard status badge (<code>8px circle</code>) on affected nodes is replaced by a workflow step indicator (<code>16px, 3px border-radius</code>). The four states: <code>◌</code> pending (surface bg, text-m), <code>⟳</code> running (agent-running blue, breathing animation), <code>✓</code> complete (verdigris), <code>✗</code> failed (error red). After workflow ends: all step indicators are removed and standard status badges return with updated values.
+        </div>
+      </div>
+    </div>
+
+    <div class="ann-item">
+      <div class="ann-num">5</div>
+      <div class="ann-body">
+        <div class="ann-title">Locked Nodes — Not Included, Plan Works Around</div>
+        <div class="ann-ref">Product Specification §8 · UI Design §7.2</div>
+        <div class="ann-desc">
+          If the Director's plan would affect a locked node, the plan card displays a warning: <code>⚠ Chapter 7 is locked — not included. Plan works around it.</code> The warning uses <code>--color-status-review</code> (#b87030) amber. The locked node receives no workflow step indicator — it is excluded entirely. <span class="critical">Locked nodes are sacrosanct. The Director cannot modify them. This is not a soft constraint. No UI affordance should suggest it might be possible.</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="ann-item">
+      <div class="ann-num">6</div>
+      <div class="ann-body">
+        <div class="ann-title">Director Header — ◆ Symbol and Document Tag</div>
+        <div class="ann-ref">UI Design §7.1</div>
+        <div class="ann-desc">
+          Panel title: <code>◆ The Director</code>. The ◆ is the Director's identity mark across all contexts — it appears on Director messages in the thread, in the panel title, and on the thinking indicator. Colour: <code>--color-accent</code> verdigris. The document tag (<code>The Iron Veil</code>) shows which document this Director session belongs to. One conversation per document — switching documents shows that document's conversation history. History button reveals previous sessions.
+        </div>
+      </div>
+    </div>
+
+    <div class="ann-item">
+      <div class="ann-num">7</div>
+      <div class="ann-body">
+        <div class="ann-title">User Message — --color-bg-selected, NOT Verdigris</div>
+        <div class="ann-ref">Brand Identity §4.4 · UI Design §7.2</div>
+        <div class="ann-desc">
+          User messages: <code>--color-bg-selected</code> (<code>#1f2d45</code>) background, right-aligned, border-radius 8px 8px 2px 8px. <span class="inviolable">Never <code>--color-accent-muted</code>.</span> A user message bubble carries no connection to the four verdigris categories (brand, inscription, completion, location) — using the accent here would be a spurious use. The blue-tinted selected colour is sufficient and appropriate for a message bubble. Font: Inter 400 12px (Director conversation is structural — never Lora).
+        </div>
+      </div>
+    </div>
+
+    <div class="ann-item">
+      <div class="ann-num">8</div>
+      <div class="ann-body">
+        <div class="ann-title">Plan Card — The Trust-Building Mechanism</div>
+        <div class="ann-ref">UI Design §7.2 · Product Specification §10</div>
+        <div class="ann-desc">
+          The plan card is interactive, not just text. Each step has a checkbox the author can uncheck to skip that step. When any step is unchecked, the Approve button changes from "Approve All" to "Approve Selected" — live, immediate. <code>Edit Steps</code> expands each step inline for the author to edit the agent instruction. <span class="critical">Nothing executes until the author clicks Approve. The plan card must feel like a deliberate decision, not a confirmation dialog.</span> Border-radius: 6px. Background: --color-bg-surface. Steps separated by 1px --color-border-subtle.
+        </div>
+      </div>
+    </div>
+
+    <div class="ann-item">
+      <div class="ann-num">9</div>
+      <div class="ann-body">
+        <div class="ann-title">Input Area — @ Mention and Quick Actions</div>
+        <div class="ann-ref">UI Design §7.3</div>
+        <div class="ann-desc">
+          Textarea: auto-expands 1–5 rows, then scrolls. Enter sends. Shift+Enter inserts newline. Typing <code>@</code> opens a node picker (searchable, lists all nodes in current document). The selected node is attached as a reference — the Director receives context about that node along with the message. Quick action chips above the input are context-aware suggestions (change based on document state and conversation history). Font: Inter 300 12px. Placeholder: Inter 300, --color-text-disabled.
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     SECTION 5 — CLAUDE CODE SPEC TABLES
+     ══════════════════════════════════════════════════════════ -->
+<div class="section"><div class="slabel">05 — Claude Code Implementation Specification</div></div>
+
+<div class="spec-section">
+
+  <!-- Layout -->
+  <div class="spec-block">
+    <div class="spec-block-header">Director Mode Layout<span class="sbr">UI Design §4.2 · §7.1</span></div>
+    <table class="spec-table">
+      <tr><th>Element</th><th>Value</th><th>Notes</th></tr>
+      <tr><td>Entry trigger</td><td><code>⌘.</code> from Edit Mode</td><td>Also: clicking Director tab in ModeTabBar.</td></tr>
+      <tr><td>Sidebar behaviour</td><td>Auto-collapses to 48px icon rail</td><td>Automatic on Director Mode entry. No user action needed. Restores on return to Edit Mode.</td></tr>
+      <tr><td>Tree panel width</td><td>flex: 1 (remaining after Director panel)</td><td>Min: 300px. Must stay visible at all times.</td></tr>
+      <tr><td>Director panel width</td><td>580px (max 55% viewport)</td><td>Not user-resizable — fixed at 580px or 55% vw, whichever is smaller.</td></tr>
+      <tr><td>Director panel background</td><td>--color-bg-surface</td><td>Slightly elevated from tree (--color-bg-base for tree content area).</td></tr>
+      <tr><td>Transition in</td><td>200ms --easing-smooth</td><td>Detail panel dissolves (opacity 0), Director panel slides in from right (translateX). Simultaneously.</td></tr>
+      <tr><td>Transition out</td><td>200ms --easing-smooth</td><td>Exact reverse. Edit Mode state is fully preserved.</td></tr>
+      <tr><td>Persistent state</td><td>Conversation history and scroll position persist</td><td>Stored per document. Switching documents shows that document's Director history.</td></tr>
+    </table>
+  </div>
+
+  <!-- Message types -->
+  <div class="spec-block">
+    <div class="spec-block-header">Message Types — DirectorPanel<span class="sbr">UI Design §7.2</span></div>
+    <table class="spec-table">
+      <tr><th>Component</th><th>Alignment</th><th>Key Specification</th></tr>
+      <tr><td>UserMessage</td><td>Right-aligned</td><td>Background: <code>--color-bg-selected</code> (#1f2d45). <span class="inviolable">Never --color-accent-muted.</span> border-radius: 8px 8px 2px 8px. Inter 400 12px. Max-width: 78% of panel.</td></tr>
+      <tr><td>DirectorMessage</td><td>Left-aligned</td><td>No background. Left-aligned with ◆ icon in header. Inter 400 12px, --color-text-secondary. Line-height: 1.6. Max-width: 90% of panel.</td></tr>
+      <tr><td>PlanCard</td><td>Inline (left)</td><td>Appears after Director analysis. Interactive checkboxes. Max-width: 95% of panel. See PlanCard spec below.</td></tr>
+      <tr><td>ExecutionCard</td><td>Inline (left)</td><td>Replaces PlanCard after approval. Shows live step status with animations. See ExecutionCard spec below.</td></tr>
+      <tr><td>ResearchCard</td><td>Inline (left)</td><td>Shows findings and proposes context nodes. Requires author approval before nodes are created.</td></tr>
+      <tr><td>ThinkingIndicator</td><td>Left-aligned</td><td>◆ icon + italic label + three animated dots. Shown while Director is processing. Removed when response begins streaming.</td></tr>
+    </table>
+  </div>
+
+  <!-- Plan card -->
+  <div class="spec-block">
+    <div class="spec-block-header">PlanCard Component — Detailed<span class="sbr">UI Design §7.2 · Product Specification §10</span></div>
+    <table class="spec-table">
+      <tr><th>Element</th><th>Specification</th><th>Notes</th></tr>
+      <tr><td>Card container</td><td>border: 1px --color-border-default · border-radius: 6px · overflow: hidden</td><td>Background: --color-bg-surface</td></tr>
+      <tr><td>Card header</td><td>Background: --color-bg-base · padding: 10px 14px · Inter 600 12px title</td><td>Right side: step count and time estimate in Inter 300 10px --color-text-muted</td></tr>
+      <tr><td>Step row height</td><td>min-height: 44px (auto-expands with content)</td><td>Padding: 8px 14px. Border-bottom: 1px --color-border-subtle. Last step has no border.</td></tr>
+      <tr><td>Checkbox</td><td>14×14px · border: 1px --color-border-default · border-radius: 2px</td><td>Checked: background --color-accent, border --color-accent, ✓ icon in white 9px. Toggling updates button label live.</td></tr>
+      <tr><td>Step number</td><td>Inter 600 10px --color-text-muted</td><td>1. 2. 3. etc. Min-width: 14px.</td></tr>
+      <tr><td>Step title</td><td>Inter 500 12px --color-text-primary</td><td>Deselected step: --color-text-muted, title + description at 55% opacity.</td></tr>
+      <tr><td>Step description</td><td>Inter 300 11px --color-text-muted · line-height: 1.5</td><td></td></tr>
+      <tr><td>Step time</td><td>Inter 300 10px --color-text-disabled</td><td>Right-aligned. white-space: nowrap.</td></tr>
+      <tr><td>Lock warning</td><td>amber background rgba(184,112,48,.08) · amber text --color-status-review</td><td>⚠ icon + text. Shown when any affected node is locked.</td></tr>
+      <tr><td>Footer</td><td>Background: --color-bg-base · padding: 8px 14px · border-top: 1px --color-border-subtle</td><td></td></tr>
+      <tr><td>Approve button</td><td>Background: --color-accent · white text · Inter 500 11px</td><td>Label: "Approve All" (all checked) or "Approve Selected" (some unchecked). Updates live.</td></tr>
+      <tr><td>Edit Steps button</td><td>Border: --color-border-subtle · Inter 400 11px --color-text-secondary</td><td>Expands each step to show editable instruction textarea.</td></tr>
+      <tr><td>Cancel (✕)</td><td>No border · Inter 300 11px --color-text-muted · margin-left: auto</td><td>Dismisses plan. Does not execute anything.</td></tr>
+    </table>
+  </div>
+
+  <!-- Execution card -->
+  <div class="spec-block">
+    <div class="spec-block-header">ExecutionCard Component<span class="sbr">UI Design §7.2 · Brand Identity §8.3</span></div>
+    <table class="spec-table">
+      <tr><th>State</th><th>Icon</th><th>Colour · Animation</th></tr>
+      <tr><td>Pending</td><td>◌</td><td>--color-text-disabled. No animation. Greyed row name.</td></tr>
+      <tr><td>Running</td><td>⟳</td><td>--color-agent-running (#2e5a90). Breathing animation on icon: opacity 1→0.5→1, 2s ease-in-out. Row name: --color-text-primary, font-weight 500. Row background: rgba(46,90,144,.05).</td></tr>
+      <tr><td>Complete</td><td>✓</td><td>--color-accent (#3d7858). Row name: --color-text-muted (de-emphasised — done). No animation.</td></tr>
+      <tr><td>Failed</td><td>✗</td><td>#b03c3c. Row name: --color-text-primary. Toast notification also fires.</td></tr>
+      <tr><td colspan="3"><div class="note">After all steps resolve: ExecutionCard is replaced by a Director text message summarising what was done. Step indicators in the tree return to standard status badges. If any step failed: the Director flags the failure explicitly and suggests next steps.</div></td></tr>
+    </table>
+  </div>
+
+  <!-- Workflow step indicators in tree -->
+  <div class="spec-block">
+    <div class="spec-block-header">WorkflowStepIndicator — Tree Node<span class="sbr">UI Design §5.4 · §12.2</span></div>
+    <table class="spec-table">
+      <tr><th>Property</th><th>Value</th><th>Notes</th></tr>
+      <tr><td>Dimensions</td><td>16×16px</td><td>Replaces the 8px status badge during workflow. Larger for legibility.</td></tr>
+      <tr><td>Border-radius</td><td>3px</td><td>Slightly rounded square — distinct from the circular status badge.</td></tr>
+      <tr><td>Position</td><td>Right-aligned, same position as status badge</td><td>Replaces — does not coexist with — the status badge.</td></tr>
+      <tr><td>Pending ◌</td><td>Background: --color-bg-surface · Colour: --color-text-muted</td><td></td></tr>
+      <tr><td>Running ⟳</td><td>Background: --color-agent-running · Colour: white</td><td>Breathing animation: opacity 1→0.5→1, 2s ease-in-out, infinite.</td></tr>
+      <tr><td>Complete ✓</td><td>Background: --color-accent · Colour: white</td><td>No animation. Stays until workflow ends.</td></tr>
+      <tr><td>Failed ✗</td><td>Background: #b03c3c · Colour: white</td><td>Stays until author dismisses. Standard status badge returns after dismiss.</td></tr>
+      <tr><td>Cleanup</td><td>All indicators removed after workflow end</td><td>Standard status badges return. Updated values reflect any changes the workflow made (e.g., in_review → approved).</td></tr>
+    </table>
+  </div>
+
+  <!-- Director input -->
+  <div class="spec-block">
+    <div class="spec-block-header">DirectorInput Component<span class="sbr">UI Design §7.3</span></div>
+    <table class="spec-table">
+      <tr><th>Property</th><th>Value</th><th>Notes</th></tr>
+      <tr><td>Textarea</td><td>Inter 300 12px · auto-expand 1–5 rows then scroll</td><td>Background: --color-bg-base. Border: 1px --color-border-subtle. Border-radius: 5px.</td></tr>
+      <tr><td>Send</td><td>Enter key · Send button (32px, --color-accent bg)</td><td>Shift+Enter inserts newline. Button shows ↑ arrow icon.</td></tr>
+      <tr><td>@ mention</td><td>Opens node picker on @ keypress</td><td>Searchable list of all nodes in current document. Selecting a node attaches it as context. Renders as pill inside the textarea.</td></tr>
+      <tr><td>Quick action chips</td><td>Inter 400 10px · border: 1px --color-border-subtle · border-radius: 12px</td><td>Context-aware. Update based on conversation state. Clicking inserts the action text into the textarea (author can edit before sending).</td></tr>
+      <tr><td>Placeholder</td><td>Inter 300 12px --color-text-disabled</td><td>"Message the Director... (@ to reference a node)"</td></tr>
+      <tr><td>Disabled state</td><td>Textarea opacity 0.5, non-interactive</td><td>During execution: input is disabled. Author cannot send while steps are running (can pause/stop instead).</td></tr>
+    </table>
+  </div>
+
+  <!-- Voice of the Director -->
+  <div class="spec-block">
+    <div class="spec-block-header">Voice of the Director — Copy Standards<span class="sbr">Brand Identity §9.4</span></div>
+    <table class="spec-table">
+      <tr><th>Rule</th><th>Correct</th><th>Incorrect</th></tr>
+      <tr><td>States observations, not opinions</td><td>"Chapter 5 currently resolves cleanly."</td><td>"I think Chapter 5 resolves too easily."</td></tr>
+      <tr><td>No hedging</td><td>"The problem is Chapter 5."</td><td>"There might be an issue with Chapter 5."</td></tr>
+      <tr><td>Specific, not vague</td><td>"Step 2 of 4 complete. Chapter 5 revised."</td><td>"Done! Things are going well."</td></tr>
+      <tr><td>No exclamation marks</td><td>"Complete. Three nodes updated."</td><td>"Complete! Great job!"</td></tr>
+      <tr><td>Plan step descriptions</td><td>Answers: what will this do + why does it serve the stated goal</td><td>Vague: "Improve the chapter"</td></tr>
+      <tr><td>Font</td><td>Inter throughout</td><td><span class="critical">Never Lora. The Director speaks in the structural register. Lora is reserved for the author's prose.</span></td></tr>
+    </table>
+  </div>
+
+</div>
+
+</body>
+</html>

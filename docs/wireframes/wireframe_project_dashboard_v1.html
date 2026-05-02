@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stelavox — Project Dashboard v1.0</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500&family=Cormorant+Garamond:ital,wght@1,300&family=Inter:wght@200;300;400;500;600&family=Lora:ital,wght@0,400&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --ink:#0d1014; --deep:#131820; --surface:#1a2030; --hover:#1e2838; --selected:#1f2d45;
+  --border-s:#1e2535; --border-d:#253045; --border-str:#3a4a62;
+  --text-p:#ecf0f5; --text-s:#8aa0b8; --text-m:#4a6080; --text-dis:#2a3850;
+  --verd:#3d7858; --verd-h:#5aa87a;
+  --st-draft:#4a6080; --st-rev:#b87030; --st-app:#3d7858; --st-lock:#6a3888;
+  --spec-bg:#0a0d12; --spec-pan:#111520; --callout:#e8b840;
+}
+body { background:var(--spec-bg); color:var(--text-p); font-family:'Inter',sans-serif; font-size:13px; line-height:1.5; }
+.doc-header { background:var(--spec-pan); border-bottom:1px solid var(--border-d); padding:24px 48px; display:flex; align-items:baseline; justify-content:space-between; }
+.wm-s{font-family:'Cinzel',serif;font-size:14px;font-weight:500;letter-spacing:.18em;color:var(--text-p);}
+.wm-v{font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:300;font-size:16px;letter-spacing:.08em;color:var(--text-p);opacity:.82;}
+.doc-meta{font-size:11px;font-weight:300;letter-spacing:.2em;text-transform:uppercase;color:var(--text-m);}
+.section{padding:40px 48px 0;}
+.slabel{font-size:9px;font-weight:400;letter-spacing:.45em;text-transform:uppercase;color:var(--text-m);margin-bottom:20px;padding-bottom:12px;border-bottom:1px solid var(--border-s);}
+
+/* Screen shell */
+.screen { width:1280px; height:820px; background:var(--ink); border:1px solid var(--border-d); border-radius:8px; overflow:hidden; display:flex; flex-direction:column; box-shadow:0 24px 80px rgba(0,0,0,.6); }
+
+/* Dashboard header */
+.dash-hdr { height:48px; min-height:48px; background:var(--deep); border-bottom:1px solid var(--border-s); display:flex; align-items:center; padding:0 32px; gap:0; }
+.dash-wm { display:flex; flex-direction:column; margin-right:auto; }
+.dash-wm-text { display:flex; align-items:baseline; }
+.wm-stela { font-family:'Cinzel',serif; font-size:15px; font-weight:500; letter-spacing:.18em; color:var(--text-p); }
+.wm-vox { font-family:'Cormorant Garamond',serif; font-style:italic; font-weight:300; font-size:17px; letter-spacing:.08em; color:var(--text-p); opacity:.82; }
+.wm-rule-wrap { position:relative; margin-top:3px; }
+.wm-rule { width:88px; height:1px; background:linear-gradient(90deg,var(--verd) 0%,rgba(61,120,88,.3) 40%,transparent 80%); }
+.wm-lozenge { position:absolute; left:-2px; top:-3px; width:7px; height:7px; background:var(--verd); transform:rotate(45deg); }
+.dash-hdr-right { display:flex; align-items:center; gap:16px; }
+.uav { width:26px; height:26px; background:var(--selected); border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:500; color:var(--text-s); }
+
+/* Dashboard body */
+.dash-body { flex:1; overflow-y:auto; display:flex; }
+
+/* Sidebar */
+.dash-sidebar { width:220px; min-width:220px; background:var(--deep); border-right:1px solid var(--border-s); padding:24px 0; display:flex; flex-direction:column; gap:0; }
+.ds-section-label { font-size:9px; font-weight:500; letter-spacing:.35em; text-transform:uppercase; color:var(--text-m); padding:0 20px 8px; }
+.ds-item { display:flex; align-items:center; gap:8px; padding:7px 20px; font-size:13px; font-weight:400; color:var(--text-s); cursor:pointer; }
+.ds-item:hover { background:var(--hover); }
+.ds-item.active { color:var(--text-p); background:var(--selected); border-left:2px solid var(--verd); }
+.ds-item-icon { font-size:14px; }
+.ds-divider { height:1px; background:var(--border-s); margin:12px 0; }
+
+/* Main area */
+.dash-main { flex:1; padding:40px 48px; overflow-y:auto; }
+.dash-greeting { font-size:24px; font-weight:600; color:var(--text-p); margin-bottom:4px; }
+.dash-sub { font-size:14px; font-weight:300; color:var(--text-m); margin-bottom:40px; }
+
+/* Section headers */
+.section-hdr { display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; }
+.section-hdr-title { font-size:11px; font-weight:500; letter-spacing:.28em; text-transform:uppercase; color:var(--text-m); }
+.section-hdr-action { font-size:11px; font-weight:400; color:var(--text-m); cursor:pointer; border:1px solid var(--border-s); padding:3px 10px; border-radius:4px; }
+.section-hdr-action:hover { color:var(--text-s); border-color:var(--border-d); }
+
+/* Recent documents grid */
+.docs-grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; margin-bottom:40px; }
+.doc-card { background:var(--surface); border:1px solid var(--border-s); border-radius:6px; padding:20px; display:flex; flex-direction:column; gap:10px; cursor:pointer; transition:border-color 120ms; }
+.doc-card:hover { border-color:var(--border-d); }
+.doc-card-type { font-size:10px; font-weight:500; letter-spacing:.25em; text-transform:uppercase; color:var(--text-m); display:flex; align-items:center; gap:6px; }
+.doc-card-title { font-size:15px; font-weight:500; color:var(--text-p); line-height:1.3; }
+.doc-card-meta { display:flex; align-items:center; gap:10px; }
+.doc-card-meta-item { font-size:11px; font-weight:300; color:var(--text-m); display:flex; align-items:center; gap:4px; }
+.doc-card-progress { height:3px; background:var(--border-s); border-radius:2px; overflow:hidden; }
+.doc-card-progress-fill { height:100%; background:var(--verd); border-radius:2px; }
+.doc-card-status { display:flex; align-items:center; gap:6px; }
+.status-pip { width:7px; height:7px; border-radius:50%; }
+
+/* New document CTA */
+.doc-card-new { background:var(--deep); border:1px dashed var(--border-d); border-radius:6px; padding:20px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; cursor:pointer; min-height:140px; transition:border-color 120ms; }
+.doc-card-new:hover { border-color:var(--border-str); }
+.doc-card-new-icon { font-size:24px; opacity:0.3; }
+.doc-card-new-label { font-size:12px; font-weight:400; color:var(--text-m); }
+
+/* Projects list -->
+.proj-list { display:flex; flex-direction:column; gap:2px; }
+.proj-item { background:var(--surface); border:1px solid var(--border-s); border-radius:4px; padding:14px 18px; display:flex; align-items:center; gap:16px; cursor:pointer; }
+.proj-item:hover { border-color:var(--border-d); }
+.proj-icon { font-size:20px; }
+.proj-info { flex:1; }
+.proj-name { font-size:14px; font-weight:500; color:var(--text-p); }
+.proj-meta { font-size:11px; font-weight:300; color:var(--text-m); margin-top:2px; }
+.proj-count { font-size:11px; font-weight:300; color:var(--text-m); white-space:nowrap; }
+
+/* Spec tables */
+.spec-section{padding:0 48px 80px;}
+.spec-block{background:var(--spec-pan);border:1px solid var(--border-s);border-radius:4px;margin-bottom:2px;overflow:hidden;}
+.spec-block-header{padding:12px 20px;background:var(--ink);border-bottom:1px solid var(--border-s);font-size:11px;font-weight:600;letter-spacing:.25em;text-transform:uppercase;color:var(--text-p);display:flex;justify-content:space-between;align-items:center;}
+.sbr{font-size:10px;font-weight:300;letter-spacing:.1em;color:var(--verd);}
+.spec-table{width:100%;border-collapse:collapse;}
+.spec-table th{font-size:10px;font-weight:500;letter-spacing:.2em;text-transform:uppercase;color:var(--text-m);text-align:left;padding:8px 20px;border-bottom:1px solid var(--border-s);}
+.spec-table td{font-size:11px;font-weight:300;color:var(--text-s);padding:7px 20px;border-bottom:1px solid var(--border-s);vertical-align:top;}
+.spec-table tr:last-child td{border-bottom:none;}
+.spec-table td:first-child{color:var(--text-p);font-weight:400;min-width:180px;}
+.spec-table td code{background:var(--ink);padding:1px 5px;border-radius:2px;font-family:'SF Mono','Fira Code',monospace;font-size:10px;color:var(--callout);}
+.spec-table .note{font-size:10px;font-style:italic;color:var(--text-m);margin-top:2px;}
+</style>
+</head>
+<body>
+
+<div class="doc-header">
+  <div>
+    <div style="display:flex;align-items:baseline;"><span class="wm-s">Stela</span><span class="wm-v">vox</span></div>
+    <div style="margin-top:6px;font-size:11px;font-weight:300;letter-spacing:.2em;text-transform:uppercase;color:var(--text-m);">Project Dashboard — Wireframe & Specification v1.0</div>
+  </div>
+  <div class="doc-meta">Brand Identity v1.2 · Component Spec v1.1</div>
+</div>
+
+<!-- POPULATED STATE -->
+<div class="section"><div class="slabel">01 — Dashboard · Populated State · 1280×820px</div></div>
+<div style="padding:40px 48px;">
+<div class="screen">
+  <div class="dash-hdr">
+    <div class="dash-wm">
+      <div class="dash-wm-text"><span class="wm-stela">Stela</span><span class="wm-vox">vox</span></div>
+      <div class="wm-rule-wrap"><div class="wm-rule"></div><div class="wm-lozenge"></div></div>
+    </div>
+    <div class="dash-hdr-right">
+      <div style="font-size:12px;font-weight:300;color:var(--text-m);border:1px solid var(--border-s);padding:4px 12px;border-radius:4px;cursor:pointer;">⌘K</div>
+      <div style="font-size:12px;font-weight:400;color:var(--text-m);">Settings</div>
+      <div class="uav">JA</div>
+    </div>
+  </div>
+
+  <div class="dash-body">
+    <!-- Sidebar -->
+    <div class="dash-sidebar">
+      <div class="ds-section-label">Navigation</div>
+      <div class="ds-item active"><span class="ds-item-icon">🏠</span> Home</div>
+      <div class="ds-item"><span class="ds-item-icon">📚</span> All Projects</div>
+      <div class="ds-item"><span class="ds-item-icon">🕐</span> Recent</div>
+      <div class="ds-divider"></div>
+      <div class="ds-section-label">Projects</div>
+      <div class="ds-item"><span class="ds-item-icon">📖</span> The Veil Chronicles</div>
+      <div class="ds-item"><span class="ds-item-icon">🔬</span> PhD Research 2025</div>
+      <div class="ds-item"><span class="ds-item-icon">📋</span> Q3 Board Papers</div>
+      <div class="ds-divider"></div>
+      <div class="ds-item" style="margin-top:auto;color:var(--text-m);font-size:12px;"><span class="ds-item-icon">⚙</span> Settings</div>
+      <div class="ds-item" style="color:var(--text-m);font-size:12px;"><span class="ds-item-icon">?</span> Help</div>
+    </div>
+
+    <!-- Main content -->
+    <div class="dash-main">
+      <div class="dash-greeting">Good afternoon, James.</div>
+      <div class="dash-sub">3 projects · 7 documents</div>
+
+      <!-- Recent documents -->
+      <div class="section-hdr">
+        <div class="section-hdr-title">Recent Documents</div>
+        <div class="section-hdr-action">All documents →</div>
+      </div>
+      <div class="docs-grid">
+
+        <div class="doc-card">
+          <div class="doc-card-type"><span>📖</span> Novel</div>
+          <div class="doc-card-title">The Iron Veil</div>
+          <div class="doc-card-meta">
+            <div class="doc-card-meta-item">📂 The Veil Chronicles</div>
+            <div class="doc-card-meta-item">🕐 2 hours ago</div>
+          </div>
+          <div class="doc-card-progress"><div class="doc-card-progress-fill" style="width:34%;"></div></div>
+          <div class="doc-card-status">
+            <div class="status-pip" style="background:var(--st-draft);"></div>
+            <span style="font-size:11px;font-weight:300;color:var(--text-m);">Act One in progress · 34 nodes</span>
+          </div>
+        </div>
+
+        <div class="doc-card">
+          <div class="doc-card-type"><span>📄</span> Academic Paper</div>
+          <div class="doc-card-title">Identity Formation in Post-Soviet Narratives</div>
+          <div class="doc-card-meta">
+            <div class="doc-card-meta-item">📂 PhD Research 2025</div>
+            <div class="doc-card-meta-item">🕐 Yesterday</div>
+          </div>
+          <div class="doc-card-progress"><div class="doc-card-progress-fill" style="width:72%;"></div></div>
+          <div class="doc-card-status">
+            <div class="status-pip" style="background:var(--st-rev);"></div>
+            <span style="font-size:11px;font-weight:300;color:var(--text-m);">Section 4 in review · 18 nodes</span>
+          </div>
+        </div>
+
+        <div class="doc-card">
+          <div class="doc-card-type"><span>📋</span> Board Paper</div>
+          <div class="doc-card-title">Q3 Strategic Review — Technology Investment</div>
+          <div class="doc-card-meta">
+            <div class="doc-card-meta-item">📂 Q3 Board Papers</div>
+            <div class="doc-card-meta-item">🕐 3 days ago</div>
+          </div>
+          <div class="doc-card-progress"><div class="doc-card-progress-fill" style="width:100%;background:var(--st-app);"></div></div>
+          <div class="doc-card-status">
+            <div class="status-pip" style="background:var(--st-app);"></div>
+            <span style="font-size:11px;font-weight:300;color:var(--text-m);">Complete · Exported</span>
+          </div>
+        </div>
+
+        <!-- New document card -->
+        <div class="doc-card-new">
+          <div class="doc-card-new-icon">+</div>
+          <div class="doc-card-new-label">New document</div>
+        </div>
+
+      </div>
+
+      <!-- All projects -->
+      <div class="section-hdr">
+        <div class="section-hdr-title">All Projects</div>
+        <div class="section-hdr-action">New project +</div>
+      </div>
+      <div class="proj-list">
+        <div class="proj-item">
+          <div class="proj-icon">📖</div>
+          <div class="proj-info">
+            <div class="proj-name">The Veil Chronicles</div>
+            <div class="proj-meta">Novel series · Last active 2 hours ago</div>
+          </div>
+          <div class="proj-count">2 documents</div>
+          <div style="font-size:10px;color:var(--text-m);margin-left:8px;">→</div>
+        </div>
+        <div class="proj-item">
+          <div class="proj-icon">🔬</div>
+          <div class="proj-info">
+            <div class="proj-name">PhD Research 2025</div>
+            <div class="proj-meta">Academic · Last active yesterday</div>
+          </div>
+          <div class="proj-count">3 documents</div>
+          <div style="font-size:10px;color:var(--text-m);margin-left:8px;">→</div>
+        </div>
+        <div class="proj-item">
+          <div class="proj-icon">📋</div>
+          <div class="proj-info">
+            <div class="proj-name">Q3 Board Papers</div>
+            <div class="proj-meta">Professional · Last active 3 days ago</div>
+          </div>
+          <div class="proj-count">2 documents</div>
+          <div style="font-size:10px;color:var(--text-m);margin-left:8px;">→</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- EMPTY DASHBOARD -->
+<div class="section" style="padding-bottom:0;"><div class="slabel">02 — Dashboard · Empty State · New User · First Run</div></div>
+<div style="padding:40px 48px 0;">
+<div class="screen" style="height:500px;">
+  <div class="dash-hdr">
+    <div class="dash-wm">
+      <div class="dash-wm-text"><span class="wm-stela">Stela</span><span class="wm-vox">vox</span></div>
+      <div class="wm-rule-wrap"><div class="wm-rule"></div><div class="wm-lozenge"></div></div>
+    </div>
+    <div class="dash-hdr-right">
+      <div class="uav">JA</div>
+    </div>
+  </div>
+
+  <div class="dash-body">
+    <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:24px;padding:60px;">
+      <!-- Wordmark centred -->
+      <div style="display:flex;flex-direction:column;align-items:center;gap:8px;margin-bottom:8px;">
+        <div style="display:flex;align-items:baseline;"><span style="font-family:'Cinzel',serif;font-size:32px;font-weight:500;letter-spacing:.18em;color:var(--text-p);">Stela</span><span style="font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:300;font-size:36px;letter-spacing:.08em;color:var(--text-p);opacity:.82;">vox</span></div>
+        <div style="font-size:13px;font-weight:300;color:var(--text-m);">The author's thought should arrive on the page undistorted.</div>
+      </div>
+
+      <div style="text-align:center;max-width:400px;">
+        <div style="font-size:16px;font-weight:400;color:var(--text-s);margin-bottom:8px;">Begin with a project.</div>
+        <div style="font-size:13px;font-weight:300;color:var(--text-m);line-height:1.6;">A project holds one or more documents. A novel, a thesis, a set of board papers. Create a project to start your first document.</div>
+      </div>
+
+      <button style="background:var(--verd);color:white;font-size:13px;font-weight:500;padding:10px 28px;border-radius:5px;border:none;cursor:pointer;font-family:'Inter',sans-serif;">Create your first project</button>
+
+      <div style="font-size:11px;font-weight:300;color:var(--text-m);">or press <span style="background:var(--surface);border:1px solid var(--border-d);padding:1px 6px;border-radius:3px;font-size:10px;">⌘K</span> to search</div>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- SPEC -->
+<div class="section" style="padding-top:40px;"><div class="slabel">03 — Specification</div></div>
+<div class="spec-section" style="padding-top:20px;">
+  <div class="spec-block">
+    <div class="spec-block-header">Dashboard Route — /dashboard<span class="sbr">Product Spec §6</span></div>
+    <table class="spec-table">
+      <tr><th>Element</th><th>Value</th><th>Notes</th></tr>
+      <tr><td>Route</td><td><code>/dashboard</code></td><td>Default redirect from <code>/</code> when authenticated</td></tr>
+      <tr><td>Header</td><td>Same Wordmark, no breadcrumb, no mode tabs</td><td>Right side: ⌘K shortcut, Settings link, user avatar</td></tr>
+      <tr><td>Sidebar</td><td>220px, same token values as Edit Mode</td><td>Links: Home, All Projects, Recent, individual project links, Settings</td></tr>
+      <tr><td>Greeting</td><td>Inter 600 24px, "Good [time of day], [first name]."</td><td>Time of day: morning (5–11), afternoon (12–17), evening (18–4)</td></tr>
+      <tr><td>Document cards</td><td>3-column grid, gap 12px</td><td>Show max 4 recent documents + New document card</td></tr>
+      <tr><td>Document card</td><td>background --color-bg-surface, 1px --color-border-subtle, border-radius 6px, padding 20px</td><td>Hover: border-color --color-border-default, --duration-fast</td></tr>
+      <tr><td>Progress bar</td><td>3px, --color-accent fill</td><td>Calculated: approved nodes / total nodes</td></tr>
+      <tr><td>New document card</td><td>Dashed 1px --color-border-default, --color-bg-surface background</td><td>Hover: --color-border-strong</td></tr>
+      <tr><td>Empty state (new user)</td><td>Centred, wordmark + tagline + CTA</td><td>CTA: "Create your first project" — --color-accent button</td></tr>
+      <tr><td>Open document</td><td>Click card → navigate to <code>/doc/[id]</code> → loads Edit Mode</td><td>Last opened node is restored</td></tr>
+    </table>
+  </div>
+</div>
+</body>
+</html>

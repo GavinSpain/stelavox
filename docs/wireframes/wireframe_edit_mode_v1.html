@@ -1,0 +1,1611 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stelavox — Edit Mode Wireframe & Specification v1.0</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500&family=Cormorant+Garamond:ital,wght@1,300&family=Inter:wght@300;400;500;600;700&family=Lora:ital,wght@0,400;1,400&display=swap" rel="stylesheet">
+<style>
+/* ── Reset ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* ── Brand tokens — exact values from Brand Identity v1.0 ── */
+:root {
+  --ink:          #0d1014;
+  --deep:         #131820;
+  --surface:      #1a2030;
+  --hover:        #1e2838;
+  --selected:     #1f2d45;
+  --border-s:     #1e2535;
+  --border-d:     #253045;
+  --border-str:   #3a4a62;
+  --text-p:       #ecf0f5;
+  --text-s:       #8aa0b8;
+  --text-m:       #4a6080;
+  --text-dis:     #2a3850;
+  --verd:         #3d7858;
+  --verd-h:       #5aa87a;
+  --verd-muted:   #1a3028;
+  --st-draft:     #4a6080;
+  --st-review:    #b87030;
+  --st-approved:  #3d7858;
+  --st-locked:    #6a3888;
+  --agent-run:    #2e5a90;
+
+  /* Spec-sheet colours */
+  --spec-bg:      #0a0d12;
+  --spec-panel:   #111520;
+  --callout:      #e8b840;
+  --callout-bg:   rgba(232,184,64,0.12);
+}
+
+/* ── Spec document shell ── */
+body {
+  background: var(--spec-bg);
+  color: var(--text-p);
+  font-family: 'Inter', sans-serif;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+/* ── Doc header ── */
+.doc-header {
+  background: var(--spec-panel);
+  border-bottom: 1px solid var(--border-d);
+  padding: 24px 48px;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+.doc-title {
+  font-family: 'Cinzel', serif;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.22em;
+  color: var(--text-p);
+}
+.doc-title .vox {
+  font-family: 'Cormorant Garamond', serif;
+  font-style: italic;
+  font-weight: 300;
+  font-size: 14px;
+  opacity: 0.82;
+  letter-spacing: 0.08em;
+}
+.doc-meta {
+  font-size: 11px;
+  font-weight: 300;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--text-m);
+}
+
+/* ── Section labels ── */
+.section {
+  padding: 40px 48px 0;
+}
+.section-label {
+  font-size: 9px;
+  font-weight: 400;
+  letter-spacing: 0.45em;
+  text-transform: uppercase;
+  color: var(--text-m);
+  margin-bottom: 20px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border-s);
+}
+
+/* ══════════════════════════════════════════════════════════════
+   THE WIREFRAME — pixel-precise representation of Edit Mode
+   ══════════════════════════════════════════════════════════════ */
+.wireframe-wrap {
+  padding: 40px 48px;
+  position: relative;
+}
+
+/* Outer chrome — simulates browser window */
+.screen {
+  width: 1280px;
+  height: 820px;
+  background: var(--ink);
+  border: 1px solid var(--border-d);
+  border-radius: 8px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  box-shadow: 0 24px 80px rgba(0,0,0,0.6);
+}
+
+/* ── HEADER (48px) ── */
+.app-header {
+  height: 48px;
+  min-height: 48px;
+  background: var(--deep);
+  border-bottom: 1px solid var(--border-s);
+  display: flex;
+  align-items: center;
+  padding: 0 20px;
+  gap: 0;
+  flex-shrink: 0;
+  z-index: 10;
+}
+
+/* Wordmark */
+.wm {
+  display: flex;
+  flex-direction: column;
+  margin-right: 28px;
+  flex-shrink: 0;
+}
+.wm-text {
+  display: flex;
+  align-items: baseline;
+  line-height: 1;
+}
+.wm-stela {
+  font-family: 'Cinzel', serif;
+  font-size: 15px;
+  font-weight: 500;
+  letter-spacing: 0.18em;
+  color: var(--text-p);
+}
+.wm-vox {
+  font-family: 'Cormorant Garamond', serif;
+  font-style: italic;
+  font-weight: 300;
+  font-size: 17px;
+  letter-spacing: 0.08em;
+  color: var(--text-p);
+  opacity: 0.82;
+}
+.wm-rule-wrap {
+  position: relative;
+  margin-top: 3px;
+}
+.wm-rule {
+  width: 88px;
+  height: 1px;
+  background: linear-gradient(90deg, var(--verd) 0%, rgba(61,120,88,0.3) 40%, transparent 80%);
+}
+.wm-lozenge {
+  position: absolute;
+  left: -2px;
+  top: -3px;
+  width: 7px;
+  height: 7px;
+  background: var(--verd);
+  transform: rotate(45deg);
+}
+
+/* Breadcrumb */
+.breadcrumb {
+  font-size: 12px;
+  font-weight: 300;
+  color: var(--text-m);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+}
+.breadcrumb-sep { opacity: 0.4; }
+.breadcrumb .active { color: var(--text-s); }
+
+/* Mode tabs */
+.mode-tabs {
+  display: flex;
+  gap: 2px;
+  background: var(--ink);
+  padding: 4px;
+  border-radius: 6px;
+  margin: 0 20px;
+}
+.mode-tab {
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  padding: 4px 14px;
+  border-radius: 4px;
+  color: var(--text-m);
+  cursor: pointer;
+}
+.mode-tab.active {
+  background: var(--surface);
+  color: var(--text-p);
+  font-weight: 500;
+}
+
+/* Header right */
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-left: auto;
+}
+.header-icon {
+  width: 18px;
+  height: 18px;
+  color: var(--text-m);
+  font-size: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border-s);
+  border-radius: 4px;
+  font-family: 'Inter', sans-serif;
+  letter-spacing: 0.04em;
+}
+.user-avatar {
+  width: 26px;
+  height: 26px;
+  background: var(--selected);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--text-s);
+}
+
+/* ── BODY: three panels ── */
+.app-body {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+}
+
+/* SIDEBAR — 220px */
+.sidebar {
+  width: 220px;
+  min-width: 220px;
+  background: var(--deep);
+  border-right: 1px solid var(--border-s);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.sidebar-section {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border-s);
+}
+.sidebar-section-label {
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.35em;
+  text-transform: uppercase;
+  color: var(--text-m);
+  padding: 0 16px 8px;
+}
+.sidebar-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 16px;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--text-s);
+  cursor: pointer;
+}
+.sidebar-item:hover { background: var(--hover); }
+.sidebar-item.active {
+  color: var(--text-p);
+  background: var(--selected);
+}
+.sidebar-icon {
+  width: 14px;
+  text-align: center;
+  font-size: 11px;
+  opacity: 0.7;
+}
+
+.context-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 16px;
+  font-size: 11px;
+  color: var(--text-m);
+  cursor: pointer;
+}
+.context-count {
+  font-size: 9px;
+  background: var(--surface);
+  color: var(--text-m);
+  padding: 1px 5px;
+  border-radius: 3px;
+}
+
+/* NODE TREE — flexible */
+.tree-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--border-s);
+  overflow: hidden;
+}
+
+/* Tree toolbar */
+.tree-toolbar {
+  height: 36px;
+  min-height: 36px;
+  background: var(--deep);
+  border-bottom: 1px solid var(--border-s);
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  gap: 8px;
+}
+.tree-toolbar-btn {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--text-m);
+  padding: 3px 8px;
+  border-radius: 3px;
+  border: 1px solid var(--border-s);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+}
+.tree-search {
+  flex: 1;
+  height: 22px;
+  background: var(--ink);
+  border: 1px solid var(--border-s);
+  border-radius: 3px;
+  padding: 0 8px;
+  font-size: 11px;
+  color: var(--text-m);
+  font-family: 'Inter', sans-serif;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Tree content */
+.tree-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 4px 0;
+}
+
+/* Node rows — exactly 36px each */
+.node-row {
+  height: 36px;
+  display: flex;
+  align-items: center;
+  padding: 0 8px;
+  gap: 2px;
+  cursor: pointer;
+  position: relative;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--text-s);
+}
+.node-row:hover { background: var(--hover); }
+.node-row.is-active {
+  background: var(--selected);
+  color: var(--text-p);
+  border-left: 2px solid var(--verd);
+}
+.node-row.is-active .node-name { color: var(--text-p); font-weight: 500; }
+
+/* Indentation */
+.indent-0 { padding-left: 8px; }
+.indent-1 { padding-left: 24px; }
+.indent-2 { padding-left: 40px; }
+.indent-3 { padding-left: 56px; }
+.indent-4 { padding-left: 72px; }
+.indent-5 { padding-left: 88px; }
+
+.chevron {
+  width: 12px;
+  font-size: 8px;
+  color: var(--text-m);
+  flex-shrink: 0;
+  text-align: center;
+}
+.type-icon {
+  width: 16px;
+  font-size: 11px;
+  flex-shrink: 0;
+  text-align: center;
+  margin-right: 2px;
+}
+.node-name {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 12px;
+}
+
+/* Status badges */
+.badge {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  margin-left: 4px;
+}
+.badge-draft    { background: var(--st-draft); }
+.badge-review   { background: var(--st-review); }
+.badge-approved { background: var(--st-approved); }
+.badge-locked   { background: var(--st-locked); }
+.badge-running  { background: var(--agent-run);
+                  animation: breathe 2s ease-in-out infinite; }
+
+@keyframes breathe {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.4; }
+}
+
+/* Word count bar — leaf nodes only */
+.wc-bar {
+  width: 36px;
+  height: 3px;
+  background: var(--border-s);
+  border-radius: 2px;
+  flex-shrink: 0;
+  margin-left: 6px;
+  overflow: hidden;
+}
+.wc-fill {
+  height: 100%;
+  background: var(--verd-muted);
+  border-radius: 2px;
+}
+
+/* Layer divider */
+.layer-div {
+  height: 1px;
+  background: var(--border-s);
+  margin: 6px 12px;
+  position: relative;
+}
+.layer-div-label {
+  position: absolute;
+  left: 0;
+  top: 3px;
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--text-m);
+  background: var(--ink);
+  padding-right: 6px;
+}
+
+/* Hover actions (shown on active row for demo) */
+.node-actions {
+  display: flex;
+  gap: 4px;
+  opacity: 0;
+  flex-shrink: 0;
+}
+.node-row:hover .node-actions,
+.node-row.is-active .node-actions { opacity: 1; }
+.node-action-btn {
+  font-size: 9px;
+  font-weight: 400;
+  color: var(--text-m);
+  padding: 2px 5px;
+  border-radius: 2px;
+  border: 1px solid var(--border-s);
+  display: flex;
+  align-items: center;
+}
+
+/* ── DETAIL PANEL — 380px ── */
+.detail-panel {
+  width: 380px;
+  min-width: 380px;
+  background: var(--deep);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Panel header */
+.panel-header {
+  padding: 12px 16px 0;
+  border-bottom: 1px solid var(--border-s);
+  flex-shrink: 0;
+}
+.panel-node-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-p);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+.panel-breadcrumb {
+  font-size: 11px;
+  font-weight: 300;
+  color: var(--text-m);
+  margin-bottom: 10px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.panel-breadcrumb span { cursor: pointer; }
+.panel-breadcrumb span:hover { color: var(--text-s); }
+
+/* Tab strip */
+.tab-strip {
+  display: flex;
+  gap: 0;
+}
+.tab {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--text-m);
+  padding: 7px 14px;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  position: relative;
+}
+.tab.active {
+  color: var(--text-p);
+  font-weight: 500;
+  border-bottom-color: var(--verd);
+}
+.tab .badge-dot {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--st-review);
+}
+
+/* Panel content */
+.panel-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* Field blocks */
+.field-block { display: flex; flex-direction: column; gap: 5px; }
+.field-label {
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--text-m);
+}
+.field-input {
+  background: var(--ink);
+  border: 1px solid var(--border-s);
+  border-radius: 4px;
+  padding: 8px 10px;
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--text-p);
+  font-family: 'Inter', sans-serif;
+  resize: none;
+}
+.field-input::placeholder { color: var(--text-dis); }
+.field-input.inter { font-family: 'Inter', sans-serif; }
+
+/* Summary editor (Inter) */
+.summary-editor {
+  background: var(--ink);
+  border: 1px solid var(--border-s);
+  border-radius: 4px;
+  padding: 10px;
+  min-height: 80px;
+  font-size: 13px;
+  font-family: 'Inter', sans-serif;
+  line-height: 1.55;
+  color: var(--text-p);
+  font-weight: 400;
+}
+
+/* Prose editor (Lora) — THE KEY DIFFERENTIATION */
+.prose-editor {
+  background: var(--ink);
+  border: 1px solid var(--border-d);
+  border-radius: 4px;
+  padding: 16px;
+  min-height: 140px;
+  font-size: 16px; /* slightly smaller in panel — full 18px in Focus Mode */
+  font-family: 'Lora', serif;
+  font-weight: 400;
+  line-height: 1.85;
+  color: var(--text-p);
+  position: relative;
+}
+
+/* Verdigris cursor simulation */
+.prose-cursor {
+  display: inline-block;
+  width: 2px;
+  height: 1.1em;
+  background: var(--verd);
+  vertical-align: text-bottom;
+  margin-left: 1px;
+  animation: blink 1s step-end infinite;
+}
+@keyframes blink {
+  0%, 60% { opacity: 1; }
+  60.001%, 100% { opacity: 0; }
+}
+
+/* Word count — faded, inside prose column */
+.word-count {
+  font-size: 11px;
+  font-family: 'Inter', sans-serif;
+  font-weight: 300;
+  color: var(--text-m);
+  text-align: right;
+  opacity: 0.4;
+  margin-top: 4px;
+}
+
+/* Focus Mode button */
+.focus-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--text-m);
+  padding: 5px 10px;
+  border: 1px solid var(--border-s);
+  border-radius: 4px;
+  cursor: pointer;
+  align-self: flex-start;
+  letter-spacing: 0.04em;
+}
+.focus-btn:hover {
+  color: var(--text-s);
+  border-color: var(--border-d);
+}
+
+/* Prose editor label with font signal */
+.prose-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.font-signal {
+  font-size: 9px;
+  font-weight: 300;
+  letter-spacing: 0.2em;
+  color: var(--text-dis);
+  font-style: italic;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   CALLOUT SYSTEM
+   ══════════════════════════════════════════════════════════════ */
+.callout-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  background: var(--callout);
+  color: #0a0800;
+  border-radius: 50%;
+  font-size: 10px;
+  font-weight: 700;
+  font-family: 'Inter', sans-serif;
+  flex-shrink: 0;
+  position: absolute;
+  z-index: 20;
+}
+
+/* Positioned callouts on the wireframe */
+.c1  { top:  6px; left: 18px; }  /* Header — wordmark */
+.c2  { top:  6px; left: 162px; } /* Header — breadcrumb */
+.c3  { top:  6px; left: 280px; } /* Header — mode tabs */
+.c4  { top: 56px; left: 18px; }  /* Sidebar */
+.c5  { top: 56px; left: 228px; } /* Tree toolbar */
+.c6  { top: 180px; left: 228px; }/* Node row anatomy */
+.c7  { top: 270px; left: 228px; }/* Active node */
+.c8  { top: 310px; left: 228px; }/* Agent running */
+.c9  { top: 408px; left: 228px; }/* Status badges */
+.c10 { top: 56px; left: 618px; } /* Detail panel header */
+.c11 { top: 140px; left: 618px; }/* Summary editor — Inter */
+.c12 { top: 380px; left: 618px; }/* Prose editor — Lora */
+.c13 { top: 500px; left: 618px; }/* Verdigris cursor */
+.c14 { top: 560px; left: 618px; }/* Word count behaviour */
+
+/* ══════════════════════════════════════════════════════════════
+   ANNOTATION PANEL
+   ══════════════════════════════════════════════════════════════ */
+.annotations {
+  padding: 0 48px 40px;
+}
+.annotation-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2px;
+}
+.annotation-item {
+  background: var(--spec-panel);
+  padding: 16px 18px;
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+}
+.ann-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  min-width: 22px;
+  background: var(--callout);
+  color: #0a0800;
+  border-radius: 50%;
+  font-size: 11px;
+  font-weight: 700;
+  font-family: 'Inter', sans-serif;
+}
+.ann-body { flex: 1; }
+.ann-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-p);
+  margin-bottom: 4px;
+}
+.ann-ref {
+  font-size: 10px;
+  font-weight: 400;
+  letter-spacing: 0.15em;
+  color: var(--verd);
+  margin-bottom: 6px;
+  text-transform: uppercase;
+}
+.ann-desc {
+  font-size: 11px;
+  font-weight: 300;
+  color: var(--text-s);
+  line-height: 1.6;
+}
+.ann-desc code {
+  background: var(--ink);
+  padding: 1px 5px;
+  border-radius: 2px;
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: 10px;
+  color: var(--callout);
+}
+
+/* ══════════════════════════════════════════════════════════════
+   CLAUDE CODE IMPLEMENTATION SPECIFICATION
+   ══════════════════════════════════════════════════════════════ */
+.spec-section {
+  padding: 0 48px 80px;
+}
+.spec-block {
+  background: var(--spec-panel);
+  border: 1px solid var(--border-s);
+  border-radius: 4px;
+  margin-bottom: 2px;
+  overflow: hidden;
+}
+.spec-block-header {
+  padding: 12px 20px;
+  background: var(--ink);
+  border-bottom: 1px solid var(--border-s);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  color: var(--text-p);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.spec-block-ref {
+  font-size: 10px;
+  font-weight: 300;
+  letter-spacing: 0.1em;
+  color: var(--verd);
+}
+.spec-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.spec-table th {
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--text-m);
+  text-align: left;
+  padding: 8px 20px;
+  border-bottom: 1px solid var(--border-s);
+  background: rgba(255,255,255,0.01);
+}
+.spec-table td {
+  font-size: 11px;
+  font-weight: 300;
+  color: var(--text-s);
+  padding: 7px 20px;
+  border-bottom: 1px solid var(--border-s);
+  vertical-align: top;
+}
+.spec-table tr:last-child td { border-bottom: none; }
+.spec-table td:first-child {
+  color: var(--text-p);
+  font-weight: 400;
+  min-width: 180px;
+}
+.spec-table td code {
+  background: var(--ink);
+  padding: 1px 5px;
+  border-radius: 2px;
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: 10px;
+  color: var(--callout);
+}
+.spec-table .note {
+  font-size: 10px;
+  font-style: italic;
+  color: var(--text-m);
+  margin-top: 2px;
+}
+.spec-table .critical {
+  color: var(--st-review);
+  font-weight: 500;
+}
+.spec-table .inviolable {
+  color: var(--verd);
+  font-weight: 500;
+}
+</style>
+</head>
+<body>
+
+<!-- ── Document header ── -->
+<div class="doc-header">
+  <div>
+    <div class="doc-title"><span class="wm-stela" style="font-family:'Cinzel',serif;font-size:15px;font-weight:500;letter-spacing:0.18em;">Stela</span><span class="vox" style="font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:300;font-size:17px;letter-spacing:0.08em;opacity:0.82;">vox</span></div>
+    <div style="margin-top:6px; font-size:11px; font-weight:300; letter-spacing:0.2em; text-transform:uppercase; color:var(--text-m);">Edit Mode — Annotated Wireframe & Claude Code Specification · v1.0</div>
+  </div>
+  <div class="doc-meta">
+    Companion: Brand Identity v1.0 · UI Design v0.3 · Product Spec v0.6
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════
+     SECTION 1: THE WIREFRAME
+     ══════════════════════════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-label">01 — Edit Mode Wireframe · 1280×820px · Three-Panel Layout</div>
+</div>
+
+<div class="wireframe-wrap">
+
+  <!-- Callout numbers positioned over wireframe -->
+  <div class="callout-num c1">1</div>
+  <div class="callout-num c2">2</div>
+  <div class="callout-num c3">3</div>
+  <div class="callout-num c4">4</div>
+  <div class="callout-num c5">5</div>
+  <div class="callout-num c6">6</div>
+  <div class="callout-num c7">7</div>
+  <div class="callout-num c8">8</div>
+  <div class="callout-num c9">9</div>
+  <div class="callout-num c10">10</div>
+  <div class="callout-num c11">11</div>
+  <div class="callout-num c12">12</div>
+  <div class="callout-num c13">13</div>
+  <div class="callout-num c14">14</div>
+
+  <div class="screen">
+
+    <!-- ── HEADER ── -->
+    <div class="app-header">
+      <!-- Wordmark -->
+      <div class="wm">
+        <div class="wm-text">
+          <span class="wm-stela">Stela</span><span class="wm-vox">vox</span>
+        </div>
+        <div class="wm-rule-wrap">
+          <div class="wm-rule"></div>
+          <div class="wm-lozenge"></div>
+        </div>
+      </div>
+
+      <!-- Breadcrumb -->
+      <div class="breadcrumb">
+        <span>The Veil Chronicles</span>
+        <span class="breadcrumb-sep">/</span>
+        <span>The Iron Veil</span>
+        <span class="breadcrumb-sep">/</span>
+        <span class="active">Act One › Ch 5 › Scene 2 › Beat 3</span>
+      </div>
+
+      <!-- Mode tabs -->
+      <div class="mode-tabs">
+        <div class="mode-tab active">Edit</div>
+        <div class="mode-tab">Director</div>
+      </div>
+
+      <!-- Header right -->
+      <div class="header-right">
+        <div class="header-icon" style="font-size:9px;letter-spacing:0.04em;">⌘K</div>
+        <div class="header-icon">🔔</div>
+        <div class="user-avatar">JA</div>
+      </div>
+    </div>
+
+    <!-- ── BODY ── -->
+    <div class="app-body">
+
+      <!-- SIDEBAR -->
+      <div class="sidebar">
+        <div class="sidebar-section">
+          <div class="sidebar-section-label">Projects</div>
+          <div class="sidebar-item active">
+            <span class="sidebar-icon">📚</span>
+            <span>The Veil Chronicles</span>
+          </div>
+          <div class="sidebar-item">
+            <span class="sidebar-icon">🔬</span>
+            <span>PhD Research 2025</span>
+          </div>
+          <div class="sidebar-item" style="color:var(--text-dis);">
+            <span class="sidebar-icon">+</span>
+            <span>New Project</span>
+          </div>
+        </div>
+
+        <div class="sidebar-section" style="flex:1; overflow-y:auto;">
+          <div class="sidebar-section-label">Context Library</div>
+
+          <div class="context-header">
+            <span>Characters</span>
+            <span class="context-count">6</span>
+          </div>
+          <div class="sidebar-item" style="padding-left:24px;">
+            <span class="sidebar-icon">👤</span>
+            <span>Elena Marsh</span>
+          </div>
+          <div class="sidebar-item" style="padding-left:24px;">
+            <span class="sidebar-icon">👤</span>
+            <span>Viktor Sorel</span>
+          </div>
+          <div class="sidebar-item" style="padding-left:24px; color:var(--text-m);">
+            <span class="sidebar-icon">···</span>
+            <span>4 more</span>
+          </div>
+
+          <div class="context-header" style="margin-top:4px;">
+            <span>Locations</span>
+            <span class="context-count">4</span>
+          </div>
+          <div class="sidebar-item" style="padding-left:24px;">
+            <span class="sidebar-icon">📍</span>
+            <span>The County Archive</span>
+          </div>
+          <div class="sidebar-item" style="padding-left:24px; color:var(--text-m);">
+            <span class="sidebar-icon">···</span>
+            <span>3 more</span>
+          </div>
+
+          <div class="context-header" style="margin-top:4px;">
+            <span>Themes</span>
+            <span class="context-count">3</span>
+          </div>
+        </div>
+
+        <div style="padding:10px 16px; border-top:1px solid var(--border-s);">
+          <div class="sidebar-item" style="padding:4px 0; font-size:11px; color:var(--text-m);">
+            <span class="sidebar-icon">⚙</span>
+            <span>Settings</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- NODE TREE -->
+      <div class="tree-panel">
+
+        <!-- Tree toolbar -->
+        <div class="tree-toolbar">
+          <div class="tree-search">
+            <span style="opacity:0.5;">🔍</span>
+            <span style="opacity:0.4;">Search nodes...</span>
+          </div>
+          <div class="tree-toolbar-btn">Filter ▾</div>
+          <div class="tree-toolbar-btn">View ▾</div>
+        </div>
+
+        <!-- Tree content -->
+        <div class="tree-content">
+
+          <!-- Book node -->
+          <div class="node-row indent-0">
+            <span class="chevron">▼</span>
+            <span class="type-icon">📖</span>
+            <span class="node-name">The Iron Veil</span>
+            <span class="badge badge-approved"></span>
+          </div>
+
+          <!-- Act One -->
+          <div class="layer-div"><span class="layer-div-label">ACT ONE</span></div>
+          <div class="node-row indent-1">
+            <span class="chevron">▼</span>
+            <span class="type-icon">🎭</span>
+            <span class="node-name">Act One: The Awakening</span>
+            <span class="badge badge-review"></span>
+          </div>
+
+          <!-- Chapters -->
+          <div class="node-row indent-2">
+            <span class="chevron" style="opacity:0">▶</span>
+            <span class="type-icon">📄</span>
+            <span class="node-name">Ch 1: The Archive</span>
+            <span class="badge badge-approved"></span>
+          </div>
+          <div class="node-row indent-2">
+            <span class="chevron" style="opacity:0">▶</span>
+            <span class="type-icon">📄</span>
+            <span class="node-name">Ch 2: The Letter</span>
+            <span class="badge badge-approved"></span>
+          </div>
+          <div class="node-row indent-2">
+            <span class="chevron" style="opacity:0">▶</span>
+            <span class="type-icon">📄</span>
+            <span class="node-name">Ch 3: The Confession</span>
+            <span class="badge badge-review"></span>
+          </div>
+          <div class="node-row indent-2">
+            <span class="chevron" style="opacity:0">▶</span>
+            <span class="type-icon">📄</span>
+            <span class="node-name">Ch 4: The Silence</span>
+            <span class="badge badge-draft"></span>
+          </div>
+
+          <!-- Chapter 5 — expanded -->
+          <div class="node-row indent-2" style="color:var(--text-p); font-weight:500;">
+            <span class="chevron">▼</span>
+            <span class="type-icon">📄</span>
+            <span class="node-name">Ch 5: The Confrontation</span>
+            <span class="badge badge-draft"></span>
+          </div>
+
+          <!-- Scenes -->
+          <div class="node-row indent-3">
+            <span class="chevron" style="opacity:0">▶</span>
+            <span class="type-icon">🎬</span>
+            <span class="node-name">Scene 1: Morning Light</span>
+            <span class="badge badge-approved"></span>
+          </div>
+
+          <!-- Scene 2 — expanded -->
+          <div class="node-row indent-3" style="color:var(--text-p);">
+            <span class="chevron">▼</span>
+            <span class="type-icon">🎬</span>
+            <span class="node-name">Scene 2: The Archive Visit</span>
+            <span class="badge badge-draft"></span>
+          </div>
+
+          <!-- Beats under Scene 2 -->
+          <div class="node-row indent-4">
+            <span class="chevron" style="opacity:0">▶</span>
+            <span class="type-icon">⚡</span>
+            <span class="node-name">Beat 1: Elena arrives</span>
+            <span class="badge badge-approved"></span>
+            <div class="wc-bar"><div class="wc-fill" style="width:85%"></div></div>
+          </div>
+
+          <!-- Beat 2 — agent running -->
+          <div class="node-row indent-4">
+            <span class="chevron" style="opacity:0">▶</span>
+            <span class="type-icon" style="animation:breathe 2s ease-in-out infinite;">⚡</span>
+            <span class="node-name">Beat 2: The empty drawer</span>
+            <span class="badge badge-running" title="Agent operation running"></span>
+            <div class="wc-bar"><div class="wc-fill" style="width:60%"></div></div>
+          </div>
+
+          <!-- Beat 3 — ACTIVE/SELECTED -->
+          <div class="node-row indent-4 is-active">
+            <span class="chevron" style="opacity:0">▶</span>
+            <span class="type-icon">⚡</span>
+            <span class="node-name">Beat 3: The letter is gone</span>
+            <span class="badge badge-draft"></span>
+            <div class="wc-bar"><div class="wc-fill" style="width:20%"></div></div>
+            <div class="node-actions">
+              <div class="node-action-btn">⚡</div>
+              <div class="node-action-btn">+</div>
+              <div class="node-action-btn">⋯</div>
+            </div>
+          </div>
+
+          <!-- Scene 3 — locked -->
+          <div class="node-row indent-3">
+            <span class="chevron" style="opacity:0">▶</span>
+            <span class="type-icon">🔒</span>
+            <span class="node-name" style="color:var(--text-m);">Scene 3: Evening (locked)</span>
+            <span class="badge badge-locked"></span>
+          </div>
+
+          <!-- Act 2 collapsed -->
+          <div class="layer-div" style="margin-top:8px;"><span class="layer-div-label">ACT TWO</span></div>
+          <div class="node-row indent-1">
+            <span class="chevron">▶</span>
+            <span class="type-icon">🎭</span>
+            <span class="node-name">Act Two: The Unravelling</span>
+            <span class="badge badge-draft"></span>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- DETAIL PANEL -->
+      <div class="detail-panel">
+
+        <!-- Panel header -->
+        <div class="panel-header">
+          <div class="panel-node-title">
+            <span style="font-size:13px;">⚡</span>
+            Beat 3: The Letter Is Gone
+          </div>
+          <div class="panel-breadcrumb">
+            <span>The Iron Veil</span> ›
+            <span>Act One</span> ›
+            <span>Ch 5</span> ›
+            <span>Scene 2</span> ›
+            <span style="color:var(--text-s);">Beat 3</span>
+          </div>
+          <div class="tab-strip">
+            <div class="tab active">Content</div>
+            <div class="tab" style="position:relative;">Comments<div class="badge-dot"></div></div>
+            <div class="tab">Agent</div>
+            <div class="tab">History</div>
+            <div class="tab">Context</div>
+          </div>
+        </div>
+
+        <!-- Content tab -->
+        <div class="panel-content">
+
+          <!-- Short description -->
+          <div class="field-block">
+            <div class="field-label">Short Description (tree display)</div>
+            <input type="text" class="field-input" style="font-size:12px;" value="Elena opens the drawer to find the letter gone" readonly>
+          </div>
+
+          <!-- Summary field — INTER (structural) -->
+          <div class="field-block">
+            <div class="field-label">Summary <span style="font-size:9px; color:var(--text-dis); font-style:italic; font-weight:300; letter-spacing:0.1em; text-transform:none;">(planning — Inter)</span></div>
+            <div class="summary-editor">
+              Elena crosses to the third cabinet. She already knows what she will find — or rather, what she will not find. The drawer opens. The space where the letter was is empty. She stands very still.<br><br>
+              <span style="opacity:0.5;">Key: no interior monologue here. Only physical action and the gap where thought should be.</span>
+            </div>
+          </div>
+
+          <!-- Prose field — LORA (manuscript) -->
+          <div class="field-block">
+            <div class="prose-label-row">
+              <div class="field-label">Prose <span style="font-size:9px; color:var(--verd-h); font-style:italic; font-weight:300; letter-spacing:0.1em; text-transform:none;">← manuscript surface · Lora</span></div>
+              <div class="focus-btn">⊞ Focus Mode <span style="opacity:0.5; margin-left:4px; font-size:10px;">⌘↵</span></div>
+            </div>
+            <div class="prose-editor">
+              The drawer was not empty.<br>
+              <br>
+              It was simply missing one thing.<br>
+              <br>
+              Elena stood at the cabinet for a long moment, her hand still on the handle, her eyes moving across the papers she had not disturbed — the receipts, the folded maps, the rubber-banded correspondence she had memorised on the first visit — and confirmed what her hand had already told her.<span class="prose-cursor"></span>
+            </div>
+            <div class="word-count">87 / 400 words</div>
+          </div>
+
+          <!-- Word count target -->
+          <div class="field-block">
+            <div style="display:flex; align-items:center; gap:8px;">
+              <div class="field-label" style="white-space:nowrap;">Word count target</div>
+              <input type="text" class="field-input" style="width:60px; font-size:12px;" value="400" readonly>
+              <span style="font-size:11px; color:var(--text-m);">words</span>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════
+     SECTION 2: ANNOTATIONS
+     ══════════════════════════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-label">02 — Annotations · Each callout references the authoritative document section</div>
+</div>
+
+<div class="annotations">
+  <div class="annotation-grid">
+
+    <div class="annotation-item">
+      <div class="ann-num">1</div>
+      <div class="ann-body">
+        <div class="ann-title">Wordmark — Cinzel + Cormorant + Lozenge</div>
+        <div class="ann-ref">Brand Identity §3.2 · §3.3 · §3.4 · §10.5 Inviolable III</div>
+        <div class="ann-desc">
+          <strong>STELA</strong>: Cinzel 500, 15px, tracking 0.18em, uppercase. <strong>vox</strong>: Cormorant Garamond italic 300, 17px, tracking 0.08em, opacity 0.82. Both on the same baseline. Hairline rule: 1px, gradient from <code>--color-accent</code> to transparent. Lozenge: 7×7px square rotated 45°, <code>#3d7858</code>, at rule origin. <span class="critical">Cinzel appears nowhere else in the product UI — wordmark only. This is Inviolable III.</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="annotation-item">
+      <div class="ann-num">2</div>
+      <div class="ann-body">
+        <div class="ann-title">Header Breadcrumb</div>
+        <div class="ann-ref">UI Design §4.1 · §9.4</div>
+        <div class="ann-desc">
+          Inter 300, 12px, <code>--color-text-muted</code>. Format: <code>Project / Document / Ancestor chain</code>. Active segment slightly brighter (<code>--color-text-secondary</code>). Clickable — each segment opens that ancestor in the detail panel. Separator: <code>/</code> at 40% opacity. Truncates with ellipsis on overflow.
+        </div>
+      </div>
+    </div>
+
+    <div class="annotation-item">
+      <div class="ann-num">3</div>
+      <div class="ann-body">
+        <div class="ann-title">Mode Tabs — Edit / Director</div>
+        <div class="ann-ref">UI Design §2 · §4.1 · Brand Identity §7 · §8</div>
+        <div class="ann-desc">
+          Container: <code>--color-bg-base</code> background, 4px padding, 6px border-radius. Active tab: <code>--color-bg-surface</code> fill, <code>--color-text-primary</code>, Inter 500 12px. Inactive: <code>--color-text-muted</code>, Inter 400. Shortcut: <code>⌘.</code> toggles Edit↔Director. Transition: 200ms <code>--easing-smooth</code> when switching. Focus Mode is NOT a tab — entered via <code>⌘Return</code>, exited via <code>Escape</code>.
+        </div>
+      </div>
+    </div>
+
+    <div class="annotation-item">
+      <div class="ann-num">4</div>
+      <div class="ann-body">
+        <div class="ann-title">Left Sidebar — 220px fixed</div>
+        <div class="ann-ref">UI Design §4.1 · §5.5 · Brand Identity §10.2</div>
+        <div class="ann-desc">
+          Width: 220px fixed. Background: <code>--color-bg-surface</code>. Right border: 1px <code>--color-border-subtle</code>. Collapsible to 48px icon rail (collapse trigger: chevron button at bottom). Two sections: Project Navigation (top) and Context Library (bottom, flex:1, scrollable). Context library collapses per-type with count badge. <span class="critical">Progressive disclosure: context library counts do not expand on first load — user must seek.</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="annotation-item">
+      <div class="ann-num">5</div>
+      <div class="ann-body">
+        <div class="ann-title">Tree Toolbar — Search, Filter, View</div>
+        <div class="ann-ref">UI Design §5.6</div>
+        <div class="ann-desc">
+          Height: 36px. Background: <code>--color-bg-surface</code>. Search input: flex:1, <code>--color-bg-base</code>, 22px tall, border <code>--color-border-subtle</code>, Inter 11px placeholder. Filter and View buttons: Inter 11px, border <code>--color-border-subtle</code>. Filter dropdown: by status, layer type, has-prose, locked. View dropdown: toggle context nodes in tree, word count bars, layer separators.
+        </div>
+      </div>
+    </div>
+
+    <div class="annotation-item">
+      <div class="ann-num">6</div>
+      <div class="ann-body">
+        <div class="ann-title">Node Row Anatomy — 36px height</div>
+        <div class="ann-ref">UI Design §5.1</div>
+        <div class="ann-desc">
+          Row height: exactly 36px. Structure: <code>[indent][chevron 12px][type-icon 16px][name flex:1][status-badge 8px][wc-bar 36px][hover-actions]</code>. Indent: 16px per depth level (compresses to 12px at depth 5+). Chevron: 8° animated on toggle. Type icon: 16px Lucide. Node name: Inter 400 12px, truncates with ellipsis. Hover actions fade in on hover: Agent button, Add child, More (⋯). Touch target on tablet: 44px minimum.
+        </div>
+      </div>
+    </div>
+
+    <div class="annotation-item">
+      <div class="ann-num">7</div>
+      <div class="ann-body">
+        <div class="ann-title">Active Node — Verdigris Left Border</div>
+        <div class="ann-ref">UI Design §5.3 · Brand Identity §4.4 · §10.5 Inviolable II</div>
+        <div class="ann-desc">
+          Background: <code>--color-bg-active-node</code> (<code>#1f2d45</code>). Left border: <code>2px solid --color-accent</code> (<code>#3d7858</code>). Name: <code>--color-text-primary</code>, Inter 500. <span class="inviolable">This is the second sanctioned use of verdigris — the active node marks where the author is working. The four permitted uses: (1) wordmark lozenge, (2) wordmark rule, (3) agent-complete status, (4) prose cursor. Active node border also uses the accent. Treat as a fifth sanctioned use specific to the tree.</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="annotation-item">
+      <div class="ann-num">8</div>
+      <div class="ann-body">
+        <div class="ann-title">Agent Running State — Breathing Animation</div>
+        <div class="ann-ref">UI Design §5.4 · Brand Identity §7.2</div>
+        <div class="ann-desc">
+          When an agent job runs on a node: the type icon gets a breathing animation — <code>opacity: 1 → 0.4 → 1</code>, 2s ease-in-out, infinite. Status badge changes to <code>--color-agent-running</code> (<code>#2e5a90</code>). In Director Mode with active workflow: step indicators <code>◌ ⟳ ✓ ✗</code> replace the status badge on affected nodes only. Animation is the only unsolicited motion in the tree. It is calm, not urgent.
+        </div>
+      </div>
+    </div>
+
+    <div class="annotation-item">
+      <div class="ann-num">9</div>
+      <div class="ann-body">
+        <div class="ann-title">Status Badges — Exact Colour Values</div>
+        <div class="ann-ref">UI Design §5.1 · Brand Identity §4.3</div>
+        <div class="ann-desc">
+          Badge: 8×8px filled circle, right-aligned after node name. Values: <code>draft: #4a6080</code> (blue-grey, neutral), <code>in_review: #b87030</code> (amber, attention), <code>approved: #3d7858</code> (verdigris — same as accent, intentional: completion = the mark that endures), <code>locked: #6a3888</code> (purple) with lock icon replacing type icon. These are the CSS token values — do not use the old palette (<code>#555d77</code>, <code>#c9882a</code>, <code>#3a8a5f</code>).
+        </div>
+      </div>
+    </div>
+
+    <div class="annotation-item">
+      <div class="ann-num">10</div>
+      <div class="ann-body">
+        <div class="ann-title">Detail Panel Header — Breadcrumb + Tabs</div>
+        <div class="ann-ref">UI Design §6.1 · Brand Identity §9 (Voice)</div>
+        <div class="ann-desc">
+          Node title: Inter 600 14px. Breadcrumb: Inter 300 11px <code>--color-text-muted</code>, each segment clickable (opens that ancestor). Tab strip: Inter 400/500 12px. Active tab underline: 2px <code>--color-accent</code> (verdigris). Comments tab: orange dot badge when unresolved comments exist. History tab: grey number badge when versions exist. Agent tab: only visible when node has content (progressive disclosure per Brand Identity §10.2).
+        </div>
+      </div>
+    </div>
+
+    <div class="annotation-item">
+      <div class="ann-num">11</div>
+      <div class="ann-body">
+        <div class="ann-title">Summary Editor — Inter (structural text)</div>
+        <div class="ann-ref">UI Design §6.2 · §3.3.1 · Brand Identity §5.3</div>
+        <div class="ann-desc">
+          Font: Inter 400, 13px, line-height 1.55. Background: <code>--color-bg-base</code>. Border: 1px <code>--color-border-subtle</code>. Toolbar: Bold | Italic | Bullet list | Numbered list only — no headings, no colours. Auto-expands with content. Character count in bottom corner. <span class="critical">This field uses Inter deliberately — it is planning text, not manuscript. The typeface distinction is the UX signal that you are outside the work, not inside it.</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="annotation-item">
+      <div class="ann-num">12</div>
+      <div class="ann-body">
+        <div class="ann-title">Prose Editor — Lora (manuscript surface)</div>
+        <div class="ann-ref">UI Design §6.2 · §3.3.2 · §9.1 · Brand Identity §5.3 · §6.2</div>
+        <div class="ann-desc">
+          Font: Lora 400, 16px in panel (18px in Focus Mode), line-height 1.85. Column: max 620px (66ch at 18px). Background: <code>--color-bg-base</code>. Border: 1px <code>--color-border-default</code> (slightly stronger than summary). Left-aligned, ragged right, never justified. Paragraph gap: 1.25em margin-bottom. No first-line indent. Side margins: min 48px. Bottom margin: 120px minimum. <span class="critical">The typeface change Inter→Lora is the primary mode signal. It communicates: you are inside the work.</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="annotation-item">
+      <div class="ann-num">13</div>
+      <div class="ann-body">
+        <div class="ann-title">Verdigris Cursor — Inviolable II</div>
+        <div class="ann-ref">Brand Identity §6.3 · §10.5 Inviolable II · UI Design §9.2</div>
+        <div class="ann-desc">
+          Width: 2px. Colour: <code>--color-accent</code> (<code>#3d7858</code> verdigris). Blink cycle: 600ms on / 400ms off. <span class="critical">No blink while actively typing — blink resumes 1200ms after last keystroke.</span> Height: cap height of current line (not full line-height). This is one of the Four Inviolables — verdigris marks the point of inscription, where the permanent mark is being made right now. Never use system default cursor in the prose editor.
+        </div>
+      </div>
+    </div>
+
+    <div class="annotation-item">
+      <div class="ann-num">14</div>
+      <div class="ann-body">
+        <div class="ann-title">Word Count — Observer, Not Monitor</div>
+        <div class="ann-ref">Brand Identity §6.7 · UI Design §9.3</div>
+        <div class="ann-desc">
+          Position: bottom of prose column, right-aligned, inside column. Font: Inter 300 11px <code>--color-text-muted</code>. <span class="critical">Opacity 0 while typing and for 3 seconds after last keystroke.</span> Fades to opacity 0.4 over 800ms after inactivity (easing: <code>--easing-prose</code>). Hover: opacity 0.9. With target set: shows <code>87 / 400</code> — below target: first number in <code>--color-text-secondary</code>; at/above target: first number in <code>--color-accent</code>. The word count observes; it does not monitor.
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════
+     SECTION 3: CLAUDE CODE IMPLEMENTATION SPECIFICATION
+     ══════════════════════════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-label">03 — Claude Code Implementation Specification · Read this before writing any component</div>
+</div>
+
+<div class="spec-section">
+
+  <!-- Layout -->
+  <div class="spec-block">
+    <div class="spec-block-header">
+      Edit Mode Layout
+      <span class="spec-block-ref">UI Design §4.1 · Component: AppShell, Header, Sidebar</span>
+    </div>
+    <table class="spec-table">
+      <tr><th>Element</th><th>Value</th><th>Notes</th></tr>
+      <tr><td>Viewport minimum</td><td><code>1280px</code> width</td><td>Below 1024px → tablet layout (see Wireframe 4: Tablet)</td></tr>
+      <tr><td>Header height</td><td><code>48px</code> fixed</td><td>Never changes. flex-shrink: 0. z-index: 10.</td></tr>
+      <tr><td>Header background</td><td><code>--color-bg-surface</code></td><td>Slightly above base — differentiated from panels</td></tr>
+      <tr><td>Header bottom border</td><td><code>1px solid --color-border-subtle</code></td><td></td></tr>
+      <tr><td>Sidebar width</td><td><code>220px</code> fixed</td><td>Collapsible to 48px icon rail via user action. State persists in localStorage.</td></tr>
+      <tr><td>Detail panel width</td><td><code>380px</code> fixed</td><td>User-resizable. Min: 320px. Max: 540px. Persists in localStorage.</td></tr>
+      <tr><td>Node tree</td><td>flex: 1 (fills remaining)</td><td>Min: 320px. Comfortable at 420–600px.</td></tr>
+      <tr><td>Panel resize handles</td><td>4px wide, visible on hover</td><td>On panel borders only. Colour: <code>--color-border-default</code> on hover.</td></tr>
+      <tr><td>Body background</td><td><code>--color-bg-base</code></td><td>The deepest colour — fills the content area</td></tr>
+    </table>
+  </div>
+
+  <!-- Wordmark -->
+  <div class="spec-block">
+    <div class="spec-block-header">
+      Wordmark Component
+      <span class="spec-block-ref">Brand Identity §3.2–3.5 · Inviolable III</span>
+    </div>
+    <table class="spec-table">
+      <tr><th>Element</th><th>Value</th><th>Notes</th></tr>
+      <tr><td>STELA component</td><td>Cinzel 500, 15px, tracking 0.18em, uppercase</td><td><span class="inviolable">Cinzel appears ONLY here. Never in any other UI element.</span></td></tr>
+      <tr><td>vox component</td><td>Cormorant Garamond italic 300, 17px, tracking 0.08em, lowercase</td><td>opacity: 0.82. Sits at same baseline as STELA.</td></tr>
+      <tr><td>Rule</td><td>1px, width 88px</td><td>gradient: <code>var(--verd) → rgba(61,120,88,0.3) at 40% → transparent at 80%</code></td></tr>
+      <tr><td>Lozenge mark</td><td>7×7px, <code>transform: rotate(45deg)</code></td><td>Fill: <code>var(--verd)</code>. Position: absolute, left:-2px, top:-3px relative to rule start.</td></tr>
+      <tr><td>Link target</td><td>Links to project dashboard</td><td></td></tr>
+    </table>
+  </div>
+
+  <!-- Node Tree -->
+  <div class="spec-block">
+    <div class="spec-block-header">
+      Node Tree Rows
+      <span class="spec-block-ref">UI Design §5.1–5.4 · Component: NodeRow, NodeStatusBadge, AgentActivityIndicator</span>
+    </div>
+    <table class="spec-table">
+      <tr><th>Property</th><th>Value</th><th>Notes</th></tr>
+      <tr><td>Row height (desktop)</td><td><code>36px</code></td><td>Exactly 36px. 44px on tablet (touch targets).</td></tr>
+      <tr><td>Indent per level</td><td><code>16px</code></td><td>Compresses to 12px at depth 5+</td></tr>
+      <tr><td>Chevron</td><td>12px wide, 8px font</td><td>Animates 90° on toggle. Right-pointing = collapsed.</td></tr>
+      <tr><td>Type icon</td><td>16px Lucide icon</td><td>book→BookOpen, act→Layers, chapter→FileText, scene→Film, beat→Zap, locked→Lock (replaces type icon)</td></tr>
+      <tr><td>Node name font</td><td>Inter 400 12px</td><td>Active: Inter 500. Truncate with ellipsis on overflow.</td></tr>
+      <tr><td>Status badge</td><td>8×8px circle</td><td>draft: <code>#4a6080</code>, in_review: <code>#b87030</code>, approved: <code>#3d7858</code>, locked: <code>#6a3888</code></td></tr>
+      <tr><td>Active node bg</td><td><code>--color-bg-active-node</code> (#1f2d45)</td><td>2px left border: <code>--color-accent</code></td></tr>
+      <tr><td>Agent running icon</td><td>opacity: 1→0.4→1, 2s ease-in-out, infinite</td><td>CSS animation only on the type icon. Status badge: <code>#2e5a90</code></td></tr>
+      <tr><td>Word count bar</td><td>36px wide, 3px tall, leaf nodes only</td><td>Background: <code>--color-border-subtle</code>. Fill: <code>--color-accent-muted</code>. Only shown when target set.</td></tr>
+      <tr><td>Hover actions</td><td>opacity 0 → 1 on row hover</td><td>Three buttons: Agent, Add child, More (⋯). Font: Inter 400 9px.</td></tr>
+    </table>
+  </div>
+
+  <!-- Detail Panel -->
+  <div class="spec-block">
+    <div class="spec-block-header">
+      Detail Panel — Content Tab
+      <span class="spec-block-ref">UI Design §6.1–6.2 · Component: NodeDetailPanel, SummaryEditor, ProseEditor</span>
+    </div>
+    <table class="spec-table">
+      <tr><th>Element</th><th>Value</th><th>Notes</th></tr>
+      <tr><td>Tab active indicator</td><td>2px bottom border, <code>--color-accent</code></td><td>Tab font: Inter 500 12px when active, 400 when inactive.</td></tr>
+      <tr><td>Comments badge</td><td>5px dot, <code>--color-status-review</code></td><td>Only visible when unresolved comments exist.</td></tr>
+      <tr><td>Agent tab visibility</td><td>Hidden until node has content</td><td><span class="critical">Progressive disclosure — see Brand Identity §10.2</span></td></tr>
+      <tr><td>Field label style</td><td>Inter 500 10px, tracking 0.2em, uppercase, <code>--color-text-muted</code></td><td></td></tr>
+      <tr><td>Summary editor font</td><td>Inter 400, 13px, line-height 1.55</td><td>Tiptap. Toolbar: Bold, Italic, Bullet, Number only.</td></tr>
+      <tr><td>Prose editor font</td><td><span class="inviolable">Lora 400, 16px in panel, 18px in Focus Mode</span></td><td>line-height: 1.85. Max-width: 620px column. Left-aligned, ragged right.</td></tr>
+      <tr><td>Prose editor background</td><td><code>--color-bg-base</code></td><td><span class="critical">Always the deepest background. Never lighter.</span></td></tr>
+      <tr><td>Prose cursor</td><td>2px solid <code>--color-accent</code> (#3d7858)</td><td>600ms on / 400ms off. No blink while typing. Resume after 1200ms.</td></tr>
+      <tr><td>Word count opacity</td><td>0 while typing; 0.4 after 3s pause; 0.9 on hover</td><td>Transition: 800ms --easing-prose. Inter 300 11px.</td></tr>
+      <tr><td>Focus Mode button</td><td>Border: <code>--color-border-subtle</code>, Inter 400 11px</td><td>Shortcut label: ⌘↵. Enters Focus Mode on this node's prose field.</td></tr>
+    </table>
+  </div>
+
+  <!-- Keyboard shortcuts -->
+  <div class="spec-block">
+    <div class="spec-block-header">
+      Keyboard Shortcuts — Edit Mode
+      <span class="spec-block-ref">Brand Identity §10.3 · §10.4 · UI Design §9.3</span>
+    </div>
+    <table class="spec-table">
+      <tr><th>Shortcut</th><th>Action</th><th>From</th></tr>
+      <tr><td><code>⌘Return</code></td><td>Enter Focus Mode on current prose node</td><td>Anywhere in Edit Mode</td></tr>
+      <tr><td><code>⌘.</code></td><td>Switch to Director Mode</td><td>Anywhere in Edit Mode</td></tr>
+      <tr><td><code>⌘K</code></td><td>Open command palette</td><td>Anywhere</td></tr>
+      <tr><td><code>⌘E</code></td><td>Expand current node (agent operation)</td><td>Node selected</td></tr>
+      <tr><td><code>⌘S</code></td><td>Synthesise prose (current leaf node)</td><td>Prose node selected</td></tr>
+      <tr><td><code>↑ ↓</code></td><td>Move selection up/down in tree</td><td>Tree focused</td></tr>
+      <tr><td><code>→ ←</code></td><td>Expand / collapse node in tree</td><td>Tree focused</td></tr>
+      <tr><td><code>⌘1</code></td><td>Focus tree panel</td><td>Anywhere</td></tr>
+      <tr><td><code>⌘2</code></td><td>Focus detail panel</td><td>Anywhere</td></tr>
+    </table>
+  </div>
+
+  <!-- Three Inviolables -->
+  <div class="spec-block">
+    <div class="spec-block-header">
+      The Three Inviolables — Claude Code Must Enforce These Throughout
+      <span class="spec-block-ref">Brand Identity §10.5</span>
+    </div>
+    <table class="spec-table">
+      <tr><th>Inviolable</th><th>Rule</th><th>How to check</th></tr>
+      <tr>
+        <td><span class="inviolable">I — Prose surface</span></td>
+        <td>The prose editor background is always <code>--color-bg-base</code> (#0d1014 dark / #f2ede4 light). Never a lighter surface. Never elevated.</td>
+        <td>Search codebase for <code>ProseEditor</code> background declarations — must all resolve to <code>--color-bg-base</code>.</td>
+      </tr>
+      <tr>
+        <td><span class="inviolable">II — Verdigris accent</span></td>
+        <td><code>--color-accent</code> (#3d7858) appears in exactly these places: (1) wordmark lozenge, (2) wordmark rule, (3) agent-complete status badge, (4) prose cursor, (5) active node left border. No other uses.</td>
+        <td>Search codebase for <code>--color-accent</code> and <code>#3d7858</code> — every occurrence must be one of these five. Any other use is wrong.</td>
+      </tr>
+      <tr>
+        <td><span class="inviolable">III — Cinzel</span></td>
+        <td>Cinzel font appears only in the <code>Wordmark</code> component. Never in any other component.</td>
+        <td>Search codebase for <code>Cinzel</code> — must appear in exactly one component file.</td>
+      </tr>
+    </table>
+  </div>
+
+  <!-- Design tokens quick reference -->
+  <div class="spec-block">
+    <div class="spec-block-header">
+      Design Token Quick Reference — Dark Mode
+      <span class="spec-block-ref">Brand Identity §4.3 · UI Design §3.2</span>
+    </div>
+    <table class="spec-table">
+      <tr><th>Token</th><th>Dark Mode Value</th><th>Light Mode Value</th><th>Used for</th></tr>
+      <tr><td><code>--color-bg-base</code></td><td><code>#0d1014</code></td><td><code>#f2ede4</code></td><td>App frame, Focus Mode, prose editor</td></tr>
+      <tr><td><code>--color-bg-surface</code></td><td><code>#131820</code></td><td><code>#f8f5ee</code></td><td>Sidebar, header, panel backgrounds</td></tr>
+      <tr><td><code>--color-bg-elevated</code></td><td><code>#1a2030</code></td><td><code>#ffffff</code></td><td>Modals, dropdowns, popovers</td></tr>
+      <tr><td><code>--color-bg-hover</code></td><td><code>#1e2838</code></td><td><code>#ede8dc</code></td><td>Row hover states</td></tr>
+      <tr><td><code>--color-bg-selected</code></td><td><code>#1f2d45</code></td><td><code>#e0dbd0</code></td><td>Selected states, user message bubbles</td></tr>
+      <tr><td><code>--color-bg-active-node</code></td><td><code>#1f2d45</code></td><td><code>#e0dbd0</code></td><td>Currently open node in tree</td></tr>
+      <tr><td><code>--color-border-subtle</code></td><td><code>#1e2535</code></td><td><code>#e0d8cc</code></td><td>Panel dividers, field borders (quiet)</td></tr>
+      <tr><td><code>--color-border-default</code></td><td><code>#253045</code></td><td><code>#d4ccbc</code></td><td>Standard borders, prose editor border</td></tr>
+      <tr><td><code>--color-border-strong</code></td><td><code>#3a4a62</code></td><td><code>#b8a898</code></td><td>Focus rings, emphasis borders</td></tr>
+      <tr><td><code>--color-text-primary</code></td><td><code>#ecf0f5</code></td><td><code>#1e1a12</code></td><td>Main text, prose, active elements</td></tr>
+      <tr><td><code>--color-text-secondary</code></td><td><code>#8aa0b8</code></td><td><code>#6a6050</code></td><td>Labels, metadata, tree names</td></tr>
+      <tr><td><code>--color-text-muted</code></td><td><code>#4a6080</code></td><td><code>#9a9080</code></td><td>Placeholder, secondary labels</td></tr>
+      <tr><td><code>--color-text-disabled</code></td><td><code>#2a3850</code></td><td><code>#c0b8a8</code></td><td>Disabled states only</td></tr>
+      <tr><td><code>--color-accent</code></td><td><code>#3d7858</code></td><td><code>#254a38</code></td><td>⚠ Verdigris — 5 uses only (see Inviolable II)</td></tr>
+      <tr><td><code>--color-accent-hover</code></td><td><code>#5aa87a</code></td><td><code>#3d7858</code></td><td>Accent hover only</td></tr>
+      <tr><td><code>--color-accent-muted</code></td><td><code>#1a3028</code></td><td><code>#deeee6</code></td><td>Prose selection bg, subtle accent fills</td></tr>
+      <tr><td><code>--color-status-draft</code></td><td><code>#4a6080</code></td><td>same</td><td>Draft badge — do NOT use <code>#555d77</code> (old)</td></tr>
+      <tr><td><code>--color-status-review</code></td><td><code>#b87030</code></td><td>same</td><td>Review badge — do NOT use <code>#c9882a</code> (old)</td></tr>
+      <tr><td><code>--color-status-approved</code></td><td><code>#3d7858</code></td><td>same</td><td>Approved badge = verdigris (intentional)</td></tr>
+      <tr><td><code>--color-status-locked</code></td><td><code>#6a3888</code></td><td>same</td><td>Locked badge</td></tr>
+      <tr><td><code>--color-agent-running</code></td><td><code>#2e5a90</code></td><td>same</td><td>Agent in progress</td></tr>
+      <tr><td><code>--color-agent-complete</code></td><td><code>#3d7858</code></td><td>same</td><td>Agent done = verdigris (one of 5 uses)</td></tr>
+    </table>
+  </div>
+
+  <!-- Motion -->
+  <div class="spec-block">
+    <div class="spec-block-header">
+      Motion Values
+      <span class="spec-block-ref">Brand Identity §8.2 · UI Design §3.8</span>
+    </div>
+    <table class="spec-table">
+      <tr><th>Token</th><th>Value</th><th>Used for</th></tr>
+      <tr><td><code>--duration-instant</code></td><td><code>0ms</code></td><td>prefers-reduced-motion. Data updates in tree (status changes, name changes).</td></tr>
+      <tr><td><code>--duration-fast</code></td><td><code>120ms</code></td><td>Hover states, focus rings, badge colour changes</td></tr>
+      <tr><td><code>--duration-normal</code></td><td><code>200ms</code></td><td>Panel switches, dropdown open/close, Edit↔Director transition</td></tr>
+      <tr><td><code>--duration-medium</code></td><td><code>280ms</code></td><td>Edit↔Focus Mode transition</td></tr>
+      <tr><td><code>--duration-slow</code></td><td><code>350ms</code></td><td>Modal entrance/exit</td></tr>
+      <tr><td><code>--duration-prose</code></td><td><code>600ms</code></td><td>Sentence focus fade — must feel gradual, not snappy</td></tr>
+      <tr><td><code>--duration-wordcount</code></td><td><code>800ms</code></td><td>Word count fade-in — gentle appearance after typing pause</td></tr>
+      <tr><td><code>--easing-crisp</code></td><td><code>cubic-bezier(0.4, 0, 1, 1)</code></td><td>Panels snapping</td></tr>
+      <tr><td><code>--easing-default</code></td><td><code>cubic-bezier(0.16, 1, 0.3, 1)</code></td><td>Expo-out — mode transitions, Focus Mode enter/exit</td></tr>
+      <tr><td><code>--easing-smooth</code></td><td><code>cubic-bezier(0.4, 0, 0.2, 1)</code></td><td>Standard ease — most UI elements</td></tr>
+      <tr><td><code>--easing-prose</code></td><td><code>cubic-bezier(0.25, 0, 0.5, 1)</code></td><td>Gentle — sentence focus fade, word count fade</td></tr>
+      <tr><td colspan="3"><span class="note">All animations: must respect <code>prefers-reduced-motion</code> by mapping to <code>--duration-instant</code> / no transform.</span></td></tr>
+    </table>
+  </div>
+
+  <!-- Component list -->
+  <div class="spec-block">
+    <div class="spec-block-header">
+      Components to Build — Edit Mode (Phase 1 Scope)
+      <span class="spec-block-ref">UI Design §12.1–12.3</span>
+    </div>
+    <table class="spec-table">
+      <tr><th>Component</th><th>File</th><th>Dependencies</th></tr>
+      <tr><td>AppShell</td><td><code>components/layout/AppShell.tsx</code></td><td>Header, Sidebar, PanelResizer</td></tr>
+      <tr><td>Header</td><td><code>components/layout/Header.tsx</code></td><td>Wordmark, ModeTabBar, CommandPalette trigger</td></tr>
+      <tr><td>Wordmark</td><td><code>components/brand/Wordmark.tsx</code></td><td><span class="inviolable">Cinzel font — this is the ONLY component that uses Cinzel</span></td></tr>
+      <tr><td>Sidebar</td><td><code>components/layout/Sidebar.tsx</code></td><td>ContextLibrary, ProjectNav</td></tr>
+      <tr><td>NodeTree</td><td><code>components/tree/NodeTree.tsx</code></td><td>react-arborist, NodeRow, LayerDivider, TreeToolbar</td></tr>
+      <tr><td>NodeRow</td><td><code>components/tree/NodeRow.tsx</code></td><td>NodeStatusBadge, AgentActivityIndicator, WordCountBar</td></tr>
+      <tr><td>NodeStatusBadge</td><td><code>components/tree/NodeStatusBadge.tsx</code></td><td>None — renders coloured dot</td></tr>
+      <tr><td>AgentActivityIndicator</td><td><code>components/tree/AgentActivityIndicator.tsx</code></td><td>CSS animation only</td></tr>
+      <tr><td>NodeDetailPanel</td><td><code>components/detail/NodeDetailPanel.tsx</code></td><td>NodeBreadcrumb, TabStrip, ContentTab, AgentTab, CommentsTab, HistoryTab, ContextTab</td></tr>
+      <tr><td>SummaryEditor</td><td><code>components/detail/SummaryEditor.tsx</code></td><td>Tiptap — Inter font, minimal toolbar</td></tr>
+      <tr><td>ProseEditor</td><td><code>components/detail/ProseEditor.tsx</code></td><td>Tiptap — <span class="inviolable">Lora font, verdigris cursor, word count logic</span></td></tr>
+      <tr><td>CommandPalette</td><td><code>components/nav/CommandPalette.tsx</code></td><td>⌘K trigger, node search, command list</td></tr>
+      <tr><td>ModeTabBar</td><td><code>components/layout/ModeTabBar.tsx</code></td><td>⌘. shortcut binding</td></tr>
+      <tr><td>PanelResizer</td><td><code>components/layout/PanelResizer.tsx</code></td><td>Drag-resize with localStorage persistence</td></tr>
+    </table>
+  </div>
+
+</div>
+
+</body>
+</html>

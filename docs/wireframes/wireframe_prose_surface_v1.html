@@ -1,0 +1,1063 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stelavox — Prose Surface Detail Wireframe & Specification v1.0</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500&family=Cormorant+Garamond:ital,wght@1,300&family=Inter:wght@200;300;400;500;600&family=Lora:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  /* Dark mode */
+  --ink:        #0d1014;
+  --deep:       #131820;
+  --surface:    #1a2030;
+  --border-s:   #1e2535;
+  --border-d:   #253045;
+  --text-p:     #ecf0f5;
+  --text-s:     #8aa0b8;
+  --text-m:     #4a6080;
+  --text-dis:   #2a3850;
+  --verd:       #3d7858;
+  --verd-m:     #1a3028;
+
+  /* Light mode */
+  --parch:      #f2ede4;
+  --parch-s:    #f8f5ee;
+  --parch-t:    #1e1a12;
+  --parch-s2:   #6a6050;
+  --parch-m:    #9a9080;
+  --verd-d:     #254a38;
+
+  /* Spec shell */
+  --spec-bg:    #0a0d12;
+  --spec-panel: #111520;
+  --callout:    #e8b840;
+}
+
+body {
+  background: var(--spec-bg);
+  color: var(--text-p);
+  font-family: 'Inter', sans-serif;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+/* ── Header ── */
+.doc-header {
+  background: var(--spec-panel);
+  border-bottom: 1px solid var(--border-d);
+  padding: 24px 48px;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+.wm-stela { font-family:'Cinzel',serif; font-size:14px; font-weight:500; letter-spacing:0.18em; color:var(--text-p); }
+.wm-vox   { font-family:'Cormorant Garamond',serif; font-style:italic; font-weight:300; font-size:16px; letter-spacing:0.08em; color:var(--text-p); opacity:0.82; }
+.doc-meta { font-size:11px; font-weight:300; letter-spacing:0.2em; text-transform:uppercase; color:var(--text-m); }
+
+/* ── Section label ── */
+.section { padding: 40px 48px 0; }
+.section-label {
+  font-size:9px; font-weight:400; letter-spacing:0.45em; text-transform:uppercase;
+  color:var(--text-m); margin-bottom:20px; padding-bottom:12px; border-bottom:1px solid var(--border-s);
+}
+
+/* ── Shared prose text ── */
+.prose {
+  font-family: 'Lora', serif;
+  font-size: 18px;
+  font-weight: 400;
+  line-height: 1.85;
+  color: var(--text-p);
+  text-align: left;
+}
+.prose p { margin-bottom: 1.25em; }
+.prose p:last-child { margin-bottom: 0; }
+
+.prose-light {
+  font-family: 'Lora', serif;
+  font-size: 18px;
+  font-weight: 400;
+  line-height: 1.85;
+  color: var(--parch-t);
+  text-align: left;
+}
+.prose-light p { margin-bottom: 1.25em; }
+
+.inter-summary {
+  font-family: 'Inter', sans-serif;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.55;
+  color: var(--text-p);
+}
+
+/* ── Verdigris cursor ── */
+.vc {
+  display: inline-block;
+  width: 2px;
+  height: 0.82em;
+  background: var(--verd);
+  vertical-align: text-bottom;
+  margin-left: 1px;
+  animation: blink 1s step-end infinite;
+}
+.vc-light {
+  display: inline-block;
+  width: 2px;
+  height: 0.82em;
+  background: var(--verd-d);
+  vertical-align: text-bottom;
+  margin-left: 1px;
+  animation: blink 1s step-end infinite;
+}
+.vc-solid {
+  display: inline-block;
+  width: 2px;
+  height: 0.82em;
+  background: var(--verd);
+  vertical-align: text-bottom;
+  margin-left: 1px;
+}
+@keyframes blink {
+  0%,59%  { opacity:1; }
+  60%,100%{ opacity:0; }
+}
+
+/* ── Selection styling ── */
+.sel {
+  background: rgba(26,48,40,0.6); /* --color-accent-muted at 60% */
+  border-radius: 1px;
+}
+
+/* ── Callout numbers ── */
+.cn {
+  display:inline-flex; align-items:center; justify-content:center;
+  width:18px; height:18px; background:var(--callout); color:#0a0800;
+  border-radius:50%; font-size:10px; font-weight:700; font-family:'Inter',sans-serif;
+  flex-shrink:0;
+}
+.cn-abs {
+  position:absolute;
+  display:inline-flex; align-items:center; justify-content:center;
+  width:18px; height:18px; background:var(--callout); color:#0a0800;
+  border-radius:50%; font-size:10px; font-weight:700; font-family:'Inter',sans-serif;
+  z-index:10;
+}
+
+/* ══════════════════════════════════════════════════════════
+   SECTION 1 — FULL-SCALE PROSE COLUMNS
+   ══════════════════════════════════════════════════════════ */
+.full-scale-grid {
+  padding: 40px 48px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 3px;
+}
+
+.prose-demo {
+  background: var(--ink);
+  padding: 48px 60px 80px;
+  position: relative;
+}
+
+.prose-demo-light {
+  background: var(--parch);
+  padding: 48px 60px 80px;
+  position: relative;
+}
+
+/* The actual 620px column — centred within the demo panel */
+.prose-column {
+  max-width: 620px;
+  margin: 0 auto;
+  position: relative;
+}
+
+/* Measurement guides — faint lines showing the grid */
+.measure-top {
+  position: absolute;
+  top: -20px;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: rgba(232,184,64,0.12);
+}
+.measure-label {
+  position: absolute;
+  top: -30px;
+  right: 0;
+  font-size: 9px;
+  font-weight: 300;
+  color: var(--callout);
+  font-family: 'Inter', sans-serif;
+  opacity: 0.6;
+  letter-spacing: 0.08em;
+}
+
+/* Word count */
+.wc-demo {
+  font-family: 'Inter', sans-serif;
+  font-size: 11px;
+  font-weight: 300;
+  color: var(--text-m);
+  text-align: right;
+  margin-top: 16px;
+  opacity: 0.4;
+}
+.wc-demo-light {
+  font-family: 'Inter', sans-serif;
+  font-size: 11px;
+  font-weight: 300;
+  color: var(--parch-m);
+  text-align: right;
+  margin-top: 16px;
+  opacity: 0.4;
+}
+
+/* Panel header labels */
+.demo-header {
+  font-size: 9px;
+  font-weight: 400;
+  letter-spacing: 0.35em;
+  text-transform: uppercase;
+  margin-bottom: 28px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid;
+}
+.demo-header.dark-mode  { color:var(--text-m); border-color:var(--border-s); }
+.demo-header.light-mode { color:var(--parch-m); border-color:rgba(0,0,0,0.1); }
+
+/* ══════════════════════════════════════════════════════════
+   SECTION 2 — THE TYPEFACE TRANSITION SIGNAL
+   ══════════════════════════════════════════════════════════ */
+.signal-demo {
+  padding: 40px 48px;
+}
+
+.signal-panel {
+  background: var(--deep);
+  border: 1px solid var(--border-s);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.signal-header {
+  background: var(--ink);
+  padding: 8px 20px;
+  border-bottom: 1px solid var(--border-s);
+  font-size: 9px;
+  font-weight: 400;
+  letter-spacing: 0.38em;
+  text-transform: uppercase;
+  color: var(--text-m);
+}
+
+.signal-body {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+}
+
+.signal-col {
+  padding: 24px 28px;
+  position: relative;
+}
+.signal-col:first-child {
+  border-right: 1px solid var(--border-s);
+}
+
+.signal-field-label {
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--text-m);
+  margin-bottom: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.signal-font-tag {
+  font-size: 9px;
+  font-weight: 300;
+  letter-spacing: 0.1em;
+  text-transform: none;
+  font-style: italic;
+  color: var(--callout);
+  opacity: 0.8;
+}
+
+.signal-editor-inter {
+  background: var(--ink);
+  border: 1px solid var(--border-s);
+  border-radius: 3px;
+  padding: 12px 14px;
+}
+
+.signal-editor-lora {
+  background: var(--ink);
+  border: 1px solid var(--border-d);
+  border-radius: 3px;
+  padding: 14px 16px;
+}
+
+/* Boundary arrow */
+.signal-boundary {
+  grid-column: 1 / -1;
+  padding: 10px 28px;
+  background: rgba(61,120,88,0.06);
+  border-top: 1px solid rgba(61,120,88,0.2);
+  border-bottom: 1px solid rgba(61,120,88,0.2);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 11px;
+  font-weight: 300;
+  color: var(--verd);
+  font-style: italic;
+}
+
+/* ══════════════════════════════════════════════════════════
+   SECTION 3 — COMPONENT DETAILS
+   ══════════════════════════════════════════════════════════ */
+.components-grid {
+  padding: 0 48px 40px;
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 3px;
+}
+
+.comp-panel {
+  background: var(--spec-panel);
+  border: 1px solid var(--border-s);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.comp-title {
+  font-size: 10px; font-weight:500; letter-spacing:0.3em; text-transform:uppercase; color:var(--text-s);
+  padding-bottom: 10px; border-bottom: 1px solid var(--border-s);
+}
+.comp-body {
+  font-size: 11px; font-weight:300; color:var(--text-m); line-height:1.6;
+}
+.comp-body code {
+  background:var(--ink); padding:1px 5px; border-radius:2px;
+  font-family:'SF Mono','Fira Code',monospace; font-size:10px; color:var(--callout);
+}
+
+/* Selection tooltip demo */
+.sel-tooltip {
+  background: var(--surface);
+  border: 1px solid var(--border-d);
+  border-radius: 5px;
+  padding: 5px 2px;
+  display: inline-flex;
+  gap: 0;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+}
+.sel-btn {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-s);
+  padding: 4px 12px;
+  cursor: pointer;
+  border-right: 1px solid var(--border-s);
+  font-family: 'Inter', sans-serif;
+  letter-spacing: 0.02em;
+}
+.sel-btn:last-child { border-right: none; }
+.sel-btn:hover { color: var(--text-p); }
+
+/* Scrollbar demo */
+.scrollbar-demo {
+  background: var(--ink);
+  border-radius: 3px;
+  padding: 12px;
+  height: 120px;
+  position: relative;
+  overflow: hidden;
+  font-family: 'Lora', serif;
+  font-size: 14px;
+  line-height: 1.85;
+  color: var(--text-p);
+}
+.fake-scrollbar {
+  position: absolute;
+  right: 3px;
+  top: 15%;
+  width: 3px;
+  height: 35%;
+  background: #3a4a62;
+  border-radius: 2px;
+}
+
+/* Word count states demo */
+.wc-states {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 2px;
+}
+.wc-state {
+  background: var(--ink);
+  padding: 10px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.wc-state-label {
+  font-size: 8px;
+  font-weight: 400;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  color: var(--text-dis);
+}
+.wc-val {
+  font-family: 'Inter', sans-serif;
+  font-size: 12px;
+  font-weight: 300;
+  color: var(--text-m);
+  font-style: normal;
+}
+
+/* ══════════════════════════════════════════════════════════
+   ANNOTATIONS
+   ══════════════════════════════════════════════════════════ */
+.annotations { padding: 0 48px 40px; }
+.ann-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2px;
+}
+.ann-item {
+  background: var(--spec-panel);
+  padding: 16px 18px;
+  display: flex;
+  gap: 14px;
+}
+.ann-num {
+  display:inline-flex; align-items:center; justify-content:center;
+  width:22px; height:22px; min-width:22px;
+  background:var(--callout); color:#0a0800; border-radius:50%;
+  font-size:11px; font-weight:700; font-family:'Inter',sans-serif;
+}
+.ann-body { flex:1; }
+.ann-title { font-size:12px; font-weight:600; color:var(--text-p); margin-bottom:4px; }
+.ann-ref { font-size:10px; font-weight:400; letter-spacing:0.15em; color:var(--verd); margin-bottom:6px; text-transform:uppercase; }
+.ann-desc { font-size:11px; font-weight:300; color:var(--text-s); line-height:1.6; }
+.ann-desc code { background:var(--ink); padding:1px 5px; border-radius:2px; font-family:'SF Mono','Fira Code',monospace; font-size:10px; color:var(--callout); }
+.critical { color:#b87030; font-weight:500; }
+.inviolable { color:var(--verd); font-weight:500; }
+
+/* ══════════════════════════════════════════════════════════
+   SPEC TABLES
+   ══════════════════════════════════════════════════════════ */
+.spec-section { padding: 0 48px 80px; }
+.spec-block { background:var(--spec-panel); border:1px solid var(--border-s); border-radius:4px; margin-bottom:2px; overflow:hidden; }
+.spec-block-header { padding:12px 20px; background:var(--ink); border-bottom:1px solid var(--border-s); font-size:11px; font-weight:600; letter-spacing:0.25em; text-transform:uppercase; color:var(--text-p); display:flex; justify-content:space-between; align-items:center; }
+.spec-block-ref { font-size:10px; font-weight:300; letter-spacing:0.1em; color:var(--verd); }
+.spec-table { width:100%; border-collapse:collapse; }
+.spec-table th { font-size:10px; font-weight:500; letter-spacing:0.2em; text-transform:uppercase; color:var(--text-m); text-align:left; padding:8px 20px; border-bottom:1px solid var(--border-s); background:rgba(255,255,255,0.01); }
+.spec-table td { font-size:11px; font-weight:300; color:var(--text-s); padding:7px 20px; border-bottom:1px solid var(--border-s); vertical-align:top; }
+.spec-table tr:last-child td { border-bottom:none; }
+.spec-table td:first-child { color:var(--text-p); font-weight:400; min-width:200px; }
+.spec-table td code { background:var(--ink); padding:1px 5px; border-radius:2px; font-family:'SF Mono','Fira Code',monospace; font-size:10px; color:var(--callout); }
+.spec-table .note { font-size:10px; font-style:italic; color:var(--text-m); margin-top:2px; }
+.spec-table .critical { color:#b87030; font-weight:500; }
+.spec-table .inviolable { color:var(--verd); font-weight:500; }
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="doc-header">
+  <div>
+    <div style="display:flex;align-items:baseline;">
+      <span class="wm-stela">Stela</span><span class="wm-vox">vox</span>
+    </div>
+    <div style="margin-top:6px;font-size:11px;font-weight:300;letter-spacing:0.2em;text-transform:uppercase;color:var(--text-m);">
+      Prose Surface Detail — Annotated Wireframe & Claude Code Specification · v1.0
+    </div>
+  </div>
+  <div class="doc-meta">Companion: Brand Identity v1.1 · UI Design v0.3.1 · Wireframes 1 & 2</div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     SECTION 1 — FULL-SCALE PROSE COLUMNS
+     ══════════════════════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-label">01 — Full-Scale Prose Columns · Dark Mode & Light Mode · 18px Lora · 1.85 line-height · 620px</div>
+</div>
+
+<div class="full-scale-grid">
+
+  <!-- DARK MODE -->
+  <div class="prose-demo">
+    <div class="demo-header dark-mode">Dark Mode · --color-bg-base #0d1014</div>
+
+    <!-- Callout markers -->
+    <div class="cn-abs" style="top:56px;right:20px;">1</div>
+    <div class="cn-abs" style="top:140px;right:20px;">2</div>
+    <div class="cn-abs" style="bottom:60px;right:20px;">5</div>
+
+    <div class="prose-column">
+      <div class="measure-top"></div>
+      <div class="measure-label">max-width: 620px</div>
+
+      <div class="prose">
+        <p>The letter was not where she had left it.</p>
+        <p>It was simply missing one thing.</p>
+        <p>Elena stood at the cabinet for a long moment, her hand still on the handle, her eyes moving across the papers she had not disturbed — the receipts, the folded maps, the rubber-banded correspondence she had memorised on the first visit — and confirmed what her hand had already told her.</p>
+        <p>The space where the letter had been was empty. Not gone. Not stolen. Simply absent, in the way that all important things are absent when they are most needed.<span class="vc"></span></p>
+      </div>
+      <div class="wc-demo">87 / 400</div>
+    </div>
+  </div>
+
+  <!-- LIGHT MODE -->
+  <div class="prose-demo-light">
+    <div class="demo-header light-mode">Light Mode · --color-bg-base #f2ede4</div>
+
+    <!-- Callout markers -->
+    <div class="cn-abs" style="top:56px;right:20px;">3</div>
+    <div class="cn-abs" style="top:140px;right:20px;">4</div>
+    <div class="cn-abs" style="bottom:60px;right:20px;">5</div>
+
+    <div class="prose-column">
+      <div class="measure-top" style="background:rgba(37,74,56,0.15);"></div>
+      <div class="measure-label" style="color:var(--verd-d);opacity:0.5;">max-width: 620px</div>
+
+      <div class="prose-light">
+        <p>The letter was not where she had left it.</p>
+        <p>It was simply missing one thing.</p>
+        <p>Elena stood at the cabinet for a long moment, her hand still on the handle, her eyes moving across the papers she had not disturbed — the receipts, the folded maps, the rubber-banded correspondence she had memorised on the first visit — and confirmed what her hand had already told her.</p>
+        <p>The space where the letter had been was empty. Not gone. Not stolen. Simply absent, in the way that all important things are absent when they are most needed.<span class="vc-light"></span></p>
+      </div>
+      <div class="wc-demo-light">87 / 400</div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     SECTION 2 — THE INTER→LORA SIGNAL
+     ══════════════════════════════════════════════════════════ -->
+<div class="section" style="padding-bottom:20px;">
+  <div class="section-label">02 — The Typeface Transition Signal · Inter (structural) vs Lora (prose) · The boundary is the message</div>
+</div>
+
+<div class="signal-demo">
+  <div class="signal-panel">
+    <div class="signal-header">
+      Content Tab · Node Detail Panel · Beat 3: The Letter Is Gone
+    </div>
+
+    <!-- Boundary explanation strip -->
+    <div class="signal-boundary">
+      <span style="font-style:normal;font-weight:500;color:var(--text-s);">↓ Inter above this line — structural planning</span>
+      <span style="margin-left:auto;font-style:normal;font-weight:500;color:var(--text-s);">Lora below this line — manuscript ↓</span>
+    </div>
+
+    <div class="signal-body">
+
+      <!-- Left: Summary (Inter) -->
+      <div class="signal-col">
+        <div class="signal-field-label">
+          Summary
+          <span class="signal-font-tag">Inter 400 · 13px · 1.55lh</span>
+        </div>
+        <div class="signal-editor-inter">
+          <div class="inter-summary">
+            Elena crosses to the third cabinet. She already knows what she will find — or rather, what she will not find. The drawer opens. The space where the letter was is empty. She stands very still.<br><br>
+            <span style="opacity:0.45;">Key: no interior monologue here. Only physical action and the gap where thought should be.</span>
+          </div>
+        </div>
+
+        <div style="margin-top:20px;">
+          <div class="signal-field-label">
+            Short Description
+            <span class="signal-font-tag">Inter 400 · 12px</span>
+          </div>
+          <div style="background:var(--ink);border:1px solid var(--border-s);border-radius:3px;padding:7px 10px;">
+            <div class="inter-summary" style="font-size:12px;color:var(--text-p);">
+              Elena opens the drawer to find the letter gone
+            </div>
+          </div>
+        </div>
+
+        <div style="margin-top:16px;font-size:10px;font-weight:300;color:var(--text-m);line-height:1.6;">
+          <span style="color:var(--callout);">▲ Everything above uses Inter.</span><br>
+          This is planning text. The author is working<br>
+          on structure, not prose. The typeface signals this.
+        </div>
+      </div>
+
+      <!-- Right: Prose (Lora) -->
+      <div class="signal-col">
+        <div class="signal-field-label">
+          Prose
+          <span class="signal-font-tag" style="color:var(--verd);">Lora 400 · 16px in panel · 1.85lh ← SIGNAL</span>
+        </div>
+        <div class="signal-editor-lora">
+          <div class="prose" style="font-size:16px;">
+            The drawer was not empty.<br><br>
+            It was simply missing one thing.<br><br>
+            Elena stood at the cabinet for a long moment<span class="vc" style="height:0.7em;"></span>
+          </div>
+        </div>
+
+        <div style="margin-top:16px;font-family:'Lora',serif;font-size:13px;font-style:italic;color:var(--text-m);line-height:1.6;">
+          ▲ Everything below the Summary uses Lora.<br>
+          The author is inside the manuscript.<br>
+          The typeface change is the signal — silent, immediate.
+        </div>
+
+        <div style="margin-top:12px;display:flex;align-items:center;gap:8px;">
+          <div style="background:var(--surface);border:1px solid var(--border-s);border-radius:3px;padding:4px 10px;font-size:10px;font-weight:400;color:var(--text-m);letter-spacing:0.06em;display:flex;align-items:center;gap:5px;">
+            ⊞ <span>Focus Mode</span> <span style="opacity:0.5;margin-left:3px;font-size:9px;">⌘↵</span>
+          </div>
+          <div style="font-size:10px;font-weight:300;color:var(--text-dis);">
+            Expands prose to full screen
+          </div>
+        </div>
+
+        <div style="text-align:right;font-family:'Inter',sans-serif;font-size:11px;font-weight:300;color:var(--text-m);opacity:0.4;margin-top:8px;">
+          87 / 400 words
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Bottom rule: the critical note -->
+    <div style="padding:12px 28px;background:rgba(0,0,0,0.3);border-top:1px solid var(--border-s);">
+      <div style="font-size:11px;font-weight:300;color:var(--text-m);line-height:1.6;">
+        <span style="color:var(--verd);font-weight:500;">The Inter→Lora boundary is the product's primary UX signal.</span>
+        It communicates silently: you are now inside the work, not outside it managing structure.
+        This boundary must be absolute — no Lora in structural fields, no Inter in prose fields.
+        The font change replaces the need for a mode indicator, a label, or a tooltip.
+        Serious writers will feel this immediately. Most users will feel it without knowing why.
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     SECTION 3 — COMPONENT CLOSE-UPS
+     ══════════════════════════════════════════════════════════ -->
+<div class="section" style="padding-bottom:20px;">
+  <div class="section-label">03 — Component Close-Ups · Cursor · Selection · Word Count · Scrollbar</div>
+</div>
+
+<div class="components-grid">
+
+  <!-- CURSOR CLOSE-UP -->
+  <div class="comp-panel">
+    <div class="comp-title">Verdigris Cursor · Close-Up</div>
+
+    <!-- Three cursor states -->
+    <div style="background:var(--ink);padding:16px 18px;border-radius:3px;display:flex;flex-direction:column;gap:14px;">
+
+      <div>
+        <div style="font-size:8px;font-weight:400;letter-spacing:0.3em;text-transform:uppercase;color:var(--text-m);margin-bottom:8px;">IDLE — blinking 600ms/400ms</div>
+        <div class="prose" style="font-size:15px;">
+          she already knew<span class="vc"></span>
+        </div>
+      </div>
+
+      <div style="height:1px;background:var(--border-s);"></div>
+
+      <div>
+        <div style="font-size:8px;font-weight:400;letter-spacing:0.3em;text-transform:uppercase;color:var(--text-m);margin-bottom:8px;">TYPING — solid, no blink</div>
+        <div class="prose" style="font-size:15px;">
+          she already knew what<span class="vc-solid"></span>
+        </div>
+      </div>
+
+      <div style="height:1px;background:var(--border-s);"></div>
+
+      <div>
+        <div style="font-size:8px;font-weight:400;letter-spacing:0.3em;text-transform:uppercase;color:var(--text-m);margin-bottom:8px;">LIGHT MODE — deep verdigris</div>
+        <div style="background:var(--parch);padding:10px;border-radius:2px;">
+          <div class="prose-light" style="font-size:15px;">
+            she already knew<span class="vc-light"></span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="comp-body">
+      Width: <code>2px</code><br>
+      Dark: <code>#3d7858</code> · Light: <code>#254a38</code><br>
+      Height: cap-height · not line-height<br>
+      Blink: <code>600ms on / 400ms off</code><br>
+      <span class="critical">No blink while typing. Resumes 1200ms after last keydown.</span>
+    </div>
+  </div>
+
+  <!-- SELECTION + TOOLTIP -->
+  <div class="comp-panel">
+    <div class="comp-title">Selection Styling + Tooltip</div>
+
+    <!-- Selection demo -->
+    <div style="background:var(--ink);padding:16px 18px;border-radius:3px;position:relative;">
+
+      <!-- Tooltip above selection -->
+      <div style="display:flex;justify-content:center;margin-bottom:10px;">
+        <div class="sel-tooltip">
+          <div class="sel-btn">B</div>
+          <div class="sel-btn"><em>I</em></div>
+          <div class="sel-btn" style="font-size:11px;">🔗</div>
+        </div>
+      </div>
+
+      <div class="prose" style="font-size:15px;">
+        Elena stood at the cabinet for <span class="sel">a long moment, her hand still on the handle</span>, her eyes moving.
+      </div>
+    </div>
+
+    <div class="comp-body">
+      Selection background: <code>--color-accent-muted</code> at <code>60% opacity</code><br>
+      Dark: <code>rgba(26,48,40,0.6)</code><br>
+      Light: <code>rgba(222,238,230,0.8)</code><br>
+      <br>
+      Tooltip: appears on text selection only<br>
+      Disappears on deselect or cursor move<br>
+      Position: above selection, centred<br>
+      Background: <code>--color-bg-elevated</code><br>
+      Border: <code>1px --color-border-default</code><br>
+      Shadow: <code>--shadow-md</code><br>
+      <br>
+      <span class="critical">No persistent toolbar. Formatting via keyboard shortcuts (⌘B, ⌘I) or this tooltip only.</span>
+    </div>
+  </div>
+
+  <!-- WORD COUNT STATES + SCROLLBAR -->
+  <div class="comp-panel">
+    <div class="comp-title">Word Count States · Scrollbar</div>
+
+    <div class="wc-states">
+      <div class="wc-state">
+        <div class="wc-state-label">Typing</div>
+        <div class="wc-val" style="opacity:0;">87 / 400</div>
+        <div style="font-size:9px;color:var(--text-dis);">opacity: 0</div>
+      </div>
+      <div class="wc-state">
+        <div class="wc-state-label">At rest</div>
+        <div class="wc-val" style="opacity:0.4;">87 / 400</div>
+        <div style="font-size:9px;color:var(--text-dis);">opacity: 0.4</div>
+      </div>
+      <div class="wc-state">
+        <div class="wc-state-label">Hover</div>
+        <div class="wc-val" style="opacity:0.9;">87 / 400</div>
+        <div style="font-size:9px;color:var(--text-dis);">opacity: 0.9</div>
+      </div>
+    </div>
+
+    <!-- At target -->
+    <div style="background:var(--ink);padding:10px;border-radius:3px;text-align:right;">
+      <div style="font-size:8px;font-weight:400;letter-spacing:0.25em;text-transform:uppercase;color:var(--text-m);margin-bottom:6px;">AT TARGET — colour change</div>
+      <div style="font-family:'Inter',sans-serif;font-size:12px;font-weight:300;opacity:0.9;">
+        <span style="color:var(--verd);">400</span>
+        <span style="color:var(--text-m);"> / 400</span>
+      </div>
+    </div>
+
+    <div style="height:1px;background:var(--border-s);"></div>
+
+    <!-- Scrollbar demo -->
+    <div>
+      <div style="font-size:9px;font-weight:400;letter-spacing:0.3em;text-transform:uppercase;color:var(--text-m);margin-bottom:8px;">Scrollbar — 3px, fades after 1.5s</div>
+      <div class="scrollbar-demo">
+        <div class="prose" style="font-size:13px;opacity:0.6;">Elena stood at the cabinet for<br>a long moment, her hand still<br>on the handle, her eyes moving<br>across the papers...</div>
+        <div class="fake-scrollbar"></div>
+      </div>
+      <div class="comp-body" style="margin-top:8px;">
+        Width: <code>3px</code><br>
+        Track: <code>transparent</code><br>
+        Thumb: <code>--color-border-strong</code> (<code>#3a4a62</code>)<br>
+        Appears on scroll · fades after <code>1500ms</code>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     SECTION 4 — PARAGRAPH SPACING RULER
+     ══════════════════════════════════════════════════════════ -->
+<div class="section" style="padding-bottom:20px;">
+  <div class="section-label">04 — Paragraph Spacing & Line Height · Measured</div>
+</div>
+
+<div style="padding: 0 48px 40px;">
+  <div style="background:var(--ink);padding:32px 48px;border-radius:4px;position:relative;overflow:hidden;">
+
+    <!-- Measurement overlays -->
+    <!-- Line height markers -->
+    <div style="position:absolute;left:24px;top:32px;bottom:32px;width:1px;background:rgba(232,184,64,0.12);"></div>
+
+    <!-- Tick marks at each line -->
+    <div style="position:absolute;left:20px;top:32px;width:8px;height:1px;background:rgba(232,184,64,0.3);"></div>
+    <!-- 18px × 1.85 = 33.3px per line — labels added manually below -->
+    <div style="position:absolute;left:20px;top:65px;width:8px;height:1px;background:rgba(232,184,64,0.3);"></div>
+    <div style="position:absolute;left:20px;top:98px;width:8px;height:1px;background:rgba(232,184,64,0.3);"></div>
+
+    <!-- Paragraph gap markers -->
+    <div style="position:absolute;left:20px;top:131px;width:12px;height:1px;background:rgba(61,120,88,0.5);"></div>
+    <div style="position:absolute;left:20px;top:153px;width:12px;height:1px;background:rgba(61,120,88,0.5);"></div>
+    <div style="position:absolute;left:16px;top:131px;width:1px;height:22px;background:rgba(61,120,88,0.3);"></div>
+
+    <!-- Labels -->
+    <div style="position:absolute;left:36px;top:36px;font-size:9px;color:var(--callout);opacity:0.6;font-family:'Inter',sans-serif;white-space:nowrap;">Line 1 baseline</div>
+    <div style="position:absolute;left:36px;top:68px;font-size:9px;color:var(--callout);opacity:0.6;font-family:'Inter',sans-serif;white-space:nowrap;">Line 2 baseline — 33.3px (18 × 1.85)</div>
+    <div style="position:absolute;left:36px;top:101px;font-size:9px;color:var(--callout);opacity:0.6;font-family:'Inter',sans-serif;white-space:nowrap;">Line 3 baseline</div>
+    <div style="position:absolute;left:36px;top:137px;font-size:9px;color:var(--verd);opacity:0.8;font-family:'Inter',sans-serif;white-space:nowrap;">Paragraph gap: 1.25em = 22.5px</div>
+
+    <div class="prose" style="max-width:620px;margin:0 auto;">
+      <p>Elena stood at the cabinet for a long moment, her hand still on the handle.</p>
+      <p>It was simply missing one thing. The space where the letter had been was empty.</p>
+      <p>Not gone. Not stolen. Simply absent.<span class="vc"></span></p>
+    </div>
+
+    <!-- Specs overlay -->
+    <div style="position:absolute;right:48px;top:32px;font-family:'Inter',sans-serif;font-size:10px;font-weight:300;color:var(--text-m);line-height:1.8;text-align:right;">
+      Font: Lora 400<br>
+      Size: 18px<br>
+      Line height: 1.85 → 33.3px/line<br>
+      Paragraph gap: 1.25em → 22.5px<br>
+      No first-line indent<br>
+      Max width: 620px<br>
+      Alignment: left, ragged right
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     SECTION 5 — ANNOTATIONS
+     ══════════════════════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-label">05 — Annotations</div>
+</div>
+
+<div class="annotations">
+  <div class="ann-grid">
+
+    <div class="ann-item">
+      <div class="ann-num">1</div>
+      <div class="ann-body">
+        <div class="ann-title">Dark Mode — Background & Text</div>
+        <div class="ann-ref">Brand Identity §4.2 · §4.3 · UI Design §3.2.1</div>
+        <div class="ann-desc">
+          Background: <code>--color-bg-base</code> (<code>#0d1014</code>) — the warm near-black chosen specifically to prevent halation. NOT #000000. Text: <code>--color-text-primary</code> (<code>#ecf0f5</code>) — NOT #ffffff. The combination produces 14.8:1 contrast: above WCAG AAA (7:1), below the halation-producing 21:1 maximum. This specific pairing was chosen after research showing ~47% of users have astigmatism which causes pure-white-on-black text to blur.
+        </div>
+      </div>
+    </div>
+
+    <div class="ann-item">
+      <div class="ann-num">2</div>
+      <div class="ann-body">
+        <div class="ann-title">Typography — Why These Exact Values</div>
+        <div class="ann-ref">Brand Identity §6.2 · §5.3 · UI Design §9.1</div>
+        <div class="ann-desc">
+          <strong>18px:</strong> Optimal range for sustained screen reading is 16–18px. 18px is the generous end — appropriate for a writing surface where the author may spend hours. <strong>1.85 line-height:</strong> Standard recommendation is 1.7–1.8. 1.85 is slightly more open specifically because this is a writing surface, not a reading one — the two-line working zone (current line + line above) benefits from extra breathing room. <strong>620px / 66ch:</strong> Bringhurst's ideal, confirmed by Ruder (1967) and Baymard Institute research. The scientific sweet spot for comfortable saccadic reading rhythm.
+        </div>
+      </div>
+    </div>
+
+    <div class="ann-item">
+      <div class="ann-num">3</div>
+      <div class="ann-body">
+        <div class="ann-title">Light Mode — Parchment, Not White</div>
+        <div class="ann-ref">Brand Identity §4.3 · §4.5 · UI Design §3.2.2</div>
+        <div class="ann-desc">
+          Background: <code>--color-bg-base</code> light (<code>#f2ede4</code>) — warm parchment, not <code>#ffffff</code>. Text: <code>#1e1a12</code> — warm dark ink, not <code>#000000</code>. Same halation principle as dark mode: maximum contrast is not optimal contrast. The parchment connects to the brand's historical reference — vellum, the surface that has carried important writing through time. The cursor in light mode: <code>--color-accent</code> light (<code>#254a38</code>) — deep verdigris, visible against the warm background.
+        </div>
+      </div>
+    </div>
+
+    <div class="ann-item">
+      <div class="ann-num">4</div>
+      <div class="ann-body">
+        <div class="ann-title">Paragraph Spacing — No Indent</div>
+        <div class="ann-ref">Brand Identity §6.2 · UI Design §9.1</div>
+        <div class="ann-desc">
+          Paragraph gap: <code>1.25em margin-bottom</code> = 22.5px at 18px base. No first-line indent. First-line indentation is a print convention designed to save space on tightly-leaded pages. On screen at 1.85 line-height, the generous leading already creates clear paragraph separation. An additional indent would feel academic and cluttered. The paragraph space alone provides all the separation needed.
+        </div>
+      </div>
+    </div>
+
+    <div class="ann-item">
+      <div class="ann-num">5</div>
+      <div class="ann-body">
+        <div class="ann-title">Word Count — Position and Philosophy</div>
+        <div class="ann-ref">Brand Identity §6.7 · UI Design §9.3</div>
+        <div class="ann-desc">
+          Positioned inside the prose column, right-aligned, below the last line of text. Inter 300, 11px, <code>--color-text-muted</code>. <span class="critical">Invisible while typing.</span> The word count observes; it does not monitor. The verdigris colour change at target (<code>--color-accent</code> on the first number) is the only notification that a target has been reached — no toast, no sound, no pulse. The colour change is enough. An author who has set a target will notice it.
+        </div>
+      </div>
+    </div>
+
+    <div class="ann-item">
+      <div class="ann-num">6</div>
+      <div class="ann-body">
+        <div class="ann-title">The Typeface Signal — The Most Important Detail</div>
+        <div class="ann-ref">Brand Identity §5.4 · UI Design §3.3.2</div>
+        <div class="ann-desc">
+          The transition from Inter to Lora is not a visual flourish. It is the primary signal that the author has moved from structure into manuscript. This boundary must be <span class="inviolable">absolute</span> — enforced at the component level, not at the page level. The <code>SummaryEditor</code> component always uses Inter. The <code>ProseEditor</code> component always uses Lora. There is no shared base component that allows either font to leak into the other context. The ProseEditor in Edit Mode uses 16px; in Focus Mode 18px — same typeface, same line-height, slightly larger at full screen.
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     SECTION 6 — CLAUDE CODE SPEC TABLES
+     ══════════════════════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-label">06 — Claude Code Implementation Specification · ProseEditor Component</div>
+</div>
+
+<div class="spec-section">
+
+  <!-- ProseEditor core -->
+  <div class="spec-block">
+    <div class="spec-block-header">
+      ProseEditor Component — Core Specification
+      <span class="spec-block-ref">Brand Identity §5.3 · §6.2 · UI Design §6.2 · §9.1</span>
+    </div>
+    <table class="spec-table">
+      <tr><th>Property</th><th>Value</th><th>Notes / Rationale</th></tr>
+      <tr><td>Component file</td><td><code>components/detail/ProseEditor.tsx</code></td><td>Tiptap-based rich text editor. Separate component from SummaryEditor — do not share a base editor component.</td></tr>
+      <tr><td>Font family</td><td><span class="inviolable">Lora 400 (normal) · Lora 400 italic · Lora 700 (bold)</span></td><td>Never Inter in this component. The typeface IS the signal.</td></tr>
+      <tr><td>Font size — Edit Mode</td><td>16px</td><td>Slightly smaller than Focus Mode to fit the 380px panel. Same proportions.</td></tr>
+      <tr><td>Font size — Focus Mode</td><td>18px</td><td>Full prose surface specification. Lora at 18px is the canonical size.</td></tr>
+      <tr><td>Line height</td><td>1.85</td><td>Both Edit Mode and Focus Mode. Research-grounded. Do not reduce to 1.6 or 1.7.</td></tr>
+      <tr><td>Max column width</td><td>620px in Focus Mode · fills available panel width in Edit Mode</td><td>Edit Mode: panel is 380px, minus padding. Focus Mode: 620px max-width centred.</td></tr>
+      <tr><td>Text alignment</td><td>left · ragged right</td><td>Never justified. Rivers problem at 66ch column width.</td></tr>
+      <tr><td>Paragraph spacing</td><td>margin-bottom: 1.25em · no first-line indent</td><td>Applied via Tiptap's paragraph node CSS.</td></tr>
+      <tr><td>Bottom padding</td><td>120px</td><td>Author writes into open space. Scroll container must extend 120px past last paragraph.</td></tr>
+      <tr><td>Background</td><td><span class="inviolable">--color-bg-base — always</span></td><td>Inviolable I. Never elevated, never lighter.</td></tr>
+      <tr><td>Text colour</td><td>--color-text-primary</td><td>#ecf0f5 dark / #1e1a12 light</td></tr>
+      <tr><td>Toolbar</td><td>None — no persistent toolbar</td><td>Formatting via keyboard (⌘B ⌘I ⌘K) and selection tooltip only.</td></tr>
+    </table>
+  </div>
+
+  <!-- SummaryEditor contrast -->
+  <div class="spec-block">
+    <div class="spec-block-header">
+      SummaryEditor Component — Contrast Specification
+      <span class="spec-block-ref">Brand Identity §5.2 · UI Design §6.2</span>
+    </div>
+    <table class="spec-table">
+      <tr><th>Property</th><th>Value</th><th>Contrast with ProseEditor</th></tr>
+      <tr><td>Font family</td><td>Inter 400</td><td><span class="critical">Never Lora. The typeface boundary is architectural.</span></td></tr>
+      <tr><td>Font size</td><td>13px</td><td>Vs Lora 16/18px in ProseEditor. Clearly smaller, clearly different register.</td></tr>
+      <tr><td>Line height</td><td>1.55</td><td>Vs 1.85 in ProseEditor. Tighter — this is scanning text, not reading text.</td></tr>
+      <tr><td>Border</td><td>1px --color-border-subtle</td><td>Vs 1px --color-border-default in ProseEditor (slightly stronger border signals "manuscript area").</td></tr>
+      <tr><td>Toolbar</td><td>Bold · Italic · Bullet · Number</td><td>Simple inline toolbar. No headings, no colours, no tables. Planning text only.</td></tr>
+      <tr><td>Font weight range</td><td>400 regular · 700 bold (from Tiptap marks)</td><td>Same range as ProseEditor but in Inter, not Lora.</td></tr>
+    </table>
+  </div>
+
+  <!-- Tiptap config -->
+  <div class="spec-block">
+    <div class="spec-block-header">
+      Tiptap Configuration — ProseEditor
+      <span class="spec-block-ref">UI Design §6.2 · §12.3</span>
+    </div>
+    <table class="spec-table">
+      <tr><th>Extension</th><th>Configuration</th><th>Notes</th></tr>
+      <tr><td>StarterKit</td><td>Heading: disabled · Blockquote: disabled · Code: disabled · HorizontalRule: disabled</td><td>Prose editor produces prose only — no structural markdown features.</td></tr>
+      <tr><td>Text</td><td>Enabled</td><td></td></tr>
+      <tr><td>Bold</td><td>Enabled · ⌘B</td><td>Renders as Lora 700</td></tr>
+      <tr><td>Italic</td><td>Enabled · ⌘I</td><td>Renders as Lora 400 italic</td></tr>
+      <tr><td>Link</td><td>Enabled · ⌘K</td><td>For citations and references only</td></tr>
+      <tr><td>History</td><td>Enabled</td><td>Standard undo/redo</td></tr>
+      <tr><td>Placeholder</td><td>"Begin writing…"</td><td>Inter 300, --color-text-disabled, font-style: italic. Disappears on first keypress.</td></tr>
+      <tr><td>Custom cursor</td><td>Override ProseMirror default</td><td>See Cursor specification below.</td></tr>
+      <tr><td>Selection</td><td>Custom CSS override</td><td>See Selection specification below.</td></tr>
+    </table>
+  </div>
+
+  <!-- Cursor CSS -->
+  <div class="spec-block">
+    <div class="spec-block-header">
+      Cursor CSS Override
+      <span class="spec-block-ref">Brand Identity §4.4 Category 2 · §6.3 · UI Design §9.2</span>
+    </div>
+    <table class="spec-table">
+      <tr><th>CSS Target</th><th>Value</th><th>Notes</th></tr>
+      <tr><td><code>.ProseMirror</code> caret</td><td><code>caret-color: var(--color-accent)</code></td><td>Primary cursor colour override. Most browsers respect caret-color.</td></tr>
+      <tr><td>Caret width</td><td><code>2px</code> via custom caret or CSS</td><td>Some browsers allow caret-width. For others, use a custom cursor extension.</td></tr>
+      <tr><td>Blink animation</td><td>Custom CSS: 600ms on, 400ms off, step-end</td><td><code>@keyframes stelavox-blink { 0%,59%{opacity:1} 60%,100%{opacity:0} }</code></td></tr>
+      <tr><td>No blink — typing</td><td>Cancel animation class on keydown</td><td>Add <code>.is-typing</code> class to editor on keydown. Remove after 1200ms debounce on keyup. <code>.is-typing .ProseMirror-cursor { animation: none; }</code></td></tr>
+      <tr><td>Fallback</td><td>If caret-color insufficient: custom cursor plugin for Tiptap</td><td>Implement ProseMirror cursor plugin that renders a positioned div instead of native caret.</td></tr>
+    </table>
+  </div>
+
+  <!-- Selection CSS -->
+  <div class="spec-block">
+    <div class="spec-block-header">
+      Selection & Tooltip CSS
+      <span class="spec-block-ref">Brand Identity §4.4 · UI Design §3.3.2</span>
+    </div>
+    <table class="spec-table">
+      <tr><th>Property</th><th>Value</th><th>Notes</th></tr>
+      <tr><td>Selection background — dark</td><td><code>rgba(26,48,40,0.6)</code></td><td>--color-accent-muted (#1a3028) at 60% opacity. Never the system blue.</td></tr>
+      <tr><td>Selection background — light</td><td><code>rgba(222,238,230,0.8)</code></td><td>--color-accent-muted light (#deeee6) at 80% opacity.</td></tr>
+      <tr><td>CSS override</td><td><code>.ProseMirror ::selection { background: rgba(26,48,40,0.6); }</code></td><td>Apply in the editor's stylesheet.</td></tr>
+      <tr><td>SelectionTooltip</td><td>Component: <code>SelectionTooltip.tsx</code></td><td>Appears on non-empty selection. Position: above selection, centred.</td></tr>
+      <tr><td>Tooltip buttons</td><td>Bold (⌘B) · Italic (⌘I) · Link (⌘K)</td><td>Inter 500 12px. No other actions. No colour picker, no heading selector.</td></tr>
+      <tr><td>Tooltip background</td><td>--color-bg-elevated</td><td>1px --color-border-default · --shadow-md</td></tr>
+      <tr><td>Tooltip disappears</td><td>On deselect · on cursor move · on Escape</td><td></td></tr>
+    </table>
+  </div>
+
+  <!-- Scrollbar CSS -->
+  <div class="spec-block">
+    <div class="spec-block-header">
+      Scrollbar CSS
+      <span class="spec-block-ref">Brand Identity §6.9 · UI Design §6.2</span>
+    </div>
+    <table class="spec-table">
+      <tr><th>Property</th><th>Value</th><th>Notes</th></tr>
+      <tr><td>Width</td><td>3px</td><td>Applied to the prose editor scroll container.</td></tr>
+      <tr><td>Track background</td><td>transparent</td><td>No visible track.</td></tr>
+      <tr><td>Thumb colour</td><td>--color-border-strong (#3a4a62)</td><td>Visible but not prominent.</td></tr>
+      <tr><td>Thumb border-radius</td><td>2px</td><td></td></tr>
+      <tr><td>Visibility</td><td>Visible on scroll · fades after 1500ms</td><td>Use <code>overflow-y: overlay</code> or custom scroll logic. Add <code>opacity: 0</code> class after 1500ms of scroll inactivity.</td></tr>
+      <tr><td>Scrollbar buttons</td><td>None</td><td>No up/down arrow buttons. <code>::-webkit-scrollbar-button { display: none; }</code></td></tr>
+      <tr><td>CSS</td><td colspan="2"><code>.prose-editor::-webkit-scrollbar { width: 3px; } .prose-editor::-webkit-scrollbar-track { background: transparent; } .prose-editor::-webkit-scrollbar-thumb { background: var(--color-border-strong); border-radius: 2px; }</code></td></tr>
+    </table>
+  </div>
+
+  <!-- Font loading -->
+  <div class="spec-block">
+    <div class="spec-block-header">
+      Font Loading Strategy
+      <span class="spec-block-ref">Brand Identity §5.1 · UI Design §3.3</span>
+    </div>
+    <table class="spec-table">
+      <tr><th>Font</th><th>Weights to Load</th><th>Display Strategy</th></tr>
+      <tr><td>Lora</td><td>400 normal · 400 italic · 700 normal</td><td><code>font-display: swap</code>. Preconnect to fonts.googleapis.com. Preload the 400 normal weight — the most common in prose.</td></tr>
+      <tr><td>Inter</td><td>Variable font (300–700 range)</td><td><code>font-display: swap</code>. Load as variable font for smallest payload.</td></tr>
+      <tr><td>Cinzel</td><td>500 only</td><td><code>font-display: block</code> — the wordmark must render in Cinzel or not at all. No fallback wordmark.</td></tr>
+      <tr><td>Cormorant Garamond</td><td>300 italic only</td><td>Wordmark only. <code>font-display: block</code>.</td></tr>
+      <tr><td colspan="3"><div class="note">Load Cinzel and Cormorant in the document head with preload links. Load Lora and Inter with preconnect. The prose surface must render in Lora — a fallback to Georgia or serif is acceptable during load but must swap to Lora as soon as available.</div></td></tr>
+    </table>
+  </div>
+
+</div>
+
+</body>
+</html>

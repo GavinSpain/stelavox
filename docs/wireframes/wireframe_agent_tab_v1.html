@@ -1,0 +1,1333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stelavox — Agent Tab Wireframe & Specification v1.0</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500&family=Cormorant+Garamond:ital,wght@1,300&family=Inter:wght@200;300;400;500;600;700&family=Lora:ital,wght@0,400;1,400&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --ink:      #0d1014;
+  --deep:     #131820;
+  --surface:  #1a2030;
+  --hover:    #1e2838;
+  --selected: #1f2d45;
+  --border-s: #1e2535;
+  --border-d: #253045;
+  --border-str:#3a4a62;
+  --text-p:   #ecf0f5;
+  --text-s:   #8aa0b8;
+  --text-m:   #4a6080;
+  --text-dis: #2a3850;
+  --verd:     #3d7858;
+  --verd-h:   #5aa87a;
+  --verd-m:   #1a3028;
+  --ag-run:   #2e5a90;
+  --st-rev:   #b87030;
+  --spec-bg:  #0a0d12;
+  --spec-pan: #111520;
+  --callout:  #e8b840;
+}
+
+body {
+  background: var(--spec-bg);
+  color: var(--text-p);
+  font-family: 'Inter', sans-serif;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.doc-header {
+  background: var(--spec-pan);
+  border-bottom: 1px solid var(--border-d);
+  padding: 24px 48px;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+.wm-s { font-family:'Cinzel',serif; font-size:14px; font-weight:500; letter-spacing:.18em; color:var(--text-p); }
+.wm-v { font-family:'Cormorant Garamond',serif; font-style:italic; font-weight:300; font-size:16px; letter-spacing:.08em; color:var(--text-p); opacity:.82; }
+.doc-meta { font-size:11px; font-weight:300; letter-spacing:.2em; text-transform:uppercase; color:var(--text-m); }
+
+.section { padding: 40px 48px 0; }
+.slabel { font-size:9px; font-weight:400; letter-spacing:.45em; text-transform:uppercase; color:var(--text-m); margin-bottom:20px; padding-bottom:12px; border-bottom:1px solid var(--border-s); }
+
+/* Callouts */
+.cn { display:inline-flex; align-items:center; justify-content:center; width:18px; height:18px; background:var(--callout); color:#0a0800; border-radius:50%; font-size:10px; font-weight:700; font-family:'Inter',sans-serif; flex-shrink:0; position:absolute; z-index:20; }
+
+/* ── Panel chrome shared across all states ── */
+.panel {
+  background: var(--deep);
+  border: 1px solid var(--border-s);
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+}
+
+.panel-header {
+  background: var(--ink);
+  border-bottom: 1px solid var(--border-s);
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+}
+.panel-node-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-p);
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.panel-breadcrumb {
+  font-size: 10px;
+  font-weight: 300;
+  color: var(--text-m);
+  margin-top: 2px;
+}
+
+/* Tab strip */
+.tab-strip {
+  display: flex;
+  border-bottom: 1px solid var(--border-s);
+  background: var(--ink);
+  flex-shrink: 0;
+}
+.tab {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--text-m);
+  padding: 7px 14px;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  position: relative;
+}
+.tab.active {
+  color: var(--text-p);
+  font-weight: 500;
+  border-bottom-color: var(--text-p);
+  opacity: 0.6;
+}
+.tab.active.agent-active {
+  border-bottom-color: var(--ag-run);
+  color: var(--text-p);
+  opacity: 1;
+}
+.badge-dot {
+  position: absolute;
+  top: 7px;
+  right: 6px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--st-rev);
+}
+
+/* Panel body scroll */
+.panel-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Field label */
+.field-label {
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--text-m);
+  margin-bottom: 5px;
+}
+
+/* Operation type pills */
+.op-pills {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.op-pill {
+  font-size: 11px;
+  font-weight: 400;
+  padding: 4px 10px;
+  border-radius: 4px;
+  border: 1px solid var(--border-d);
+  color: var(--text-s);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.op-pill:hover {
+  border-color: var(--border-str);
+  color: var(--text-p);
+}
+.op-pill.selected {
+  border-color: var(--ag-run);
+  background: rgba(46,90,144,0.1);
+  color: var(--text-p);
+}
+.op-pill-icon { font-size: 12px; }
+
+/* Agent profile select */
+.profile-select {
+  background: var(--ink);
+  border: 1px solid var(--border-s);
+  border-radius: 4px;
+  padding: 7px 10px;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--text-p);
+  font-family: 'Inter', sans-serif;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+}
+.profile-select-name { display: flex; align-items: center; gap: 8px; }
+.profile-model-tag {
+  font-size: 9px;
+  font-weight: 300;
+  color: var(--text-m);
+  background: var(--surface);
+  padding: 1px 5px;
+  border-radius: 2px;
+}
+.profile-arrow { color: var(--text-m); font-size: 10px; }
+
+/* Instruction textarea */
+.instruction-field {
+  background: var(--ink);
+  border: 1px solid var(--border-s);
+  border-radius: 4px;
+  padding: 8px 10px;
+  font-size: 12px;
+  font-weight: 300;
+  color: var(--text-p);
+  font-family: 'Inter', sans-serif;
+  line-height: 1.55;
+  min-height: 60px;
+  resize: none;
+}
+
+/* Context nodes selector */
+.context-selector {
+  background: var(--ink);
+  border: 1px solid var(--border-s);
+  border-radius: 4px;
+  padding: 8px 10px;
+}
+.context-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--text-s);
+}
+.ctx-cb {
+  width: 12px;
+  height: 12px;
+  border: 1px solid var(--border-d);
+  border-radius: 2px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.ctx-cb.checked {
+  background: var(--verd);
+  border-color: var(--verd);
+}
+.ctx-cb.checked::after { content: '✓'; font-size: 8px; color: white; }
+.ctx-type { font-size: 9px; color: var(--text-m); margin-left: auto; }
+
+/* Run button */
+.run-btn {
+  background: var(--ag-run);
+  color: white;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 8px 16px;
+  border-radius: 5px;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  width: 100%;
+  font-family: 'Inter', sans-serif;
+  letter-spacing: 0.02em;
+}
+.run-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Token estimate */
+.token-est {
+  font-size: 10px;
+  font-weight: 300;
+  color: var(--text-m);
+  text-align: center;
+}
+
+/* ── RUNNING STATE ── */
+.running-header {
+  background: rgba(46,90,144,0.08);
+  border-bottom: 1px solid rgba(46,90,144,0.2);
+  padding: 8px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+}
+.running-label {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--ag-run);
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.spinner {
+  width: 12px;
+  height: 12px;
+  border: 2px solid rgba(46,90,144,0.3);
+  border-top-color: var(--ag-run);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  flex-shrink: 0;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.stop-btn {
+  font-size: 10px;
+  font-weight: 400;
+  color: var(--text-m);
+  border: 1px solid var(--border-s);
+  background: transparent;
+  padding: 3px 8px;
+  border-radius: 3px;
+  cursor: pointer;
+  font-family: 'Inter', sans-serif;
+}
+
+/* Streaming prose — uses LORA */
+.streaming-area {
+  background: var(--ink);
+  border: 1px solid var(--border-s);
+  border-radius: 4px;
+  padding: 14px 16px;
+  flex: 1;
+  min-height: 120px;
+}
+.streaming-label {
+  font-size: 9px;
+  font-weight: 400;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--text-m);
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.streaming-lora-tag {
+  font-size: 8px;
+  font-weight: 300;
+  font-style: italic;
+  letter-spacing: 0.1em;
+  text-transform: none;
+  color: var(--verd-h);
+}
+.streaming-text {
+  font-family: 'Lora', serif;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.85;
+  color: var(--text-p);
+  opacity: 0.85;
+}
+.stream-cursor {
+  display: inline-block;
+  width: 2px;
+  height: 0.8em;
+  background: var(--ag-run);
+  vertical-align: text-bottom;
+  margin-left: 1px;
+  animation: blink 0.7s step-end infinite;
+}
+@keyframes blink { 0%,49%{opacity:1} 50%,100%{opacity:0} }
+
+/* Token tracker during run */
+.token-tracker {
+  font-size: 10px;
+  font-weight: 300;
+  color: var(--text-m);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 0;
+}
+
+/* ── COMPLETE STATE ── */
+.complete-header {
+  background: rgba(61,120,88,0.08);
+  border-bottom: 1px solid rgba(61,120,88,0.2);
+  padding: 8px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+}
+.complete-label {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--verd);
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.result-area {
+  background: var(--ink);
+  border: 1px solid var(--border-d);
+  border-radius: 4px;
+  padding: 14px 16px;
+}
+.result-lora-label {
+  font-size: 9px;
+  font-weight: 400;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--text-m);
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.result-text {
+  font-family: 'Lora', serif;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.85;
+  color: var(--text-p);
+}
+.result-text p { margin-bottom: 1.25em; }
+.result-text p:last-child { margin-bottom: 0; }
+
+.result-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.btn-accept {
+  background: var(--verd);
+  color: white;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 6px 14px;
+  border-radius: 4px;
+  border: none;
+  cursor: pointer;
+  font-family: 'Inter', sans-serif;
+}
+.btn-accept-append {
+  background: transparent;
+  color: var(--text-s);
+  font-size: 11px;
+  font-weight: 400;
+  padding: 6px 12px;
+  border-radius: 4px;
+  border: 1px solid var(--border-s);
+  cursor: pointer;
+  font-family: 'Inter', sans-serif;
+}
+.btn-regenerate {
+  background: transparent;
+  color: var(--text-m);
+  font-size: 11px;
+  font-weight: 400;
+  padding: 6px 12px;
+  border-radius: 4px;
+  border: 1px solid var(--border-s);
+  cursor: pointer;
+  font-family: 'Inter', sans-serif;
+  margin-left: auto;
+}
+
+.result-meta {
+  font-size: 10px;
+  font-weight: 300;
+  color: var(--text-m);
+  display: flex;
+  gap: 16px;
+}
+.result-meta span { display: flex; align-items: center; gap: 4px; }
+
+/* ── HISTORY ── */
+.history-item {
+  background: var(--ink);
+  border: 1px solid var(--border-s);
+  border-radius: 4px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  cursor: pointer;
+}
+.history-item:hover { border-color: var(--border-d); }
+.history-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.hist-op {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-p);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.hist-badge {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.hist-time { font-size: 10px; font-weight: 300; color: var(--text-m); }
+.hist-profile { font-size: 10px; font-weight: 300; color: var(--text-m); }
+.hist-tokens { font-size: 10px; font-weight: 300; color: var(--text-m); margin-left: auto; }
+.hist-preview {
+  font-size: 11px;
+  font-weight: 300;
+  color: var(--text-m);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-style: italic;
+}
+.hist-restore {
+  font-size: 10px;
+  font-weight: 400;
+  color: var(--text-m);
+  border: 1px solid var(--border-s);
+  padding: 2px 7px;
+  border-radius: 3px;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+/* ── Annotations ── */
+.annotations { padding: 0 48px 40px; }
+.ann-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; }
+.ann-item { background: var(--spec-pan); padding: 16px 18px; display: flex; gap: 14px; }
+.ann-num { display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; min-width:22px; background:var(--callout); color:#0a0800; border-radius:50%; font-size:11px; font-weight:700; font-family:'Inter',sans-serif; }
+.ann-body { flex: 1; }
+.ann-title { font-size:12px; font-weight:600; color:var(--text-p); margin-bottom:4px; }
+.ann-ref { font-size:10px; font-weight:400; letter-spacing:.15em; color:var(--verd); margin-bottom:6px; text-transform:uppercase; }
+.ann-desc { font-size:11px; font-weight:300; color:var(--text-s); line-height:1.6; }
+.ann-desc code { background:var(--ink); padding:1px 5px; border-radius:2px; font-family:'SF Mono','Fira Code',monospace; font-size:10px; color:var(--callout); }
+.critical { color: #b87030; font-weight: 500; }
+.inviolable { color: var(--verd); font-weight: 500; }
+
+/* ── Spec tables ── */
+.spec-section { padding: 0 48px 80px; }
+.spec-block { background:var(--spec-pan); border:1px solid var(--border-s); border-radius:4px; margin-bottom:2px; overflow:hidden; }
+.spec-block-header { padding:12px 20px; background:var(--ink); border-bottom:1px solid var(--border-s); font-size:11px; font-weight:600; letter-spacing:.25em; text-transform:uppercase; color:var(--text-p); display:flex; justify-content:space-between; align-items:center; }
+.sbr { font-size:10px; font-weight:300; letter-spacing:.1em; color:var(--verd); }
+.spec-table { width:100%; border-collapse:collapse; }
+.spec-table th { font-size:10px; font-weight:500; letter-spacing:.2em; text-transform:uppercase; color:var(--text-m); text-align:left; padding:8px 20px; border-bottom:1px solid var(--border-s); }
+.spec-table td { font-size:11px; font-weight:300; color:var(--text-s); padding:7px 20px; border-bottom:1px solid var(--border-s); vertical-align:top; }
+.spec-table tr:last-child td { border-bottom: none; }
+.spec-table td:first-child { color:var(--text-p); font-weight:400; min-width:200px; }
+.spec-table td code { background:var(--ink); padding:1px 5px; border-radius:2px; font-family:'SF Mono','Fira Code',monospace; font-size:10px; color:var(--callout); }
+.spec-table .note { font-size:10px; font-style:italic; color:var(--text-m); margin-top:2px; }
+.spec-table .critical { color:#b87030; font-weight:500; }
+.spec-table .inviolable { color:var(--verd); font-weight:500; }
+</style>
+</head>
+<body>
+
+<!-- Doc header -->
+<div class="doc-header">
+  <div>
+    <div style="display:flex;align-items:baseline;"><span class="wm-s">Stela</span><span class="wm-v">vox</span></div>
+    <div style="margin-top:6px;font-size:11px;font-weight:300;letter-spacing:.2em;text-transform:uppercase;color:var(--text-m);">
+      Agent Tab — Annotated Wireframe & Claude Code Specification · v1.0
+    </div>
+  </div>
+  <div class="doc-meta">Companion: Brand Identity v1.1 · UI Design v0.3.1 · Component Spec v1.0 · Wireframes 1–4</div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     SECTION 1 — FIVE STATES
+     ══════════════════════════════════════════════════════════ -->
+<div class="section"><div class="slabel">01 — Agent Tab · Five States · Detail Panel (380px) at actual scale</div></div>
+
+<div style="padding:40px 48px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:3px;">
+
+  <!-- STATE 1: READY — Beat node (synthesise available) -->
+  <div style="display:flex;flex-direction:column;gap:3px;">
+    <div style="font-size:9px;font-weight:400;letter-spacing:.38em;text-transform:uppercase;color:var(--text-m);padding:8px 0;">State 1 · Ready · Beat node</div>
+    <div class="panel" style="min-height:600px;">
+      <!-- Callouts -->
+      <div class="cn" style="top:48px;right:12px;">1</div>
+      <div class="cn" style="top:170px;right:12px;">2</div>
+      <div class="cn" style="top:270px;right:12px;">3</div>
+      <div class="cn" style="top:370px;right:12px;">4</div>
+
+      <div class="panel-header">
+        <div>
+          <div class="panel-node-name"><span>⚡</span> Beat 3: The letter is gone</div>
+          <div class="panel-breadcrumb">Ch 5 › Scene 2 › Beat 3</div>
+        </div>
+      </div>
+      <div class="tab-strip">
+        <div class="tab">Content</div>
+        <div class="tab active agent-active">Agent</div>
+        <div class="tab" style="position:relative;">Comments<span class="badge-dot"></span></div>
+        <div class="tab">History</div>
+      </div>
+      <div class="panel-body">
+
+        <!-- Operation type -->
+        <div>
+          <div class="field-label">Operation</div>
+          <div class="op-pills">
+            <div class="op-pill selected"><span class="op-pill-icon">✨</span> Synthesise</div>
+            <div class="op-pill"><span class="op-pill-icon">✏️</span> Refine</div>
+            <div class="op-pill"><span class="op-pill-icon">🔍</span> Critique</div>
+          </div>
+          <div style="font-size:10px;font-weight:300;color:var(--text-m);margin-top:5px;line-height:1.5;">
+            Generate final prose for this beat using the full ancestor context.
+          </div>
+        </div>
+
+        <!-- Agent profile selector -->
+        <div>
+          <div class="field-label">Agent Profile</div>
+          <div class="profile-select">
+            <div class="profile-select-name">
+              <span style="font-size:13px;">🎭</span>
+              <span>Synthesise Beat into Prose</span>
+              <span class="profile-model-tag">claude-sonnet-4-6</span>
+            </div>
+            <span class="profile-arrow">▾</span>
+          </div>
+        </div>
+
+        <!-- Instruction -->
+        <div>
+          <div class="field-label" style="display:flex;justify-content:space-between;">
+            Instruction to Agent
+            <span style="font-size:9px;font-weight:300;font-style:italic;letter-spacing:0;text-transform:none;color:var(--text-dis);">optional</span>
+          </div>
+          <textarea class="instruction-field" placeholder="Add specific direction... e.g. 'Keep it under 200 words. Focus on Elena's physical stillness — no interior monologue.'" style="width:100%;"></textarea>
+        </div>
+
+        <!-- Context nodes -->
+        <div>
+          <div class="field-label" style="display:flex;justify-content:space-between;">
+            Context Nodes
+            <span style="font-size:9px;font-weight:300;color:var(--text-m);letter-spacing:0;text-transform:none;">6 auto-selected</span>
+          </div>
+          <div class="context-selector">
+            <div class="context-item">
+              <div class="ctx-cb checked"></div>
+              <span>Elena Marsh</span>
+              <span class="ctx-type">character</span>
+            </div>
+            <div class="context-item">
+              <div class="ctx-cb checked"></div>
+              <span>Viktor Sorel</span>
+              <span class="ctx-type">character</span>
+            </div>
+            <div class="context-item">
+              <div class="ctx-cb checked"></div>
+              <span>The County Archive</span>
+              <span class="ctx-type">location</span>
+            </div>
+            <div class="context-item">
+              <div class="ctx-cb checked"></div>
+              <span>Dread as Negative Space</span>
+              <span class="ctx-type">theme</span>
+            </div>
+            <div class="context-item">
+              <div class="ctx-cb" style="opacity:0.5;"></div>
+              <span style="color:var(--text-m);">The Iron Veil — World Notes</span>
+              <span class="ctx-type">world</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Run button -->
+        <button class="run-btn">
+          <span>✨</span>
+          Synthesise Prose
+        </button>
+        <div class="token-est">~2,400 tokens · 1 operation used</div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- STATE 2: RUNNING (streaming) -->
+  <div style="display:flex;flex-direction:column;gap:3px;">
+    <div style="font-size:9px;font-weight:400;letter-spacing:.38em;text-transform:uppercase;color:var(--text-m);padding:8px 0;">State 2 · Running · Streaming prose</div>
+    <div class="panel" style="min-height:600px;">
+      <!-- Callouts -->
+      <div class="cn" style="top:48px;right:12px;">5</div>
+      <div class="cn" style="top:160px;right:12px;">6</div>
+      <div class="cn" style="top:340px;right:12px;">7</div>
+
+      <div class="panel-header">
+        <div>
+          <div class="panel-node-name"><span>⚡</span> Beat 3: The letter is gone</div>
+          <div class="panel-breadcrumb">Ch 5 › Scene 2 › Beat 3</div>
+        </div>
+      </div>
+      <div class="tab-strip">
+        <div class="tab">Content</div>
+        <div class="tab active agent-active">Agent</div>
+        <div class="tab">Comments</div>
+        <div class="tab">History</div>
+      </div>
+
+      <!-- Running header bar -->
+      <div class="running-header">
+        <div class="running-label">
+          <div class="spinner"></div>
+          Synthesising prose
+        </div>
+        <button class="stop-btn">Stop</button>
+      </div>
+
+      <div class="panel-body">
+        <!-- Operation summary (collapsed, non-interactive) -->
+        <div style="background:var(--ink);border:1px solid var(--border-s);border-radius:4px;padding:8px 10px;display:flex;align-items:center;gap:8px;">
+          <span style="font-size:11px;color:var(--verd-h);">✨</span>
+          <span style="font-size:11px;font-weight:400;color:var(--text-s);">Synthesise Beat into Prose</span>
+          <span style="font-size:10px;font-weight:300;color:var(--text-m);margin-left:auto;">claude-sonnet-4-6</span>
+        </div>
+
+        <!-- Streaming prose output — LORA -->
+        <div class="streaming-area" style="flex:1;">
+          <div class="streaming-label">
+            Live Output
+            <span class="streaming-lora-tag">← rendered in Lora (manuscript)</span>
+          </div>
+          <div class="streaming-text">
+            The drawer was not empty.<br><br>
+            It was simply missing one thing.<br><br>
+            Elena stood at the cabinet for a long moment, her hand still on the handle, her eyes moving across the papers she had not disturbed — the receipts, the folded maps, the rubber-banded correspondence she had memorised on the first visit — and confirmed what her hand had already told her.<span class="stream-cursor"></span>
+          </div>
+        </div>
+
+        <!-- Token tracker -->
+        <div class="token-tracker">
+          <span>Input: 2,388 tokens</span>
+          <span>Output: 87 tokens...</span>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- STATE 3: COMPLETE — result ready -->
+  <div style="display:flex;flex-direction:column;gap:3px;">
+    <div style="font-size:9px;font-weight:400;letter-spacing:.38em;text-transform:uppercase;color:var(--text-m);padding:8px 0;">State 3 · Complete · Result for review</div>
+    <div class="panel" style="min-height:600px;">
+      <!-- Callouts -->
+      <div class="cn" style="top:48px;right:12px;">8</div>
+      <div class="cn" style="top:290px;right:12px;">9</div>
+      <div class="cn" style="bottom:80px;right:12px;">10</div>
+
+      <div class="panel-header">
+        <div>
+          <div class="panel-node-name"><span>⚡</span> Beat 3: The letter is gone</div>
+          <div class="panel-breadcrumb">Ch 5 › Scene 2 › Beat 3</div>
+        </div>
+      </div>
+      <div class="tab-strip">
+        <div class="tab">Content</div>
+        <div class="tab active agent-active">Agent</div>
+        <div class="tab">Comments</div>
+        <div class="tab">History</div>
+      </div>
+
+      <!-- Complete header bar -->
+      <div class="complete-header">
+        <div class="complete-label">
+          <span>✓</span>
+          Synthesis complete
+        </div>
+        <div style="font-size:10px;font-weight:300;color:var(--text-m);">342 words · 2s ago</div>
+      </div>
+
+      <div class="panel-body">
+        <!-- Result metadata -->
+        <div class="result-meta">
+          <span>✨ Synthesise Beat into Prose</span>
+          <span>claude-sonnet-4-6</span>
+          <span>342 words</span>
+        </div>
+
+        <!-- Result prose — LORA -->
+        <div class="result-area">
+          <div class="result-lora-label">
+            Result
+            <span class="streaming-lora-tag">← Lora (manuscript)</span>
+          </div>
+          <div class="result-text">
+            <p>The drawer was not empty.</p>
+            <p>It was simply missing one thing.</p>
+            <p>Elena stood at the cabinet for a long moment, her hand still on the handle, her eyes moving across the papers she had not disturbed — the receipts, the folded maps, the rubber-banded correspondence she had memorised on the first visit — and confirmed what her hand had already told her.</p>
+            <p>The space where the letter had been was empty. Not gone. Not stolen. Simply absent, in the way that all important things are absent when they are most needed.</p>
+          </div>
+        </div>
+
+        <!-- Accept / reject actions -->
+        <div class="result-actions">
+          <button class="btn-accept">✓ Accept</button>
+          <button class="btn-accept-append">Append to existing</button>
+          <button class="btn-regenerate">Regenerate ↻</button>
+        </div>
+
+        <div style="font-size:10px;font-weight:300;color:var(--text-m);line-height:1.5;">
+          Accepting will replace the current prose field. Previous version saved to History automatically.
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     SECTION 2 — CHAPTER NODE + JOB HISTORY
+     ══════════════════════════════════════════════════════════ -->
+<div style="padding:0 48px;display:grid;grid-template-columns:1fr 1fr;gap:3px;margin-bottom:40px;">
+
+  <!-- STATE 4: CHAPTER NODE — expand operation -->
+  <div style="display:flex;flex-direction:column;gap:3px;">
+    <div style="font-size:9px;font-weight:400;letter-spacing:.38em;text-transform:uppercase;color:var(--text-m);padding:8px 0;">State 4 · Chapter node · Expand operation</div>
+    <div class="panel">
+      <!-- Callout -->
+      <div class="cn" style="top:48px;right:12px;">11</div>
+
+      <div class="panel-header">
+        <div>
+          <div class="panel-node-name"><span>📄</span> Ch 5: The Confrontation</div>
+          <div class="panel-breadcrumb">The Iron Veil › Act One › Ch 5</div>
+        </div>
+      </div>
+      <div class="tab-strip">
+        <div class="tab">Content</div>
+        <div class="tab active agent-active">Agent</div>
+        <div class="tab">Comments</div>
+        <div class="tab">History</div>
+        <div class="tab">Context</div>
+      </div>
+      <div class="panel-body">
+
+        <div>
+          <div class="field-label">Operation</div>
+          <div class="op-pills">
+            <div class="op-pill selected"><span class="op-pill-icon">⬇️</span> Expand</div>
+            <div class="op-pill"><span class="op-pill-icon">✏️</span> Refine</div>
+            <div class="op-pill"><span class="op-pill-icon">🔍</span> Critique</div>
+          </div>
+          <div style="font-size:10px;font-weight:300;color:var(--text-m);margin-top:5px;line-height:1.5;">
+            Generate child nodes (scenes) from this chapter's summary and context.
+          </div>
+        </div>
+
+        <div>
+          <div class="field-label">Agent Profile</div>
+          <div class="profile-select">
+            <div class="profile-select-name">
+              <span style="font-size:13px;">📄</span>
+              <span>Expand Chapter into Scenes</span>
+              <span class="profile-model-tag">claude-opus-4-6</span>
+            </div>
+            <span class="profile-arrow">▾</span>
+          </div>
+        </div>
+
+        <div>
+          <div class="field-label">Instruction to Agent</div>
+          <textarea class="instruction-field" style="width:100%;" placeholder="e.g. '5–6 scenes. Include the archive confrontation and end with the envelope discovery.'"></textarea>
+        </div>
+
+        <!-- Target scene count hint -->
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div class="field-label" style="margin-bottom:0;white-space:nowrap;">Target node count</div>
+          <div style="background:var(--ink);border:1px solid var(--border-s);border-radius:4px;padding:5px 10px;font-size:12px;font-weight:400;color:var(--text-p);width:56px;text-align:center;">5</div>
+          <div style="font-size:11px;font-weight:300;color:var(--text-m);">scenes (optional guidance)</div>
+        </div>
+
+        <div>
+          <div class="field-label" style="display:flex;justify-content:space-between;">
+            Context Nodes
+            <span style="font-size:9px;font-weight:300;color:var(--text-m);letter-spacing:0;text-transform:none;">4 auto-selected</span>
+          </div>
+          <div class="context-selector">
+            <div class="context-item">
+              <div class="ctx-cb checked"></div>
+              <span>Elena Marsh</span>
+              <span class="ctx-type">character</span>
+            </div>
+            <div class="context-item">
+              <div class="ctx-cb checked"></div>
+              <span>Viktor Sorel</span>
+              <span class="ctx-type">character</span>
+            </div>
+            <div class="context-item">
+              <div class="ctx-cb checked"></div>
+              <span>The County Archive</span>
+              <span class="ctx-type">location</span>
+            </div>
+            <div class="context-item">
+              <div class="ctx-cb checked"></div>
+              <span>Dread as Negative Space</span>
+              <span class="ctx-type">theme</span>
+            </div>
+          </div>
+        </div>
+
+        <button class="run-btn" style="background:var(--ag-run);">
+          <span>⬇️</span>
+          Expand into Scenes
+        </button>
+        <div class="token-est">~3,100 tokens · 1 operation used</div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- STATE 5: JOB HISTORY VIEW -->
+  <div style="display:flex;flex-direction:column;gap:3px;">
+    <div style="font-size:9px;font-weight:400;letter-spacing:.38em;text-transform:uppercase;color:var(--text-m);padding:8px 0;">State 5 · Agent Job History · All operations on this node</div>
+    <div class="panel">
+      <!-- Callouts -->
+      <div class="cn" style="top:48px;right:12px;">12</div>
+      <div class="cn" style="top:200px;right:12px;">13</div>
+
+      <div class="panel-header">
+        <div>
+          <div class="panel-node-name"><span>⚡</span> Beat 3: The letter is gone</div>
+          <div class="panel-breadcrumb">Ch 5 › Scene 2 › Beat 3</div>
+        </div>
+      </div>
+      <div class="tab-strip">
+        <div class="tab">Content</div>
+        <div class="tab active agent-active">Agent</div>
+        <div class="tab">Comments</div>
+        <div class="tab">History</div>
+        <div class="tab">Context</div>
+      </div>
+
+      <div class="panel-body">
+        <!-- Current job section -->
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+          <div class="field-label" style="margin-bottom:0;">Current</div>
+          <div style="font-size:10px;font-weight:300;color:var(--text-m);">active in prose</div>
+        </div>
+
+        <div class="history-item" style="border-color:var(--verd);background:rgba(61,120,88,0.04);">
+          <div class="history-row">
+            <div class="hist-op">
+              <div class="hist-badge" style="background:var(--verd);"></div>
+              ✨ Synthesise Beat into Prose
+            </div>
+            <span class="hist-time">2 min ago</span>
+          </div>
+          <div class="history-row">
+            <div class="hist-profile">claude-sonnet-4-6 · Synthesise Beat into Prose</div>
+            <span class="hist-tokens">2,388 in / 342 out</span>
+          </div>
+          <div class="hist-preview">"The drawer was not empty. It was simply missing one thing..."</div>
+        </div>
+
+        <!-- History section -->
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-top:4px;margin-bottom:4px;">
+          <div class="field-label" style="margin-bottom:0;">History</div>
+          <div style="font-size:10px;font-weight:300;color:var(--text-m);">4 operations</div>
+        </div>
+
+        <!-- Job 2 — earlier synthesis attempt -->
+        <div class="history-item">
+          <div class="history-row">
+            <div class="hist-op">
+              <div class="hist-badge" style="background:var(--verd);"></div>
+              ✨ Synthesise Beat into Prose
+            </div>
+            <span class="hist-time">Yesterday 3:14pm</span>
+          </div>
+          <div class="history-row">
+            <div class="hist-profile">claude-sonnet-4-6</div>
+            <span class="hist-tokens">2,401 in / 298 out</span>
+          </div>
+          <div class="hist-preview">"She had known from the moment she arrived. The archive..."</div>
+          <div style="display:flex;justify-content:flex-end;">
+            <span class="hist-restore">Restore this version</span>
+          </div>
+        </div>
+
+        <!-- Job 3 — refine -->
+        <div class="history-item">
+          <div class="history-row">
+            <div class="hist-op">
+              <div class="hist-badge" style="background:var(--verd);"></div>
+              ✏️ Refine Summary
+            </div>
+            <span class="hist-time">Yesterday 2:48pm</span>
+          </div>
+          <div class="history-row">
+            <div class="hist-profile">claude-sonnet-4-6 · Refine Node Summary</div>
+            <span class="hist-tokens">1,820 in / 94 out</span>
+          </div>
+          <div class="hist-preview">"Elena opens the drawer and finds the letter gone..."</div>
+          <div style="display:flex;justify-content:flex-end;">
+            <span class="hist-restore">Restore this version</span>
+          </div>
+        </div>
+
+        <!-- Job 4 — failed -->
+        <div class="history-item" style="border-color:rgba(176,60,60,0.3);">
+          <div class="history-row">
+            <div class="hist-op">
+              <div class="hist-badge" style="background:#b03c3c;"></div>
+              ✨ Synthesise Beat into Prose
+            </div>
+            <span class="hist-time">2 days ago</span>
+          </div>
+          <div class="history-row">
+            <div class="hist-profile">claude-sonnet-4-6</div>
+            <span class="hist-tokens" style="color:#b03c3c;">Failed — API timeout</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     SECTION 3 — ANNOTATIONS
+     ══════════════════════════════════════════════════════════ -->
+<div class="section"><div class="slabel">02 — Annotations</div></div>
+<div class="annotations">
+  <div class="ann-grid">
+
+    <div class="ann-item">
+      <div class="ann-num">1</div>
+      <div class="ann-body">
+        <div class="ann-title">Progressive Disclosure — Tab Only Appears With Content</div>
+        <div class="ann-ref">Brand Identity §10.2 · Component Spec §5.2</div>
+        <div class="ann-desc">
+          The Agent tab is <span class="critical">hidden until the node has content</span> — specifically, until the <code>summary</code> field is non-empty. An empty node has no meaningful context to send to an agent. The tab appears (via opacity transition, <code>--duration-fast</code>) when the author saves their first summary. For leaf nodes: the Synthesise operation is only shown when the summary is non-empty.
+        </div>
+      </div>
+    </div>
+
+    <div class="ann-item">
+      <div class="ann-num">2</div>
+      <div class="ann-body">
+        <div class="ann-title">Operation Types per Node Type</div>
+        <div class="ann-ref">Product Spec §11 · Agent Profile Library v0.3</div>
+        <div class="ann-desc">
+          Available operations are determined by the node's <code>layer_type</code>. Non-leaf nodes (book, act, chapter, scene): Expand · Refine · Critique. Leaf nodes (beat, paragraph_group): Synthesise · Refine · Critique. All nodes: Custom (always available, opens instruction-only mode with no preset profile). Operations are rendered as selectable pills — only one can be active at a time.
+        </div>
+      </div>
+    </div>
+
+    <div class="ann-item">
+      <div class="ann-num">3</div>
+      <div class="ann-body">
+        <div class="ann-title">Agent Profile Selector</div>
+        <div class="ann-ref">Product Spec §11 · UI Design §6.2</div>
+        <div class="ann-desc">
+          Shows the default profile for the selected operation on this node type. Clicking opens a dropdown listing all compatible profiles for this operation type. Each profile shows its name, operation type icon, and model tag. BYOK users see their configured model. Platform users see the platform model. The author can override per operation but the default is applied automatically based on <code>default_agent_profile_id</code> on the layer definition.
+        </div>
+      </div>
+    </div>
+
+    <div class="ann-item">
+      <div class="ann-num">4</div>
+      <div class="ann-body">
+        <div class="ann-title">Context Node Selection — Auto-Selected, Author Can Override</div>
+        <div class="ann-ref">Product Spec §10 · §11.4</div>
+        <div class="ann-desc">
+          The system auto-selects context nodes based on the agent profile's <code>context_rules</code>. The author sees the selection and can uncheck nodes they do not want included. Checkboxes are the only interaction — the author cannot add context nodes from here (that is done in the Context tab). The count label shows how many were auto-selected. On hover of any item, a tooltip shows the context node's full description.
+        </div>
+      </div>
+    </div>
+
+    <div class="ann-item">
+      <div class="ann-num">5</div>
+      <div class="ann-body">
+        <div class="ann-title">Running State — Header Bar Replaces Operation Form</div>
+        <div class="ann-ref">UI Design §5.4</div>
+        <div class="ann-desc">
+          When an operation starts, the operation form collapses to a summary row (non-interactive). The running header bar slides down from the tab strip border. The Stop button sends a cancellation signal — the operation halts, partial output is discarded, the agent_job is marked <code>cancelled</code>. The streaming output area appears below the summary row and grows as text arrives. The token tracker updates in real time from the streaming response's token count events.
+        </div>
+      </div>
+    </div>
+
+    <div class="ann-item">
+      <div class="ann-num">6</div>
+      <div class="ann-body">
+        <div class="ann-title">Streaming Output Renders in Lora — The Only Exception in Structural Panels</div>
+        <div class="ann-ref">Brand Identity §5.4 · Component Spec §5.4</div>
+        <div class="ann-desc">
+          <span class="inviolable">The streaming prose output renders in Lora 400, 14px, line-height 1.85.</span> This is the only place Lora appears outside the ProseEditor and FocusMode components. The rationale: the agent is generating manuscript text. The typeface signal applies to the output regardless of which surface it appears on. The streaming cursor uses <code>--color-agent-running</code> (blue, not verdigris) — it is the agent writing, not the author. The label "Live Output" carries the italic tag "← rendered in Lora (manuscript)".
+        </div>
+      </div>
+    </div>
+
+    <div class="ann-item">
+      <div class="ann-num">7</div>
+      <div class="ann-body">
+        <div class="ann-title">Token Tracker — Real-Time Feedback</div>
+        <div class="ann-ref">Product Spec §11.5 · §5.3</div>
+        <div class="ann-desc">
+          Shown during execution. Input token count is calculated before the operation starts (from context assembly) and displayed immediately. Output token count increments in real time as the stream arrives. Both are Inter 300 10px <code>--color-text-muted</code>. For Platform tier users this shows consumption against their token budget (shown as % of budget in account settings). For BYOK users this informs their own API provider bill. Updated from streaming events — Anthropic's API returns token counts in the final stream event; interim counts can be estimated from character count.
+        </div>
+      </div>
+    </div>
+
+    <div class="ann-item">
+      <div class="ann-num">8</div>
+      <div class="ann-body">
+        <div class="ann-title">Complete State — Result Requires Author Decision</div>
+        <div class="ann-ref">Brand Identity §1.2 — Author is the origin</div>
+        <div class="ann-desc">
+          The result is never auto-accepted. It is presented for the author's review. Three actions: <strong>Accept</strong> (replaces prose field, previous version auto-saved to History), <strong>Append to existing</strong> (adds result below any existing prose — useful for building up a beat in multiple passes), <strong>Regenerate</strong> (runs the same operation again with the same settings, produces a new result). The warning note — "Accepting will replace the current prose field. Previous version saved to History automatically." — is the brand voice: direct, complete, no alarm.
+        </div>
+      </div>
+    </div>
+
+    <div class="ann-item">
+      <div class="ann-num">9</div>
+      <div class="ann-body">
+        <div class="ann-title">Result Text in Lora — Same Rule as Streaming</div>
+        <div class="ann-ref">Brand Identity §5.4</div>
+        <div class="ann-desc">
+          The completed result prose renders in Lora 400 14px, same as streaming. Same rationale: this is manuscript text regardless of the panel it occupies. The result area has a slightly stronger border (<code>--color-border-default</code>) than the streaming area (<code>--color-border-subtle</code>) to signal that this is a completed artefact rather than live output. The border-left is not verdigris — the result is not yet in the prose field, it has not been accepted, so it does not carry the accent.
+        </div>
+      </div>
+    </div>
+
+    <div class="ann-item">
+      <div class="ann-num">10</div>
+      <div class="ann-body">
+        <div class="ann-title">Accept Button — Verdigris, Sanctioned Category 3</div>
+        <div class="ann-ref">Brand Identity §4.4 Category 3 — Completion</div>
+        <div class="ann-desc">
+          The Accept button uses <code>--color-accent</code> (verdigris) as its background. This is a deliberate extension of the sanctioned uses: accepting the result is an act of completion — the agent's output becomes the author's prose. The verdigris signals this moment of commitment. <span class="inviolable">This is an eighth sanctioned use of verdigris in the Category 3 (Completion) group.</span> Update Brand Identity §4.4 and Component Spec §1.4 to include this use. The Regenerate button explicitly does not use verdigris — it is not completion, it is a retry.
+        </div>
+      </div>
+    </div>
+
+    <div class="ann-item">
+      <div class="ann-num">11</div>
+      <div class="ann-body">
+        <div class="ann-title">Expand Operation — Generates Child Nodes</div>
+        <div class="ann-ref">Product Spec §11.3 · §9.4</div>
+        <div class="ann-desc">
+          The Expand operation is only available on non-leaf nodes. It generates child nodes in the tree below the current node — for a chapter, it generates scenes; for a scene, it generates beats. The "Target node count" field is a hint to the agent, not an instruction — the profile's system prompt uses it as guidance. The result of an Expand operation is not prose but new tree nodes with summaries. These appear in the tree immediately (optimistic UI) and are confirmed when the API response is saved to the database.
+        </div>
+      </div>
+    </div>
+
+    <div class="ann-item">
+      <div class="ann-num">12</div>
+      <div class="ann-body">
+        <div class="ann-title">Job History — Current Version Highlighted</div>
+        <div class="ann-ref">Product Spec §14 · UI Design §5.2</div>
+        <div class="ann-desc">
+          The history view shows all agent_jobs for this node, most recent first. The current (accepted) version is highlighted with a verdigris border — it is the completion in the prose field. Previous versions can be restored individually. The history list is the same data as the History tab — the Agent tab shows jobs only; the History tab shows all changes including manual edits. A failed job is shown with a red border and no restore option. Job metadata includes: operation type, profile name, model, token counts, timestamp.
+        </div>
+      </div>
+    </div>
+
+    <div class="ann-item">
+      <div class="ann-num">13</div>
+      <div class="ann-body">
+        <div class="ann-title">Restore — Replaces Current Prose, Saves to History</div>
+        <div class="ann-ref">Product Spec §14.3</div>
+        <div class="ann-desc">
+          The "Restore this version" button replaces the current prose field with the historical version. The current prose is automatically saved to History before the restore — nothing is ever permanently lost. No confirmation dialog is required (the restoration is reversible). After restoration, the restored job moves to the top of the history list as the "current" version, highlighted with a verdigris border. The toast reads: "Version restored. Previous prose saved to history." (brand voice: specific, no alarm).
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     SECTION 4 — SPEC TABLES
+     ══════════════════════════════════════════════════════════ -->
+<div class="section"><div class="slabel">03 — Claude Code Implementation Specification · AgentTab Component</div></div>
+
+<div class="spec-section">
+
+  <!-- AgentTab component -->
+  <div class="spec-block">
+    <div class="spec-block-header">AgentTab Component — Overview<span class="sbr">Product Spec §11 · UI Design §6.2 · Component Spec §5.2</span></div>
+    <table class="spec-table">
+      <tr><th>Property</th><th>Value</th><th>Notes</th></tr>
+      <tr><td>File</td><td><code>components/detail/AgentTab.tsx</code></td><td>Sub-components listed below</td></tr>
+      <tr><td>Visibility</td><td><span class="critical">Hidden until node summary is non-empty</span></td><td>Tab fades in via <code>--duration-fast opacity transition</code> when summary is first saved</td></tr>
+      <tr><td>State machine</td><td>ready → running → complete | error</td><td>Also: history view (parallel, not a state — toggled by History tab within Agent tab)</td></tr>
+      <tr><td>Persists between tab switches</td><td>Yes — full state preserved</td><td>If operation is running and author switches to Content tab, operation continues. Status dot on Agent tab shows running.</td></tr>
+    </table>
+  </div>
+
+  <!-- OperationSelector -->
+  <div class="spec-block">
+    <div class="spec-block-header">OperationSelector Component<span class="sbr">Product Spec §11.2</span></div>
+    <table class="spec-table">
+      <tr><th>Property</th><th>Value</th><th>Notes</th></tr>
+      <tr><td>Operations — non-leaf node</td><td>Expand · Refine · Critique · Custom</td><td>Expand always first. Custom always last.</td></tr>
+      <tr><td>Operations — leaf node</td><td>Synthesise · Refine · Critique · Custom</td><td>Synthesise replaces Expand on leaf nodes.</td></tr>
+      <tr><td>Pill style — default</td><td>Inter 400 11px, 1px <code>--color-border-default</code>, <code>--color-text-secondary</code></td><td>border-radius: 4px, padding: 4px 10px</td></tr>
+      <tr><td>Pill style — selected</td><td>1px <code>--color-agent-running</code>, bg <code>rgba(46,90,144,0.1)</code>, <code>--color-text-primary</code></td><td>Note: uses agent-running blue, not verdigris — selection is not completion</td></tr>
+      <tr><td>Pill style — hover</td><td>1px <code>--color-border-strong</code></td><td><code>--duration-fast</code></td></tr>
+      <tr><td>Only one selected at a time</td><td>Radio group behaviour</td><td>Changing selection resets the instruction field but not the context node selection</td></tr>
+      <tr><td>Description text</td><td>Inter 300 10px <code>--color-text-muted</code>, line-height 1.5</td><td>Operation description changes based on selected pill</td></tr>
+    </table>
+  </div>
+
+  <!-- AgentProfileSelector -->
+  <div class="spec-block">
+    <div class="spec-block-header">AgentProfileSelector Component<span class="sbr">Product Spec §11.1</span></div>
+    <table class="spec-table">
+      <tr><th>Property</th><th>Value</th><th>Notes</th></tr>
+      <tr><td>Default</td><td>Layer's <code>default_agent_profile_id</code></td><td>Loaded from layer definition. Auto-populated when operation type is selected.</td></tr>
+      <tr><td>Trigger</td><td>Click opens Dropdown</td><td>Dropdown lists all profiles compatible with the selected operation type</td></tr>
+      <tr><td>Dropdown item</td><td>Profile icon · Profile name · Model tag</td><td>Inter 400 12px. Model tag: Inter 300 9px <code>--color-text-muted</code> bg <code>--color-bg-elevated</code></td></tr>
+      <tr><td>Selector display</td><td>Selected profile name + model tag + ▾</td><td>Background <code>--color-bg-base</code>, 1px <code>--color-border-subtle</code></td></tr>
+    </table>
+  </div>
+
+  <!-- InstructionField -->
+  <div class="spec-block">
+    <div class="spec-block-header">InstructionField Component<span class="sbr">Product Spec §11.1 · Brand Identity §9</span></div>
+    <table class="spec-table">
+      <tr><th>Property</th><th>Value</th><th>Notes</th></tr>
+      <tr><td>Font</td><td>Inter 300 12px</td><td>This is a directive to an agent — structural register, not prose</td></tr>
+      <tr><td>Placeholder</td><td>Inter 300 12px <code>--color-text-disabled</code> italic</td><td>Placeholder suggests a concrete instruction style: "e.g. 'Keep under 200 words. Focus on physical stillness.'"</td></tr>
+      <tr><td>Optional</td><td>Yes — clearly labelled</td><td>The agent profile's system prompt operates without an instruction. The instruction supplements it.</td></tr>
+      <tr><td>Persists</td><td>Per node, per operation type</td><td>Stored as <code>agent_instruction</code> on the node. The author's last instruction is remembered.</td></tr>
+      <tr><td>Character limit</td><td>None enforced</td><td>Displayed token estimate updates live based on instruction length</td></tr>
+    </table>
+  </div>
+
+  <!-- ContextNodeSelector -->
+  <div class="spec-block">
+    <div class="spec-block-header">ContextNodeSelector Component<span class="sbr">Product Spec §10 · §11.4</span></div>
+    <table class="spec-table">
+      <tr><th>Property</th><th>Value</th><th>Notes</th></tr>
+      <tr><td>Auto-selection</td><td>Driven by agent profile's <code>context_rules</code></td><td>Loaded on component mount. Applied automatically.</td></tr>
+      <tr><td>Override</td><td>Author can uncheck any item</td><td>Unchecking reduces token count (shown in estimate). Rechecking restores it.</td></tr>
+      <tr><td>Cannot add</td><td>No add-context affordance here</td><td>Context nodes added via the Context tab only</td></tr>
+      <tr><td>Item height</td><td>28px</td><td>Checkbox 12px + name + type tag</td></tr>
+      <tr><td>Type tag</td><td>Inter 300 9px <code>--color-text-m</code></td><td>Right-aligned: character / location / theme / world / etc.</td></tr>
+      <tr><td>Max visible</td><td>5 items before scroll</td><td>Container: max-height ~156px, overflow-y auto</td></tr>
+      <tr><td>Count label</td><td>"N auto-selected" Inter 300 9px <code>--color-text-m</code></td><td>Right of field label. Updates when author overrides.</td></tr>
+    </table>
+  </div>
+
+  <!-- RunButton + TokenEstimate -->
+  <div class="spec-block">
+    <div class="spec-block-header">RunButton + TokenEstimate<span class="sbr">Product Spec §5.4 — token budget gate</span></div>
+    <table class="spec-table">
+      <tr><th>Property</th><th>Value</th><th>Notes</th></tr>
+      <tr><td>RunButton — enabled</td><td>Background <code>--color-agent-running</code>, white Inter 500 12px, full width</td><td>Label changes with operation: "Synthesise Prose" / "Expand into Scenes" / "Refine Summary" etc.</td></tr>
+      <tr><td>RunButton — disabled</td><td>opacity: 0.4, cursor: not-allowed</td><td>Disabled when: no summary, token budget exhausted, node locked by another user, operation already running</td></tr>
+      <tr><td>Token budget exhausted state</td><td>Button disabled + warning: "Your [tier] token budget is full. Resets on [date]. Upgrade for more capacity."</td><td>Brand voice: direct, no alarm. Link to billing settings.</td></tr>
+      <tr><td>TokenEstimate</td><td>Inter 300 10px <code>--color-text-muted</code></td><td>"~2,400 tokens · 1 operation used". Updates live as context selection or instruction changes.</td></tr>
+      <tr><td>Token calculation</td><td>Client-side estimate from context assembly preview</td><td>Call <code>GET /agent/estimate-tokens</code> with current configuration. Debounced 500ms.</td></tr>
+    </table>
+  </div>
+
+  <!-- Running state -->
+  <div class="spec-block">
+    <div class="spec-block-header">Running State Components<span class="sbr">Product Spec §11.5</span></div>
+    <table class="spec-table">
+      <tr><th>Component</th><th>Value</th><th>Notes</th></tr>
+      <tr><td>RunningHeader</td><td>Background <code>rgba(46,90,144,0.08)</code>, border-bottom <code>rgba(46,90,144,0.2)</code></td><td>Spinner + label + Stop button. Appears via slide-down, <code>--duration-fast</code>.</td></tr>
+      <tr><td>Spinner</td><td>12px, 2px border, top-colour <code>--color-agent-running</code></td><td>CSS animation, 0.8s linear infinite. Stops on prefers-reduced-motion.</td></tr>
+      <tr><td>OperationSummaryRow</td><td>Collapsed, non-interactive summary of operation config</td><td>Profile icon + name + model. Background <code>--color-bg-base</code> 1px <code>--color-border-subtle</code>.</td></tr>
+      <tr><td>StreamingArea font</td><td><span class="inviolable">Lora 400 14px line-height 1.85</span></td><td>Manuscript text renders in Lora even in the structural panel.</td></tr>
+      <tr><td>Streaming cursor</td><td>2px, <code>--color-agent-running</code> (blue)</td><td>Not verdigris — agent is writing, not the author.</td></tr>
+      <tr><td>TokenTracker</td><td>Inter 300 10px, updates from stream events</td><td>Row: "Input: N tokens · Output: N tokens..."</td></tr>
+      <tr><td>Stop</td><td>Cancels the stream, marks job <code>cancelled</code>, discards partial output</td><td>Returns to ready state. Does not restore previous content.</td></tr>
+    </table>
+  </div>
+
+  <!-- Complete state -->
+  <div class="spec-block">
+    <div class="spec-block-header">Complete State Components<span class="sbr">Product Spec §11.5 · Brand Identity §4.4</span></div>
+    <table class="spec-table">
+      <tr><th>Component</th><th>Value</th><th>Notes</th></tr>
+      <tr><td>CompleteHeader</td><td>Background <code>rgba(61,120,88,0.08)</code>, border-bottom <code>rgba(61,120,88,0.2)</code></td><td>"✓ Synthesis complete" in <code>--color-accent</code>. Time elapsed right-aligned.</td></tr>
+      <tr><td>ResultArea font</td><td><span class="inviolable">Lora 400 14px line-height 1.85</span></td><td>Same as streaming — result is manuscript text.</td></tr>
+      <tr><td>ResultArea border</td><td>1px <code>--color-border-default</code></td><td>Stronger than streaming (subtle) — this is a completed artefact.</td></tr>
+      <tr><td>Accept button</td><td><span class="inviolable">Background --color-accent (verdigris)</span></td><td>This is the 8th sanctioned use: Category 3 (Completion) — author accepts the result into prose.</td></tr>
+      <tr><td>Accept action</td><td>Replaces <code>node.prose</code> field. Auto-saves previous prose to History. Marks job <code>accepted</code>.</td><td>No confirmation dialog — the action is reversible via History.</td></tr>
+      <tr><td>Append action</td><td>Appends result below existing prose. No replacement.</td><td>Useful for building up prose in multiple passes.</td></tr>
+      <tr><td>Regenerate action</td><td>Reruns same operation with same configuration</td><td>Border button, no accent colour — this is a retry, not a completion.</td></tr>
+    </table>
+  </div>
+
+  <!-- Job history -->
+  <div class="spec-block">
+    <div class="spec-block-header">AgentJobHistory Component<span class="sbr">Product Spec §11.5 · §14</span></div>
+    <table class="spec-table">
+      <tr><th>Property</th><th>Value</th><th>Notes</th></tr>
+      <tr><td>Data source</td><td><code>agent_jobs</code> table filtered by <code>node_id</code></td><td>Most recent first. All operation types included.</td></tr>
+      <tr><td>Current item</td><td>Verdigris border, <code>rgba(61,120,88,0.04)</code> bg, labelled "active in prose"</td><td>The job whose output is currently in <code>node.prose</code></td></tr>
+      <tr><td>History item height</td><td>auto (2–3 rows depending on preview)</td><td>padding: 10px 12px, gap: 6px between rows</td></tr>
+      <tr><td>History item — success border</td><td>1px <code>--color-border-subtle</code></td><td></td></tr>
+      <tr><td>History item — failed border</td><td>1px <code>rgba(176,60,60,0.3)</code></td><td>No restore button on failed jobs</td></tr>
+      <tr><td>Preview text</td><td>First 80 chars of job output, italic, <code>--color-text-muted</code></td><td>For Expand operations: "Generated N nodes: Scene 1, Scene 2..."</td></tr>
+      <tr><td>Restore action</td><td>Replaces <code>node.prose</code> with job's output. Saves current prose to History first.</td><td>Toast: "Version restored. Previous prose saved to history."</td></tr>
+      <tr><td>Token display</td><td>"N in / N out" Inter 300 10px <code>--color-text-muted</code></td><td>Platform tier users also see operation cost in credits</td></tr>
+      <tr><td>Failed job</td><td>Red border. Error reason shown instead of token count.</td><td>No restore. Error: "Failed — API timeout" / "Failed — Context too large" etc.</td></tr>
+    </table>
+  </div>
+
+</div>
+
+<!-- Verdigris note -->
+<div style="padding:0 48px 80px;">
+  <div style="background:rgba(61,120,88,0.08);border:1px solid rgba(61,120,88,0.2);border-radius:4px;padding:16px 20px;">
+    <div style="font-size:11px;font-weight:500;color:var(--verd);margin-bottom:8px;">⚠ Verdigris Usage Update — New Sanctioned Use Identified</div>
+    <div style="font-size:11px;font-weight:300;color:var(--text-s);line-height:1.6;">
+      The Accept button background (<code>--color-accent</code>) is an eighth sanctioned use of verdigris. Category 3 — Completion: accepting the agent's result is the act of completion, the moment the generated prose enters the author's manuscript. This is the same category as the approved status badge and the word count at target. Update <strong>Brand Identity v1.1 §4.4</strong> (add to Category 3 list) and <strong>Component Spec v1.0 §1.4</strong> (add to the seven-location table). The total is now eight sanctioned uses.
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,994 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stelavox — Focus Mode Wireframe & Specification v1.0</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500&family=Cormorant+Garamond:ital,wght@1,300&family=Inter:wght@200;300;400;500;600&family=Lora:ital,wght@0,400;1,400&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --ink:        #0d1014;
+  --deep:       #131820;
+  --surface:    #1a2030;
+  --border-s:   #1e2535;
+  --border-d:   #253045;
+  --text-p:     #ecf0f5;
+  --text-s:     #8aa0b8;
+  --text-m:     #4a6080;
+  --text-dis:   #2a3850;
+  --verd:       #3d7858;
+
+  /* Spec shell */
+  --spec-bg:    #0a0d12;
+  --spec-panel: #111520;
+  --callout:    #e8b840;
+}
+
+body {
+  background: var(--spec-bg);
+  color: var(--text-p);
+  font-family: 'Inter', sans-serif;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+/* ── Doc header ── */
+.doc-header {
+  background: var(--spec-panel);
+  border-bottom: 1px solid var(--border-d);
+  padding: 24px 48px;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+.doc-wordmark { display: flex; align-items: baseline; }
+.wm-stela { font-family:'Cinzel',serif; font-size:14px; font-weight:500; letter-spacing:0.18em; color:var(--text-p); }
+.wm-vox   { font-family:'Cormorant Garamond',serif; font-style:italic; font-weight:300; font-size:16px; letter-spacing:0.08em; color:var(--text-p); opacity:0.82; }
+.doc-meta { font-size:11px; font-weight:300; letter-spacing:0.2em; text-transform:uppercase; color:var(--text-m); }
+
+/* ── Section label ── */
+.section { padding: 40px 48px 0; }
+.section-label {
+  font-size: 9px; font-weight:400; letter-spacing:0.45em; text-transform:uppercase;
+  color:var(--text-m); margin-bottom:20px; padding-bottom:12px; border-bottom:1px solid var(--border-s);
+}
+
+/* ══════════════════════════════════════════════
+   STATE SCREENS — four focus mode states
+   ══════════════════════════════════════════════ */
+.states-grid {
+  padding: 40px 48px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 3px;
+}
+
+.state-screen {
+  background: var(--ink);
+  height: 480px;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* State labels */
+.state-label-bar {
+  width: 100%;
+  background: rgba(255,255,255,0.03);
+  border-bottom: 1px solid var(--border-s);
+  padding: 7px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+}
+.state-name {
+  font-size: 9px; font-weight:400; letter-spacing:0.35em; text-transform:uppercase; color:var(--text-m);
+}
+.state-note {
+  font-size: 10px; font-weight:300; color:var(--text-dis); font-style:italic;
+}
+
+/* ── Prose column inside each state ── */
+.prose-col {
+  width: 520px; /* slightly narrower than 620px to fit in the panels — annotated accordingly */
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  padding-top: 56px;
+  padding-bottom: 80px;
+  position: relative;
+}
+
+/* The breadcrumb — fades depending on state */
+.focus-breadcrumb {
+  font-family: 'Inter', sans-serif;
+  font-size: 11px;
+  font-weight: 200;
+  letter-spacing: 0.04em;
+  color: var(--text-m);
+  text-align: center;
+  width: 100%;
+  position: absolute;
+  top: 20px;
+  left: 0;
+  /* opacity varies per state */
+  transition: opacity 0.8s ease;
+  pointer-events: none; /* NOT clickable in Focus Mode */
+}
+.focus-breadcrumb .sep { opacity: 0.4; margin: 0 4px; }
+
+/* The prose text */
+.prose-text {
+  font-family: 'Lora', serif;
+  font-size: 17px; /* 18px in real — slightly reduced to fit wireframe panels */
+  font-weight: 400;
+  line-height: 1.85;
+  color: var(--text-p);
+  text-align: left;
+}
+
+/* The verdigris cursor */
+.vcursor {
+  display: inline-block;
+  width: 2px;
+  height: 1em;
+  background: var(--verd);
+  vertical-align: text-bottom;
+  margin-left: 1px;
+}
+.vcursor.blinking { animation: cur-blink 1s step-end infinite; }
+@keyframes cur-blink {
+  0%,59% { opacity:1; }
+  60%,100%{ opacity:0; }
+}
+
+/* Word count */
+.focus-wc {
+  font-family: 'Inter', sans-serif;
+  font-size: 11px;
+  font-weight: 300;
+  color: var(--text-m);
+  text-align: right;
+  position: absolute;
+  bottom: 24px;
+  right: 0;
+  transition: opacity 0.8s ease;
+}
+
+/* Esc hint */
+.esc-hint {
+  font-family: 'Inter', sans-serif;
+  font-size: 10px;
+  font-weight: 300;
+  letter-spacing: 0.12em;
+  color: var(--text-dis);
+  position: absolute;
+  bottom: 22px;
+  left: 0;
+  transition: opacity 0.8s ease;
+}
+
+/* ── Sentence focus variations ── */
+.sf-active     { opacity: 1; }
+.sf-adjacent   { opacity: 0.85; }
+.sf-background { opacity: 0.55; }
+
+/* Callout markers */
+.cn {
+  display: inline-flex; align-items:center; justify-content:center;
+  width:18px; height:18px; background:var(--callout); color:#0a0800;
+  border-radius:50%; font-size:10px; font-weight:700; font-family:'Inter',sans-serif;
+  flex-shrink:0; position:absolute; z-index:20;
+}
+
+/* ══════════════════════════════════════════════
+   DETAIL PANELS — close-ups
+   ══════════════════════════════════════════════ */
+.details-grid {
+  padding: 0 48px 40px;
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 3px;
+}
+
+.detail-panel {
+  background: var(--spec-panel);
+  border: 1px solid var(--border-s);
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.dp-title {
+  font-size: 10px; font-weight:500; letter-spacing:0.3em; text-transform:uppercase; color:var(--text-s);
+  padding-bottom: 12px; border-bottom: 1px solid var(--border-s);
+}
+.dp-body {
+  font-size: 11px; font-weight:300; color:var(--text-m); line-height:1.6;
+}
+.dp-body code {
+  background: var(--ink); padding:1px 5px; border-radius:2px;
+  font-family:'SF Mono','Fira Code',monospace; font-size:10px; color:var(--callout);
+}
+.dp-demo { background: var(--ink); padding:16px; border-radius:3px; }
+
+/* Typography ruler demo */
+.ruler-demo {
+  background: var(--ink);
+  padding: 20px;
+  border-radius: 3px;
+  position: relative;
+}
+.ruler-line {
+  width: 100%;
+  height: 1px;
+  background: rgba(232,184,64,0.2);
+  position: absolute;
+}
+.ruler-label {
+  position: absolute;
+  right: 0;
+  font-size: 9px;
+  font-weight:300;
+  color: var(--callout);
+  font-family: 'Inter', sans-serif;
+  opacity: 0.7;
+  white-space: nowrap;
+}
+.ruler-text {
+  font-family: 'Lora', serif;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.85;
+  color: var(--text-p);
+}
+
+/* Cursor demo */
+.cursor-demo {
+  background: var(--ink);
+  padding: 20px;
+  border-radius: 3px;
+  font-family: 'Lora', serif;
+  font-size: 15px;
+  font-weight: 400;
+  line-height: 1.85;
+  color: var(--text-p);
+}
+.cd-blink {
+  display: inline-block;
+  width: 2px;
+  height: 0.85em;
+  background: var(--verd);
+  vertical-align: text-bottom;
+  margin-left: 1px;
+  animation: cur-blink 1s step-end infinite;
+}
+
+/* Transition diagram */
+.transition-diagram {
+  background: var(--ink);
+  border-radius: 3px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.td-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+}
+.td-box {
+  background: var(--surface);
+  border: 1px solid var(--border-s);
+  border-radius: 3px;
+  padding: 5px 10px;
+  font-size: 10px;
+  font-weight: 400;
+  color: var(--text-s);
+  white-space: nowrap;
+}
+.td-box.highlight {
+  border-color: var(--verd);
+  color: var(--text-p);
+}
+.td-arrow {
+  font-size: 11px;
+  color: var(--text-m);
+  flex-shrink: 0;
+}
+.td-note {
+  font-size: 10px;
+  color: var(--text-m);
+  font-style: italic;
+}
+
+/* ══════════════════════════════════════════════
+   ANNOTATIONS
+   ══════════════════════════════════════════════ */
+.annotations { padding: 0 48px 40px; }
+.ann-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2px;
+}
+.ann-item {
+  background: var(--spec-panel);
+  padding: 16px 18px;
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+}
+.ann-num {
+  display:inline-flex; align-items:center; justify-content:center;
+  width:22px; height:22px; min-width:22px;
+  background:var(--callout); color:#0a0800; border-radius:50%;
+  font-size:11px; font-weight:700; font-family:'Inter',sans-serif;
+}
+.ann-body { flex:1; }
+.ann-title { font-size:12px; font-weight:600; color:var(--text-p); margin-bottom:4px; }
+.ann-ref { font-size:10px; font-weight:400; letter-spacing:0.15em; color:var(--verd); margin-bottom:6px; text-transform:uppercase; }
+.ann-desc { font-size:11px; font-weight:300; color:var(--text-s); line-height:1.6; }
+.ann-desc code {
+  background:var(--ink); padding:1px 5px; border-radius:2px;
+  font-family:'SF Mono','Fira Code',monospace; font-size:10px; color:var(--callout);
+}
+.critical { color: #b87030; font-weight:500; }
+.inviolable { color: var(--verd); font-weight:500; }
+
+/* ══════════════════════════════════════════════
+   SPEC TABLES
+   ══════════════════════════════════════════════ */
+.spec-section { padding: 0 48px 80px; }
+.spec-block {
+  background: var(--spec-panel);
+  border: 1px solid var(--border-s);
+  border-radius: 4px;
+  margin-bottom: 2px;
+  overflow: hidden;
+}
+.spec-block-header {
+  padding: 12px 20px;
+  background: var(--ink);
+  border-bottom: 1px solid var(--border-s);
+  font-size: 11px; font-weight:600; letter-spacing:0.25em; text-transform:uppercase; color:var(--text-p);
+  display:flex; justify-content:space-between; align-items:center;
+}
+.spec-block-ref { font-size:10px; font-weight:300; letter-spacing:0.1em; color:var(--verd); }
+.spec-table { width:100%; border-collapse:collapse; }
+.spec-table th {
+  font-size:10px; font-weight:500; letter-spacing:0.2em; text-transform:uppercase;
+  color:var(--text-m); text-align:left; padding:8px 20px;
+  border-bottom:1px solid var(--border-s); background:rgba(255,255,255,0.01);
+}
+.spec-table td {
+  font-size:11px; font-weight:300; color:var(--text-s);
+  padding:7px 20px; border-bottom:1px solid var(--border-s); vertical-align:top;
+}
+.spec-table tr:last-child td { border-bottom:none; }
+.spec-table td:first-child { color:var(--text-p); font-weight:400; min-width:200px; }
+.spec-table td code {
+  background:var(--ink); padding:1px 5px; border-radius:2px;
+  font-family:'SF Mono','Fira Code',monospace; font-size:10px; color:var(--callout);
+}
+.spec-table .note { font-size:10px; font-style:italic; color:var(--text-m); margin-top:2px; }
+.spec-table .critical { color:#b87030; font-weight:500; }
+.spec-table .inviolable { color:var(--verd); font-weight:500; }
+</style>
+</head>
+<body>
+
+<!-- Doc header -->
+<div class="doc-header">
+  <div>
+    <div class="doc-wordmark">
+      <span class="wm-stela">Stela</span><span class="wm-vox">vox</span>
+    </div>
+    <div style="margin-top:6px;font-size:11px;font-weight:300;letter-spacing:0.2em;text-transform:uppercase;color:var(--text-m);">
+      Focus Mode — Annotated Wireframe & Claude Code Specification · v1.0
+    </div>
+  </div>
+  <div class="doc-meta">Companion: Brand Identity v1.1 · UI Design v0.3.1 · Edit Mode Wireframe v1.0</div>
+</div>
+
+<!-- ══════════════════════════════════════════════
+     SECTION 1 — THE FOUR STATES
+     ══════════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-label">01 — Focus Mode · Four States · Background always #0d1014</div>
+</div>
+
+<div class="states-grid">
+
+  <!-- STATE A: TYPING — nothing visible except prose + blinking cursor -->
+  <div class="state-screen">
+    <div class="state-label-bar">
+      <span class="state-name">State A — Typing</span>
+      <span class="state-note">Author is writing. Everything invisible except prose + cursor.</span>
+    </div>
+
+    <!-- Callout markers -->
+    <div class="cn" style="top:50px;left:20px;">1</div>
+    <div class="cn" style="top:50px;right:20px;">2</div>
+    <div class="cn" style="bottom:50px;right:20px;">4</div>
+
+    <div class="prose-col">
+
+      <!-- Breadcrumb — opacity 0 while typing -->
+      <div class="focus-breadcrumb" style="opacity:0;">
+        The Iron Veil <span class="sep">·</span> Act One <span class="sep">·</span> Ch 5 <span class="sep">·</span> Scene 2 <span class="sep">·</span> Beat 3
+      </div>
+
+      <!-- Prose text — active typing state -->
+      <div class="prose-text">
+        The letter was not where she had left it.<br><br>
+        It was simply missing one thing.<br><br>
+        Elena stood at the cabinet for a long moment, her hand still on the handle, her eyes moving across the papers she had not disturbed — the receipts, the folded maps, the rubber-banded correspondence she had memorised on the first visit — and confirmed what her hand had already told her.<br><br>
+        The space where the letter had been was<span class="vcursor" style="animation:none;"></span>
+      </div>
+
+      <!-- Word count — opacity 0 while typing -->
+      <div class="focus-wc" style="opacity:0;">87 / 400</div>
+
+      <!-- Esc hint — opacity 0 while typing (fades after 5s) -->
+      <div class="esc-hint" style="opacity:0;">Esc to exit</div>
+    </div>
+  </div>
+
+  <!-- STATE B: AT REST — 3+ seconds since last keystroke -->
+  <div class="state-screen">
+    <div class="state-label-bar">
+      <span class="state-name">State B — At Rest (>3 seconds)</span>
+      <span class="state-note">Word count fades in. Breadcrumb returns at 20% opacity.</span>
+    </div>
+
+    <div class="cn" style="top:50px;left:20px;">3</div>
+    <div class="cn" style="bottom:50px;left:20px;">5</div>
+    <div class="cn" style="bottom:50px;right:20px;">4</div>
+
+    <div class="prose-col">
+
+      <!-- Breadcrumb — 20% opacity at rest -->
+      <div class="focus-breadcrumb" style="opacity:0.2;">
+        The Iron Veil <span class="sep">·</span> Act One <span class="sep">·</span> Ch 5 <span class="sep">·</span> Scene 2 <span class="sep">·</span> Beat 3
+      </div>
+
+      <div class="prose-text">
+        The letter was not where she had left it.<br><br>
+        It was simply missing one thing.<br><br>
+        Elena stood at the cabinet for a long moment, her hand still on the handle, her eyes moving across the papers she had not disturbed — the receipts, the folded maps, the rubber-banded correspondence she had memorised on the first visit — and confirmed what her hand had already told her.<br><br>
+        The space where the letter had been was<span class="vcursor blinking"></span>
+      </div>
+
+      <!-- Word count — 0.4 opacity at rest -->
+      <div class="focus-wc" style="opacity:0.4;">87 / 400</div>
+
+      <!-- Esc hint — just barely visible -->
+      <div class="esc-hint" style="opacity:0.25;">Esc to exit</div>
+    </div>
+  </div>
+
+  <!-- STATE C: MOUSE MOVED — everything at max Focus Mode opacity -->
+  <div class="state-screen">
+    <div class="state-label-bar">
+      <span class="state-name">State C — Mouse Active</span>
+      <span class="state-note">Mouse movement restores breadcrumb to 20%. Same opacity ceiling.</span>
+    </div>
+
+    <div class="cn" style="top:50px;left:20px;">3</div>
+    <div class="cn" style="bottom:50px;right:20px;">6</div>
+
+    <div class="prose-col">
+
+      <!-- Breadcrumb — 20% opacity (this is the MAX in Focus Mode — same as at rest) -->
+      <div class="focus-breadcrumb" style="opacity:0.2; display:flex; align-items:center; justify-content:center; gap:4px;">
+        <span>The Iron Veil</span>
+        <span class="sep">·</span>
+        <span>Act One</span>
+        <span class="sep">·</span>
+        <span>Ch 5</span>
+        <span class="sep">·</span>
+        <span>Scene 2</span>
+        <span class="sep">·</span>
+        <span>Beat 3</span>
+      </div>
+
+      <div class="prose-text">
+        The letter was not where she had left it.<br><br>
+        It was simply missing one thing.<br><br>
+        Elena stood at the cabinet for a long moment, her hand still on the handle, her eyes moving across the papers she had not disturbed — the receipts, the folded maps, the rubber-banded correspondence she had memorised on the first visit — and confirmed what her hand had already told her.<br><br>
+        The space where the letter had been was<span class="vcursor blinking"></span>
+      </div>
+
+      <!-- Word count — 0.9 opacity on hover near bottom -->
+      <div class="focus-wc" style="opacity:0.9;">87 / 400</div>
+
+      <!-- Esc hint — more visible -->
+      <div class="esc-hint" style="opacity:0.5;">Esc to exit  ⌘↵</div>
+    </div>
+  </div>
+
+  <!-- STATE D: SENTENCE FOCUS ACTIVE -->
+  <div class="state-screen">
+    <div class="state-label-bar">
+      <span class="state-name">State D — Sentence Focus (opt-in)</span>
+      <span class="state-note">Only active sentence at full opacity. Adjacent 85%. All others 55%.</span>
+    </div>
+
+    <div class="cn" style="top:148px;right:20px;">7</div>
+    <div class="cn" style="top:230px;right:20px;">8</div>
+
+    <div class="prose-col">
+
+      <div class="focus-breadcrumb" style="opacity:0.12;">
+        The Iron Veil <span class="sep">·</span> Beat 3
+      </div>
+
+      <!-- Sentence focus — three opacity levels -->
+      <div class="prose-text">
+
+        <!-- Background sentences — 55% -->
+        <span class="sf-background">The letter was not where she had left it.<br><br></span>
+
+        <!-- Adjacent sentence — 85% -->
+        <span class="sf-adjacent">It was simply missing one thing.<br><br></span>
+
+        <!-- ACTIVE sentence — 100% -->
+        <span class="sf-active">Elena stood at the cabinet for a long moment, her hand still on the handle, her eyes moving across the papers she had not disturbed — the receipts, the folded maps, the rubber-banded correspondence she had memorised on the first visit — and confirmed what her hand had already told her.<span class="vcursor blinking"></span><br><br></span>
+
+        <!-- Adjacent sentence below — 85% -->
+        <span class="sf-adjacent">The space where the letter had been was empty.<br><br></span>
+
+        <!-- Background — 55% -->
+        <span class="sf-background">Not gone. Not stolen. Simply absent, in the way that all important things are absent when they are most needed.</span>
+      </div>
+
+      <div class="focus-wc" style="opacity:0.4;">87 / 400</div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ══════════════════════════════════════════════
+     SECTION 2 — DETAIL PANELS
+     ══════════════════════════════════════════════ -->
+<div class="section" style="padding-bottom:20px;">
+  <div class="section-label">02 — Close-Up Detail · Typography Ruler · Cursor · Transition Animation</div>
+</div>
+
+<div class="details-grid">
+
+  <!-- Typography ruler -->
+  <div class="detail-panel">
+    <div class="dp-title">Prose Typography — Measured</div>
+
+    <div class="ruler-demo" style="position:relative; padding:24px 20px; min-height:200px;">
+      <!-- Cap-height top line -->
+      <div class="ruler-line" style="top:24px;"></div>
+      <div class="ruler-label" style="top:14px; right:4px;">Cap height</div>
+
+      <!-- Baseline -->
+      <div class="ruler-line" style="top:42px;"></div>
+      <div class="ruler-label" style="top:44px; right:4px;">Baseline</div>
+
+      <!-- Next baseline — 1.85 line height -->
+      <div class="ruler-line" style="top:73px;"></div>
+      <div class="ruler-label" style="top:75px; right:4px;">Next line (1.85×)</div>
+
+      <!-- Gap indicator -->
+      <div class="ruler-line" style="top:104px;"></div>
+      <div class="ruler-label" style="top:106px; right:4px;">Next line</div>
+
+      <div class="ruler-line" style="top:135px;"></div>
+      <div class="ruler-label" style="top:137px; right:4px;">Next line</div>
+
+      <!-- Column width marker -->
+      <div style="position:absolute; top:8px; left:20px; right:20px; height:2px; background:rgba(232,184,64,0.1);"></div>
+      <div style="position:absolute; top:0; left:20px; font-size:9px; color:var(--callout); opacity:0.6; font-family:'Inter',sans-serif;">← 620px / 66ch max-width →</div>
+
+      <div class="ruler-text">
+        Elena stood at the cabinet<br>
+        for a long moment, her hand<br>
+        still on the handle, her eyes<br>
+        moving across the papers.
+      </div>
+    </div>
+
+    <div class="dp-body">
+      Font: <code>Lora 400</code><br>
+      Size: <code>18px</code> desktop · <code>17px</code> tablet<br>
+      Line height: <code>1.85</code> (not 1.7 — writing surface, not reading surface)<br>
+      Max column: <code>620px</code> · 66 characters<br>
+      Alignment: <code>left</code> · ragged right · never justified<br>
+      Paragraph gap: <code>1.25em margin-bottom</code> · no first-line indent<br>
+      Colour: <code>--color-text-primary</code> (#ecf0f5)<br>
+      Background: <code>--color-bg-base</code> (#0d1014) — always
+    </div>
+  </div>
+
+  <!-- Cursor specification -->
+  <div class="detail-panel">
+    <div class="dp-title">Verdigris Cursor — Exact Specification</div>
+
+    <!-- Live cursor demos -->
+    <div class="cursor-demo">
+      <div style="font-size:10px;font-family:'Inter',sans-serif;letter-spacing:0.2em;text-transform:uppercase;color:var(--text-m);margin-bottom:12px;">BLINKING (idle >1200ms)</div>
+      she already knew what<span class="cd-blink"></span>
+    </div>
+
+    <div class="cursor-demo" style="margin-top:3px;">
+      <div style="font-size:10px;font-family:'Inter',sans-serif;letter-spacing:0.2em;text-transform:uppercase;color:var(--text-m);margin-bottom:12px;">SOLID (while typing)</div>
+      she already knew what she w<span style="display:inline-block;width:2px;height:0.85em;background:var(--verd);vertical-align:text-bottom;margin-left:1px;"></span>
+    </div>
+
+    <div class="dp-body">
+      Width: <code>2px</code><br>
+      Colour: <code>--color-accent</code> · <code>#3d7858</code> verdigris<br>
+      Height: cap height of current line (not full line-height)<br>
+      <br>
+      <strong style="color:var(--text-p);">Blink cycle (idle):</strong><br>
+      On: <code>600ms</code> · Off: <code>400ms</code><br>
+      Implementation: CSS <code>animation: step-end</code><br>
+      <br>
+      <strong style="color:var(--text-p);">While typing:</strong><br>
+      <span class="critical">No blink. Cursor is solid, static.</span><br>
+      Listen for <code>keydown</code> — cancel animation.<br>
+      Listen for <code>keyup</code> — start 1200ms timer.<br>
+      After 1200ms with no keydown — resume blink.<br>
+      <br>
+      <span class="inviolable">Sanctioned verdigris use: Category 2 — Inscription in Progress. The cursor is where the permanent mark is being made. Brand Identity §4.4.</span>
+    </div>
+  </div>
+
+  <!-- Transition diagram -->
+  <div class="detail-panel">
+    <div class="dp-title">Mode Transitions — Into and Out of Focus Mode</div>
+
+    <div class="transition-diagram">
+
+      <!-- Edit → Focus -->
+      <div style="font-size:9px;letter-spacing:0.3em;text-transform:uppercase;color:var(--text-m);margin-bottom:4px;">Edit → Focus Mode (⌘Return)</div>
+      <div class="td-row">
+        <div class="td-box">Tree panel</div>
+        <div class="td-arrow">→ contracts left →</div>
+        <div class="td-box highlight">Gone</div>
+      </div>
+      <div class="td-row">
+        <div class="td-box">Side panels</div>
+        <div class="td-arrow">→ contract right →</div>
+        <div class="td-box highlight">Gone</div>
+      </div>
+      <div class="td-row">
+        <div class="td-box">Header</div>
+        <div class="td-arrow">→ slides upward →</div>
+        <div class="td-box highlight">Gone</div>
+      </div>
+      <div class="td-row">
+        <div class="td-box">Prose column</div>
+        <div class="td-arrow">→ expands →</div>
+        <div class="td-box highlight">Full screen</div>
+      </div>
+      <div class="td-note" style="margin-top:4px;">Duration: 280ms · Easing: cubic-bezier(0.16,1,0.3,1) · All simultaneous</div>
+
+      <div style="height:1px;background:var(--border-s);margin:12px 0;"></div>
+
+      <!-- Focus → Edit -->
+      <div style="font-size:9px;letter-spacing:0.3em;text-transform:uppercase;color:var(--text-m);margin-bottom:4px;">Focus → Edit Mode (Escape or ⌘Return)</div>
+      <div class="td-row">
+        <div class="td-box highlight">Tree panel</div>
+        <div class="td-arrow">← returns from left ←</div>
+        <div class="td-box">220px fixed</div>
+      </div>
+      <div class="td-row">
+        <div class="td-box highlight">Panels</div>
+        <div class="td-arrow">← return from right ←</div>
+        <div class="td-box">380px fixed</div>
+      </div>
+      <div class="td-row">
+        <div class="td-box highlight">Header</div>
+        <div class="td-arrow">← slides down ←</div>
+        <div class="td-box">48px fixed</div>
+      </div>
+      <div class="td-note">Exact mirror. Cursor position preserved. 280ms.</div>
+
+      <div style="height:1px;background:var(--border-s);margin:12px 0;"></div>
+
+      <!-- Sibling navigation -->
+      <div style="font-size:9px;letter-spacing:0.3em;text-transform:uppercase;color:var(--text-m);margin-bottom:6px;">Sibling Navigation Within Focus Mode</div>
+      <div class="td-row" style="flex-wrap:wrap;gap:4px;">
+        <div class="td-box highlight">⌘←</div>
+        <div class="td-arrow">→ previous sibling →</div>
+        <div class="td-box">fade out 150ms · breadcrumb updates · fade in 150ms</div>
+      </div>
+      <div class="td-row" style="flex-wrap:wrap;gap:4px;margin-top:4px;">
+        <div class="td-box highlight">⌘→</div>
+        <div class="td-arrow">→ next sibling →</div>
+        <div class="td-box">same transition. No chrome at any point.</div>
+      </div>
+      <div class="td-note" style="margin-top:6px;color:#b87030;">Bare ← → arrow keys move cursor within text. Never use these for node navigation.</div>
+    </div>
+
+    <div class="dp-body">
+      State preserved on exit: cursor position, scroll position, unsaved content.<br>
+      <code>prefers-reduced-motion</code>: All transitions → instant (0ms).<br>
+      No loading state. No confirmation. Instant entry and exit.
+    </div>
+  </div>
+
+</div>
+
+<!-- ══════════════════════════════════════════════
+     SECTION 3 — ANNOTATIONS
+     ══════════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-label">03 — Annotations · Each callout references the authoritative document section</div>
+</div>
+
+<div class="annotations">
+  <div class="ann-grid">
+
+    <div class="ann-item">
+      <div class="ann-num">1</div>
+      <div class="ann-body">
+        <div class="ann-title">The Surface — #0d1014, Nothing Else</div>
+        <div class="ann-ref">Brand Identity §6.10 · §10.5 Inviolable I · UI Design §8.1</div>
+        <div class="ann-desc">
+          Focus Mode background is <code>--color-bg-base</code> (<code>#0d1014</code>) across the entire viewport. No other background value. No gradient. No vignette. No texture. The prose column has no visible border, no shadow, no container. The text appears to float directly on the surface. <span class="inviolable">This is Inviolable I: the prose surface is always the lowest-noise surface in the application.</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="ann-item">
+      <div class="ann-num">2</div>
+      <div class="ann-body">
+        <div class="ann-title">Prose Column — 620px Centred</div>
+        <div class="ann-ref">Brand Identity §6.2 · §6.4 · UI Design §9.1</div>
+        <div class="ann-desc">
+          The prose column is <code>max-width: 620px</code>, centred horizontally within the viewport using auto margins. Side margins grow symmetrically on wide screens — the column never grows beyond 620px regardless of screen width. Font: Lora 400, 18px, line-height 1.85. Top padding: enough to place the active line at <code>42% of viewport height</code> when typewriter scrolling is on. Bottom padding: <code>120px minimum</code> — the author always writes into open space.
+        </div>
+      </div>
+    </div>
+
+    <div class="ann-item">
+      <div class="ann-num">3</div>
+      <div class="ann-body">
+        <div class="ann-title">Breadcrumb — Ghost, Not Navigation</div>
+        <div class="ann-ref">Brand Identity §6.10 · UI Design §8.1</div>
+        <div class="ann-desc">
+          Font: Inter 200, 11px, <code>--color-text-muted</code>. Position: absolute, top of viewport, centred. <span class="critical">NOT clickable in Focus Mode.</span> <code>pointer-events: none</code> — clicking anywhere in the upper area does nothing. The breadcrumb is a location marker only. Opacity: <code>0</code> while typing, fades to <code>0.2</code> after 3 seconds of inactivity via <code>800ms --easing-prose</code> transition. Returns to <code>0.2</code> on any mouse movement. The maximum opacity in Focus Mode is 0.2 — it never becomes a full navigation bar. Format: <code>Doc · Layer · Layer · Layer · Current</code>.
+        </div>
+      </div>
+    </div>
+
+    <div class="ann-item">
+      <div class="ann-num">4</div>
+      <div class="ann-body">
+        <div class="ann-title">Word Count — Observer, Not Monitor</div>
+        <div class="ann-ref">Brand Identity §6.7 · UI Design §9.3</div>
+        <div class="ann-desc">
+          Font: Inter 300, 11px, <code>--color-text-muted</code>. Position: bottom of prose column, right-aligned, inside the column (not at viewport edge). <span class="critical">Opacity 0 while typing and for 3 seconds after the last keystroke.</span> Fades to opacity <code>0.4</code> over <code>800ms --easing-prose</code> after 3 seconds of inactivity. On hover of the bottom area: opacity <code>0.9</code>. With target: <code>87 / 400</code> — at/above target: first number becomes <code>--color-accent</code> (verdigris). No other notification that the target has been reached.
+        </div>
+      </div>
+    </div>
+
+    <div class="ann-item">
+      <div class="ann-num">5</div>
+      <div class="ann-body">
+        <div class="ann-title">Esc Hint — Disappears, Does Not Return</div>
+        <div class="ann-ref">Brand Identity §6.10 · UI Design §8.1</div>
+        <div class="ann-desc">
+          Font: Inter 300, 10px, tracking 0.12em, <code>--color-text-disabled</code>. Position: bottom-right of viewport, inside the prose column's right edge. Text: <code>Esc to exit</code>. Shown on Focus Mode entry. Fades to <code>0</code> after <code>5 seconds</code> — does NOT return on mouse movement (unlike the breadcrumb and word count). The author should learn the shortcut from the first session. By the second session, the hint should not be needed and is never seen. A returning user who has forgotten can use ⌘K to search for exit.
+        </div>
+      </div>
+    </div>
+
+    <div class="ann-item">
+      <div class="ann-num">6</div>
+      <div class="ann-body">
+        <div class="ann-title">Mouse Movement — What Changes and What Does Not</div>
+        <div class="ann-ref">Brand Identity §6.10</div>
+        <div class="ann-desc">
+          On mouse movement: breadcrumb fades up to <code>0.2</code>. Word count fades up to <code>0.9</code> if the mouse is near the bottom area. Esc hint does not return (already hidden after 5s). <span class="critical">Nothing else appears.</span> No toolbar. No navigation. No mode indicator. The maximum "active" state of Focus Mode still shows almost nothing. Mouse movement is not an invitation to add chrome.
+        </div>
+      </div>
+    </div>
+
+    <div class="ann-item">
+      <div class="ann-num">7</div>
+      <div class="ann-body">
+        <div class="ann-title">Sentence Focus — The Active Sentence (100% opacity)</div>
+        <div class="ann-ref">Brand Identity §6.6 · UI Design §9.4</div>
+        <div class="ann-desc">
+          The sentence containing the cursor: <code>opacity: 1</code> — full visibility, no change from normal. Sentence boundaries: determined by punctuation (<code>. ! ?</code>) followed by whitespace or end of paragraph. The active sentence must feel completely normal — it is everything else that fades, not the active sentence that brightens. Transition: <code>200ms --easing-prose</code> when the cursor moves to a new sentence.
+        </div>
+      </div>
+    </div>
+
+    <div class="ann-item">
+      <div class="ann-num">8</div>
+      <div class="ann-body">
+        <div class="ann-title">Sentence Focus — The Three Opacity Levels</div>
+        <div class="ann-ref">Brand Identity §6.6 · UI Design §9.4</div>
+        <div class="ann-desc">
+          Active sentence: <code>opacity: 1</code>. Adjacent sentences (±1 sentence above and below): <code>opacity: 0.85</code> — still clearly readable, semantic context available. All other sentences: <code>opacity: 0.55</code> — present and readable if the author looks, but not demanding attention. <span class="critical">0.55 is the minimum — do not use lower values. Below 0.55, faded text reads as disabled or deleted rather than background.</span> Default state: Off. Opt-in via the three-dot menu in the prose editor. Available as a prominent toggle in the Focus Mode surface.
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════
+     SECTION 4 — CLAUDE CODE SPECIFICATION
+     ══════════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-label">04 — Claude Code Implementation Specification · Focus Mode Component</div>
+</div>
+
+<div class="spec-section">
+
+  <!-- FocusMode component -->
+  <div class="spec-block">
+    <div class="spec-block-header">
+      FocusMode Component — Layout & Background
+      <span class="spec-block-ref">Brand Identity §6.10 · UI Design §8.1 · Inviolable I</span>
+    </div>
+    <table class="spec-table">
+      <tr><th>Property</th><th>Value</th><th>Notes</th></tr>
+      <tr><td>Component file</td><td><code>components/focus/FocusMode.tsx</code></td><td>Full-screen overlay. Mounts over the entire AppShell.</td></tr>
+      <tr><td>Trigger</td><td><code>⌘Return</code> · Focus button in prose editor</td><td>Only available from Edit Mode when a prose field is active.</td></tr>
+      <tr><td>Exit</td><td><code>Escape</code> or <code>⌘Return</code></td><td>Returns to Edit Mode with full state preserved.</td></tr>
+      <tr><td>Background</td><td><span class="inviolable">--color-bg-base (#0d1014) · full viewport</span></td><td>Inviolable I. Never any other background. No gradient, no vignette.</td></tr>
+      <tr><td>Mount position</td><td>Fixed, z-index above AppShell</td><td>Does not scroll with page. Independent scroll context for prose.</td></tr>
+      <tr><td>Prose column width</td><td>max-width: 620px · margin: 0 auto</td><td>Side margins grow symmetrically. Column never exceeds 620px.</td></tr>
+      <tr><td>Prose column padding-top</td><td>Calculated: places active line at 42% viewport height when typewriter active</td><td>Static 80px top padding when typewriter is off.</td></tr>
+      <tr><td>Prose column padding-bottom</td><td>120px minimum</td><td>Author always writes into open space — no sense of the page ending.</td></tr>
+      <tr><td>Prose font</td><td>Lora 400, 18px, line-height 1.85</td><td>Left-aligned, ragged right. Paragraph gap: 1.25em. No first-line indent.</td></tr>
+      <tr><td>Prose colour</td><td>--color-text-primary (#ecf0f5)</td><td>Text against #0d1014 = 14.8:1 contrast ratio. WCAG AAA.</td></tr>
+      <tr><td>prefers-reduced-motion</td><td>All transitions → 0ms</td><td>Apply to all opacity and transform transitions in this component.</td></tr>
+    </table>
+  </div>
+
+  <!-- FocusBreadcrumb -->
+  <div class="spec-block">
+    <div class="spec-block-header">
+      FocusBreadcrumb Component
+      <span class="spec-block-ref">Brand Identity §6.10 · UI Design §8.1</span>
+    </div>
+    <table class="spec-table">
+      <tr><th>Property</th><th>Value</th><th>Notes</th></tr>
+      <tr><td>Font</td><td>Inter 200, 11px, tracking 0.04em</td><td>Lightest available weight — ghostlike.</td></tr>
+      <tr><td>Colour</td><td>--color-text-muted (#4a6080)</td><td>Already subdued — opacity compounds this.</td></tr>
+      <tr><td>Position</td><td>absolute, top: 20px, centred horizontally</td><td>Full width of the Focus Mode overlay.</td></tr>
+      <tr><td>pointer-events</td><td><span class="critical">none — always</span></td><td>NOT clickable in Focus Mode. Never. Breadcrumb is a location marker only.</td></tr>
+      <tr><td>Opacity — typing</td><td>0</td><td>Immediately on keydown.</td></tr>
+      <tr><td>Opacity — at rest</td><td>0.2 after 3000ms</td><td>Transition: 800ms cubic-bezier(0.25,0,0.5,1)</td></tr>
+      <tr><td>Opacity — mouse move</td><td>0.2 (same ceiling)</td><td>Mouse movement does not raise opacity above 0.2.</td></tr>
+      <tr><td>Opacity — maximum</td><td><span class="critical">0.2</span></td><td>Never higher. This is intentional. It is a ghost, not a nav bar.</td></tr>
+      <tr><td>Format</td><td>Document · Ancestor · Ancestor · Current Node</td><td>Separator: · (middot) at 0.4 opacity. Truncate at 80 chars with ellipsis.</td></tr>
+      <tr><td>Updates</td><td>Instantly when ⌘← ⌘→ navigation occurs</td><td>No animation on text change — just update.</td></tr>
+    </table>
+  </div>
+
+  <!-- Cursor -->
+  <div class="spec-block">
+    <div class="spec-block-header">
+      Verdigris Cursor — Focus Mode & Prose Editor
+      <span class="spec-block-ref">Brand Identity §4.4 Category 2 · §6.3 · UI Design §9.2</span>
+    </div>
+    <table class="spec-table">
+      <tr><th>Property</th><th>Value</th><th>Notes</th></tr>
+      <tr><td>Width</td><td>2px</td><td>Heavier than system default (1px). More locatable in Lora text.</td></tr>
+      <tr><td>Colour</td><td><span class="inviolable">--color-accent (#3d7858)</span></td><td>Verdigris. Category 2 sanctioned use. Never system default colour.</td></tr>
+      <tr><td>Height</td><td>Cap height of current line</td><td>Not the full line-height — cap height only.</td></tr>
+      <tr><td>Blink — idle</td><td>600ms on · 400ms off</td><td>CSS: <code>animation: blink 1s step-end infinite</code>. @keyframes: 0–59% opacity 1, 60–100% opacity 0.</td></tr>
+      <tr><td>Blink — typing</td><td><span class="critical">None. Cursor is solid.</span></td><td>Cancel blink animation on keydown. Start 1200ms timer on keyup. Resume blink after 1200ms with no keydown.</td></tr>
+      <tr><td>Implementation</td><td>Override Tiptap default cursor via CSS</td><td><code>.ProseMirror .ProseMirror-cursor { border-left: 2px solid var(--color-accent); }</code> or equivalent custom cursor plugin.</td></tr>
+      <tr><td>In Focus Mode</td><td>Same specification as prose editor</td><td>Focus Mode uses the same ProseEditor component — cursor spec is identical.</td></tr>
+    </table>
+  </div>
+
+  <!-- Word count -->
+  <div class="spec-block">
+    <div class="spec-block-header">
+      FocusWordCount Component
+      <span class="spec-block-ref">Brand Identity §6.7 · UI Design §9.3</span>
+    </div>
+    <table class="spec-table">
+      <tr><th>Property</th><th>Value</th><th>Notes</th></tr>
+      <tr><td>Font</td><td>Inter 300, 11px</td><td>Colour: --color-text-muted</td></tr>
+      <tr><td>Position</td><td>Bottom of prose column, right-aligned</td><td>Inside the 620px column — not at viewport edge. margin-right: 0.</td></tr>
+      <tr><td>Opacity — typing</td><td><span class="critical">0</span></td><td>Invisible while composing. This is the central design decision.</td></tr>
+      <tr><td>Opacity — at rest</td><td>0.4 after 3000ms</td><td>Transition: 800ms --easing-prose. Gentle appearance.</td></tr>
+      <tr><td>Opacity — hover</td><td>0.9</td><td>On hover of the bottom 80px of the prose column area.</td></tr>
+      <tr><td>Without target</td><td>87 words</td><td>Simple count.</td></tr>
+      <tr><td>With target — below</td><td>87 / 400</td><td>First number: --color-text-secondary. Second: --color-text-muted.</td></tr>
+      <tr><td>With target — at/above</td><td>400 / 400</td><td><span class="inviolable">First number: --color-accent (verdigris). Sanctioned Category 3 use — Completion.</span></td></tr>
+      <tr><td>No toast, no animation</td><td>Colour change only</td><td>The colour change is the notification. No pulse, no celebration, no sound.</td></tr>
+    </table>
+  </div>
+
+  <!-- Sentence focus -->
+  <div class="spec-block">
+    <div class="spec-block-header">
+      SentenceFocus Feature
+      <span class="spec-block-ref">Brand Identity §6.6 · UI Design §9.4</span>
+    </div>
+    <table class="spec-table">
+      <tr><th>Property</th><th>Value</th><th>Notes</th></tr>
+      <tr><td>Default state</td><td>Off</td><td>Progressive disclosure. Available in three-dot menu and Focus Mode toggle.</td></tr>
+      <tr><td>Toggle location</td><td>Three-dot menu in prose editor · shortcut in Focus Mode overlay</td><td>Single icon toggle, no label needed (show on hover tooltip).</td></tr>
+      <tr><td>Active sentence opacity</td><td>1.0</td><td>No change — this is the baseline.</td></tr>
+      <tr><td>Adjacent sentence opacity</td><td>0.85</td><td>±1 sentence from cursor. Semantic context available.</td></tr>
+      <tr><td>All other text opacity</td><td><span class="critical">0.55 minimum</span></td><td>Never lower. Below 0.55 reads as disabled/deleted. Validate in user testing.</td></tr>
+      <tr><td>Transition on cursor move</td><td>200ms --easing-prose</td><td>Smooth fade as focus shifts between sentences.</td></tr>
+      <tr><td>Sentence detection</td><td>Punctuation + whitespace · end of paragraph</td><td>Heuristic. Edge cases: abbreviations (Dr., etc.) should not trigger. Consider sentence segmentation library.</td></tr>
+      <tr><td>Selection behaviour</td><td>Sentence focus pauses while text is selected</td><td>All text returns to full opacity during selection. Resumes on deselect.</td></tr>
+    </table>
+  </div>
+
+  <!-- Typewriter scrolling -->
+  <div class="spec-block">
+    <div class="spec-block-header">
+      TypewriterContainer Component
+      <span class="spec-block-ref">Brand Identity §6.5 · UI Design §9.5</span>
+    </div>
+    <table class="spec-table">
+      <tr><th>Property</th><th>Value</th><th>Notes</th></tr>
+      <tr><td>Active line position</td><td>42% of viewport height</td><td>Slightly above true centre — eye naturally rests slightly above. Calculate: <code>window.innerHeight * 0.42</code></td></tr>
+      <tr><td>Tolerance</td><td>±2px</td><td>Do not scroll on every character — scroll when active line drifts outside tolerance band.</td></tr>
+      <tr><td>Scroll behaviour</td><td>Smooth · CSS scroll-behavior: smooth</td><td>Not instant jumps — continuous scrolling as lines are written.</td></tr>
+      <tr><td>On in Focus Mode</td><td>Default on</td><td>User can disable via three-dot menu.</td></tr>
+      <tr><td>In Edit Mode prose editor</td><td>Default off</td><td>Opt-in via three-dot menu. Persists in user preferences.</td></tr>
+      <tr><td>On node navigation (⌘←⌘→)</td><td>Resets to top of new node's prose</td><td>New node: scroll to top, then apply typewriter positioning on first keypress.</td></tr>
+    </table>
+  </div>
+
+  <!-- Keyboard shortcuts -->
+  <div class="spec-block">
+    <div class="spec-block-header">
+      Keyboard Shortcuts — Focus Mode Only
+      <span class="spec-block-ref">Brand Identity §6.10 · §10.3 · UI Design §8.1</span>
+    </div>
+    <table class="spec-table">
+      <tr><th>Shortcut</th><th>Action</th><th>Notes</th></tr>
+      <tr><td><code>Escape</code> or <code>⌘Return</code></td><td>Exit Focus Mode → Edit Mode</td><td>Cursor position preserved. Full state restored.</td></tr>
+      <tr><td><code>⌘←</code></td><td>Navigate to previous sibling node</td><td>Prose fades out 150ms · breadcrumb updates · fades in 150ms. No chrome at any point.</td></tr>
+      <tr><td><code>⌘→</code></td><td>Navigate to next sibling node</td><td>Same transition as ⌘←. Wraps at first/last sibling (optional — confirm behaviour).</td></tr>
+      <tr><td><code>← →</code> (bare)</td><td>Cursor movement within text</td><td><span class="critical">Never use for node navigation. These are reserved for in-text cursor movement.</span></td></tr>
+      <tr><td><code>⌘K</code></td><td>Open command palette</td><td>Available even in Focus Mode as escape hatch.</td></tr>
+      <tr><td><code>⌘B</code> · <code>⌘I</code></td><td>Bold · Italic</td><td>Standard formatting shortcuts. No visible toolbar — formatting via keyboard only in Focus Mode.</td></tr>
+      <tr><td colspan="3"><div class="note">No ⌘. (Director Mode) from Focus Mode — must exit to Edit first. This is intentional: two gestures to reach Director from Focus Mode protects the writing state.</div></td></tr>
+    </table>
+  </div>
+
+  <!-- State machine -->
+  <div class="spec-block">
+    <div class="spec-block-header">
+      Opacity State Machine — All Elements
+      <span class="spec-block-ref">Brand Identity §6.7 · §6.10 · UI Design §8.1</span>
+    </div>
+    <table class="spec-table">
+      <tr><th>Element</th><th>Typing</th><th>At rest &gt;3s</th><th>Mouse move</th><th>Hover (element)</th></tr>
+      <tr><td>Prose text</td><td>1.0</td><td>1.0</td><td>1.0</td><td>1.0</td></tr>
+      <tr><td>Cursor</td><td>1.0 (solid)</td><td>blinking</td><td>blinking</td><td>blinking</td></tr>
+      <tr><td>Breadcrumb</td><td>0</td><td>0.2</td><td>0.2</td><td>0.2 (no change)</td></tr>
+      <tr><td>Word count</td><td>0</td><td>0.4</td><td>0.4</td><td>0.9</td></tr>
+      <tr><td>Esc hint</td><td>0 (after 5s)</td><td>0</td><td>0</td><td>0</td></tr>
+      <tr><td colspan="5"><div class="note">Transition duration for opacity changes: 800ms --easing-prose. Typing state transition is instant (0ms) — the surface clears the moment the author begins writing. The return of elements after pause uses the slow 800ms to be gradual.</div></td></tr>
+    </table>
+  </div>
+
+</div>
+
+</body>
+</html>

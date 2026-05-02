@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stelavox — Tablet Layout Wireframe & Specification v1.0</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500&family=Cormorant+Garamond:ital,wght@1,300&family=Inter:wght@200;300;400;500;600&family=Lora:ital,wght@0,400&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --ink:#0d1014;--deep:#131820;--surface:#1a2030;--hover:#1e2838;--selected:#1f2d45;
+  --border-s:#1e2535;--border-d:#253045;--border-str:#3a4a62;
+  --text-p:#ecf0f5;--text-s:#8aa0b8;--text-m:#4a6080;--text-dis:#2a3850;
+  --verd:#3d7858;--verd-h:#5aa87a;--ag-run:#2e5a90;
+  --st-draft:#4a6080;--st-rev:#b87030;--st-app:#3d7858;--st-lock:#6a3888;
+  --spec-bg:#0a0d12;--spec-pan:#111520;--callout:#e8b840;
+}
+body{background:var(--spec-bg);color:var(--text-p);font-family:'Inter',sans-serif;font-size:13px;line-height:1.5}
+.doc-header{background:var(--spec-pan);border-bottom:1px solid var(--border-d);padding:24px 48px;display:flex;align-items:baseline;justify-content:space-between}
+.wm-s{font-family:'Cinzel',serif;font-size:14px;font-weight:500;letter-spacing:.18em;color:var(--text-p)}
+.wm-v{font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:300;font-size:16px;letter-spacing:.08em;color:var(--text-p);opacity:.82}
+.doc-meta{font-size:11px;font-weight:300;letter-spacing:.2em;text-transform:uppercase;color:var(--text-m)}
+.section{padding:40px 48px 0}
+.slabel{font-size:9px;font-weight:400;letter-spacing:.45em;text-transform:uppercase;color:var(--text-m);margin-bottom:20px;padding-bottom:12px;border-bottom:1px solid var(--border-s)}
+/* Tablet frames */
+.frames-grid{padding:40px 48px;display:grid;grid-template-columns:1fr 1fr;gap:3px}
+.frame-wrap{display:flex;flex-direction:column;gap:0}
+.frame-label{font-size:9px;font-weight:400;letter-spacing:.38em;text-transform:uppercase;color:var(--text-m);padding:8px 0;border-bottom:1px solid var(--border-s);margin-bottom:8px}
+.tablet{background:var(--ink);border:1.5px solid var(--border-d);border-radius:8px;overflow:hidden;display:flex;flex-direction:column}
+/* App chrome */
+.hdr{height:44px;min-height:44px;background:var(--deep);border-bottom:1px solid var(--border-s);display:flex;align-items:center;padding:0 12px;gap:8px;flex-shrink:0}
+.wm-wrap{display:flex;flex-direction:column;margin-right:10px}
+.wm-text{display:flex;align-items:baseline}
+.hdr-stela{font-family:'Cinzel',serif;font-size:12px;font-weight:500;letter-spacing:.18em;color:var(--text-p)}
+.hdr-vox{font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:300;font-size:14px;letter-spacing:.08em;color:var(--text-p);opacity:.82}
+.hdr-rule{width:64px;height:1px;background:linear-gradient(90deg,var(--verd) 0%,rgba(61,120,88,.3) 40%,transparent 80%);position:relative;margin-top:2px}
+.hdr-lozenge{position:absolute;left:-2px;top:-3px;width:5px;height:5px;background:var(--verd);transform:rotate(45deg)}
+.hdr-bc{font-size:10px;font-weight:300;color:var(--text-m);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mode-tabs{display:flex;gap:1px;background:var(--ink);padding:3px;border-radius:5px}
+.mtab{font-size:10px;font-weight:400;padding:3px 10px;border-radius:3px;color:var(--text-m)}
+.mtab.active{background:var(--surface);color:var(--text-p);font-weight:500}
+.hdr-avatar{width:24px;height:24px;background:var(--selected);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:500;color:var(--text-s)}
+.body{flex:1;display:flex;overflow:hidden}
+/* Icon rail — 48px, auto-collapsed on tablet */
+.icon-rail{width:48px;min-width:48px;background:var(--deep);border-right:1px solid var(--border-s);display:flex;flex-direction:column;align-items:center;padding:6px 0;gap:3px}
+.ir-icon{width:30px;height:30px;display:flex;align-items:center;justify-content:center;font-size:13px;border-radius:5px;color:var(--text-m)}
+.ir-icon.active{background:var(--selected);color:var(--text-p)}
+/* Tree — narrower on tablet */
+.tree{flex:1;background:var(--ink);border-right:1px solid var(--border-s);display:flex;flex-direction:column;overflow:hidden}
+.tree-tb{height:30px;background:var(--deep);border-bottom:1px solid var(--border-s);display:flex;align-items:center;padding:0 8px;gap:6px}
+.tree-search{flex:1;height:18px;background:var(--ink);border:1px solid var(--border-s);border-radius:2px}
+.tree-content{flex:1;overflow-y:auto;padding:3px 0}
+.nr{height:44px;display:flex;align-items:center;padding:0 6px;gap:3px;font-size:11px;color:var(--text-s)}
+.nr.active{background:var(--selected);color:var(--text-p);border-left:2px solid var(--verd);font-weight:500}
+.nr-name{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:11px}
+.nr-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.i0{padding-left:6px}.i1{padding-left:18px}.i2{padding-left:30px}.i3{padding-left:42px}
+/* Detail panel */
+.detail{width:220px;min-width:220px;background:var(--deep);display:flex;flex-direction:column;overflow:hidden}
+.dp-hdr{padding:8px 10px 0;border-bottom:1px solid var(--border-s);flex-shrink:0}
+.dp-title{font-size:11px;font-weight:600;color:var(--text-p);margin-bottom:3px}
+.dp-bc{font-size:9px;font-weight:300;color:var(--text-m);margin-bottom:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dp-tabs{display:flex}
+.dpt{font-size:10px;font-weight:400;color:var(--text-m);padding:4px 7px;border-bottom:2px solid transparent}
+.dpt.active{color:var(--text-p);font-weight:500;border-bottom-color:rgba(236,240,245,.6)}
+.dp-body{padding:8px 10px;flex:1;overflow:hidden;display:flex;flex-direction:column;gap:8px}
+.field-label{font-size:8px;font-weight:500;letter-spacing:.25em;text-transform:uppercase;color:var(--text-m);margin-bottom:3px}
+.summary-field{background:var(--ink);border:1px solid var(--border-s);border-radius:3px;padding:6px 8px;font-size:10px;font-family:'Inter',sans-serif;color:var(--text-s);line-height:1.55}
+.prose-field{background:var(--ink);border:1px solid var(--border-d);border-radius:3px;padding:6px 8px;font-size:11px;font-family:'Lora',serif;font-weight:400;line-height:1.85;color:var(--text-p)}
+.vcursor{display:inline-block;width:2px;height:.8em;background:var(--verd);vertical-align:text-bottom;margin-left:1px;animation:blink 1s step-end infinite}
+@keyframes blink{0%,59%{opacity:1}60%,100%{opacity:0}}
+/* Focus mode on tablet */
+.focus-screen{background:var(--ink);border:1.5px solid var(--border-d);border-radius:8px;overflow:hidden;display:flex;flex-direction:column;align-items:center;position:relative;min-height:480px}
+.focus-bc{font-family:'Inter',sans-serif;font-size:10px;font-weight:200;letter-spacing:.04em;color:var(--text-m);text-align:center;padding:14px 20px 0;opacity:.18}
+.focus-col{width:100%;max-width:560px;padding:20px 20px 60px;display:flex;flex-direction:column}
+.focus-prose{font-family:'Lora',serif;font-size:14px;font-weight:400;line-height:1.85;color:var(--text-p)}
+.focus-wc{font-family:'Inter',sans-serif;font-size:10px;font-weight:300;color:var(--text-m);text-align:right;margin-top:8px;opacity:.4}
+.margin-vis{position:absolute;top:0;bottom:0;background:rgba(46,90,144,.06)}
+/* Spec tables */
+.spec-section{padding:0 48px 80px}
+.spec-block{background:var(--spec-pan);border:1px solid var(--border-s);border-radius:4px;margin-bottom:2px;overflow:hidden}
+.spec-block-header{padding:12px 20px;background:var(--ink);border-bottom:1px solid var(--border-s);font-size:11px;font-weight:600;letter-spacing:.25em;text-transform:uppercase;color:var(--text-p);display:flex;justify-content:space-between;align-items:center}
+.sbr{font-size:10px;font-weight:300;letter-spacing:.1em;color:var(--verd)}
+.spec-table{width:100%;border-collapse:collapse}
+.spec-table th{font-size:10px;font-weight:500;letter-spacing:.2em;text-transform:uppercase;color:var(--text-m);text-align:left;padding:8px 20px;border-bottom:1px solid var(--border-s)}
+.spec-table td{font-size:11px;font-weight:300;color:var(--text-s);padding:7px 20px;border-bottom:1px solid var(--border-s);vertical-align:top}
+.spec-table tr:last-child td{border-bottom:none}
+.spec-table td:first-child{color:var(--text-p);font-weight:400;min-width:180px}
+.spec-table td code{background:var(--ink);padding:1px 5px;border-radius:2px;font-family:'SF Mono','Fira Code',monospace;font-size:10px;color:var(--callout)}
+.spec-table .note{font-size:10px;font-style:italic;color:var(--text-m);margin-top:2px}
+.inviolable{color:var(--verd);font-weight:500}
+</style>
+</head>
+<body>
+<div class="doc-header">
+  <div>
+    <div style="display:flex;align-items:baseline"><span class="wm-s">Stela</span><span class="wm-v">vox</span></div>
+    <div style="margin-top:6px;font-size:11px;font-weight:300;letter-spacing:.2em;text-transform:uppercase;color:var(--text-m)">Tablet Layout — Wireframe & Specification v1.0</div>
+  </div>
+  <div class="doc-meta">UI Design v0.4 · Product Spec §21.2 · Tech Arch §15.1</div>
+</div>
+
+<div class="section"><div class="slabel">01 — Edit Mode · iPad/Tablet (768px) · Icon Rail + Tree + Detail Panel</div></div>
+
+<div class="frames-grid">
+
+  <!-- EDIT MODE TABLET -->
+  <div class="frame-wrap">
+    <div class="frame-label">Edit Mode · 768×1024px · Two-panel (icon rail + tree + detail)</div>
+    <div class="tablet" style="height:560px">
+      <div class="hdr">
+        <div class="wm-wrap">
+          <div class="wm-text"><span class="hdr-stela">Stela</span><span class="hdr-vox">vox</span></div>
+          <div class="hdr-rule"><div class="hdr-lozenge"></div></div>
+        </div>
+        <div class="hdr-bc">The Iron Veil › Act One › Ch 5 › Scene 2 › Beat 3</div>
+        <div class="mode-tabs">
+          <div class="mtab active">Edit</div>
+          <div class="mtab">Director</div>
+        </div>
+        <div class="hdr-avatar">JA</div>
+      </div>
+      <div class="body">
+        <!-- Icon rail — auto-collapsed -->
+        <div class="icon-rail">
+          <div class="ir-icon active">📖</div>
+          <div class="ir-icon">🔬</div>
+          <div style="margin-top:auto"></div>
+          <div class="ir-icon">⚙</div>
+        </div>
+        <!-- Tree — narrower on tablet -->
+        <div class="tree">
+          <div class="tree-tb"><div class="tree-search"></div></div>
+          <div class="tree-content">
+            <div class="nr i0">📖 The Iron Veil<div class="nr-dot" style="background:var(--st-app);margin-left:auto"></div></div>
+            <div class="nr i1">🎭 Act One<div class="nr-dot" style="background:var(--st-rev);margin-left:auto"></div></div>
+            <div class="nr i2">📄 Ch 4<div class="nr-dot" style="background:var(--st-app);margin-left:auto"></div></div>
+            <div class="nr i2">📄 Ch 5<div class="nr-dot" style="background:var(--st-draft);margin-left:auto"></div></div>
+            <div class="nr i3">🎬 Scene 1<div class="nr-dot" style="background:var(--st-app);margin-left:auto"></div></div>
+            <div class="nr i3">🎬 Scene 2<div class="nr-dot" style="background:var(--st-draft);margin-left:auto"></div></div>
+            <div class="nr i3 active">⚡ Beat 3<div class="nr-dot" style="background:var(--st-draft);margin-left:auto"></div></div>
+            <div class="nr i3" style="color:var(--text-m)">🔒 Scene 3<div class="nr-dot" style="background:var(--st-lock);margin-left:auto"></div></div>
+            <div class="nr i1">🎭 Act Two<div class="nr-dot" style="background:var(--st-draft);margin-left:auto"></div></div>
+          </div>
+        </div>
+        <!-- Detail panel — narrower on tablet -->
+        <div class="detail">
+          <div class="dp-hdr">
+            <div class="dp-title">⚡ Beat 3: The letter is gone</div>
+            <div class="dp-bc">Ch 5 › Scene 2 › Beat 3</div>
+            <div class="dp-tabs">
+              <div class="dpt active">Content</div>
+              <div class="dpt">Agent</div>
+              <div class="dpt">History</div>
+            </div>
+          </div>
+          <div class="dp-body">
+            <div>
+              <div class="field-label">Summary</div>
+              <div class="summary-field">Elena crosses to the third cabinet. The drawer opens. Empty.</div>
+            </div>
+            <div>
+              <div class="field-label" style="display:flex;justify-content:space-between"><span>Prose</span><span style="font-style:italic;text-transform:none;letter-spacing:0;color:var(--verd-h);font-weight:300;font-size:8px">Lora</span></div>
+              <div class="prose-field">
+                The drawer was not empty.<br>
+                It was simply missing one thing.<span class="vcursor"></span>
+              </div>
+              <div style="font-size:9px;color:var(--text-m);text-align:right;opacity:.4;margin-top:3px">87 / 400</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FOCUS MODE TABLET -->
+  <div class="frame-wrap">
+    <div class="frame-label">Focus Mode · 768px · 560px prose column · ~32px margins each side</div>
+    <div class="focus-screen" style="height:560px">
+      <!-- Margin visualisation -->
+      <div class="margin-vis" style="left:0;width:calc((100% - 560px)/2)"></div>
+      <div class="margin-vis" style="right:0;width:calc((100% - 560px)/2)"></div>
+
+      <div class="focus-bc">The Iron Veil · Act One · Ch 5 · Scene 2 · Beat 3</div>
+
+      <div class="focus-col">
+        <div class="focus-prose">
+          <p style="margin-bottom:1.25em">The drawer was not empty.</p>
+          <p style="margin-bottom:1.25em">It was simply missing one thing.</p>
+          <p style="margin-bottom:1.25em">Elena stood at the cabinet for a long moment, her hand still on the handle, her eyes moving across the papers she had not disturbed — the receipts, the folded maps, the rubber-banded correspondence she had memorised on the first visit — and confirmed what her hand had already told her.<span class="vcursor"></span></p>
+        </div>
+        <div class="focus-wc">87 / 400</div>
+      </div>
+
+      <!-- Margin labels -->
+      <div style="position:absolute;top:40%;left:6px;font-size:8px;font-weight:300;color:rgba(46,90,144,.5);writing-mode:vertical-lr;transform:rotate(180deg)">~32px margin</div>
+      <div style="position:absolute;top:40%;right:6px;font-size:8px;font-weight:300;color:rgba(46,90,144,.5);writing-mode:vertical-lr">~32px margin</div>
+
+      <!-- Column width label -->
+      <div style="position:absolute;bottom:12px;left:50%;transform:translateX(-50%);font-size:9px;font-weight:400;letter-spacing:.2em;text-transform:uppercase;color:rgba(232,184,64,.5)">max-width: 560px</div>
+    </div>
+  </div>
+</div>
+
+<!-- COMPARISON STRIP -->
+<div class="section" style="padding-bottom:0"><div class="slabel">02 — Breakpoint Reference · Layout Changes at ≤1024px</div></div>
+<div style="padding:20px 48px 40px;display:grid;grid-template-columns:1fr 1fr;gap:3px">
+  <div style="background:var(--spec-pan);border:1px solid var(--border-s);padding:20px">
+    <div style="font-size:10px;font-weight:500;letter-spacing:.25em;text-transform:uppercase;color:var(--text-m);margin-bottom:12px">Desktop (≥1024px)</div>
+    <div style="font-size:11px;font-weight:300;color:var(--text-s);line-height:1.8">
+      Sidebar: 220px expanded<br>
+      Tree: min 320px, flex:1<br>
+      Detail: 380px (user-resizable 320–540px)<br>
+      Node row height: 36px<br>
+      Focus Mode prose: max-width 620px<br>
+      Header height: 48px
+    </div>
+  </div>
+  <div style="background:var(--spec-pan);border:1px solid var(--border-s);padding:20px">
+    <div style="font-size:10px;font-weight:500;letter-spacing:.25em;text-transform:uppercase;color:var(--verd);margin-bottom:12px">Tablet (768–1023px)</div>
+    <div style="font-size:11px;font-weight:300;color:var(--text-s);line-height:1.8">
+      Sidebar: <span class="inviolable">48px icon rail (auto-collapsed)</span><br>
+      Tree: min 260px, flex:1<br>
+      Detail: min 280px (user-resizable)<br>
+      Node row height: <span class="inviolable">44px (touch targets)</span><br>
+      Focus Mode prose: <span class="inviolable">max-width 560px</span><br>
+      Header height: 44px
+    </div>
+  </div>
+</div>
+
+<!-- SPEC TABLE -->
+<div class="section"><div class="slabel">03 — Claude Code Implementation Specification</div></div>
+<div class="spec-section" style="padding-top:20px">
+  <div class="spec-block">
+    <div class="spec-block-header">Tablet Responsive CSS<span class="sbr">UI Design §10 · Tech Arch §15.1</span></div>
+    <table class="spec-table">
+      <tr><th>Rule</th><th>CSS</th><th>Notes</th></tr>
+      <tr><td>Breakpoint</td><td><code>@media (max-width: 1024px)</code></td><td>Applied in global stylesheet. All tablet rules live here.</td></tr>
+      <tr><td>Sidebar</td><td><code>.sidebar { width: 48px; min-width: 48px; }</code></td><td>Auto-collapses on tablet load. Text labels hidden. Icons only.</td></tr>
+      <tr><td>Tree min-width</td><td><code>.tree-panel { min-width: 260px; }</code></td><td>Reduced from 320px desktop minimum.</td></tr>
+      <tr><td>Detail min-width</td><td><code>.detail-panel { min-width: 280px; }</code></td><td>Reduced from 320px desktop minimum.</td></tr>
+      <tr><td>Node row height</td><td><code>.node-row { height: 44px; }</code></td><td>44px is iOS HIG / Android Material touch target minimum. Desktop is 36px.</td></tr>
+      <tr><td>Focus Mode prose</td><td><code>.focus-mode .prose-column { max-width: 560px; }</code></td><td><span class="inviolable">560px — not 620px. This is a locked value. ~60ch at 18px Lora. ~32px margins at 768px viewport.</span></td></tr>
+      <tr><td>Header height</td><td><code>.app-header { height: 44px; min-height: 44px; }</code></td><td>Reduced from 48px to save vertical space on tablet.</td></tr>
+      <tr><td>Font sizes</td><td>Unchanged</td><td>Do not reduce font sizes on tablet — legibility is more important than density.</td></tr>
+      <tr><td>Features removed</td><td>None</td><td>Tablet has full feature parity with desktop. No functionality is removed.</td></tr>
+    </table>
+  </div>
+</div>
+</body>
+</html>

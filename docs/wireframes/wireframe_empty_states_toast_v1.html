@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stelavox — Empty States & Toast System v1.0</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500&family=Cormorant+Garamond:ital,wght@1,300&family=Inter:wght@200;300;400;500;600&family=Lora:ital,wght@0,400;1,400&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --ink:#0d1014; --deep:#131820; --surface:#1a2030; --hover:#1e2838; --selected:#1f2d45;
+  --border-s:#1e2535; --border-d:#253045; --border-str:#3a4a62;
+  --text-p:#ecf0f5; --text-s:#8aa0b8; --text-m:#4a6080; --text-dis:#2a3850;
+  --verd:#3d7858; --verd-h:#5aa87a; --verd-m:#1a3028;
+  --ag-run:#2e5a90; --st-rev:#b87030; --st-lock:#6a3888;
+  --success:#3d7858; --error:#b03c3c; --warn:#b87030; --info:#3a6090;
+  --spec-bg:#0a0d12; --spec-pan:#111520; --callout:#e8b840;
+}
+body { background:var(--spec-bg); color:var(--text-p); font-family:'Inter',sans-serif; font-size:13px; line-height:1.5; }
+.doc-header { background:var(--spec-pan); border-bottom:1px solid var(--border-d); padding:24px 48px; display:flex; align-items:baseline; justify-content:space-between; }
+.wm-s{font-family:'Cinzel',serif;font-size:14px;font-weight:500;letter-spacing:.18em;color:var(--text-p);}
+.wm-v{font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:300;font-size:16px;letter-spacing:.08em;color:var(--text-p);opacity:.82;}
+.doc-meta{font-size:11px;font-weight:300;letter-spacing:.2em;text-transform:uppercase;color:var(--text-m);}
+.section{padding:40px 48px 0;}
+.slabel{font-size:9px;font-weight:400;letter-spacing:.45em;text-transform:uppercase;color:var(--text-m);margin-bottom:20px;padding-bottom:12px;border-bottom:1px solid var(--border-s);}
+
+/* Shared empty state styles */
+.empty-grid { padding:40px 48px; display:grid; grid-template-columns:1fr 1fr 1fr; gap:3px; }
+.empty-panel { background:var(--deep); border:1px solid var(--border-s); }
+.ep-label { font-size:9px;font-weight:400;letter-spacing:.38em;text-transform:uppercase;color:var(--text-m);padding:10px 14px;border-bottom:1px solid var(--border-s);background:var(--ink); }
+
+.empty-state {
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  padding:40px 24px; gap:12px; min-height:200px; text-align:center;
+}
+.es-icon { font-size:28px; opacity:0.25; }
+.es-title { font-size:13px; font-weight:400; color:var(--text-s); }
+.es-body { font-size:12px; font-weight:300; color:var(--text-m); line-height:1.6; max-width:240px; }
+.es-action {
+  font-size:11px;font-weight:400;color:var(--text-s);
+  border:1px solid var(--border-d);border-radius:4px;
+  padding:5px 12px;margin-top:4px;cursor:pointer;
+}
+.es-action:hover { border-color:var(--border-str); color:var(--text-p); }
+
+/* Toast demos */
+.toast-stack { display:flex; flex-direction:column; gap:8px; padding:32px; }
+.toast {
+  width:320px; background:var(--surface); border:1px solid var(--border-d);
+  border-radius:6px; display:flex; align-items:flex-start; gap:10px;
+  padding:12px 14px; box-shadow:0 4px 12px rgba(0,0,0,.4);
+  position:relative; overflow:hidden;
+}
+.toast::before {
+  content:''; position:absolute; left:0; top:0; bottom:0;
+  width:3px; border-radius:3px 0 0 3px;
+}
+.toast-success::before { background:var(--success); }
+.toast-error::before { background:var(--error); }
+.toast-warn::before { background:var(--warn); }
+.toast-info::before { background:var(--info); }
+.toast-icon { font-size:14px; margin-top:1px; flex-shrink:0; }
+.toast-body { flex:1; }
+.toast-title { font-size:12px; font-weight:500; color:var(--text-p); margin-bottom:2px; }
+.toast-msg { font-size:11px; font-weight:300; color:var(--text-s); line-height:1.5; }
+.toast-dismiss { font-size:14px; color:var(--text-m); cursor:pointer; margin-top:1px; flex-shrink:0; }
+.toast-progress { position:absolute; bottom:0; left:0; height:2px; background:var(--border-str); border-radius:0 0 0 6px; }
+.toast-progress.success { background:var(--success); opacity:.4; }
+.toast-progress.error   { background:var(--error); opacity:.4; }
+
+/* Spec tables */
+.spec-section{padding:0 48px 80px;}
+.spec-block{background:var(--spec-pan);border:1px solid var(--border-s);border-radius:4px;margin-bottom:2px;overflow:hidden;}
+.spec-block-header{padding:12px 20px;background:var(--ink);border-bottom:1px solid var(--border-s);font-size:11px;font-weight:600;letter-spacing:.25em;text-transform:uppercase;color:var(--text-p);display:flex;justify-content:space-between;align-items:center;}
+.sbr{font-size:10px;font-weight:300;letter-spacing:.1em;color:var(--verd);}
+.spec-table{width:100%;border-collapse:collapse;}
+.spec-table th{font-size:10px;font-weight:500;letter-spacing:.2em;text-transform:uppercase;color:var(--text-m);text-align:left;padding:8px 20px;border-bottom:1px solid var(--border-s);}
+.spec-table td{font-size:11px;font-weight:300;color:var(--text-s);padding:7px 20px;border-bottom:1px solid var(--border-s);vertical-align:top;}
+.spec-table tr:last-child td{border-bottom:none;}
+.spec-table td:first-child{color:var(--text-p);font-weight:400;min-width:180px;}
+.spec-table td code{background:var(--ink);padding:1px 5px;border-radius:2px;font-family:'SF Mono','Fira Code',monospace;font-size:10px;color:var(--callout);}
+.spec-table .note{font-size:10px;font-style:italic;color:var(--text-m);margin-top:2px;}
+.critical{color:#b87030;font-weight:500;}
+</style>
+</head>
+<body>
+
+<div class="doc-header">
+  <div>
+    <div style="display:flex;align-items:baseline;"><span class="wm-s">Stela</span><span class="wm-v">vox</span></div>
+    <div style="margin-top:6px;font-size:11px;font-weight:300;letter-spacing:.2em;text-transform:uppercase;color:var(--text-m);">Empty States & Toast System — Wireframe & Specification v1.0</div>
+  </div>
+  <div class="doc-meta">Brand Identity v1.2 · Component Spec v1.1</div>
+</div>
+
+<!-- EMPTY STATES -->
+<div class="section"><div class="slabel">01 — Empty States · Six Contexts · Exact Copy & Behaviour</div></div>
+<div class="empty-grid">
+
+  <!-- Node tree empty -->
+  <div class="empty-panel">
+    <div class="ep-label">Node Tree — No nodes yet</div>
+    <div class="empty-state">
+      <div class="es-icon">📖</div>
+      <div class="es-title">This document has no nodes.</div>
+      <div class="es-body">Add a root node to begin structuring your work. The node tree is the scaffold — prose comes later.</div>
+      <div class="es-action">+ Add root node</div>
+    </div>
+  </div>
+
+  <!-- Prose editor empty -->
+  <div class="empty-panel">
+    <div class="ep-label">Prose Editor — No prose yet</div>
+    <div style="padding:16px;">
+      <div style="background:var(--ink);border:1px solid var(--border-d);border-radius:4px;padding:14px 16px;min-height:140px;">
+        <div style="font-family:'Lora',serif;font-size:16px;font-weight:400;line-height:1.85;color:var(--text-dis);font-style:italic;">
+          Begin writing…
+        </div>
+      </div>
+      <div style="font-size:10px;font-weight:300;color:var(--text-m);margin-top:8px;line-height:1.6;">
+        Placeholder text: Lora 400 italic, <code style="font-size:9px;background:var(--ink);padding:1px 4px;border-radius:2px;color:var(--callout);">--color-text-disabled</code>. Disappears on first keypress. No other empty state UI.
+      </div>
+    </div>
+  </div>
+
+  <!-- Agent tab empty (no content yet) -->
+  <div class="empty-panel">
+    <div class="ep-label">Agent Tab — Hidden until summary exists</div>
+    <div class="empty-state">
+      <div class="es-icon">⚡</div>
+      <div class="es-title">No summary yet.</div>
+      <div class="es-body">Add a summary in the Content tab to enable agent operations. Agents need context to work from.</div>
+      <div class="es-action">Go to Content tab</div>
+    </div>
+    <div style="padding:0 14px 12px;font-size:10px;font-weight:300;color:var(--text-m);line-height:1.6;">
+      Note: In practice the Agent tab is hidden (not shown) until summary is non-empty. This state is a fallback if the tab is somehow accessed empty.
+    </div>
+  </div>
+
+  <!-- Comments tab empty -->
+  <div class="empty-panel">
+    <div class="ep-label">Comments Tab — No comments</div>
+    <div class="empty-state">
+      <div class="es-icon">💬</div>
+      <div class="es-title">No comments on this node.</div>
+      <div class="es-body">Comments from collaborators and agent critique operations will appear here.</div>
+    </div>
+  </div>
+
+  <!-- Director empty (first use) -->
+  <div class="empty-panel">
+    <div class="ep-label">Director Panel — First use</div>
+    <div style="padding:20px 16px;display:flex;flex-direction:column;gap:12px;">
+      <!-- Director header -->
+      <div style="display:flex;align-items:center;justify-content:space-between;padding-bottom:10px;border-bottom:1px solid var(--border-s);">
+        <div style="font-size:13px;font-weight:600;color:var(--text-p);display:flex;align-items:center;gap:8px;">
+          <span style="color:var(--verd);">◆</span> The Director
+          <span style="font-size:10px;font-weight:300;color:var(--text-m);background:var(--ink);border:1px solid var(--border-s);padding:2px 7px;border-radius:3px;">The Iron Veil</span>
+        </div>
+      </div>
+      <div class="empty-state" style="min-height:160px;">
+        <div class="es-icon">◆</div>
+        <div class="es-title">The Director is ready.</div>
+        <div class="es-body">Describe a structural problem in plain language. The Director will read your document, propose a plan, and wait for your approval before doing anything.</div>
+      </div>
+      <!-- Input always visible -->
+      <div style="border:1px solid var(--border-s);border-radius:5px;padding:8px 10px;font-size:12px;font-weight:300;color:var(--text-dis);background:var(--ink);font-family:'Inter',sans-serif;">
+        Message the Director... (@ to reference a node)
+      </div>
+    </div>
+  </div>
+
+  <!-- History tab empty -->
+  <div class="empty-panel">
+    <div class="ep-label">History Tab — No versions yet</div>
+    <div class="empty-state">
+      <div class="es-icon">🕐</div>
+      <div class="es-title">No history yet.</div>
+      <div class="es-body">Every edit and agent operation is saved automatically. Versions will appear here as you work.</div>
+    </div>
+  </div>
+
+</div>
+
+<!-- TOAST SYSTEM -->
+<div class="section" style="padding-bottom:0;"><div class="slabel">02 — Toast Notification System · Four Variants · Stacking · Copy Standards</div></div>
+<div style="padding:40px 48px;display:grid;grid-template-columns:1fr 1fr;gap:3px;">
+
+  <!-- Toast variants -->
+  <div style="background:var(--deep);border:1px solid var(--border-s);padding:24px;">
+    <div style="font-size:9px;font-weight:400;letter-spacing:.38em;text-transform:uppercase;color:var(--text-m);margin-bottom:20px;">Four Variants</div>
+    <div class="toast-stack" style="padding:0;">
+
+      <div class="toast toast-success">
+        <div class="toast-icon">✓</div>
+        <div class="toast-body">
+          <div class="toast-title">Chapter 5 refined.</div>
+          <div class="toast-msg">Summary updated. Previous version saved in history.</div>
+        </div>
+        <div class="toast-dismiss">×</div>
+        <div class="toast-progress success" style="width:60%;"></div>
+      </div>
+
+      <div class="toast toast-error">
+        <div class="toast-icon" style="color:#b03c3c;">✗</div>
+        <div class="toast-body">
+          <div class="toast-title">Synthesis failed.</div>
+          <div class="toast-msg">The API returned an error. Your content is unchanged. Try again, or check your API key in Settings.</div>
+        </div>
+        <div class="toast-dismiss">×</div>
+        <div class="toast-progress error" style="width:30%;"></div>
+      </div>
+
+      <div class="toast toast-warn">
+        <div class="toast-icon" style="color:#b87030;">⚠</div>
+        <div class="toast-body">
+          <div class="toast-title">Chapter 7 is locked.</div>
+          <div class="toast-msg">It was not included in the Director plan. The plan works around it.</div>
+        </div>
+        <div class="toast-dismiss">×</div>
+      </div>
+
+      <div class="toast toast-info">
+        <div class="toast-icon" style="color:#3a6090;">ⓘ</div>
+        <div class="toast-body">
+          <div class="toast-title">Token budget: 80% used.</div>
+          <div class="toast-msg">Author plan — 80% of your token budget used this period. Resets in 8 days.</div>
+        </div>
+        <div class="toast-dismiss">×</div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Stacking behaviour + position -->
+  <div style="background:var(--deep);border:1px solid var(--border-s);padding:24px;">
+    <div style="font-size:9px;font-weight:400;letter-spacing:.38em;text-transform:uppercase;color:var(--text-m);margin-bottom:20px;">Stacking · Position · Auto-dismiss</div>
+
+    <!-- Position diagram -->
+    <div style="background:var(--ink);border-radius:6px;padding:24px;position:relative;height:300px;margin-bottom:20px;overflow:hidden;">
+      <!-- Simulated viewport edge -->
+      <div style="position:absolute;right:16px;bottom:16px;display:flex;flex-direction:column;gap:6px;align-items:flex-end;">
+        <div style="width:200px;background:var(--surface);border:1px solid var(--border-d);border-radius:4px;padding:8px 10px;position:relative;overflow:hidden;">
+          <div style="font-size:10px;font-weight:500;color:var(--text-p);">Chapter 5 refined.</div>
+          <div style="font-size:9px;font-weight:300;color:var(--text-s);">Summary updated.</div>
+          <div style="position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--verd);border-radius:3px 0 0 3px;"></div>
+          <div style="position:absolute;bottom:0;left:0;width:40%;height:2px;background:var(--verd);opacity:.4;"></div>
+        </div>
+        <div style="width:200px;background:var(--surface);border:1px solid var(--border-d);border-radius:4px;padding:8px 10px;opacity:.85;position:relative;overflow:hidden;">
+          <div style="font-size:10px;font-weight:500;color:var(--text-p);">Expansion complete.</div>
+          <div style="font-size:9px;font-weight:300;color:var(--text-s);">3 scenes created.</div>
+          <div style="position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--verd);border-radius:3px 0 0 3px;"></div>
+          <div style="position:absolute;bottom:0;left:0;width:75%;height:2px;background:var(--verd);opacity:.4;"></div>
+        </div>
+        <div style="width:200px;background:var(--surface);border:1px solid var(--border-d);border-radius:4px;padding:8px 10px;opacity:.65;position:relative;overflow:hidden;">
+          <div style="font-size:10px;font-weight:500;color:var(--text-p);">Beat 3 synthesised.</div>
+          <div style="font-size:9px;font-weight:300;color:var(--text-s);">342 words generated.</div>
+          <div style="position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--verd);border-radius:3px 0 0 3px;"></div>
+        </div>
+      </div>
+      <div style="position:absolute;top:16px;left:16px;font-size:10px;font-weight:300;color:var(--text-m);">Viewport bottom-right</div>
+      <div style="position:absolute;bottom:6px;left:16px;font-size:9px;font-weight:300;color:var(--text-dis);">Stack grows upward · newest at bottom · max 3 visible</div>
+    </div>
+
+    <!-- Copy standards -->
+    <div style="display:flex;flex-direction:column;gap:8px;">
+      <div style="font-size:9px;font-weight:500;letter-spacing:.28em;text-transform:uppercase;color:var(--text-m);margin-bottom:4px;">Copy Standards</div>
+      <div style="background:var(--ink);border-radius:3px;padding:10px 12px;">
+        <div style="font-size:10px;font-weight:500;color:var(--verd);margin-bottom:6px;">✓ Correct</div>
+        <div style="font-size:11px;font-weight:300;color:var(--text-s);line-height:1.65;">
+          "Chapter 5 refined. Summary updated."<br>
+          "Synthesis failed. API returned an error. Content unchanged."<br>
+          "Version restored. Previous prose saved to history."
+        </div>
+      </div>
+      <div style="background:var(--ink);border-radius:3px;padding:10px 12px;">
+        <div style="font-size:10px;font-weight:500;color:#b03c3c;margin-bottom:6px;">✗ Wrong</div>
+        <div style="font-size:11px;font-weight:300;color:var(--text-m);line-height:1.65;">
+          "Done! Great job!"<br>
+          "Oops! Something went wrong."<br>
+          "Your chapter has been successfully updated!"
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- SPEC TABLES -->
+<div class="section"><div class="slabel">03 — Claude Code Specification</div></div>
+<div class="spec-section" style="padding-top:20px;">
+
+  <div class="spec-block">
+    <div class="spec-block-header">Empty State Component — EmptyState.tsx<span class="sbr">Brand Identity §9 · §10.2</span></div>
+    <table class="spec-table">
+      <tr><th>Context</th><th>Icon</th><th>Title</th><th>Body</th><th>Action</th></tr>
+      <tr><td>Node tree (no nodes)</td><td>📖 opacity 0.25</td><td>"This document has no nodes."</td><td>"Add a root node to begin..."</td><td>"+ Add root node" button</td></tr>
+      <tr><td>Prose editor</td><td>None</td><td>None</td><td>Lora italic placeholder only</td><td>None</td></tr>
+      <tr><td>Agent tab (no summary)</td><td>⚡ opacity 0.25</td><td>"No summary yet."</td><td>"Add a summary in the Content tab..."</td><td>"Go to Content tab" link</td></tr>
+      <tr><td>Comments tab</td><td>💬 opacity 0.25</td><td>"No comments on this node."</td><td>"Comments from collaborators..."</td><td>None</td></tr>
+      <tr><td>Director (first use)</td><td>◆ opacity 0.25, verdigris</td><td>"The Director is ready."</td><td>"Describe a structural problem..."</td><td>None — input is always visible</td></tr>
+      <tr><td>History tab</td><td>🕐 opacity 0.25</td><td>"No history yet."</td><td>"Every edit is saved automatically..."</td><td>None</td></tr>
+      <tr><td colspan="5"><div class="note">Icon: 28px, opacity 0.25. Title: Inter 400 13px --color-text-secondary. Body: Inter 300 12px --color-text-muted, line-height 1.6, max-width 240px. Action: border button, Inter 400 11px. Centred layout, padding 40px 24px.</div></td></tr>
+    </table>
+  </div>
+
+  <div class="spec-block">
+    <div class="spec-block-header">Toast Component + ToastManager<span class="sbr">Component Spec §8.1</span></div>
+    <table class="spec-table">
+      <tr><th>Property</th><th>Value</th><th>Notes</th></tr>
+      <tr><td>Position</td><td>fixed, bottom: 24px, right: 24px, z-index: 200</td><td>Above all other UI</td></tr>
+      <tr><td>Width</td><td>320px</td><td>Fixed</td></tr>
+      <tr><td>Stack order</td><td>Newest at bottom, stack grows upward</td><td>Gap: 8px between toasts</td></tr>
+      <tr><td>Max visible</td><td>3</td><td>4th toast: oldest dismisses first</td></tr>
+      <tr><td>Auto-dismiss</td><td>4000ms</td><td>Progress bar depletes over 4s. Hover pauses timer.</td></tr>
+      <tr><td>Entry animation</td><td><code>translateX(24px) + opacity 0 → translateX(0) + opacity 1</code></td><td>--duration-normal --easing-default</td></tr>
+      <tr><td>Exit animation</td><td><code>opacity 0 + translateX(24px)</code></td><td>--duration-normal --easing-crisp</td></tr>
+      <tr><td>Left accent stripe</td><td>3px, border-radius 3px 0 0 3px</td><td>success: --color-accent · error: --color-error · warn: --color-warning · info: --color-info</td></tr>
+      <tr><td>Progress bar</td><td>2px, bottom edge, same colour as accent at 40% opacity</td><td>Animates from 100% to 0% over 4000ms. Pauses on hover.</td></tr>
+      <tr><td>Title</td><td>Inter 500 12px --color-text-primary</td><td>Required</td></tr>
+      <tr><td>Message</td><td>Inter 300 11px --color-text-secondary, line-height 1.5</td><td>Optional</td></tr>
+      <tr><td>Dismiss ×</td><td>Inter 400 14px --color-text-muted</td><td>Hover: --color-text-secondary</td></tr>
+      <tr><td>role</td><td><code>role="status"</code> (success, info) · <code>role="alert"</code> (error, warn)</td><td>aria-live="polite" on status, "assertive" on alert</td></tr>
+    </table>
+  </div>
+
+</div>
+</body>
+</html>

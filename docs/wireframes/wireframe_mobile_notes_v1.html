@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stelavox — Mobile Notes Field Wireframe & Specification v1.0</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500&family=Cormorant+Garamond:ital,wght@1,300&family=Inter:wght@200;300;400;500;600&family=Lora:ital,wght@0,400&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --ink:#0d1014;--deep:#131820;--surface:#1a2030;--hover:#1e2838;--selected:#1f2d45;
+  --border-s:#1e2535;--border-d:#253045;
+  --text-p:#ecf0f5;--text-s:#8aa0b8;--text-m:#4a6080;--text-dis:#2a3850;
+  --verd:#3d7858;--ag-run:#2e5a90;
+  --spec-bg:#0a0d12;--spec-pan:#111520;--callout:#e8b840;
+}
+body{background:var(--spec-bg);color:var(--text-p);font-family:'Inter',sans-serif;font-size:13px;line-height:1.5}
+.doc-header{background:var(--spec-pan);border-bottom:1px solid var(--border-d);padding:24px 48px;display:flex;align-items:baseline;justify-content:space-between}
+.wm-s{font-family:'Cinzel',serif;font-size:14px;font-weight:500;letter-spacing:.18em;color:var(--text-p)}
+.wm-v{font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:300;font-size:16px;letter-spacing:.08em;color:var(--text-p);opacity:.82}
+.doc-meta{font-size:11px;font-weight:300;letter-spacing:.2em;text-transform:uppercase;color:var(--text-m)}
+.section{padding:40px 48px 0}
+.slabel{font-size:9px;font-weight:400;letter-spacing:.45em;text-transform:uppercase;color:var(--text-m);margin-bottom:20px;padding-bottom:12px;border-bottom:1px solid var(--border-s)}
+/* Panel */
+.panel{background:var(--deep);border:1px solid var(--border-s);border-radius:6px;display:flex;flex-direction:column;overflow:hidden}
+.dp-hdr{padding:10px 14px 0;border-bottom:1px solid var(--border-s);flex-shrink:0}
+.dp-title{font-size:13px;font-weight:600;color:var(--text-p);margin-bottom:3px}
+.dp-bc{font-size:10px;font-weight:300;color:var(--text-m);margin-bottom:8px}
+.tabs{display:flex}
+.tab{font-size:12px;font-weight:400;color:var(--text-m);padding:6px 12px;border-bottom:2px solid transparent;cursor:pointer}
+.tab.active{color:var(--text-p);font-weight:500;border-bottom-color:rgba(236,240,245,.6)}
+.body{padding:14px;display:flex;flex-direction:column;gap:12px;overflow-y:auto}
+.field-label{font-size:9px;font-weight:500;letter-spacing:.28em;text-transform:uppercase;color:var(--text-m);margin-bottom:4px}
+.summary-field{background:var(--ink);border:1px solid var(--border-s);border-radius:3px;padding:8px 10px;font-size:12px;font-family:'Inter',sans-serif;color:var(--text-s);line-height:1.55}
+.prose-field{background:var(--ink);border:1px solid var(--border-d);border-radius:3px;padding:10px 12px;font-size:14px;font-family:'Lora',serif;font-weight:400;line-height:1.85;color:var(--text-p)}
+.vcursor{display:inline-block;width:2px;height:.8em;background:var(--verd);vertical-align:text-bottom;margin-left:1px;animation:blink 1s step-end infinite}
+@keyframes blink{0%,59%{opacity:1}60%,100%{opacity:0}}
+/* Mobile notes section */
+.mn-section{background:transparent;border:1px solid var(--border-s);border-radius:4px;overflow:hidden}
+.mn-header{display:flex;align-items:center;justify-content:space-between;padding:7px 10px;background:var(--ink);cursor:pointer;border-bottom:1px solid var(--border-s)}
+.mn-label{font-size:9px;font-weight:500;letter-spacing:.28em;text-transform:uppercase;color:var(--text-m);display:flex;align-items:center;gap:8px}
+.mn-count{background:var(--surface);border:1px solid var(--border-s);border-radius:3px;font-size:9px;font-weight:400;color:var(--text-s);padding:1px 5px}
+.mn-collapse{font-size:10px;color:var(--text-m)}
+.mn-entry{padding:8px 10px;border-bottom:1px solid var(--border-s)}
+.mn-entry:last-child{border-bottom:none}
+.mn-meta{font-size:9px;font-weight:300;color:var(--text-m);margin-bottom:4px;display:flex;align-items:center;gap:6px}
+.mn-device{background:var(--surface);border:1px solid var(--border-s);border-radius:2px;padding:1px 4px;font-size:8px;color:var(--text-m)}
+.mn-method{background:var(--surface);border:1px solid var(--border-s);border-radius:2px;padding:1px 4px;font-size:8px;color:var(--text-m)}
+.mn-content{font-size:11px;font-weight:300;color:var(--text-s);line-height:1.6}
+.mn-empty{padding:14px 10px;font-size:11px;font-weight:300;color:var(--text-dis);font-style:italic;text-align:center}
+/* Phone mockup */
+.phone{background:var(--ink);border:2px solid var(--border-d);border-radius:20px;overflow:hidden;display:flex;flex-direction:column;width:240px}
+.phone-bar{height:30px;background:var(--deep);border-bottom:1px solid var(--border-s);display:flex;align-items:center;padding:0 12px;flex-shrink:0}
+.phone-status{font-size:9px;color:var(--text-m);flex:1}
+.phone-title{font-size:10px;font-weight:500;color:var(--text-s);text-align:center;flex:1}
+.phone-body{flex:1;overflow-y:auto;padding:10px;display:flex;flex-direction:column;gap:8px}
+.phone-node-item{background:var(--surface);border:1px solid var(--border-s);border-radius:4px;padding:8px 10px}
+.phone-node-name{font-size:11px;font-weight:500;color:var(--text-p);margin-bottom:2px}
+.phone-node-meta{font-size:9px;font-weight:300;color:var(--text-m)}
+.phone-node-item.active{border-color:var(--verd);background:rgba(61,120,88,.05)}
+.phone-btn{background:var(--ag-run);color:white;font-size:11px;font-weight:500;padding:8px;border-radius:5px;border:none;text-align:center;margin-top:4px;font-family:'Inter',sans-serif}
+.phone-note-input{background:var(--ink);border:1px solid var(--border-d);border-radius:4px;padding:8px;font-size:11px;font-family:'Inter',sans-serif;color:var(--text-dis);font-style:italic;min-height:60px}
+.phone-speech{background:transparent;border:1px solid var(--border-s);border-radius:4px;padding:7px;display:flex;align-items:center;justify-content:center;gap:6px;font-size:11px;color:var(--text-m)}
+/* Spec tables */
+.spec-section{padding:0 48px 80px}
+.spec-block{background:var(--spec-pan);border:1px solid var(--border-s);border-radius:4px;margin-bottom:2px;overflow:hidden}
+.spec-block-header{padding:12px 20px;background:var(--ink);border-bottom:1px solid var(--border-s);font-size:11px;font-weight:600;letter-spacing:.25em;text-transform:uppercase;color:var(--text-p);display:flex;justify-content:space-between;align-items:center}
+.sbr{font-size:10px;font-weight:300;letter-spacing:.1em;color:var(--verd)}
+.spec-table{width:100%;border-collapse:collapse}
+.spec-table th{font-size:10px;font-weight:500;letter-spacing:.2em;text-transform:uppercase;color:var(--text-m);text-align:left;padding:8px 20px;border-bottom:1px solid var(--border-s)}
+.spec-table td{font-size:11px;font-weight:300;color:var(--text-s);padding:7px 20px;border-bottom:1px solid var(--border-s);vertical-align:top}
+.spec-table tr:last-child td{border-bottom:none}
+.spec-table td:first-child{color:var(--text-p);font-weight:400;min-width:180px}
+.spec-table td code{background:var(--ink);padding:1px 5px;border-radius:2px;font-family:'SF Mono','Fira Code',monospace;font-size:10px;color:var(--callout)}
+.spec-table .note{font-size:10px;font-style:italic;color:var(--text-m);margin-top:2px}
+.critical{color:#b87030;font-weight:500}
+</style>
+</head>
+<body>
+
+<div class="doc-header">
+  <div>
+    <div style="display:flex;align-items:baseline"><span class="wm-s">Stela</span><span class="wm-v">vox</span></div>
+    <div style="margin-top:6px;font-size:11px;font-weight:300;letter-spacing:.2em;text-transform:uppercase;color:var(--text-m)">Mobile Notes — Field Wireframe & Specification v1.0</div>
+  </div>
+  <div class="doc-meta">Product Spec §21.3 · Tech Arch §15.2 · Component Spec §13</div>
+</div>
+
+<!-- DESKTOP VIEW -->
+<div class="section"><div class="slabel">01 — Desktop: Mobile Notes in Content Tab · Three States</div></div>
+
+<div style="padding:40px 48px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:3px">
+
+  <!-- State 1: Has notes, expanded -->
+  <div style="display:flex;flex-direction:column;gap:3px">
+    <div style="font-size:9px;font-weight:400;letter-spacing:.38em;text-transform:uppercase;color:var(--text-m);padding:8px 0;border-bottom:1px solid var(--border-s);margin-bottom:6px">State 1 · Has Notes · Expanded</div>
+    <div class="panel">
+      <div class="dp-hdr">
+        <div class="dp-title">⚡ Beat 3: The letter is gone</div>
+        <div class="dp-bc">Ch 5 › Scene 2 › Beat 3</div>
+        <div class="tabs">
+          <div class="tab active">Content</div>
+          <div class="tab">Agent</div>
+          <div class="tab">History</div>
+        </div>
+      </div>
+      <div class="body">
+        <div>
+          <div class="field-label">Summary</div>
+          <div class="summary-field">Elena crosses to the cabinet. Empty.</div>
+        </div>
+        <div>
+          <div class="field-label">Notes</div>
+          <div class="summary-field" style="min-height:40px;color:var(--text-dis);font-style:italic">Private notes...</div>
+        </div>
+        <!-- Mobile Notes section — expanded -->
+        <div class="mn-section">
+          <div class="mn-header">
+            <div class="mn-label">
+              Mobile Notes
+              <span class="mn-count">3</span>
+            </div>
+            <div class="mn-collapse">▾</div>
+          </div>
+          <div class="mn-entry">
+            <div class="mn-meta">
+              Today 14:32
+              <span class="mn-device">iOS</span>
+              <span class="mn-method">🎙 speech</span>
+            </div>
+            <div class="mn-content">The letter should be in the coat lining, not the drawer — more personal to Elena's relationship with Viktor</div>
+          </div>
+          <div class="mn-entry">
+            <div class="mn-meta">
+              Today 09:14
+              <span class="mn-device">Android</span>
+              <span class="mn-method">⌨ text</span>
+            </div>
+            <div class="mn-content">Check if the archive was open on a Sunday in 1943</div>
+          </div>
+          <div class="mn-entry">
+            <div class="mn-meta">
+              Yesterday 20:47
+              <span class="mn-device">iOS</span>
+              <span class="mn-method">🎙 speech</span>
+            </div>
+            <div class="mn-content">Viktor should already know about the letter — seeds of doubt earlier in Ch 4</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- State 2: Has notes, collapsed -->
+  <div style="display:flex;flex-direction:column;gap:3px">
+    <div style="font-size:9px;font-weight:400;letter-spacing:.38em;text-transform:uppercase;color:var(--text-m);padding:8px 0;border-bottom:1px solid var(--border-s);margin-bottom:6px">State 2 · Has Notes · Collapsed</div>
+    <div class="panel">
+      <div class="dp-hdr">
+        <div class="dp-title">⚡ Beat 3: The letter is gone</div>
+        <div class="dp-bc">Ch 5 › Scene 2 › Beat 3</div>
+        <div class="tabs">
+          <div class="tab active">Content</div>
+          <div class="tab">Agent</div>
+        </div>
+      </div>
+      <div class="body">
+        <div>
+          <div class="field-label">Summary</div>
+          <div class="summary-field">Elena crosses to the cabinet. Empty.</div>
+        </div>
+        <div>
+          <div class="field-label">Notes</div>
+          <div class="summary-field" style="min-height:40px;color:var(--text-dis);font-style:italic">Private notes...</div>
+        </div>
+        <!-- Mobile Notes section — collapsed -->
+        <div class="mn-section">
+          <div class="mn-header" style="border-bottom:none">
+            <div class="mn-label">
+              Mobile Notes
+              <span class="mn-count">3</span>
+            </div>
+            <div class="mn-collapse">▸</div>
+          </div>
+        </div>
+        <div style="font-size:10px;font-weight:300;color:var(--text-m);line-height:1.5;padding:0 2px">3 notes from your phone. Expand to read.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- State 3: No notes -->
+  <div style="display:flex;flex-direction:column;gap:3px">
+    <div style="font-size:9px;font-weight:400;letter-spacing:.38em;text-transform:uppercase;color:var(--text-m);padding:8px 0;border-bottom:1px solid var(--border-s);margin-bottom:6px">State 3 · No Notes · Empty</div>
+    <div class="panel">
+      <div class="dp-hdr">
+        <div class="dp-title">⚡ Beat 4: Elena leaves</div>
+        <div class="dp-bc">Ch 5 › Scene 2 › Beat 4</div>
+        <div class="tabs">
+          <div class="tab active">Content</div>
+          <div class="tab">Agent</div>
+        </div>
+      </div>
+      <div class="body">
+        <div>
+          <div class="field-label">Summary</div>
+          <div class="summary-field" style="color:var(--text-dis);font-style:italic">No summary yet...</div>
+        </div>
+        <div>
+          <div class="field-label">Prose</div>
+          <div class="prose-field" style="font-size:12px;color:var(--text-dis);font-style:italic">Begin writing…</div>
+        </div>
+        <!-- Mobile Notes — empty (always shown) -->
+        <div class="mn-section">
+          <div class="mn-header" style="border-bottom:none">
+            <div class="mn-label">Mobile Notes</div>
+          </div>
+          <div class="mn-empty">Notes added on your phone will appear here.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- PHONE VIEW -->
+<div class="section" style="padding-bottom:0"><div class="slabel">02 — Phone Interface (V3) · Browse Tree · Open Node · Add Mobile Note</div></div>
+
+<div style="padding:40px 48px;display:grid;grid-template-columns:240px 240px 240px 1fr;gap:16px;align-items:start">
+
+  <!-- Phone screen 1: tree browse -->
+  <div style="display:flex;flex-direction:column;gap:6px">
+    <div style="font-size:9px;font-weight:400;letter-spacing:.35em;text-transform:uppercase;color:var(--text-m);padding-bottom:6px;border-bottom:1px solid var(--border-s)">Browse tree</div>
+    <div class="phone" style="height:380px">
+      <div class="phone-bar">
+        <div class="phone-status">Stelavox</div>
+        <div style="font-size:9px;color:var(--text-m)">The Iron Veil</div>
+      </div>
+      <div class="phone-body">
+        <div style="font-size:9px;font-weight:400;letter-spacing:.25em;text-transform:uppercase;color:var(--text-m);margin-bottom:4px">Act One</div>
+        <div class="phone-node-item">
+          <div class="phone-node-name">📄 Chapter 5</div>
+          <div class="phone-node-meta">The Confrontation · draft</div>
+        </div>
+        <div style="padding-left:12px;display:flex;flex-direction:column;gap:4px">
+          <div class="phone-node-item">
+            <div class="phone-node-name">🎬 Scene 2</div>
+            <div class="phone-node-meta">The Archive Visit</div>
+          </div>
+          <div style="padding-left:10px;display:flex;flex-direction:column;gap:4px">
+            <div class="phone-node-item">
+              <div class="phone-node-name">⚡ Beat 2</div>
+              <div class="phone-node-meta">The empty drawer</div>
+            </div>
+            <div class="phone-node-item active">
+              <div class="phone-node-name">⚡ Beat 3 · 3 notes</div>
+              <div class="phone-node-meta" style="color:var(--verd)">The letter is gone</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Phone screen 2: node content (read) -->
+  <div style="display:flex;flex-direction:column;gap:6px">
+    <div style="font-size:9px;font-weight:400;letter-spacing:.35em;text-transform:uppercase;color:var(--text-m);padding-bottom:6px;border-bottom:1px solid var(--border-s)">Read node</div>
+    <div class="phone" style="height:380px">
+      <div class="phone-bar">
+        <div style="font-size:9px;color:var(--text-m)">← Back</div>
+        <div class="phone-title">Beat 3</div>
+      </div>
+      <div class="phone-body">
+        <div style="font-size:9px;font-weight:500;letter-spacing:.2em;text-transform:uppercase;color:var(--text-m);margin-bottom:3px">Summary</div>
+        <div style="font-size:11px;font-weight:300;color:var(--text-s);line-height:1.55;background:var(--surface);border:1px solid var(--border-s);border-radius:3px;padding:7px 8px">Elena crosses to the cabinet. She already knows what she will find. The drawer opens. Empty.</div>
+        <div style="font-size:9px;font-weight:500;letter-spacing:.2em;text-transform:uppercase;color:var(--text-m);margin:6px 0 3px">Prose</div>
+        <div style="font-size:11px;font-family:'Lora',serif;color:var(--text-p);line-height:1.85;background:var(--ink);border:1px solid var(--border-d);border-radius:3px;padding:7px 8px">The drawer was not empty. It was simply missing one thing.</div>
+        <div style="font-size:9px;font-weight:500;letter-spacing:.2em;text-transform:uppercase;color:var(--text-m);margin:6px 0 3px">Mobile Notes · 3</div>
+        <div style="background:var(--ink);border:1px solid var(--border-s);border-radius:3px;padding:7px 8px;font-size:10px;font-weight:300;color:var(--text-m)">The letter should be in the coat lining...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Phone screen 3: add note -->
+  <div style="display:flex;flex-direction:column;gap:6px">
+    <div style="font-size:9px;font-weight:400;letter-spacing:.35em;text-transform:uppercase;color:var(--text-m);padding-bottom:6px;border-bottom:1px solid var(--border-s)">Add note</div>
+    <div class="phone" style="height:380px">
+      <div class="phone-bar">
+        <div style="font-size:9px;color:var(--text-m)">← Beat 3</div>
+        <div class="phone-title">Add Note</div>
+      </div>
+      <div class="phone-body">
+        <div class="phone-note-input">Type a note about this beat...</div>
+        <div class="phone-speech">
+          <span style="font-size:14px">🎙</span>
+          <span style="font-size:10px;font-weight:300">Speak a note</span>
+        </div>
+        <div style="font-size:9px;font-weight:300;color:var(--text-m);line-height:1.5;padding:0 2px">Speech-to-text uses your phone's built-in engine. No audio is sent to Stelavox.</div>
+        <button class="phone-btn">Save Note</button>
+        <div style="font-size:9px;font-weight:300;color:var(--text-dis);text-align:center">Will sync when online</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Offline sync note -->
+  <div style="background:var(--spec-pan);border:1px solid var(--border-s);border-radius:4px;padding:16px;display:flex;flex-direction:column;gap:10px">
+    <div style="font-size:10px;font-weight:500;letter-spacing:.25em;text-transform:uppercase;color:var(--text-m)">Offline sync behaviour</div>
+    <div style="font-size:11px;font-weight:300;color:var(--text-s);line-height:1.65">
+      <strong style="color:var(--text-p)">Online:</strong><br>
+      Note uploaded immediately via POST /api/mobile/nodes/{id}/notes<br><br>
+      <strong style="color:var(--text-p)">Offline:</strong><br>
+      Note saved to local SQLite (mobile_sync_queue). Timestamp recorded as phone's local time.<br><br>
+      <strong style="color:var(--text-p)">On reconnect:</strong><br>
+      Queue drains via POST /api/mobile/sync. Sent in timestamp order. Server appends to JSONB array atomically.<br><br>
+      <strong style="color:var(--text-p)">No conflicts possible:</strong><br>
+      Append-only — notes are never edited or deleted from the phone. The JSONB array only grows.
+    </div>
+  </div>
+</div>
+
+<!-- SPEC -->
+<div class="section"><div class="slabel">03 — Claude Code Specification</div></div>
+<div class="spec-section" style="padding-top:20px">
+  <div class="spec-block">
+    <div class="spec-block-header">MobileNotesSection Component<span class="sbr">Component Spec §13.1 · Tech Arch §15.2</span></div>
+    <table class="spec-table">
+      <tr><th>Property</th><th>Value</th><th>Notes</th></tr>
+      <tr><td>File</td><td><code>components/detail/MobileNotesSection.tsx</code></td><td></td></tr>
+      <tr><td>Position in Content tab</td><td>Below Notes field, above any other additional fields</td><td>Always rendered — empty state if no notes</td></tr>
+      <tr><td>Section header</td><td>Inter 500 9px tracking 0.28em uppercase <code>--color-text-muted</code></td><td>"Mobile Notes" + count badge if count > 0</td></tr>
+      <tr><td>Count badge</td><td>Inter 400 9px, <code>--color-bg-surface</code> bg, 1px <code>--color-border-subtle</code></td><td>Hidden when count is 0</td></tr>
+      <tr><td>Collapsible</td><td>Yes — click header to toggle. State in sessionStorage.</td><td>Defaults to expanded when notes exist, collapsed when empty</td></tr>
+      <tr><td>Entry meta line</td><td>Inter 300 9px <code>--color-text-muted</code></td><td>Format: relative timestamp + device_type pill + input_method pill</td></tr>
+      <tr><td>Entry body</td><td>Inter 300 11px <code>--color-text-secondary</code> line-height 1.6</td><td></td></tr>
+      <tr><td>Entry separator</td><td>1px <code>--color-border-subtle</code></td><td>No separator after last entry</td></tr>
+      <tr><td>Max height</td><td>300px then overflow-y auto</td><td>Prevents long note lists dominating the panel</td></tr>
+      <tr><td>Empty state</td><td>Inter 300 11px <code>--color-text-disabled</code> italic centred</td><td>"Notes added on your phone will appear here."</td></tr>
+      <tr><td>Read-only</td><td><span class="critical">Always. Desktop cannot add or edit mobile notes.</span></td><td>The field is a display component only on desktop</td></tr>
+      <tr><td>Timestamp format</td><td><code>formatRelative(note.created_at, new Date())</code> via date-fns</td><td>"Today 14:32" / "Yesterday 20:47" / "Apr 24 09:14"</td></tr>
+    </table>
+  </div>
+
+  <div class="spec-block">
+    <div class="spec-block-header">Mobile API — Note Write Path<span class="sbr">Tech Arch §15.2 · Product Spec §21.5</span></div>
+    <table class="spec-table">
+      <tr><th>Endpoint</th><th>Method</th><th>Body / Response</th></tr>
+      <tr><td><code>/api/mobile/nodes/{id}/notes</code></td><td>POST</td><td>Body: <code>{ content, device_type, input_method, created_at }</code>. Response: <code>{ note: { id, content, created_at, device_type, input_method } }</code></td></tr>
+      <tr><td><code>/api/mobile/sync</code></td><td>POST</td><td>Body: <code>{ notes: [{ node_id, content, created_at, device_type, input_method }] }</code>. Sorted by created_at before appending. Response: <code>{ synced: number }</code></td></tr>
+      <tr><td colspan="3"><div class="note">Atomic JSONB append: <code>UPDATE nodes SET mobile_notes = mobile_notes || '[{...}]'::jsonb WHERE id = $1</code>. PostgreSQL ensures atomicity — no race conditions between concurrent appends.</div></td></tr>
+    </table>
+  </div>
+
+  <div class="spec-block">
+    <div class="spec-block-header">JSONB Data Structure<span class="sbr">Product Spec §8.1 · Tech Arch §15.2</span></div>
+    <table class="spec-table">
+      <tr><th>Field</th><th>Type</th><th>Notes</th></tr>
+      <tr><td><code>id</code></td><td>string (UUID)</td><td>Generated server-side on write. Deduplication key for batch sync.</td></tr>
+      <tr><td><code>content</code></td><td>string</td><td>The note text. Max 2000 characters enforced at API.</td></tr>
+      <tr><td><code>created_at</code></td><td>ISO 8601 string</td><td>Phone's local timestamp at time of capture. Preserved for offline notes.</td></tr>
+      <tr><td><code>device_type</code></td><td><code>"ios" | "android"</code></td><td>Set by the mobile app based on platform.</td></tr>
+      <tr><td><code>input_method</code></td><td><code>"text" | "speech"</code></td><td>Text: manual typing. Speech: native speech-to-text transcription.</td></tr>
+    </table>
+  </div>
+</div>
+</body>
+</html>
