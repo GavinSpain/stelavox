@@ -1,5 +1,5 @@
 # Stelavox — Product Specification
-## Version 1.2
+## Version 1.3
 
 ---
 
@@ -207,6 +207,7 @@ Features are grouped by surface area. The Phase column indicates the development
 |---|---|---|---|---|
 | Node CRUD | Create, read, update, delete structural and context nodes | As an author, I want to add, edit, and remove nodes in my document | `nodes` | 1 |
 | Structural tree | Hierarchical node tree ordered by integer position | As an author, I want to see my document structure as a tree | `nodes.parent_id`, `nodes.order` | 1 |
+| Document root node | Every document has exactly one structural node with `parent_id IS NULL`, created atomically with the document. The root node's `node_type` is the layer-stack template's layer 0 (e.g. `book` for novel, `story` for short story, `series` for series). Its name defaults to the document's name; the author can rename it. The root cannot be deleted while the document exists. `documents.root_node_id` always points at it. | As an author, I want my new document to open with a single top-level row I can immediately rename and start adding children to | `documents.root_node_id`, `nodes` | 2 |
 | Node reordering | Move nodes within siblings; integer reordering with sibling renumbering | As an author, I want to move Chapter 3 before Chapter 2 | `nodes.order` | 1 |
 | Content fields | `summary`, `prose`, `notes`, `metadata` | As an author, I want to write a chapter summary and then eventually produce prose | `nodes` | 1 |
 | Node status | `draft`, `in_review`, `approved`, `locked` | As an author, I want to mark a chapter as approved before moving on | `nodes.status` | 1 |
@@ -288,9 +289,9 @@ Features are grouped by surface area. The Phase column indicates the development
 
 | Feature | Description | User Story | Data Touched | Phase |
 |---|---|---|---|---|
-| Per-node version history | Every content change creates a new version record | As an author, I want to revert a scene to how it was before the last agent edit | `node_versions` | 1 |
-| Version comparison | View two versions of a node side by side | As an author, I want to see what changed between version 3 and version 7 of this beat | `node_versions` | 2 |
-| Version restore | Restore a node to any previous version | As an author, I want to undo the last three agent operations on this scene | `nodes`, `node_versions` | 2 |
+| Per-node version record | Every content change (`summary` / `prose` / `notes` / `metadata`) creates a row in `node_versions` and bumps `nodes.version`. Non-content updates (rename, status, target, instruction, lock state, structural moves) do not bump the version. | As an author, I want every meaningful change to my prose to be captured automatically so I can revisit it later | `node_versions`, `nodes.version` | 1 (column) / 2 (content-only trigger — Migration 023) |
+| Version history browse | Chronological list of versions per node with timestamp, author, change description, and a hover-preview tooltip showing the diff (added text underlined, removed text strikethrough). Star indicator on the current version. | As an author, I want to see what changed between earlier versions of this beat without leaving the editor | `node_versions` | 3 |
+| Version restore | Restore a node to any previous version, creating a new version record (does not delete history). Restore is gated by lock state — a locked node or locked-ancestor returns the standard 423 codes. | As an author, I want to undo the last three agent operations on this scene | `nodes`, `node_versions` | 6 |
 
 ### 4.13 Export System
 
@@ -524,6 +525,8 @@ All open questions from v1.1 have been resolved. There are currently no open que
 ---
 
 ## 10. Changelog
+
+**v1.3 — 2026-05-04** Phase 2 close-out absorption. Two SU items raised in `stelavox_phase2_build_checklist_v1_0.md` §6 are resolved here. **SU-2:** §4.5 The Node System gained a "Document root node" row recording that every document has exactly one structural node with `parent_id IS NULL`, created atomically with the document; the root node's `node_type` is the layer-stack template's layer 0 (`book`/`story`/`series`); its name defaults to the document's name; it cannot be deleted while the document exists. The phase column on the new row is "2" — root-node creation is delivered by Migration 020 in Phase 2. **SU-6:** §4.12 Versioning rows reconciled with `stelavox_technical_architecture_v1_5.md` §11 Phase Plan. The "Per-node version record" row now describes the content-only bump rule (the `node_versions` row is created and `nodes.version` is incremented only when `summary`/`prose`/`notes`/`metadata` changes; non-content updates leave the version alone) and shows the column-existed-from-Phase-1 / trigger-shipped-in-Phase-2 split. The "Version history browse" row replaces the prior "Version comparison" row; phase column corrected to 3 (the Phase 3 History tab ships browse + a hover-preview diff tooltip — full side-by-side comparison is not in V1 scope). The "Version restore" row's phase column is corrected from 2 to 6 (TA §11 Phase 6 owns restore alongside the lock-aware status state machine). No feature is added or removed; this is an alignment edit between the Product Spec phase column and the Technical Architecture phase plan.
 
 **v1.2 — 2026-05-01** Resolved all three open questions from v1.1. OQ-2 (Apple Sign-In): closed as out of scope for all planned versions — requires a native application; added to Out of Scope section (§7) and Locked Decisions (§8). OQ-3 (BYOK provider expansion): targeted V4, after tablet V2 and phone V3; added to Locked Decisions. OQ-4 (Phase 3a → Phase 5 dependency): confirmed as a hard dependency; added to Locked Decisions. Open Questions section (§9) now holds no active questions.
 
