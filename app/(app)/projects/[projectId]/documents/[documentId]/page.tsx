@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
+import { NodeTree } from '@/components/tree/NodeTree'
 
 interface Props {
   params: Promise<{ projectId: string; documentId: string }>
@@ -19,30 +20,36 @@ export default async function DocumentPage({ params }: Props) {
   if (!document) notFound()
 
   return (
-    <div style={{ maxWidth: '800px', margin: '0 auto' }}>
-      <div style={{ marginBottom: 'var(--space-5)' }}>
-        <Link href={`/projects/${projectId}`} style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-secondary)', textDecoration: 'none' }}>
-          ← {document.name}
-        </Link>
-      </div>
-      <h1 style={{ fontSize: 'var(--text-2xl)', color: 'var(--color-text-primary)', fontWeight: 500, marginBottom: 'var(--space-2)' }}>
-        {document.name}
-      </h1>
-      <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-secondary)', marginBottom: 'var(--space-6)' }}>
-        {document.document_type.replace('_', ' ')} · {document.status}
-      </p>
+    <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       <div
         style={{
-          padding: 'var(--space-6)',
-          background: 'var(--color-bg-surface)',
-          border: '1px solid var(--color-border-subtle)',
-          borderRadius: '6px',
-          textAlign: 'center',
+          padding: 'var(--space-4) var(--space-5)',
+          borderBottom: '1px solid var(--color-border-subtle)',
+          flexShrink: 0,
         }}
       >
-        <p style={{ fontSize: 'var(--text-base)', color: 'var(--color-text-muted)' }}>
-          Editor coming in Phase 2.
+        <Link
+          href={`/projects/${projectId}`}
+          style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)', textDecoration: 'none' }}
+        >
+          ← Project
+        </Link>
+        <h1
+          style={{
+            fontSize: 'var(--text-lg)',
+            color: 'var(--color-text-primary)',
+            fontWeight: 500,
+            marginTop: 'var(--space-2)',
+          }}
+        >
+          {document.name}
+        </h1>
+        <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)', marginTop: 'var(--space-1)' }}>
+          {document.document_type.replace('_', ' ')} · {document.status}
         </p>
+      </div>
+      <div style={{ flex: 1, overflow: 'hidden' }}>
+        <NodeTree documentId={documentId} />
       </div>
     </div>
   )
