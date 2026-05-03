@@ -1,5 +1,5 @@
 # Stelavox — Technical Architecture
-## Version 1.4
+## Version 1.5
 
 ---
 
@@ -392,7 +392,7 @@ export async function POST(request: Request) {
 
 Migrations are numbered SQL files in `supabase/migrations/`. Applied in order via `supabase db push`. All V1 migrations are backwards-compatible — no destructive schema changes.
 
-**Migration count at TA v1.4:** 19 migrations (001 through 019). The numbering in §3.6 below matches the filename ordinal. Migrations 016–019 are post-build correctives discovered during Phase 1 integration testing; they are kept as separate files (not folded into earlier migrations) so the production schema history is reproducible by replay.
+**Migration count at TA v1.5:** 22 migrations (001 through 021, plus 023; number 022 is intentionally skipped — reserved gap for a future legacy-data backfill if one becomes necessary post-launch). The numbering in §3.6 below matches the filename ordinal. Migrations 016–019 are post-build correctives discovered during Phase 1 integration testing; Migrations 020/021/023 are Phase 2 additions (root-node creation extension, `move_node` RPC, content-only version-bump trigger). All such files are kept as separate (not folded into earlier migrations) so the production schema history is reproducible by replay.
 
 **Migration naming:** `YYYYMMDDHHMMSS_description.sql` — auto-generated prefix from Supabase CLI.
 
@@ -652,6 +652,10 @@ CREATE TABLE nodes (
   "order" INTEGER NOT NULL DEFAULT 1,
   depth INTEGER NOT NULL DEFAULT 0,
   layer_index INTEGER,
+  -- scope is non-NULL only when node_category = 'context' (project- vs document-scoped
+  -- context nodes per §4.7 of the Product Specification). For node_category = 'structural'
+  -- the column is left NULL. The CHECK constraint is on the value domain only; the
+  -- category-conditional NOT NULL is enforced at the API layer (see Phase 2 API Contract §5 G-1).
   scope TEXT CHECK (scope IN ('project','document')),
 
   -- Versioning & Audit
@@ -966,7 +970,16 @@ CREATE POLICY "org_members_access_node_locks" ON node_locks
       SELECT organisation_id FROM organisation_members WHERE user_id = auth.uid()
     )
   );
+```
 
+**Lock-check error codes (cross-cutting API convention).** Endpoints that mutate a node check both the node itself and its ancestors for `locked = TRUE`. The two cases must be returned as distinct error codes so the client can phrase the message correctly:
+
+- `node_locked` — `nodes.locked = TRUE` for the node being mutated. Message frames the lock as on the target itself.
+- `parent_locked` — an ancestor of the target (or, for `move_node`, an ancestor of the new parent) has `locked = TRUE`. Message frames the lock as inherited from a layer the user must unlock first.
+
+Both return HTTP `423 Locked`. The Phase 2 `move_node` RPC (Migration 021) is the canonical implementation — see error-token table inside the function header. This convention is shared by every later phase that mutates content (Phase 3 autosave, Phase 5 agent writes, Phase 6 status transitions). Lock-state itself is a Phase 6 deliverable; the data layer (this table and the `nodes.locked` boolean) ships in Phase 1, and the lock checks ship in Phase 2 alongside `move_node`. Until Phase 6, no UI surface creates `node_locks` rows or sets `nodes.locked = TRUE`, so the codes are spec-compliant but practically inert.
+
+```sql
 CREATE TABLE usage_records (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   organisation_id UUID NOT NULL REFERENCES organisations(id) ON DELETE CASCADE,
@@ -1405,6 +1418,372 @@ Reverses the insert order so `layer_stacks` is inserted first (with `document_id
 #### Migration 019 — `create_document_with_layer_stack` Service-Role Bypass
 
 Wraps the membership and project checks in `IF v_caller IS NOT NULL THEN ... END IF` so `service_role` callers (where `auth.uid()` returns NULL) can run the RPC for fixture setup. Adds `GRANT EXECUTE ... TO service_role`. Adds no new privilege — `service_role` already bypasses RLS on the underlying tables.
+
+#### Migration 020 — `create_document_with_layer_stack` Extends Root-Node Insert
+
+Phase 2 extension. The Phase 1 RPC inserted only the `layer_stacks` and `documents` rows. Phase 2 adds the structural-tree invariant that *every document has exactly one node with `parent_id IS NULL`*, with `documents.root_node_id` pointing at it, atomically with document creation. Migration 020 extends the RPC to insert that root node and back-fill `documents.root_node_id` in the same transaction. Failure at any step rolls back the whole creation. The form below is the consolidated state at the end of Phase 2 (supersedes Migration 015's body; Migrations 015–019 remain in history for replay).
+
+The root node's `node_type` is read from `layer_stacks.layers[0]->>'node_type'` (e.g. `book` for novel, `story` for short_story, `series` for series). `node_category` is `'structural'`; `depth = 0`; `layer_index = 0`; `order = 1`; `status = 'draft'`; `name` defaults to the document's name (the user can rename via `PATCH /api/nodes/[id]`).
+
+```sql
+CREATE OR REPLACE FUNCTION create_document_with_layer_stack(
+  p_project_id      UUID,
+  p_organisation_id UUID,
+  p_name            TEXT,
+  p_description     TEXT,
+  p_document_type   TEXT,
+  p_authors         TEXT[]
+) RETURNS JSONB
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_doc_id      UUID := gen_random_uuid();
+  v_stack_id    UUID := gen_random_uuid();
+  v_root_id     UUID := gen_random_uuid();
+  v_template    layer_stacks%ROWTYPE;
+  v_caller      UUID := auth.uid();
+  v_root_type   TEXT;
+BEGIN
+  -- Membership and project checks: enforced for authenticated callers only;
+  -- service_role bypasses RLS at the table layer (see Migration 019).
+  IF v_caller IS NOT NULL THEN
+    IF NOT EXISTS (
+      SELECT 1 FROM organisation_members
+      WHERE user_id = v_caller AND organisation_id = p_organisation_id
+    ) THEN
+      RAISE EXCEPTION 'forbidden: caller is not a member of organisation %', p_organisation_id
+        USING ERRCODE = 'insufficient_privilege';
+    END IF;
+
+    IF NOT EXISTS (
+      SELECT 1 FROM projects WHERE id = p_project_id AND organisation_id = p_organisation_id
+    ) THEN
+      RAISE EXCEPTION 'project not found or not in organisation %', p_organisation_id
+        USING ERRCODE = 'no_data_found';
+    END IF;
+  END IF;
+
+  -- Look up the system layer-stack template for this document_type.
+  SELECT * INTO v_template
+  FROM layer_stacks
+  WHERE is_template = TRUE
+    AND document_type = p_document_type
+    AND organisation_id IS NULL
+  LIMIT 1;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'missing_template: no system template for document_type %', p_document_type
+      USING ERRCODE = 'no_data_found';
+  END IF;
+
+  -- Resolve root node type from layers[0]. Seed guarantees a non-empty array.
+  v_root_type := v_template.layers->0->>'node_type';
+  IF v_root_type IS NULL OR v_root_type = '' THEN
+    RAISE EXCEPTION 'missing_template: layer_stacks template % has empty layer 0 node_type', v_template.id
+      USING ERRCODE = 'data_exception';
+  END IF;
+
+  -- Step 1: Insert layer_stacks first with document_id = NULL (H-14).
+  INSERT INTO layer_stacks (
+    id, document_id, organisation_id, name, document_type, is_template, layers
+  )
+  VALUES (
+    v_stack_id, NULL, p_organisation_id, v_template.name, p_document_type, FALSE, v_template.layers
+  );
+
+  -- Step 2: Insert document. layer_stack_id FK is now satisfied; root_node_id NULL pending step 5.
+  INSERT INTO documents (
+    id, organisation_id, project_id, name, description, document_type,
+    layer_stack_id, status, authors, export_settings
+  )
+  VALUES (
+    v_doc_id, p_organisation_id, p_project_id, p_name, p_description, p_document_type,
+    v_stack_id, 'active', COALESCE(p_authors, '{}'::TEXT[]), '{}'::jsonb
+  );
+
+  -- Step 3: Back-fill layer_stacks.document_id.
+  UPDATE layer_stacks SET document_id = v_doc_id WHERE id = v_stack_id;
+
+  -- Step 4: Insert root node. Phase 2 invariant: exactly one node with parent_id IS NULL per document.
+  INSERT INTO nodes (
+    id, organisation_id, document_id, project_id,
+    node_category, node_type, parent_id, "order", depth, layer_index,
+    name, status, version
+  )
+  VALUES (
+    v_root_id, p_organisation_id, v_doc_id, p_project_id,
+    'structural', v_root_type, NULL, 1, 0, 0,
+    p_name, 'draft', 1
+  );
+
+  -- Step 5: Back-fill documents.root_node_id. Atomic with everything above.
+  UPDATE documents SET root_node_id = v_root_id WHERE id = v_doc_id;
+
+  RETURN jsonb_build_object(
+    'document',    (SELECT row_to_json(d) FROM documents d    WHERE d.id = v_doc_id),
+    'layer_stack', (SELECT row_to_json(l) FROM layer_stacks l WHERE l.id = v_stack_id),
+    'root_node',   (SELECT row_to_json(n) FROM nodes n        WHERE n.id = v_root_id)
+  );
+END;
+$$;
+
+REVOKE ALL ON FUNCTION create_document_with_layer_stack(UUID, UUID, TEXT, TEXT, TEXT, TEXT[]) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION create_document_with_layer_stack(UUID, UUID, TEXT, TEXT, TEXT, TEXT[]) TO authenticated;
+GRANT EXECUTE ON FUNCTION create_document_with_layer_stack(UUID, UUID, TEXT, TEXT, TEXT, TEXT[]) TO service_role;
+```
+
+#### Migration 021 — `move_node` RPC
+
+Phase 2 H-04 hazard work. Atomically moves a node to a new parent and/or position with a tight-range sibling renumber, cycle detection, lock-chain check, and recursive descendant depth/layer_index update — all in a single PL/pgSQL transaction. Backs `PATCH /api/nodes/[nodeId]/move`.
+
+The function uses `SELECT ... FOR UPDATE` on the moved node and the new parent before any work, serialising concurrent moves on either side. Errors are raised with token-prefixed messages (`not_found:`, `forbidden:`, `invalid_parent:`, `cycle_detected:`, `layer_violation:`, `invalid_position:`, `node_locked:`, `parent_locked:`) so the API route's substring-match dispatcher maps them to the correct HTTP status. The same lock-error-code distinction documented in Migration 008 (`node_locked` = self, `parent_locked` = ancestor or new-parent ancestor) is the canonical implementation — every later phase that performs lock checks follows this pattern.
+
+```sql
+CREATE OR REPLACE FUNCTION move_node(
+  p_node_id   UUID,
+  p_parent_id UUID,
+  p_position  INTEGER
+) RETURNS JSONB
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_moved          nodes%ROWTYPE;
+  v_new_parent     nodes%ROWTYPE;
+  v_caller         UUID := auth.uid();
+  v_layers         JSONB;
+  v_expected_type  TEXT;
+  v_child_count    INTEGER;
+  v_max_position   INTEGER;
+  v_delta          INTEGER;
+  v_old_shift      INTEGER := 0;
+  v_new_shift      INTEGER := 0;
+  v_renumbered     INTEGER;
+BEGIN
+  -- Step 1. Lock and load moved node.
+  SELECT * INTO v_moved FROM nodes WHERE id = p_node_id FOR UPDATE;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'not_found: node % does not exist', p_node_id
+      USING ERRCODE = 'no_data_found';
+  END IF;
+
+  -- Step 2. Membership check (skipped for service_role).
+  IF v_caller IS NOT NULL THEN
+    IF NOT EXISTS (
+      SELECT 1 FROM organisation_members
+      WHERE user_id = v_caller AND organisation_id = v_moved.organisation_id
+    ) THEN
+      RAISE EXCEPTION 'forbidden: caller is not a member of organisation %', v_moved.organisation_id
+        USING ERRCODE = 'insufficient_privilege';
+    END IF;
+  END IF;
+
+  -- Step 3. Lock and load new parent. Must exist, share document, be structural.
+  SELECT * INTO v_new_parent FROM nodes WHERE id = p_parent_id FOR UPDATE;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'invalid_parent: parent % does not exist', p_parent_id
+      USING ERRCODE = 'no_data_found';
+  END IF;
+  IF v_new_parent.document_id IS DISTINCT FROM v_moved.document_id THEN
+    RAISE EXCEPTION 'invalid_parent: parent % is in a different document', p_parent_id
+      USING ERRCODE = 'check_violation';
+  END IF;
+  IF v_new_parent.node_category <> 'structural' THEN
+    RAISE EXCEPTION 'invalid_parent: parent % is not a structural node', p_parent_id
+      USING ERRCODE = 'check_violation';
+  END IF;
+
+  -- Step 4. Cycle detection (closure of moved node MUST NOT contain new parent).
+  IF EXISTS (
+    WITH RECURSIVE moved_closure AS (
+      SELECT id FROM nodes WHERE id = p_node_id
+      UNION ALL
+      SELECT n.id FROM nodes n JOIN moved_closure c ON n.parent_id = c.id
+    )
+    SELECT 1 FROM moved_closure WHERE id = p_parent_id
+  ) THEN
+    RAISE EXCEPTION 'cycle_detected: parent % is the moved node or its descendant', p_parent_id
+      USING ERRCODE = 'check_violation';
+  END IF;
+
+  -- Step 5. Lock-chain check: moved (node_locked); ancestors of moved or of new
+  --         parent (parent_locked). See Migration 008 for the convention.
+  IF v_moved.locked THEN
+    RAISE EXCEPTION 'node_locked: moved node % is locked', p_node_id
+      USING ERRCODE = 'lock_not_available';
+  END IF;
+  IF v_moved.parent_id IS NOT NULL AND EXISTS (
+    WITH RECURSIVE ancestors AS (
+      SELECT id, parent_id, locked FROM nodes WHERE id = v_moved.parent_id
+      UNION ALL
+      SELECT n.id, n.parent_id, n.locked
+        FROM nodes n JOIN ancestors a ON n.id = a.parent_id
+    )
+    SELECT 1 FROM ancestors WHERE locked = TRUE
+  ) THEN
+    RAISE EXCEPTION 'parent_locked: an ancestor of moved node % is locked', p_node_id
+      USING ERRCODE = 'lock_not_available';
+  END IF;
+  IF EXISTS (
+    WITH RECURSIVE ancestors AS (
+      SELECT id, parent_id, locked FROM nodes WHERE id = p_parent_id
+      UNION ALL
+      SELECT n.id, n.parent_id, n.locked
+        FROM nodes n JOIN ancestors a ON n.id = a.parent_id
+    )
+    SELECT 1 FROM ancestors WHERE locked = TRUE
+  ) THEN
+    RAISE EXCEPTION 'parent_locked: new parent % or one of its ancestors is locked', p_parent_id
+      USING ERRCODE = 'lock_not_available';
+  END IF;
+
+  -- Step 6. Layer-hierarchy validation against the document's forked layer stack.
+  SELECT layers INTO v_layers
+    FROM layer_stacks
+   WHERE document_id = v_moved.document_id AND is_template = FALSE
+   LIMIT 1;
+  IF v_layers IS NULL THEN
+    RAISE EXCEPTION 'invalid_parent: document % has no layer stack', v_moved.document_id
+      USING ERRCODE = 'no_data_found';
+  END IF;
+  v_expected_type := v_layers->(v_new_parent.layer_index + 1)->>'node_type';
+  IF v_expected_type IS NULL THEN
+    RAISE EXCEPTION 'layer_violation: parent at layer % is a leaf and admits no children',
+                    v_new_parent.layer_index
+      USING ERRCODE = 'check_violation';
+  END IF;
+  IF v_moved.node_type <> v_expected_type THEN
+    RAISE EXCEPTION 'layer_violation: node_type % does not match expected % at layer %',
+                    v_moved.node_type, v_expected_type, v_new_parent.layer_index + 1
+      USING ERRCODE = 'check_violation';
+  END IF;
+
+  -- Step 7. Position bounds. Cross-parent: [0, child_count]. Within-parent: [0, child_count - 1].
+  IF p_position < 0 THEN
+    RAISE EXCEPTION 'invalid_position: position % is negative', p_position
+      USING ERRCODE = 'check_violation';
+  END IF;
+  SELECT COUNT(*) INTO v_child_count FROM nodes WHERE parent_id = p_parent_id;
+  IF p_parent_id IS NOT DISTINCT FROM v_moved.parent_id THEN
+    v_max_position := v_child_count - 1;
+  ELSE
+    v_max_position := v_child_count;
+  END IF;
+  IF p_position > v_max_position THEN
+    RAISE EXCEPTION 'invalid_position: position % exceeds max % for parent %',
+                    p_position, v_max_position, p_parent_id
+      USING ERRCODE = 'check_violation';
+  END IF;
+
+  -- Step 8. No-op short-circuit (same parent, same order).
+  IF p_parent_id IS NOT DISTINCT FROM v_moved.parent_id
+     AND (p_position + 1) = v_moved."order" THEN
+    RETURN jsonb_build_object(
+      'node',             (SELECT row_to_json(n) FROM nodes n WHERE n.id = p_node_id),
+      'renumbered_count', 0
+    );
+  END IF;
+
+  -- Step 9. Tight-range sibling renumber. Each row updated at most once.
+  IF p_parent_id IS NOT DISTINCT FROM v_moved.parent_id THEN
+    -- Within-parent move.
+    IF (p_position + 1) < v_moved."order" THEN
+      UPDATE nodes SET "order" = "order" + 1, updated_at = NOW()
+       WHERE parent_id = v_moved.parent_id
+         AND "order"  >= p_position + 1
+         AND "order"  <  v_moved."order";
+      GET DIAGNOSTICS v_new_shift = ROW_COUNT;
+    ELSE
+      UPDATE nodes SET "order" = "order" - 1, updated_at = NOW()
+       WHERE parent_id = v_moved.parent_id
+         AND "order"  >  v_moved."order"
+         AND "order"  <= p_position + 1;
+      GET DIAGNOSTICS v_new_shift = ROW_COUNT;
+    END IF;
+    v_renumbered := v_new_shift + 1;
+  ELSE
+    -- Cross-parent move: close gap in old parent, open slot in new parent.
+    UPDATE nodes SET "order" = "order" - 1, updated_at = NOW()
+     WHERE parent_id = v_moved.parent_id AND "order" > v_moved."order";
+    GET DIAGNOSTICS v_old_shift = ROW_COUNT;
+
+    UPDATE nodes SET "order" = "order" + 1, updated_at = NOW()
+     WHERE parent_id = p_parent_id AND "order" >= p_position + 1;
+    GET DIAGNOSTICS v_new_shift = ROW_COUNT;
+
+    v_renumbered := v_old_shift + v_new_shift + 1;
+  END IF;
+
+  -- Step 10. Update the moved node. depth and layer_index move in lock-step.
+  v_delta := (v_new_parent.depth + 1) - v_moved.depth;
+  UPDATE nodes
+     SET parent_id   = p_parent_id,
+         "order"     = p_position + 1,
+         depth       = v_new_parent.depth + 1,
+         layer_index = v_new_parent.layer_index + 1,
+         updated_at  = NOW()
+   WHERE id = p_node_id;
+
+  -- Step 11. Recursive descendant depth + layer_index delta-update (delta != 0).
+  IF v_delta <> 0 THEN
+    WITH RECURSIVE descendants AS (
+      SELECT id FROM nodes WHERE parent_id = p_node_id
+      UNION ALL
+      SELECT n.id FROM nodes n JOIN descendants d ON n.parent_id = d.id
+    )
+    UPDATE nodes
+       SET depth       = depth + v_delta,
+           layer_index = layer_index + v_delta,
+           updated_at  = NOW()
+     WHERE id IN (SELECT id FROM descendants);
+  END IF;
+
+  -- Step 12. Return.
+  RETURN jsonb_build_object(
+    'node',             (SELECT row_to_json(n) FROM nodes n WHERE n.id = p_node_id),
+    'renumbered_count', v_renumbered
+  );
+END;
+$$;
+
+REVOKE ALL ON FUNCTION move_node(UUID, UUID, INTEGER) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION move_node(UUID, UUID, INTEGER) TO authenticated;
+GRANT EXECUTE ON FUNCTION move_node(UUID, UUID, INTEGER) TO service_role;
+```
+
+#### Migration 022 — *(intentionally skipped)*
+
+Reserved gap. Pre-launch backfill placeholder; no SQL file exists at this number. Migration ordering MUST NOT change to fill the gap — if a backfill becomes necessary post-launch, it claims this number; if not, the gap remains and ordering 023 → 024 → … is unaffected.
+
+#### Migration 023 — `nodes` Content-Only Version-Bump Trigger
+
+Phase 2 trigger that codifies the version semantics for content fields. A `BEFORE UPDATE` trigger increments `nodes.version` by exactly 1 when at least one of `summary`, `prose`, `notes`, or `metadata` changes (using `IS DISTINCT FROM` so NULL ↔ value transitions count, and JSONB equality is semantic). Non-content updates (rename, status, target, instruction, lock state, parent_id / order / depth, etc.) leave `version` untouched. A single PATCH that changes both `name` and `summary` fires the trigger once and bumps version by exactly 1.
+
+The ELSE branch explicitly sets `NEW.version := OLD.version`, making `version` strictly server-controlled — even an UPDATE that mistakenly sets `version` itself is overridden. The PATCH route already forbids the `version` field in the request body (Phase 2 API Contract §2.5); the trigger codifies the same invariant at the row layer.
+
+This trigger is the foundation of Phase 3's optimistic-concurrency autosave: clients send the `version` they loaded with as `expected_version`, and the API route compares against the *post-trigger* `nodes.version` to detect concurrent edits. See Phase 3 API Contract §3 for the conflict-resolution shape.
+
+```sql
+CREATE OR REPLACE FUNCTION bump_node_version_on_content_change()
+RETURNS TRIGGER
+LANGUAGE plpgsql SET search_path = public AS $$
+BEGIN
+  IF NEW.summary  IS DISTINCT FROM OLD.summary
+     OR NEW.prose IS DISTINCT FROM OLD.prose
+     OR NEW.notes IS DISTINCT FROM OLD.notes
+     OR NEW.metadata IS DISTINCT FROM OLD.metadata THEN
+    NEW.version := OLD.version + 1;
+  ELSE
+    NEW.version := OLD.version;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER trg_node_version_bump
+BEFORE UPDATE ON nodes
+FOR EACH ROW
+EXECUTE FUNCTION bump_node_version_on_content_change();
+```
+
+The function is `SECURITY INVOKER` (default) — it only mutates `NEW`, so it does not need elevated privileges. Matches the Migration 012 `trg_attachment_count` pattern. `SET search_path = public` is included as defensive practice against same-named function shadowing in the caller's `search_path`.
 
 ### 3.7 Platform Configuration
 
@@ -2767,10 +3146,10 @@ The build sequence is designed so each phase produces something runnable and tes
 |---|---|---|---|
 | 1 | Foundation: auth, orgs, project/document CRUD, full multi-tenant schema | 1–2 | Can sign up, create project/document, RLS blocks cross-user access |
 | 2 | Node tree: CRUD, react-arborist, status badges, reordering | 3–4 | Can build a manual node tree; drag-and-drop works |
-| 3 | Content editing: Tiptap, auto-save, versioning, metadata forms | 5 | Can write content; versions created and browsable |
+| 3 | Content editing: Tiptap (Summary, Prose, Notes), Focus Mode, auto-save with optimistic concurrency, version-history browse and diff preview, metadata forms | 5 | Can write content; versions created (Phase 2 trigger) and **browsable with hover diff** in this phase. Restore is Phase 6. |
 | 4 | Context system: context node CRUD, linking UI, context panel | 6 | Can create characters/locations; link them to scenes |
 | 5 | Agent system: context assembler, LLM abstraction, expand/synthesise/refine/generate-context operations, job progress UI, editorial comments | 7–8 | Full end-to-end: book summary → final prose |
-| 6 | Locking and workflow: status transitions, node locks, lock enforcement, comment resolution, version restore | 9 | Can lock layers and progress deliberately |
+| 6 | Locking and workflow: status transitions, node locks, lock enforcement, comment resolution, **version restore** (the restore action; the browse list ships in Phase 3) | 9 | Can lock layers and progress deliberately |
 | 7 | Export: DOCX, outline, JSON export/import | 10 | Can export completed document to Word file |
 | 8 | Polish and V1 release: command palette, empty states, onboarding, keyboard shortcuts, performance review, e2e test, production deploy | 11–12 | V1 complete |
 
@@ -2824,6 +3203,8 @@ Director tool definitions and executor → `director-runner` Edge Function (read
 ---
 
 ## 14. Changelog
+
+**v1.5 — 2026-05-04** Phase 2 close-out — folded the Phase 2 build-time discoveries into the canonical schema and resolved four SU items raised in `stelavox_phase2_build_checklist_v1_0.md` §6. **§3.5** updated to reflect the post-Phase-2 migration count (22; number 022 intentionally skipped) and to call out 020/021/023 as Phase 2 additions. **§3.6** gained three new migration blocks: 020 (`create_document_with_layer_stack` extends to insert root node and back-fill `documents.root_node_id`), 021 (`move_node` RPC — atomic move + sibling renumber + cycle detection + lock chain check + recursive descendant depth/layer_index update), and 023 (`bump_node_version_on_content_change` BEFORE UPDATE trigger that increments `version` only when `summary`/`prose`/`notes`/`metadata` change). A `Migration 022` placeholder block records the intentional gap. **SU-1:** Migration 004's `scope` column annotated to record that `nodes.scope` is non-NULL only for `node_category = 'context'`; the category-conditional NOT NULL is enforced at the API layer. **SU-3:** the content-only version-bump rule now lives in the Migration 023 block as the canonical spec; Phase 3 autosave's optimistic-concurrency conflict detection depends on it. **SU-4:** Migration 008 (`node_locks`) gained a "Lock-check error codes" cross-cutting note documenting the `node_locked` (self) vs `parent_locked` (ancestor) HTTP-423 distinction; this convention is shared by every later phase that mutates content. **SU-6:** §11 Phase Plan clarified — Phase 3 row now reads "Tiptap (Summary, Prose, Notes), Focus Mode, auto-save with optimistic concurrency, version-history browse and diff preview, metadata forms" with the explicit note that restore is Phase 6; Phase 6 row clarifies that browse already shipped in Phase 3.
 
 **v1.4 — 2026-05-03** Folded the Phase 1 build-time discoveries into the canonical schema. §3.5 now states the migration count (19) and explains that 016–019 are post-build correctives kept as separate files for reproducible replay. §3.6 renumbered to match the filename ordinal (so spec ↔ codebase align 1:1) and gained eight new migration blocks: 002 (`handle_new_user` trigger), 003 (Phase 1 RLS policies), 014 (`platform_config` brief — full discussion stays in §3.7), 015 (`create_document_with_layer_stack` RPC, consolidated form), and 016–019 (search_path, FK ordering, and service_role correctives, summarised). Migration 013 (formerly 011) corrected: `documents.director_config_id` FK is now added via `ADD CONSTRAINT` rather than `ADD COLUMN ... REFERENCES` (the column already exists from Migration 001), and `director_configs` now has RLS enabled (no policy = no user access — service-role reads only). Documented `layer_stacks.layers` JSONB shape and the API-layer `document_type` validation choice. Added two hazards: H-13 (`SECURITY DEFINER` functions must `SET search_path`) and H-14 (`documents ↔ layer_stacks` insert ordering).
 
