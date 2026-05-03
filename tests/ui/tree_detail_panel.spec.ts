@@ -78,10 +78,16 @@ test.describe('Detail panel', () => {
   })
 
   test('TC-U-04 rename via detail panel', async ({ page }) => {
+    // Reset to a known, unique-per-test name so state from prior tests
+    // in this describe block (TC-U-10 changes the name) doesn't break
+    // the selector. Also reset version to 1 so the post-rename
+    // assertion is deterministic.
+    await adminClient().from('nodes').update({ name: 'TC-U-04 starting name', version: 1 }).eq('id', actId)
+
     await page.goto(`${BASE}/projects/${projectId}/documents/${docId}`)
     await page.waitForLoadState('networkidle')
 
-    await page.getByLabel(/Original Act Name|Renamed Via Panel/).click()
+    await page.getByLabel('TC-U-04 starting name, draft').click()
     const heading = page.getByTestId('node-name-heading')
     await expect(heading).toBeVisible()
 

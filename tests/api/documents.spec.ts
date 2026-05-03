@@ -70,7 +70,10 @@ test.describe('POST /api/projects/[id]/documents', () => {
     expect(body.document.document_type).toBe('novel')
     expect(body.document.status).toBe('active')
     expect(body.document.authors).toEqual([])
-    expect(body.document.root_node_id).toBeNull()
+    // Phase 2 (M-020): root_node_id is back-filled by the RPC.
+    expect(body.document.root_node_id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)
+    expect(body.root_node).toBeTruthy()
+    expect(body.root_node.id).toBe(body.document.root_node_id)
     expect(body.document.director_config_id).toBeNull()
     expect(body.document.layer_stack_id).toBe(body.layer_stack.id)
     expect(body.layer_stack.is_template).toBe(false)
@@ -78,6 +81,99 @@ test.describe('POST /api/projects/[id]/documents', () => {
     const layers = body.layer_stack.layers as unknown[]
     expect(layers.length).toBe(5)
     await ctx.dispose()
+  })
+
+  // ─── TC-A-95..100 — Root-node creation (Phase 2 M-020) ────────────────
+
+  test('TC-A-95 response shape includes root_node', async () => {
+    const ctx = await ctxA()
+    const res = await ctx.post(`/api/projects/${project.id}/documents`, {
+      data: { name: 'TC-A-95 doc', document_type: 'novel' },
+    })
+    expect(res.status()).toBe(201)
+    const body = await res.json()
+    expect(body).toHaveProperty('document')
+    expect(body).toHaveProperty('layer_stack')
+    expect(body).toHaveProperty('root_node')
+    await ctx.dispose()
+  })
+
+  test('TC-A-96 root node properties', async () => {
+    const ctx = await ctxA()
+    const res = await ctx.post(`/api/projects/${project.id}/documents`, {
+      data: { name: 'TC-A-96 doc', document_type: 'novel' },
+    })
+    const body = await res.json()
+    expect(body.root_node.parent_id).toBeNull()
+    expect(body.root_node.node_category).toBe('structural')
+    expect(body.root_node.node_type).toBe('book')
+    expect(body.root_node.name).toBe('TC-A-96 doc')
+    expect(body.root_node.order).toBe(1)
+    expect(body.root_node.depth).toBe(0)
+    expect(body.root_node.layer_index).toBe(0)
+    expect(body.root_node.status).toBe('draft')
+    await ctx.dispose()
+  })
+
+  test('TC-A-97 documents.root_node_id back-filled', async () => {
+    const ctx = await ctxA()
+    const res = await ctx.post(`/api/projects/${project.id}/documents`, {
+      data: { name: 'TC-A-97 doc', document_type: 'novel' },
+    })
+    const body = await res.json()
+    const { data: docRow } = await adminClient()
+      .from('documents').select('root_node_id').eq('id', body.document.id).single()
+    expect(docRow!.root_node_id).toBe(body.root_node.id)
+    await ctx.dispose()
+  })
+
+  test('TC-A-98 short_story root is "story" type', async () => {
+    const ctx = await ctxA()
+    const res = await ctx.post(`/api/projects/${project.id}/documents`, {
+      data: { name: 'TC-A-98 doc', document_type: 'short_story' },
+    })
+    expect(res.status()).toBe(201)
+    expect((await res.json()).root_node.node_type).toBe('story')
+    await ctx.dispose()
+  })
+
+  test('TC-A-99 series root is "series" type', async () => {
+    const ctx = await ctxA()
+    const res = await ctx.post(`/api/projects/${project.id}/documents`, {
+      data: { name: 'TC-A-99 doc', document_type: 'series' },
+    })
+    expect(res.status()).toBe(201)
+    expect((await res.json()).root_node.node_type).toBe('series')
+    await ctx.dispose()
+  })
+
+  test('TC-A-100 atomicity: missing template causes full rollback', async () => {
+    // Force missing_template by passing an unsupported document_type.
+    // Per the RPC, this raises before any INSERT — no partial rows.
+    // Scope counts to this test's project (not global) — global counts
+    // race with other parallel tests inserting/deleting rows.
+    const admin = adminClient()
+
+    const before = {
+      docs:   (await admin.from('documents').select('*', { count: 'exact', head: true }).eq('project_id', project.id)).count ?? 0,
+      stacks: (await admin.from('layer_stacks').select('*', { count: 'exact', head: true }).eq('organisation_id', orgA)).count ?? 0,
+      nodes:  (await admin.from('nodes').select('*', { count: 'exact', head: true }).eq('project_id', project.id)).count ?? 0,
+    }
+
+    const { error: rpcErr } = await admin.rpc('create_document_with_layer_stack', {
+      p_project_id: project.id, p_organisation_id: orgA,
+      p_name: 'TC-A-100 doc', p_description: null as unknown as string,
+      p_document_type: 'nonexistent_template', p_authors: [],
+    })
+    expect(rpcErr).not.toBeNull()
+    expect(rpcErr!.message).toContain('missing_template')
+
+    const after = {
+      docs:   (await admin.from('documents').select('*', { count: 'exact', head: true }).eq('project_id', project.id)).count ?? 0,
+      stacks: (await admin.from('layer_stacks').select('*', { count: 'exact', head: true }).eq('organisation_id', orgA)).count ?? 0,
+      nodes:  (await admin.from('nodes').select('*', { count: 'exact', head: true }).eq('project_id', project.id)).count ?? 0,
+    }
+    expect(after).toEqual(before)
   })
 
   test('TC-A-39 happy path: short_story', async () => {

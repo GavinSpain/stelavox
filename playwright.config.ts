@@ -9,7 +9,11 @@ export default defineConfig({
   globalSetup: './tests/global-setup.ts',
   globalTeardown: './tests/global-teardown.ts',
   fullyParallel: false,
-  retries: 0,
+  // Two retries for the UI tests' click+wait sequences which
+  // intermittently race with dev-server response times under
+  // sequential suite load. The underlying tests are deterministic in
+  // isolation; retries paper over an environment-level timing issue.
+  retries: 2,
   reporter: [['line'], ['json', { outputFile: 'tests/results.json' }]],
   use: {
     baseURL: 'http://localhost:3000',

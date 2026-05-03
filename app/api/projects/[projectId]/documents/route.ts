@@ -57,8 +57,14 @@ export async function POST(request: NextRequest, { params }: Context) {
       return err.internal()
     }
 
-    const result = rpcResult as { document: unknown; layer_stack: unknown }
-    return NextResponse.json({ document: result.document, layer_stack: result.layer_stack }, { status: 201 })
+    // Per Phase 2 API Contract §3.7, the response now includes root_node
+    // alongside document and layer_stack — the M-020 RPC populates all three
+    // atomically.
+    const result = rpcResult as { document: unknown; layer_stack: unknown; root_node: unknown }
+    return NextResponse.json(
+      { document: result.document, layer_stack: result.layer_stack, root_node: result.root_node },
+      { status: 201 },
+    )
   } catch {
     return err.internal()
   }

@@ -207,9 +207,13 @@ test('TC-D-05 document creation touches only documents and layer_stacks', async 
     expect(createdLs!.is_template).toBe(false)
     expect(createdLs!.document_id).toBe(doc.id)
 
-    // No nodes created for this document
+    // Exactly one root node created for this document (Phase 2 M-020).
+    // The root has parent_id=NULL and documents.root_node_id matches it.
     const { count: nodeCount } = await admin.from('nodes').select('*', { count: 'exact', head: true }).eq('document_id', doc.id)
-    expect(nodeCount).toBe(0)
+    expect(nodeCount).toBe(1)
+    const { data: roots } = await admin.from('nodes').select('id, parent_id').eq('document_id', doc.id)
+    expect(roots).toHaveLength(1)
+    expect(roots![0].parent_id).toBeNull()
 
     // No agent_jobs triggered by document creation
     const { count: jobCount } = await admin.from('agent_jobs').select('*', { count: 'exact', head: true }).eq('document_id', doc.id)

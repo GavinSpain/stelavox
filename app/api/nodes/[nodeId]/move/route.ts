@@ -19,6 +19,7 @@ import { createClient } from '@/lib/supabase/server'
 import { err } from '@/lib/api/errors'
 import { isValidUuid } from '@/lib/validation/uuid'
 import { nodeMoveSchema } from '@/lib/validation/nodes'
+import { getNode } from '@/lib/data/nodes'
 
 interface Context { params: Promise<{ nodeId: string }> }
 
@@ -59,6 +60,17 @@ export async function PATCH(request: NextRequest, { params }: Context) {
       }
       return err.invalidPosition()
     }
+
+    // Existence-leak guard (TC-B-06 / TC-B-07): pre-check that BOTH
+    // the moved node and the new parent are RLS-visible to the caller.
+    // Without this, the RPC (SECURITY DEFINER, bypasses RLS) would
+    // raise invalid_parent (422) when the new parent exists but isn't
+    // in the caller's org — leaking its existence. Surface as 404
+    // instead, matching the route-level boundary convention.
+    const { data: movedVisible } = await getNode(supabase, nodeId)
+    if (!movedVisible) return err.notFound()
+    const { data: parentVisible } = await getNode(supabase, parsed.data.parent_id)
+    if (!parentVisible) return err.notFound()
 
     const { data: rpcResult, error: rpcError } = await supabase.rpc('move_node', {
       p_node_id:   nodeId,
