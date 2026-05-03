@@ -38,4 +38,10 @@ export const err = {
   layerViolation:            () => apiError(422, 'layer_violation'),
   maxDepthExceeded:          () => apiError(422, 'max_depth_exceeded'),
   parentLocked:              () => apiError(423, 'parent_locked'),
+
+  // Phase 2 nodes — PATCH/DELETE single (T-3.4)
+  invalidLocked:             () => apiError(400, 'invalid_locked'),
+  invalidLockReason:         () => apiError(400, 'invalid_lock_reason'),
+  cannotDeleteRoot:          () => apiError(422, 'cannot_delete_root'),
+  nodeLocked:                () => apiError(423, 'node_locked'),
 }
