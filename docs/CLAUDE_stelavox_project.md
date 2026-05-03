@@ -1,5 +1,5 @@
 # Stelavox — Claude Code Project Context
-## Version 1.3
+## Version 1.4
 
 > **Versioning note:** This file is versioned. The version lives here, not in the filename — the filename must remain `CLAUDE.md` for Claude Code to find it automatically. When this file changes, increment the version and add a changelog entry at the bottom. The source of record is `docs/CLAUDE_stelavox_project.md`; the deployed copy at the repository root must always match it. Commit both in the same commit.
 
@@ -13,7 +13,7 @@ Read these before writing any code in a new session:
 
 1. `docs/stelavox_wireframe_errata_v1_0.md` — corrections to wireframes (read before any wireframe HTML)
 2. The relevant spec section for today's task (see Spec Library Reference below)
-3. `docs/stelavox_technical_architecture_v1_4.md` §5 — Known Hazards H-01 to H-14, if today's task touches the database, agents, or Director
+3. `docs/stelavox_technical_architecture_v1_5.md` §5 — Known Hazards H-01 to H-14, if today's task touches the database, agents, or Director
 
 ---
 
@@ -23,11 +23,11 @@ All documents live in `/docs`. Before making any change, read the relevant docum
 
 | Change type | Read first |
 |---|---|
-| Any UI change | `stelavox_component_specification_v2_0.md` |
+| Any UI change | `stelavox_component_specification_v2_1.md` |
 | Layout, tokens, motion, accessibility | `stelavox_ui_design_specification_v1_0.md` |
 | Colour, typography, brand rules | `stelavox_brand_identity_v2_0.md` |
-| Database schema, RLS, migrations, agent system, Director, security | `stelavox_technical_architecture_v1_4.md` |
-| Product features, user journeys, pricing, data model | `stelavox_product_specification_v1_2.md` |
+| Database schema, RLS, migrations, agent system, Director, security | `stelavox_technical_architecture_v1_5.md` |
+| Product features, user journeys, pricing, data model | `stelavox_product_specification_v1_3.md` |
 | Any wireframe | `stelavox_wireframe_errata_v1_0.md` first, then the wireframe HTML |
 | Environment setup, deployment | `stelavox_deployment_setup_v1_0.md` |
 | Current phase tasks | `stelavox_phase2_build_checklist_v1_0.md` (v1.1 amendment landed mid-Phase-2) |
@@ -120,7 +120,7 @@ supabase/
 
 **LLM calls:** Never call the Anthropic SDK or Vercel AI SDK directly from a component or API route. Always use `getProvider()` from `lib/llm/factory.ts`.
 
-**Operational values:** Never hardcode token budgets, prices, model IDs, durations, or limits in TypeScript. All operational values live in the `platform_config` database table and are read via `getConfig(key)` from `lib/config/platform-config.ts`. See Technical Architecture v1.4 §3.7 for the complete key registry.
+**Operational values:** Never hardcode token budgets, prices, model IDs, durations, or limits in TypeScript. All operational values live in the `platform_config` database table and are read via `getConfig(key)` from `lib/config/platform-config.ts`. See Technical Architecture v1.5 §3.7 for the complete key registry.
 
 **Token budget gate:** Always call `checkTokenBudget()` before creating an agent job record. The gate runs in the API route. If the budget check fails, no job record is created. See H-07.
 
@@ -169,7 +169,7 @@ Formatting via keyboard shortcuts and `SelectionTooltip` only (Bold · Italic ·
 
 ## Known Hazards (summary)
 
-Read Technical Architecture v1.4 §5 for the full entries (H-01 to H-14). The most common during active build:
+Read Technical Architecture v1.5 §5 for the full entries (H-01 to H-14). The most common during active build:
 
 - **H-01** — Use `.maybeSingle()` not `.single()` when zero rows is a valid result
 - **H-02** — RLS policies on `organisation_members` must not query `organisation_members`
@@ -200,12 +200,13 @@ Read Technical Architecture v1.4 §5 for the full entries (H-01 to H-14). The mo
 
 ## Critical Component Specifications
 
-Before implementing or modifying these components, read the exact spec in `docs/stelavox_component_specification_v2_0.md`:
+Before implementing or modifying these components, read the exact spec in `docs/stelavox_component_specification_v2_1.md`:
 
 | Component | Spec | Key constraint |
 |---|---|---|
 | `NodeRow` | §4.2 | 36px height, 16px indent per depth level |
-| `SummaryEditor` | §5.3 | Inter 400 13px — **never Lora** |
+| `SummaryEditor` | §5.3 | Inter 400 13px — **never Lora**. No Link extension. |
+| `NotesEditor` | §5.13 | Inter 400 13px — **never Lora**. Sibling of SummaryEditor; Link extension allowed (rationale in §5.13). |
 | `ProseEditor` | §5.4 | Lora 400, 18px Focus Mode / 16px panel, 1.85 line-height |
 | `ProseEditorCursor` | §5.5 | 2px verdigris (`--color-accent`), no blink while typing |
 | `WordCount` | §5.7 | Opacity 0 while typing, 0.4 after 3s idle, 0.9 on hover |
@@ -239,7 +240,7 @@ main                   ← production (auto-deploys to Vercel on push)
 stelavox_[topic]_v[major]_[minor].md
 ```
 
-Examples: `stelavox_technical_architecture_v1_4.md`, `stelavox_brand_identity_v2_0.md`
+Examples: `stelavox_technical_architecture_v1_5.md`, `stelavox_brand_identity_v2_0.md`
 
 Wireframes: `wireframe_[screen]_v[n].html`
 
@@ -248,6 +249,8 @@ Version bumps: minor for additions and corrections, major for structural changes
 ---
 
 ## Changelog
+
+**v1.4 — 2026-05-04** Phase 2 close-out absorption. Spec Library Reference table updated to point at the three bumped specs: `stelavox_technical_architecture_v1_5.md` (was v1_4), `stelavox_product_specification_v1_3.md` (was v1_2), `stelavox_component_specification_v2_1.md` (was v2_0). Same versions reflected in the Session Start Checklist, Document Naming Convention examples, and inline references throughout. Critical Component Specifications table: added a `NotesEditor` row pointing at the new Component Spec §5.13 — Notes is now first-class alongside Summary and Prose (Inter 13px; Link extension admitted; sibling of SummaryEditor; no shared base). The Five Inviolables and Hazards summary are unchanged — TA v1.5 added no new hazards (SU-4 added a cross-cutting API convention, not a hazard). All four SU items raised in the Phase 2 Build Checklist §6 are now resolved upstream of Phase 3 Tier-B drafting (SU-1 / SU-3 / SU-4 / SU-6 in TA v1.5; SU-2 in Product Spec v1.3; SU-5 in Component Spec v2.1).
 
 **v1.3 — 2026-05-04** Updated Spec Library Reference "Current phase tasks" row from the stale `stelavox_phase1_build_checklist_v1.0.md` (Phase 1 reference + v1.0 typo for v1_0) to `stelavox_phase2_build_checklist_v1_0.md`. Build Checklist v1.1 amendment landed mid-Phase-2 (commit `b6e0d05` on master) — corrected §3.2 layout architecture from a 280-grid-with-tree-inside-sidebar arrangement to the spec-canonical 220/flex/380 three-panel structure per Brand Identity §8.2 / Component Spec §2.1. Phase 2 now shipped; Phase 2 Test Report v1.0 records 270/270 Playwright PASS, 136/136 Test Plan cases verified, and PHASE 2 PASSES verdict.
 
