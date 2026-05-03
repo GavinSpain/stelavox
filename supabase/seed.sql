@@ -67,7 +67,7 @@ ON CONFLICT (id) DO NOTHING;
 -- Platform configuration
 -- Build Checklist T-3.18 | Spec: Technical Architecture v1.3 §3.7.4 and §3.7.5
 --
--- 40 keys — the complete canonical key list.
+-- 41 keys — the complete canonical key list.
 -- String values are stored as JSON strings (double-quoted inside the SQL string).
 -- Re-running is safe: ON CONFLICT (key) DO NOTHING never overwrites admin edits.
 -- ============================================================
