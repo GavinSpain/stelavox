@@ -1,5 +1,5 @@
 # Stelavox — Technical Architecture
-## Version 1.3
+## Version 1.4
 
 ---
 
@@ -392,6 +392,8 @@ export async function POST(request: Request) {
 
 Migrations are numbered SQL files in `supabase/migrations/`. Applied in order via `supabase db push`. All V1 migrations are backwards-compatible — no destructive schema changes.
 
+**Migration count at TA v1.4:** 19 migrations (001 through 019). The numbering in §3.6 below matches the filename ordinal. Migrations 016–019 are post-build correctives discovered during Phase 1 integration testing; they are kept as separate files (not folded into earlier migrations) so the production schema history is reproducible by replay.
+
 **Migration naming:** `YYYYMMDDHHMMSS_description.sql` — auto-generated prefix from Supabase CLI.
 
 **Workflow:**
@@ -476,7 +478,7 @@ CREATE TABLE layer_stacks (
   name TEXT NOT NULL,
   document_type TEXT NOT NULL,
   is_template BOOLEAN NOT NULL DEFAULT FALSE,
-  layers JSONB NOT NULL DEFAULT '[]',
+  layers JSONB NOT NULL DEFAULT '[]',  -- shape documented below
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -494,7 +496,7 @@ CREATE TABLE documents (
   status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active','archived','published')),
   export_settings JSONB DEFAULT '{}',
   authors TEXT[] DEFAULT '{}',
-  director_config_id UUID,  -- FK added in migration 011
+  director_config_id UUID,  -- FK added in migration 013
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -522,7 +524,120 @@ CREATE TABLE agent_profiles (
 );
 ```
 
-#### Migration 002 — Nodes
+**`layer_stacks.layers` JSONB shape.** The `layers` column holds an ordered array of layer objects. Each entry has the form:
+
+```json
+{
+  "index": 0,
+  "node_type": "scene",
+  "label": "Scene",
+  "description": "A single dramatic unit"
+}
+```
+
+`index` is the zero-based depth (root = 0). `node_type` is the canonical lowercase identifier used by `nodes.node_type`. `label` and `description` are presentation-only and may be edited per-document after the stack is forked from a system template. `seed.sql` populates three system templates (Novel, Short Story, Series); see Migration 015 for how a per-document stack is forked from one of them.
+
+**`document_type` validation is an API concern, not a DB concern.** Both `documents.document_type` and `projects.default_document_type` are declared as `TEXT` without a database `CHECK` constraint, despite the V1 set being a fixed enum (`novel`, `short_story`, `series`). The validation lives in the API-layer Zod schemas (`lib/validation/documents.ts`, `lib/validation/projects.ts`) so that adding a new document type is a single application-layer change rather than a migration. The `create_document_with_layer_stack` RPC enforces the enum indirectly via the `missing_template` exception when no system template exists for the supplied type.
+
+#### Migration 002 — `handle_new_user` Trigger
+
+Fires after every insert into `auth.users`. Creates the user's personal organisation and an `owner` membership row, all within the same trigger invocation (single implicit transaction — see H-03). The trigger derives a slug from the supplied display name (or the email local-part if none) and suffixes the user id when the slug collides with an existing organisation. `SECURITY DEFINER` is required because GoTrue connects as `supabase_auth_admin`, which lacks insert privileges on `organisations`. `SET search_path = public` is added in Migration 016 — see H-13.
+
+```sql
+CREATE OR REPLACE FUNCTION handle_new_user()
+RETURNS TRIGGER SECURITY DEFINER AS $$
+DECLARE
+  new_org_id UUID;
+  user_name  TEXT;
+  user_slug  TEXT;
+BEGIN
+  user_name := COALESCE(NEW.raw_user_meta_data->>'name', split_part(NEW.email, '@', 1));
+  user_slug := lower(regexp_replace(user_name, '[^a-zA-Z0-9]+', '-', 'g'));
+  user_slug := trim(both '-' from user_slug);
+  IF user_slug = '' THEN
+    user_slug := 'user';
+  END IF;
+  IF EXISTS (SELECT 1 FROM organisations WHERE slug = user_slug) THEN
+    user_slug := user_slug || '-' || substr(NEW.id::text, 1, 8);
+  END IF;
+
+  INSERT INTO organisations (name, slug)
+  VALUES (user_name, user_slug)
+  RETURNING id INTO new_org_id;
+
+  INSERT INTO organisation_members (organisation_id, user_id, role)
+  VALUES (new_org_id, NEW.id, 'owner');
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION handle_new_user();
+```
+
+#### Migration 003 — Phase 1 RLS Policies
+
+Enables RLS on every Phase 1 user-data table and adds the policies. The `organisation_members` policies use `auth.uid()` directly to avoid the self-referential recursion failure mode in H-02. The `organisations` insert path is restricted to the `SECURITY DEFINER` trigger from Migration 002 — there is no user INSERT policy.
+
+```sql
+ALTER TABLE organisation_members ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "members_see_their_orgs" ON organisation_members
+  FOR SELECT USING (user_id = auth.uid());
+CREATE POLICY "users_self_insert_membership" ON organisation_members
+  FOR INSERT WITH CHECK (user_id = auth.uid());
+-- No UPDATE/DELETE policy in Phase 1 — admin operations are V2.
+
+ALTER TABLE organisations ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "members_see_their_orgs_orgs" ON organisations
+  FOR SELECT USING (
+    id IN (SELECT organisation_id FROM organisation_members WHERE user_id = auth.uid())
+  );
+-- No INSERT policy — organisations are created exclusively by the SECURITY DEFINER
+-- handle_new_user() trigger from Migration 002.
+-- No UPDATE/DELETE policy in Phase 1 — V2 introduces owner-only update.
+
+ALTER TABLE projects ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "org_members_access_projects" ON projects
+  FOR ALL USING (
+    organisation_id IN (SELECT organisation_id FROM organisation_members WHERE user_id = auth.uid())
+  )
+  WITH CHECK (
+    organisation_id IN (SELECT organisation_id FROM organisation_members WHERE user_id = auth.uid())
+  );
+
+ALTER TABLE documents ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "org_members_access_documents" ON documents
+  FOR ALL USING (
+    organisation_id IN (SELECT organisation_id FROM organisation_members WHERE user_id = auth.uid())
+  )
+  WITH CHECK (
+    organisation_id IN (SELECT organisation_id FROM organisation_members WHERE user_id = auth.uid())
+  );
+
+ALTER TABLE layer_stacks ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "layer_stacks_access" ON layer_stacks
+  FOR ALL USING (
+    organisation_id IS NOT NULL
+    AND organisation_id IN (SELECT organisation_id FROM organisation_members WHERE user_id = auth.uid())
+  )
+  WITH CHECK (
+    organisation_id IS NOT NULL
+    AND organisation_id IN (SELECT organisation_id FROM organisation_members WHERE user_id = auth.uid())
+  );
+-- The is_template = TRUE rows have organisation_id IS NULL and are deliberately
+-- excluded from user-session reads. They are read by the create_document_with_layer_stack
+-- RPC (Migration 015) running as SECURITY DEFINER.
+
+ALTER TABLE organisation_invites ENABLE ROW LEVEL SECURITY;
+-- No Phase 1 policy — invitation flow is V2. RLS enabled with no policies = no access.
+
+ALTER TABLE agent_profiles ENABLE ROW LEVEL SECURITY;
+-- No Phase 1 policy — agent_profiles is read by Phase 5 agent code only.
+```
+
+#### Migration 004 — Nodes
 
 ```sql
 CREATE TABLE nodes (
@@ -598,7 +713,7 @@ CREATE POLICY "org_members_access_nodes" ON nodes
   );
 ```
 
-#### Migration 003 — Versioning, Comments, Context Links
+#### Migration 005 — Versioning, Comments, Context Links
 
 ```sql
 -- Node versions (every content change creates a row here)
@@ -669,7 +784,7 @@ CREATE POLICY "org_members_access_context_links" ON node_context_links
   );
 ```
 
-#### Migration 004 — Agent Jobs and Reports
+#### Migration 006 — Agent Jobs and Reports
 
 ```sql
 CREATE TABLE agent_jobs (
@@ -734,7 +849,7 @@ CREATE POLICY "org_members_access_agent_reports" ON agent_reports
   );
 ```
 
-#### Migration 005 — Director Tables
+#### Migration 007 — Director Tables
 
 ```sql
 CREATE TABLE conversations (
@@ -832,7 +947,7 @@ CREATE POLICY "org_members_access_workflow_steps" ON workflow_steps
   );
 ```
 
-#### Migration 006 — Multi-Tenancy Support Tables
+#### Migration 008 — Multi-Tenancy Support Tables
 
 ```sql
 CREATE TABLE node_locks (
@@ -912,7 +1027,7 @@ CREATE POLICY "owners_read_audit_log" ON audit_log
   );
 ```
 
-#### Migration 007 — Export and Layer Stack Foreign Keys
+#### Migration 009 — Export and Layer Stack Foreign Keys
 
 ```sql
 -- Update layer_stacks with document FK now that documents table exists
@@ -943,7 +1058,7 @@ CREATE POLICY "org_members_access_export_jobs" ON export_jobs
   );
 ```
 
-#### Migration 008 — Cloud Backup Tables
+#### Migration 010 — Cloud Backup Tables
 
 ```sql
 CREATE TABLE backup_configs (
@@ -998,11 +1113,11 @@ CREATE POLICY "backup_jobs_org_access" ON backup_jobs
   );
 ```
 
-#### Migration 009 — Mobile Notes and Attachment Count Fields
+#### Migration 011 — Mobile Notes and Attachment Count Fields
 
 ```sql
--- These fields are added to nodes if not already present from migration 002.
--- If migration 002 already includes them, this migration is a no-op.
+-- These fields are added to nodes if not already present from migration 004.
+-- If migration 004 already includes them, this migration is a no-op.
 ALTER TABLE nodes ADD COLUMN IF NOT EXISTS
   mobile_notes JSONB NOT NULL DEFAULT '[]'::jsonb;
 ALTER TABLE nodes ADD COLUMN IF NOT EXISTS
@@ -1012,7 +1127,7 @@ CREATE INDEX IF NOT EXISTS idx_nodes_mobile_notes
   ON nodes USING GIN(mobile_notes);
 ```
 
-#### Migration 010 — Node Attachments
+#### Migration 012 — Node Attachments
 
 ```sql
 CREATE TABLE node_attachments (
@@ -1074,7 +1189,7 @@ CREATE POLICY "attachments_storage_access" ON storage.objects
 
 Storage path format: `organisations/{org_id}/documents/{doc_id}/nodes/{node_id}/{attachment_id}/{file_name}`
 
-#### Migration 011 — Director Config and Scheduler
+#### Migration 013 — Director Config and Scheduler
 
 ```sql
 CREATE TABLE director_configs (
@@ -1094,13 +1209,23 @@ CREATE TABLE director_configs (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- RLS: director_configs is a global registry read by the service role only.
+-- No user-facing policy in V1 — RLS enabled with no policies = no user access.
+ALTER TABLE director_configs ENABLE ROW LEVEL SECURITY;
+
 -- Enforce single production config at all times
 CREATE UNIQUE INDEX idx_director_configs_one_production
   ON director_configs(status) WHERE status = 'production';
 
--- Document-level Director version pin
+-- Document-level Director version pin.
+-- documents.director_config_id was declared in Migration 001 without a foreign
+-- key. This migration adds the FK constraint as a separate ADD CONSTRAINT step
+-- (ADD COLUMN ... REFERENCES would error because the column already exists).
 ALTER TABLE documents
-  ADD COLUMN director_config_id UUID REFERENCES director_configs(id) ON DELETE SET NULL;
+  DROP CONSTRAINT IF EXISTS documents_director_config_id_fkey;
+ALTER TABLE documents
+  ADD CONSTRAINT documents_director_config_id_fkey
+  FOREIGN KEY (director_config_id) REFERENCES director_configs(id) ON DELETE SET NULL;
 
 -- Scheduled jobs
 CREATE TABLE scheduled_jobs (
@@ -1151,6 +1276,136 @@ VALUES (
 );
 ```
 
+#### Migration 014 — Platform Configuration
+
+Creates the `platform_config` table that backs `getConfig()`. The full discussion — table schema, helper code, canonical key registry, seed defaults, and the rule for adding new keys — lives in §3.7 to keep that single section authoritative. The DDL itself is brief:
+
+```sql
+CREATE TABLE platform_config (
+  key TEXT PRIMARY KEY,
+  value JSONB NOT NULL,
+  description TEXT NOT NULL,
+  value_type TEXT NOT NULL
+    CHECK (value_type IN ('integer','number','string','boolean','object')),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_by TEXT
+);
+
+-- No RLS read policy: server-side service-role reads only. Never queried from the client.
+ALTER TABLE platform_config ENABLE ROW LEVEL SECURITY;
+```
+
+#### Migration 015 — `create_document_with_layer_stack` RPC
+
+Atomic two-table insert that creates a document and its forked layer stack in a single transaction. The function is `SECURITY DEFINER` because the system templates have `organisation_id IS NULL` and are excluded from user-session reads by the Migration 003 policy on `layer_stacks`. The function performs an explicit organisation-membership check before doing any work.
+
+The form below is the consolidated state after Migrations 016 (search_path), 018 (insert ordering — see H-14), and 019 (service_role bypass) — i.e. what a fresh database has at the end of replaying all 19 migrations:
+
+```sql
+CREATE OR REPLACE FUNCTION create_document_with_layer_stack(
+  p_project_id      UUID,
+  p_organisation_id UUID,
+  p_name            TEXT,
+  p_description     TEXT,
+  p_document_type   TEXT,
+  p_authors         TEXT[]
+) RETURNS JSONB
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_doc_id    UUID := gen_random_uuid();
+  v_stack_id  UUID := gen_random_uuid();
+  v_template  layer_stacks%ROWTYPE;
+  v_caller    UUID := auth.uid();
+BEGIN
+  -- Membership and project checks are only enforced for authenticated callers.
+  -- service_role (auth.uid() IS NULL) already bypasses RLS at the table layer.
+  IF v_caller IS NOT NULL THEN
+    IF NOT EXISTS (
+      SELECT 1 FROM organisation_members
+      WHERE user_id = v_caller AND organisation_id = p_organisation_id
+    ) THEN
+      RAISE EXCEPTION 'forbidden: caller is not a member of organisation %', p_organisation_id
+        USING ERRCODE = 'insufficient_privilege';
+    END IF;
+
+    IF NOT EXISTS (
+      SELECT 1 FROM projects WHERE id = p_project_id AND organisation_id = p_organisation_id
+    ) THEN
+      RAISE EXCEPTION 'project not found or not in organisation %', p_organisation_id
+        USING ERRCODE = 'no_data_found';
+    END IF;
+  END IF;
+
+  SELECT * INTO v_template
+  FROM layer_stacks
+  WHERE is_template = TRUE
+    AND document_type = p_document_type
+    AND organisation_id IS NULL
+  LIMIT 1;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'missing_template: no system template for document_type %', p_document_type
+      USING ERRCODE = 'no_data_found';
+  END IF;
+
+  -- Insert layer_stacks first with document_id = NULL (nullable), then documents,
+  -- then UPDATE layer_stacks to back-fill document_id. See H-14.
+  INSERT INTO layer_stacks (
+    id, document_id, organisation_id, name, document_type, is_template, layers
+  )
+  VALUES (
+    v_stack_id, NULL, p_organisation_id, v_template.name, p_document_type, FALSE, v_template.layers
+  );
+
+  INSERT INTO documents (
+    id, organisation_id, project_id, name, description, document_type,
+    layer_stack_id, status, authors, export_settings
+  )
+  VALUES (
+    v_doc_id, p_organisation_id, p_project_id, p_name, p_description, p_document_type,
+    v_stack_id, 'active', COALESCE(p_authors, '{}'::TEXT[]), '{}'::jsonb
+  );
+
+  UPDATE layer_stacks SET document_id = v_doc_id WHERE id = v_stack_id;
+
+  RETURN jsonb_build_object(
+    'document',    (SELECT row_to_json(d) FROM documents d WHERE d.id = v_doc_id),
+    'layer_stack', (SELECT row_to_json(l) FROM layer_stacks l WHERE l.id = v_stack_id)
+  );
+END;
+$$;
+
+REVOKE ALL ON FUNCTION create_document_with_layer_stack(UUID, UUID, TEXT, TEXT, TEXT, TEXT[]) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION create_document_with_layer_stack(UUID, UUID, TEXT, TEXT, TEXT, TEXT[]) TO authenticated;
+GRANT EXECUTE ON FUNCTION create_document_with_layer_stack(UUID, UUID, TEXT, TEXT, TEXT, TEXT[]) TO service_role;
+```
+
+The original Migration 015 sketched the function with three issues that surfaced during Phase 1 testing — missing `SET search_path`, the wrong insert order, and a hard rejection of `service_role` callers. Each was fixed in its own subsequent migration (016/018/019) so the production schema history can be replayed deterministically. New deployments do not need to chain the fixes; the consolidated form above is what `supabase db push` against an empty database produces.
+
+#### Migration 016 — `handle_new_user` Search Path Fix
+
+Adds `SET search_path = public` to the trigger from Migration 002. Without it, the function inherited GoTrue's `search_path`, which omits `public`, and unqualified references to `organisations` raised `42P01`. See H-13.
+
+```sql
+CREATE OR REPLACE FUNCTION handle_new_user()
+RETURNS TRIGGER SECURITY DEFINER SET search_path = public AS $$
+-- function body unchanged from Migration 002
+...
+$$ LANGUAGE plpgsql;
+```
+
+#### Migration 017 — `create_document_with_layer_stack` Search Path Fix
+
+Same fix as Migration 016 applied to the RPC introduced in Migration 015. See H-13.
+
+#### Migration 018 — `create_document_with_layer_stack` Insert Ordering Fix
+
+Reverses the insert order so `layer_stacks` is inserted first (with `document_id = NULL`), then `documents` (whose `layer_stack_id` FK is now satisfied), then `UPDATE layer_stacks` to back-fill `document_id`. The original ordering raised FK violation `23503`. See H-14.
+
+#### Migration 019 — `create_document_with_layer_stack` Service-Role Bypass
+
+Wraps the membership and project checks in `IF v_caller IS NOT NULL THEN ... END IF` so `service_role` callers (where `auth.uid()` returns NULL) can run the RPC for fixture setup. Adds `GRANT EXECUTE ... TO service_role`. Adds no new privilege — `service_role` already bypasses RLS on the underlying tables.
+
 ### 3.7 Platform Configuration
 
 #### 3.7.1 Principle
@@ -1164,7 +1419,7 @@ This rule exists because hardcoded values require a code deployment to change. A
 #### 3.7.2 The `platform_config` Table
 
 ```sql
--- Migration 012 — Platform configuration table
+-- Migration 014 — Platform configuration table
 CREATE TABLE platform_config (
   key TEXT PRIMARY KEY,
   value JSONB NOT NULL,
@@ -1953,6 +2208,44 @@ LOOP
 
 ---
 
+### H-13 — `SECURITY DEFINER` functions inherit the caller's `search_path`
+
+**What happens:** A PostgreSQL function declared `SECURITY DEFINER` runs with the privileges of its owner but with the `search_path` of the caller. If the caller's `search_path` does not include `public`, unqualified references to tables in `public` raise `42P01: relation does not exist`. The same function works in development (where the developer's session has `search_path = public, ...`) and fails in production (where GoTrue's `supabase_auth_admin` role has a minimal `search_path`, or where the `authenticated` role is configured similarly).
+
+**Why:** The default `search_path` for many roles is `"$user", public`, which masks the issue when the calling role has a same-named schema. `SECURITY DEFINER` is opt-in for elevated privileges; PostgreSQL does not also re-set `search_path` automatically because that would surprise functions that intentionally run against the caller's schema.
+
+**The fix:** Every `SECURITY DEFINER` function declares `SET search_path = public` (or whichever schemas it actually needs) on its CREATE OR REPLACE statement:
+
+```sql
+CREATE OR REPLACE FUNCTION my_security_definer_function()
+RETURNS ... SECURITY DEFINER SET search_path = public AS $$
+  -- function body
+$$ LANGUAGE plpgsql;
+```
+
+Phase 1 surfaced this hazard twice: in `handle_new_user` (Migration 002, fixed by Migration 016) and in `create_document_with_layer_stack` (Migration 015, fixed by Migration 017). Any new `SECURITY DEFINER` function MUST include the `SET search_path` clause from its first declaration.
+
+---
+
+### H-14 — `documents ↔ layer_stacks` insert ordering
+
+**What happens:** `documents.layer_stack_id REFERENCES layer_stacks(id)` is enforced (not deferred), so attempting to insert a `documents` row whose `layer_stack_id` references an as-yet-unwritten `layer_stacks` row raises FK violation `23503`. `layer_stacks.document_id` references `documents(id)` (added in Migration 009), so a naïve transaction that creates both rows together cannot order them either way without help.
+
+**Why:** Both FKs are necessary for navigability — given a document, find its stack; given a stack, find its document — but the two-way pointing creates a chicken-and-egg in the same transaction.
+
+**The fix:** Exploit `layer_stacks.document_id`'s nullability. Insert `layer_stacks` first with `document_id = NULL`, then `documents` (its `layer_stack_id` FK is now satisfied), then `UPDATE layer_stacks SET document_id = v_doc_id`. The single PL/pgSQL function commits all three statements in one implicit transaction, so the NULL state is never visible to other sessions. See Migration 015 (final form) and Migration 018 (the corrective that introduced this ordering).
+
+```sql
+-- Order: stack first (with NULL document_id), then document, then UPDATE.
+INSERT INTO layer_stacks (id, document_id, ...) VALUES (v_stack_id, NULL, ...);
+INSERT INTO documents    (id, layer_stack_id, ...) VALUES (v_doc_id, v_stack_id, ...);
+UPDATE layer_stacks SET document_id = v_doc_id WHERE id = v_stack_id;
+```
+
+This is the only safe order without using deferred constraints (which Supabase migrations avoid because they complicate replay semantics).
+
+---
+
 ## 6. AI Integration Layer
 
 ### 6.1 Architecture Overview
@@ -2531,6 +2824,8 @@ Director tool definitions and executor → `director-runner` Edge Function (read
 ---
 
 ## 14. Changelog
+
+**v1.4 — 2026-05-03** Folded the Phase 1 build-time discoveries into the canonical schema. §3.5 now states the migration count (19) and explains that 016–019 are post-build correctives kept as separate files for reproducible replay. §3.6 renumbered to match the filename ordinal (so spec ↔ codebase align 1:1) and gained eight new migration blocks: 002 (`handle_new_user` trigger), 003 (Phase 1 RLS policies), 014 (`platform_config` brief — full discussion stays in §3.7), 015 (`create_document_with_layer_stack` RPC, consolidated form), and 016–019 (search_path, FK ordering, and service_role correctives, summarised). Migration 013 (formerly 011) corrected: `documents.director_config_id` FK is now added via `ADD CONSTRAINT` rather than `ADD COLUMN ... REFERENCES` (the column already exists from Migration 001), and `director_configs` now has RLS enabled (no policy = no user access — service-role reads only). Documented `layer_stacks.layers` JSONB shape and the API-layer `document_type` validation choice. Added two hazards: H-13 (`SECURITY DEFINER` functions must `SET search_path`) and H-14 (`documents ↔ layer_stacks` insert ordering).
 
 **v1.3 — 2026-05-02** Corrected specification error in §1 "Why This Stack": removed the incorrect "No Docker" statement, which contradicted the Deployment & Setup Guide v1.0. Replaced with the correct three-phase development environment description (Phase A: local Supabase via Docker Desktop; Phase B: stelavox-dev cloud; Phase C: stelavox-prod cloud). Updated two corresponding rows in the Locked Architectural Decisions table (§12): "Hosting" reason corrected; "Dev environment" row corrected to reflect the three-phase model.
 

@@ -83,8 +83,14 @@
   --card-foreground:     var(--color-text-primary);
   --popover:             var(--color-bg-elevated);
   --popover-foreground:  var(--color-text-primary);
-  --primary:             var(--color-accent);
-  --primary-foreground:  #ecf0f5;  /* light text on accent button */
+  /* shadcn --primary intentionally NOT mapped to --color-accent.
+     Verdigris is reserved for the nine specific locations defined in CLAUDE.md
+     (Inviolable #2). Mapping --primary to --color-accent would silently bleed
+     verdigris into any shadcn <Button variant="default">. Use --color-text-primary
+     so the primitive is safe by default; explicit verdigris uses go through
+     `var(--color-accent)` directly in the components that need them. */
+  --primary:             var(--color-text-primary);
+  --primary-foreground:  var(--color-bg-base);
   --secondary:           var(--color-bg-elevated);
   --secondary-foreground: var(--color-text-secondary);
   --muted:               var(--color-bg-surface);

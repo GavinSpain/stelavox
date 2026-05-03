@@ -1,5 +1,5 @@
 # Stelavox — Claude Code Project Context
-## Version 1.1
+## Version 1.2
 
 > **Versioning note:** This file is versioned. The version lives here, not in the filename — the filename must remain `CLAUDE.md` for Claude Code to find it automatically. When this file changes, increment the version and add a changelog entry at the bottom. The source of record is `docs/CLAUDE_stelavox_project.md`; the deployed copy at the repository root must always match it. Commit both in the same commit.
 
@@ -13,7 +13,7 @@ Read these before writing any code in a new session:
 
 1. `docs/stelavox_wireframe_errata_v1_0.md` — corrections to wireframes (read before any wireframe HTML)
 2. The relevant spec section for today's task (see Spec Library Reference below)
-3. `docs/stelavox_technical_architecture_v1_3.md` §5 — Known Hazards H-01 to H-12, if today's task touches the database, agents, or Director
+3. `docs/stelavox_technical_architecture_v1_4.md` §5 — Known Hazards H-01 to H-14, if today's task touches the database, agents, or Director
 
 ---
 
@@ -26,7 +26,7 @@ All documents live in `/docs`. Before making any change, read the relevant docum
 | Any UI change | `stelavox_component_specification_v2_0.md` |
 | Layout, tokens, motion, accessibility | `stelavox_ui_design_specification_v1_0.md` |
 | Colour, typography, brand rules | `stelavox_brand_identity_v2_0.md` |
-| Database schema, RLS, migrations, agent system, Director, security | `stelavox_technical_architecture_v1_3.md` |
+| Database schema, RLS, migrations, agent system, Director, security | `stelavox_technical_architecture_v1_4.md` |
 | Product features, user journeys, pricing, data model | `stelavox_product_specification_v1_2.md` |
 | Any wireframe | `stelavox_wireframe_errata_v1_0.md` first, then the wireframe HTML |
 | Environment setup, deployment | `stelavox_deployment_setup_v1_0.md` |
@@ -120,7 +120,7 @@ supabase/
 
 **LLM calls:** Never call the Anthropic SDK or Vercel AI SDK directly from a component or API route. Always use `getProvider()` from `lib/llm/factory.ts`.
 
-**Operational values:** Never hardcode token budgets, prices, model IDs, durations, or limits in TypeScript. All operational values live in the `platform_config` database table and are read via `getConfig(key)` from `lib/config/platform-config.ts`. See Technical Architecture v1.2 §3.7 for the complete key registry.
+**Operational values:** Never hardcode token budgets, prices, model IDs, durations, or limits in TypeScript. All operational values live in the `platform_config` database table and are read via `getConfig(key)` from `lib/config/platform-config.ts`. See Technical Architecture v1.4 §3.7 for the complete key registry.
 
 **Token budget gate:** Always call `checkTokenBudget()` before creating an agent job record. The gate runs in the API route. If the budget check fails, no job record is created. See H-07.
 
@@ -169,7 +169,7 @@ Formatting via keyboard shortcuts and `SelectionTooltip` only (Bold · Italic ·
 
 ## Known Hazards (summary)
 
-Read Technical Architecture v1.2 §5 for the full entries (H-01 to H-12). The most common during active build:
+Read Technical Architecture v1.4 §5 for the full entries (H-01 to H-14). The most common during active build:
 
 - **H-01** — Use `.maybeSingle()` not `.single()` when zero rows is a valid result
 - **H-02** — RLS policies on `organisation_members` must not query `organisation_members`
@@ -183,6 +183,8 @@ Read Technical Architecture v1.2 §5 for the full entries (H-01 to H-12). The mo
 - **H-10** — Regenerate `lib/types/database.ts` after every migration, never edit by hand
 - **H-11** — Scheduler uses `FOR UPDATE SKIP LOCKED` to prevent duplicate job execution
 - **H-12** — No hardcoded operational values in TypeScript — all values via `getConfig()`
+- **H-13** — `SECURITY DEFINER` functions must declare `SET search_path = public`
+- **H-14** — `documents ↔ layer_stacks` insert order: stack first (NULL doc_id), then document, then UPDATE
 
 ---
 
@@ -237,7 +239,7 @@ main                   ← production (auto-deploys to Vercel on push)
 stelavox_[topic]_v[major]_[minor].md
 ```
 
-Examples: `stelavox_technical_architecture_v1_3.md`, `stelavox_brand_identity_v2_0.md`
+Examples: `stelavox_technical_architecture_v1_4.md`, `stelavox_brand_identity_v2_0.md`
 
 Wireframes: `wireframe_[screen]_v[n].html`
 
@@ -246,6 +248,8 @@ Version bumps: minor for additions and corrections, major for structural changes
 ---
 
 ## Changelog
+
+**v1.2 — 2026-05-03** Bumped Technical Architecture reference from v1.3 to v1.4 across the Session Start Checklist, Spec Library Reference table, document-naming examples, and Known Hazards section. Hazards summary expanded from H-01..H-12 to H-01..H-14 (H-13 SECURITY DEFINER search_path; H-14 documents/layer_stacks insert ordering).
 
 **v1.1 — 2026-05-02** Updated Spec Library Reference table and all internal references from `stelavox_technical_architecture_v1_2.md` to `stelavox_technical_architecture_v1_3.md` following the v1.3 correction of the Docker/development-environment specification error.
 
