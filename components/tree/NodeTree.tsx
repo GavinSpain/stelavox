@@ -134,12 +134,19 @@ function buildTree(rows: NodeRow[]): ArboristNode[] {
   for (const arr of byParent.values()) arr.sort((a, b) => a.order - b.order)
 
   function build(parentId: string | null): ArboristNode[] {
-    return (byParent.get(parentId) ?? []).map(row => ({
-      id:       row.id,
-      name:     row.name ?? '(untitled)',
-      data:     row,
-      children: build(row.id),
-    }))
+    return (byParent.get(parentId) ?? []).map(row => {
+      const children = build(row.id)
+      return {
+        id:   row.id,
+        name: row.name ?? '(untitled)',
+        data: row,
+        // react-arborist treats `children: []` as "has children, all
+        // loaded (zero of them)" — which renders a chevron for an
+        // empty branch. Leaves must omit the field (or pass undefined)
+        // for the chevron to be hidden / isLeaf to be true.
+        ...(children.length > 0 ? { children } : {}),
+      }
+    })
   }
   return build(null)
 }
@@ -147,6 +154,11 @@ function buildTree(rows: NodeRow[]): ArboristNode[] {
 // Stub row — replaced by components/tree/NodeRow.tsx in T-4.3 (which
 // adds hover actions, status badge, type icon, the verdigris-#9 active
 // left border, and ARIA per Component Spec §4.2).
+//
+// IMPORTANT: do NOT override the `paddingLeft` (or `padding`) field
+// from react-arborist's `style` prop — it carries the depth-based
+// indentation. Spread style first; add own properties after but never
+// touch padding-left.
 function StubRow({ node, style }: NodeRendererProps<ArboristNode>) {
   return (
     <div
@@ -154,7 +166,6 @@ function StubRow({ node, style }: NodeRendererProps<ArboristNode>) {
         ...style,
         display: 'flex',
         alignItems: 'center',
-        paddingLeft: '8px',
         fontSize: 'var(--text-sm)',
         color: 'var(--color-text-secondary)',
       }}
