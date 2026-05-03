@@ -216,6 +216,41 @@
   overflow-y: auto;
 }
 
+/* ── ProseEditor cursor — §5.5 (Inviolable #2 verdigris use #3) ─────────────
+   caret-color: --color-accent  (verdigris — one of the nine permitted uses)
+   Blink: 600ms on / 400ms off total 1000ms. Suppressed while .is-typing.
+   ─────────────────────────────────────────────────────────────────────────*/
+@keyframes stelavox-blink {
+  0%, 59% { opacity: 1; }
+  60%, 100% { opacity: 0; }
+}
+
+[data-editor="prose"] .tiptap {
+  caret-color: var(--color-accent);
+}
+
+[data-editor="prose"] .tiptap:not(.is-typing) {
+  animation: stelavox-blink 1s step-end infinite;
+}
+
+[data-editor="prose"] .tiptap.is-typing {
+  animation: none;
+}
+
+/* Focus Mode font size override — 18px in focus, 16px in edit */
+[data-editor="prose"][data-mode="focus"] .tiptap {
+  font-size: var(--text-prose-focus);  /* 18px */
+}
+
+[data-editor="prose"][data-mode="focus"] .tiptap .is-editor-empty::before {
+  font-size: var(--text-prose-focus);
+}
+
+/* Text selection colour in ProseEditor */
+[data-editor="prose"] .tiptap ::selection {
+  background-color: color-mix(in srgb, var(--color-accent-muted) 60%, transparent);
+}
+
 /* ── Base layer ─────────────────────────────────────────────────────────────*/
 @layer base {
   * {
