@@ -251,6 +251,33 @@
   background-color: color-mix(in srgb, var(--color-accent-muted) 60%, transparent);
 }
 
+/* ── Focus Mode shell transitions — §6.1 / TC-M-01..03 ──────────────────────
+   All four AppShell elements (header / sidebar / tree / detail) start their
+   transitions in the same frame when body.focus-mode-active is added.
+   prefers-reduced-motion collapses to 0ms (TC-M-05).
+   ─────────────────────────────────────────────────────────────────────────*/
+[data-shell="header"],
+[data-shell="sidebar"],
+[data-shell="tree"],
+[data-shell="detail"] {
+  transition: transform 280ms var(--easing-default, cubic-bezier(0.16, 1, 0.3, 1)),
+              opacity   280ms var(--easing-default, cubic-bezier(0.16, 1, 0.3, 1));
+}
+
+body.focus-mode-active [data-shell="header"]  { transform: translateY(-48px); opacity: 0; }
+body.focus-mode-active [data-shell="sidebar"] { transform: translateX(-100%);  opacity: 0; }
+body.focus-mode-active [data-shell="tree"]    { transform: translateX(-100%);  opacity: 0; }
+body.focus-mode-active [data-shell="detail"]  { transform: translateX(100%);   opacity: 0; }
+
+@media (prefers-reduced-motion: reduce) {
+  [data-shell="header"],
+  [data-shell="sidebar"],
+  [data-shell="tree"],
+  [data-shell="detail"] {
+    transition: none !important;
+  }
+}
+
 /* ── Base layer ─────────────────────────────────────────────────────────────*/
 @layer base {
   * {

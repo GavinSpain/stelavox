@@ -31,6 +31,9 @@ export function WordCount({ editor, target }: WordCountProps) {
       setWords(countWords(editor.getText()))
     }
     editor.on('update', onUpdate)
+    // Initial word count from the editor's current text — matches AppShell's
+    // hydrate-from-external-source pattern.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setWords(countWords(editor.getText()))
     return () => { editor.off('update', onUpdate) }
   }, [editor])
