@@ -139,6 +139,83 @@
   --sidebar-primary-foreground: #f2ede4;
 }
 
+/* ── Tiptap editor surfaces ─────────────────────────────────────────────────
+   data-editor="summary" and data-editor="notes" → Inter (Inviolable #4)
+   data-editor="prose"                           → Lora  (Inviolable #4)
+   ─────────────────────────────────────────────────────────────────────────*/
+
+/* Shared resets for all editors */
+[data-editor] .tiptap {
+  outline: none;
+  word-break: break-word;
+  white-space: pre-wrap;
+}
+
+/* Paragraph spacing inside all editors */
+[data-editor] .tiptap p { margin: 0; }
+[data-editor] .tiptap p + p { margin-top: 0.6em; }
+
+/* Summary + Notes — 🔒 Inter 400 13px, never Lora */
+[data-editor="summary"] .tiptap,
+[data-editor="notes"] .tiptap {
+  font-family: var(--font-inter), Inter, sans-serif;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.55;
+  color: var(--color-text-primary);
+}
+
+/* Prose — 🔒 Lora 400, never Inter */
+[data-editor="prose"] .tiptap {
+  font-family: var(--font-lora), Lora, Georgia, serif;
+  font-size: var(--text-prose-panel);  /* 16px edit mode; overridden to 18px in focus */
+  font-weight: 400;
+  line-height: 1.85;
+  color: var(--color-text-primary);
+}
+
+[data-editor="prose"] .tiptap p {
+  margin: 0;
+}
+[data-editor="prose"] .tiptap p + p {
+  margin-top: 1.25em;
+}
+
+/* Prose bottom padding — author writes into open space */
+[data-editor="prose"] .tiptap {
+  padding-bottom: 120px;
+}
+
+/* Placeholder — renders via data-placeholder attribute set by Tiptap */
+[data-editor="summary"] .tiptap .is-editor-empty::before,
+[data-editor="notes"] .tiptap .is-editor-empty::before {
+  content: attr(data-placeholder);
+  color: var(--color-text-disabled);
+  font-style: italic;
+  font-family: var(--font-inter), Inter, sans-serif;
+  font-size: 13px;
+  float: left;
+  height: 0;
+  pointer-events: none;
+}
+
+[data-editor="prose"] .tiptap .is-editor-empty::before {
+  content: attr(data-placeholder);
+  color: var(--color-text-disabled);
+  font-style: italic;
+  font-family: var(--font-lora), Lora, Georgia, serif;
+  font-size: var(--text-prose-panel);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}
+
+/* Notes max-height scroll */
+[data-editor="notes"] {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
 /* ── Base layer ─────────────────────────────────────────────────────────────*/
 @layer base {
   * {
