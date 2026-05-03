@@ -1,5 +1,5 @@
 # Stelavox — Component Specification
-## Version 2.0
+## Version 2.1
 
 ### Purpose
 
@@ -859,6 +859,8 @@ Each comment is a card. Human comments show initials avatar. Agent comments show
 
 Restoring creates a new version — does not delete history.
 
+🔒 **Phase 3 vs Phase 6 split.** Per `stelavox_technical_architecture_v1_5.md` §11 and `stelavox_product_specification_v1_3.md` §4.12, the **list, the current-version star, the hover diff tooltip, and the "Show N more" pagination ship in Phase 3** (the Tier-A "browseable" checkpoint). The **Restore button — and all of its lock-aware semantics — ship in Phase 6** alongside the broader status / lock state machine. Phase 3 implementations MUST NOT render the Restore button. The "Restore button" row above is the canonical spec for Phase 6's later implementation; documenting it here keeps the Phase 6 contract stable.
+
 ---
 
 ### 5.12 ContextLinker
@@ -873,6 +875,41 @@ Restoring creates a new version — does not delete history.
 - Collapsible (collapsed by default)
 - Shows count badge: "Inherited from ancestors (4)"
 - When expanded: same item style but at 0.7 opacity with "inherited" pill label
+
+---
+
+### 5.13 NotesEditor
+
+**File:** `components/detail/NotesEditor.tsx`
+
+Built with Tiptap. The author's private scratchpad on a node — a place for half-formed ideas, reminders, and side observations that are *not* part of the document's prose and *not* part of the structural Summary that the agent system reads. Persists to `nodes.notes` (Migration 004). Sibling to `SummaryEditor` (§5.3) — same architectural shape, different intent.
+
+🔒 **Always Inter, never Lora.** Notes are author commentary, not prose. They sit on the structural side of the typeface boundary established by Brand Identity v2.0 §6.4 and Inviolable #4. No part of `NotesEditor` may render in a serif typeface.
+
+| Property | Value |
+|---|---|
+| Font | 🔒 Inter 400 13px |
+| Line height | 1.55 |
+| Background | `--color-bg-base` |
+| Border | `1px solid --color-border-subtle` |
+| Border-radius | 4px |
+| Padding | `10px 12px` |
+| Min-height | 100px (auto-expands) |
+| Max-height | 400px (then scrolls — notes can grow long without dominating the panel) |
+| Colour | `--color-text-primary` |
+
+**Tiptap config:**
+- Extensions: Text, Bold (⌘B), Italic (⌘I), BulletList, OrderedList, History, Link (⌘K — for jotting reference URLs)
+- Disabled: ALL Heading levels, Blockquote, Code, HorizontalRule, CodeBlock
+- Placeholder: Inter 300 `--color-text-disabled` italic "Notes to yourself about this node…"
+
+**Toolbar** (visible on focus): Bold | Italic | • Bullet | 1. Number | 🔗 Link — minimal, 32px height. Same toolbar shape as `SummaryEditor` plus Link.
+
+**Why Link is admitted here but not in SummaryEditor:** Notes commonly contain reference URLs (research links, Wikipedia entries, named character images). Summary is consumed by the agent system as planning input — links would need to be stripped before LLM inclusion (per H-06) and add no signal. Notes are not consumed by the agent system; the link extension is safe.
+
+**Persistence and autosave:** NotesEditor participates in the same auto-save state machine as SummaryEditor and ProseEditor — debounced PATCH to `/api/nodes/[id]` after 1.5 seconds of inactivity (per Technical Architecture v1.5 §2.7); all three editors share one debounce window per node, so one PATCH writes all changed content fields. See Phase 3 API Contract §3 for the optimistic-concurrency detail. Tiptap JSON is the storage shape; Tiptap's `generateText` extracts plain text per H-06 if the value is ever included in a prompt (it is not in V1 — the agent system reads `summary` and `prose` only).
+
+🔒 NotesEditor and SummaryEditor are **separate components** — they must not share a Tiptap instance or extension list. Each is a thin wrapper around its own `useEditor()` so the typeface boundary, the toolbar shape, and the extension allowlist are enforced at the component level. (Same architectural rule as the SummaryEditor / ProseEditor split in §5.3.)
 
 ---
 
@@ -1567,6 +1604,8 @@ All open questions from Component Spec v1.4 are resolved. There are currently no
 ---
 
 ## 17. Changelog
+
+**v2.1 — 2026-05-04** Phase 2 close-out absorption + Phase 3 prep. Two changes, both in section 5 (Detail Panel Components). **SU-5 (NotesEditor):** added a new **§5.13 NotesEditor** — Tiptap, Inter 400 13px, sibling to `SummaryEditor` (§5.3), bound to `nodes.notes`. The Notes tab existed as a placeholder in Phase 2's TabStrip but had no component-level spec; this section closes that gap. The architectural rule that NotesEditor and SummaryEditor are separate components (no shared base) is documented. The Link extension is admitted in NotesEditor (and forbidden in SummaryEditor) — rationale recorded. Autosave participation in the Phase 3 1.5s-debounce state machine is referenced. **§5.11 VersionHistory clarification:** added a Phase 3 vs Phase 6 split note. The list, current-version star, hover diff tooltip, and "Show N more" pagination ship in Phase 3 (per Technical Architecture v1.5 §11 — "browseable" checkpoint). The Restore button and all of its lock-aware semantics ship in Phase 6. Phase 3 implementations MUST NOT render the Restore button. The existing "Restore button" row remains as the canonical Phase 6 spec to keep the Phase 6 contract stable. No other components changed.
 
 **v2.0 — 2026-05-01** Restructured to comply with the AI-Native Project Specification Standard v1.1. Derived from `stelavox_component_spec_v1_4.md`. Changes from v1.4: (a) Resolved all four previously-open questions (CQ-1 through CQ-4) with recommendations; added CQ-5 (plan card) and CQ-6 (panel resizer colour) as additional resolved questions — see §16. (b) Updated `--easing-prose` from `cubic-bezier(0.25, 0, 0.5, 1)` to `cubic-bezier(0.25, 0.1, 0.25, 1)` per Brand Identity v2.0 §9.2 — the locked symmetric ease-in-out. (c) Updated verdigris use count from seven to nine per Brand Identity v2.0 §5 — uses #7 (Accept button) and #8 (trial expiry CTA) already existed in v1.4 and are carried forward; all nine uses are documented in §1.4. (d) Corrected `PanelResizer` active/dragging colour from `--color-accent` to `--color-border-strong` — this was an inadvertent violation of the nine sanctioned uses rule. (e) Added §16 Resolved Component Questions section. (f) Updated all companion document references to current versions (Brand Identity v2.0, UI Design Spec v1.0, Tech Arch v1.2, Product Spec v1.2). All component specifications from v1.4 are preserved and carried forward unchanged unless noted above.
 
