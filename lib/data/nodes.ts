@@ -33,10 +33,16 @@
 // keyword) but accessed unquoted via the .order() builder method.
 // supabase-js / PostgREST handles the SQL emission correctly.
 
-import type { SupabaseClient } from '@supabase/supabase-js'
+import type {
+  PostgrestMaybeSingleResponse,
+  PostgrestResponse,
+  PostgrestSingleResponse,
+  SupabaseClient,
+} from '@supabase/supabase-js'
 import type { Database } from '@/lib/types/database'
 
 type Client     = SupabaseClient<Database>
+type NodeRow    = Database['public']['Tables']['nodes']['Row']
 type NodeInsert = Database['public']['Tables']['nodes']['Insert']
 type NodeUpdate = Database['public']['Tables']['nodes']['Update']
 
@@ -54,47 +60,61 @@ const NODE_SELECT = [
   'version', 'created_at', 'updated_at',
 ].join(', ')
 
-export async function createNode(supabase: Client, fields: NodeInsert) {
+export async function createNode(
+  supabase: Client,
+  fields: NodeInsert,
+): Promise<PostgrestSingleResponse<NodeRow>> {
   return supabase
     .from('nodes')
     .insert(fields)
     .select(NODE_SELECT)
-    .single()
+    .single() as unknown as PostgrestSingleResponse<NodeRow>
 }
 
 export async function listNodes(
   supabase: Client,
   documentId: string,
-  // Phase 2 always returns structural rows; param accepted for forward
-  // compatibility (Phase 4 lifts the restriction).
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  _category: 'structural' | 'context' | 'all' = 'structural',
+  category: 'structural' | 'context' | 'all' = 'structural',
 ) {
-  return supabase
+  let query = supabase
     .from('nodes')
     .select(NODE_SELECT)
     .eq('document_id', documentId)
-    .eq('node_category', 'structural')
+
+  // 'all' applies no category filter (Phase 4 will return both structural
+  // and context nodes). 'structural' and 'context' filter to that single
+  // category. Phase 2 has no context nodes, so 'context' returns [].
+  if (category === 'structural') query = query.eq('node_category', 'structural')
+  else if (category === 'context') query = query.eq('node_category', 'context')
+
+  return query
     .order('depth', { ascending: true })
-    .order('order', { ascending: true })
+    .order('order', { ascending: true }) as unknown as Promise<PostgrestResponse<NodeRow>>
 }
 
-export async function getNode(supabase: Client, nodeId: string) {
+export async function getNode(
+  supabase: Client,
+  nodeId: string,
+): Promise<PostgrestMaybeSingleResponse<NodeRow>> {
   // H-01: zero rows is a valid result (the 404 path); use maybeSingle.
   return supabase
     .from('nodes')
     .select(NODE_SELECT)
     .eq('id', nodeId)
-    .maybeSingle()
+    .maybeSingle() as unknown as PostgrestMaybeSingleResponse<NodeRow>
 }
 
-export async function updateNode(supabase: Client, nodeId: string, fields: NodeUpdate) {
+export async function updateNode(
+  supabase: Client,
+  nodeId: string,
+  fields: NodeUpdate,
+): Promise<PostgrestSingleResponse<NodeRow>> {
   return supabase
     .from('nodes')
     .update({ ...fields, updated_at: new Date().toISOString() })
     .eq('id', nodeId)
     .select(NODE_SELECT)
-    .single()
+    .single() as unknown as PostgrestSingleResponse<NodeRow>
 }
 
 export async function deleteNode(supabase: Client, nodeId: string) {

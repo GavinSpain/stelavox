@@ -22,4 +22,20 @@ export const err = {
   unknownParam:        () => apiError(400, 'unknown_param'),
   missingTemplate:     () => apiError(500, 'missing_template'),
   internal:            () => apiError(500, 'internal_error'),
+
+  // Phase 2 nodes — POST/GET (T-3.3)
+  missingParentId:           () => apiError(400, 'missing_parent_id'),
+  invalidNodeType:           () => apiError(400, 'invalid_node_type'),
+  invalidCategory:           () => apiError(400, 'invalid_category'),
+  invalidShortDescription:   () => apiError(400, 'invalid_short_description'),
+  invalidAgentInstruction:   () => apiError(400, 'invalid_agent_instruction'),
+  invalidWordCountTarget:    () => apiError(400, 'invalid_word_count_target'),
+  invalidSummary:            () => apiError(400, 'invalid_summary'),
+  invalidProse:              () => apiError(400, 'invalid_prose'),
+  invalidNotes:              () => apiError(400, 'invalid_notes'),
+  invalidMetadata:           () => apiError(400, 'invalid_metadata'),
+  invalidParent:             () => apiError(422, 'invalid_parent'),
+  layerViolation:            () => apiError(422, 'layer_violation'),
+  maxDepthExceeded:          () => apiError(422, 'max_depth_exceeded'),
+  parentLocked:              () => apiError(423, 'parent_locked'),
 }
