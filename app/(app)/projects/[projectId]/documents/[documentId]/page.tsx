@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
-import { NodeTree } from '@/components/tree/NodeTree'
+import { DocumentClient } from './_DocumentClient'
 
 interface Props {
   params: Promise<{ projectId: string; documentId: string }>
@@ -49,7 +49,7 @@ export default async function DocumentPage({ params }: Props) {
         </p>
       </div>
       <div style={{ flex: 1, overflow: 'hidden' }}>
-        <NodeTree
+        <DocumentClient
           documentId={documentId}
           documentType={document.document_type as 'novel' | 'short_story' | 'series'}
         />

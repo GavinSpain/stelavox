@@ -32,6 +32,12 @@ import { ToastProvider, useToast } from '@/components/feedback/Toast'
 interface NodeTreeProps {
   documentId: string
   documentType?: 'novel' | 'short_story' | 'series'
+  // Notified when a row is selected (clicked). Passed through to the
+  // parent so it can populate AppShell's right slot with a detail panel.
+  onSelect?: (nodeId: string | null) => void
+  // External refresh trigger — when this prop changes, the tree refetches.
+  // Used by NodeDetailPanel mutations to keep the tree in sync.
+  refreshKey?: number
 }
 
 // Phase 2 stub: hardcoded layer labels for V1 templates. Spec calls
@@ -72,7 +78,7 @@ export function NodeTree(props: NodeTreeProps) {
   )
 }
 
-function NodeTreeInner({ documentId, documentType }: NodeTreeProps) {
+function NodeTreeInner({ documentId, documentType, onSelect, refreshKey }: NodeTreeProps) {
   const toast = useToast()
   const [data, setData]   = useState<ArboristNode[] | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -99,7 +105,7 @@ function NodeTreeInner({ documentId, documentType }: NodeTreeProps) {
         setError('fetch_failed')
       })
     return () => { cancelled = true }
-  }, [documentId, refreshTick])
+  }, [documentId, refreshTick, refreshKey])
 
   function findInTree(nodes: ArboristNode[], id: string): ArboristNode | null {
     for (const n of nodes) {
@@ -266,6 +272,7 @@ function NodeTreeInner({ documentId, documentType }: NodeTreeProps) {
           openByDefault
           idAccessor="id"
           onMove={handleMove}
+          onSelect={(nodes) => onSelect?.(nodes[0]?.id ?? null)}
         >
           {NodeRow}
         </Tree>

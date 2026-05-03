@@ -39,10 +39,23 @@
 // user expands the sidebar again. Acceptable Phase 2 quirk; could be
 // resolved later by lifting collapse state up to AppShell.
 
-import { useEffect, useState } from 'react'
+import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import { Header } from './Header'
 import { Sidebar } from './Sidebar'
 import { PanelResizer } from './PanelResizer'
+
+// RightSlotContext lets any descendant of AppShell push content into
+// the right-panel slot. Pages call useRightSlot() and call setContent
+// with their own JSX (e.g. <NodeDetailPanel />). Returning to a route
+// without a detail panel: the consumer effect sets null on cleanup,
+// which restores the default placeholder.
+const RightSlotContext = createContext<{
+  setContent: (content: ReactNode | null) => void
+}>({ setContent: () => {} })
+
+export function useRightSlot() {
+  return useContext(RightSlotContext)
+}
 
 const SIDEBAR_KEY = 'stelavox_sidebar_width'
 const DETAIL_KEY  = 'stelavox_detail_width'
@@ -63,6 +76,7 @@ interface AppShellProps {
 export function AppShell({ userEmail, children }: AppShellProps) {
   const [sidebarWidth, setSidebarWidth] = useState(SIDEBAR_DEFAULT)
   const [detailWidth,  setDetailWidth]  = useState(DETAIL_DEFAULT)
+  const [rightSlotContent, setRightSlotContent] = useState<ReactNode | null>(null)
 
   useEffect(() => {
     // Hydrate widths from localStorage. setState-in-effect is the standard
@@ -95,15 +109,16 @@ export function AppShell({ userEmail, children }: AppShellProps) {
   }
 
   return (
-    <div
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        height: '100vh',
-        background: 'var(--color-bg-base)',
-        overflow: 'hidden',
-      }}
-    >
+    <RightSlotContext.Provider value={{ setContent: setRightSlotContent }}>
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          height: '100vh',
+          background: 'var(--color-bg-base)',
+          overflow: 'hidden',
+        }}
+      >
       <Header userEmail={userEmail} />
 
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
@@ -137,27 +152,29 @@ export function AppShell({ userEmail, children }: AppShellProps) {
         />
 
         <div
-          aria-label="Detail panel placeholder"
+          aria-label="Detail panel"
           style={{
             width: `${detailWidth}px`,
             flexShrink: 0,
-            background: 'var(--color-bg-base)',
+            background: rightSlotContent
+              ? 'var(--color-bg-surface)'
+              : 'var(--color-bg-base)',
             borderLeft: '1px solid var(--color-border-subtle)',
+            overflow: 'hidden',
             display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
+            flexDirection: 'column',
           }}
         >
-          <span
-            style={{
-              fontSize: 'var(--text-sm)',
-              color: 'var(--color-text-muted)',
-            }}
-          >
-            Node detail
-          </span>
+          {rightSlotContent ?? (
+            <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <span style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-muted)' }}>
+                Node detail
+              </span>
+            </div>
+          )}
         </div>
       </div>
-    </div>
+      </div>
+    </RightSlotContext.Provider>
   )
 }

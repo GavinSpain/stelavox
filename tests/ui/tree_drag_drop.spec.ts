@@ -41,17 +41,14 @@ test('Drag-and-drop: within-parent reorder updates DB', async ({ page }) => {
   const docId = setup.document.id
   const rootId = setup.root_node.id
 
-  const acts: { id: string; name: string }[] = []
   for (let i = 1; i <= 3; i++) {
-    const { data } = await admin
+    await admin
       .from('nodes')
       .insert({
         organisation_id: orgId, project_id: project!.id, document_id: docId,
         parent_id: rootId, node_category: 'structural', node_type: 'act',
         order: i, depth: 1, layer_index: 1, name: `Act ${i}`, status: 'draft', version: 1,
       })
-      .select('id, name').single()
-    acts.push(data!)
   }
 
   await page.goto(`${BASE}/projects/${project!.id}/documents/${docId}`)
