@@ -37,9 +37,12 @@ const STORAGE_KEY = 'stelavox_sidebar_state'
 interface SidebarProps {
   projectName?: string
   documentName?: string
+  // Controlled expanded-width (220–340px range, owned by AppShell).
+  // Ignored when collapsed — the icon rail is always 48px.
+  width?: number
 }
 
-export function Sidebar({ projectName, documentName }: SidebarProps) {
+export function Sidebar({ projectName, documentName, width = 220 }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(false)
 
   useEffect(() => {
@@ -59,7 +62,7 @@ export function Sidebar({ projectName, documentName }: SidebarProps) {
   return (
     <aside
       style={{
-        width: collapsed ? '48px' : '220px',
+        width: collapsed ? '48px' : `${width}px`,
         flexShrink: 0,
         background: 'var(--color-bg-surface)',
         borderRight: '1px solid var(--color-border-subtle)',
