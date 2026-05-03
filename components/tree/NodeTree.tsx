@@ -23,9 +23,11 @@
 
 import { useEffect, useState } from 'react'
 import { Tree } from 'react-arborist'
+import type { MoveHandler } from 'react-arborist'
 import { NodeRow, NodeActionsProvider, type ArboristNode, type NodeData } from './NodeRow'
 import { LayerDivider } from './LayerDivider'
 import { NodeMoreMenu } from './NodeMoreMenu'
+import { ToastProvider, useToast } from '@/components/feedback/Toast'
 
 interface NodeTreeProps {
   documentId: string
@@ -62,7 +64,16 @@ const NODE_TYPES: Record<string, readonly string[]> = {
   series:      ['series', 'book',  'act', 'chapter', 'scene', 'beat'],
 }
 
-export function NodeTree({ documentId, documentType }: NodeTreeProps) {
+export function NodeTree(props: NodeTreeProps) {
+  return (
+    <ToastProvider>
+      <NodeTreeInner {...props} />
+    </ToastProvider>
+  )
+}
+
+function NodeTreeInner({ documentId, documentType }: NodeTreeProps) {
+  const toast = useToast()
   const [data, setData]   = useState<ArboristNode[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [refreshTick, setRefreshTick] = useState(0)
@@ -134,6 +145,76 @@ export function NodeTree({ documentId, documentType }: NodeTreeProps) {
     if (r.ok) setRefreshTick(t => t + 1)
   }
 
+  // Drag-and-drop handler (T-5.1 / T-5.2). Optimistic update with
+  // rollback on API error. react-arborist passes:
+  //   { dragIds, parentId, index }
+  // where parentId is the destination parent's id (or null for the
+  // tree root, which Phase 2 doesn't allow), and index is 0-based.
+  const handleMove: MoveHandler<ArboristNode> = async (args) => {
+    if (!data) return
+    const { dragIds, parentId, index } = args
+    if (parentId === null) {
+      toast.show('Cannot move a node to the document root.', 'error')
+      return
+    }
+    if (dragIds.length !== 1) return
+    const nodeId = dragIds[0]
+
+    // Find moved node and old parent for the rollback / lookup info
+    const movedNode = findInTree(data, nodeId)
+    const newParent = findInTree(data, parentId)
+    if (!movedNode || !newParent) return
+
+    // Snapshot for rollback. Deep clone via JSON round-trip — the
+    // tree is small (low thousands of nodes max in Phase 2) so cost
+    // is negligible.
+    const snapshot: ArboristNode[] = JSON.parse(JSON.stringify(data))
+
+    // Optimistic update: rebuild tree with moved node in new place.
+    setData(applyMoveOptimistic(data, nodeId, parentId, index))
+
+    // Send PATCH
+    const r = await fetch(`/api/nodes/${nodeId}/move`, {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ parent_id: parentId, position: index }),
+    })
+
+    if (r.ok) {
+      // Refresh from server to pick up canonical order/depth values.
+      setRefreshTick(t => t + 1)
+      return
+    }
+
+    // Rollback + toast.
+    setData(snapshot)
+    const body = await r.json().catch(() => ({}))
+    const movedType = movedNode.data.node_type
+    const newParentType = newParent.data.node_type
+    switch (body?.error) {
+      case 'cycle_detected':
+        toast.show('Cannot move a node inside itself.', 'error')
+        break
+      case 'layer_violation':
+        toast.show(`${cap(movedType)}s belong inside their permitted parent layer, not ${newParentType}s.`, 'error')
+        break
+      case 'invalid_parent':
+        toast.show('Cannot move between documents.', 'error')
+        break
+      case 'node_locked':
+        toast.show(`This ${movedType} is locked. Unlock the layer to move it.`, 'error')
+        break
+      case 'parent_locked':
+        toast.show('This destination is locked. Unlock the layer to move into it.', 'error')
+        break
+      case 'invalid_position':
+        toast.show('Invalid drop position.', 'error')
+        break
+      default:
+        toast.show('Move failed.', 'error')
+    }
+  }
+
   if (error !== null) {
     return (
       <div style={{ padding: 'var(--space-4)', color: 'var(--color-text-muted)', fontSize: 'var(--text-sm)' }}>
@@ -184,6 +265,7 @@ export function NodeTree({ documentId, documentType }: NodeTreeProps) {
           indent={16}
           openByDefault
           idAccessor="id"
+          onMove={handleMove}
         >
           {NodeRow}
         </Tree>
@@ -199,6 +281,58 @@ export function NodeTree({ documentId, documentType }: NodeTreeProps) {
       )}
     </NodeActionsProvider>
   )
+}
+
+function cap(s: string): string {
+  return s.charAt(0).toUpperCase() + s.slice(1)
+}
+
+// Optimistic tree mutation: remove `nodeId` from its current parent
+// and insert it at `index` in the new parent's children. Returns a
+// new tree (not mutating the original). Used by handleMove before
+// the API round-trip; rolled back on failure via the snapshot.
+function applyMoveOptimistic(
+  tree: ArboristNode[],
+  nodeId: string,
+  newParentId: string,
+  index: number,
+): ArboristNode[] {
+  let movedNode: ArboristNode | null = null
+
+  function strip(nodes: ArboristNode[]): ArboristNode[] {
+    const out: ArboristNode[] = []
+    for (const n of nodes) {
+      if (n.id === nodeId) {
+        movedNode = n
+        continue
+      }
+      const stripped = n.children ? strip(n.children) : undefined
+      out.push({
+        ...n,
+        ...(stripped && stripped.length > 0 ? { children: stripped } : {}),
+      })
+    }
+    return out
+  }
+
+  const stripped = strip(tree)
+  if (!movedNode) return tree
+
+  function insert(nodes: ArboristNode[]): ArboristNode[] {
+    return nodes.map(n => {
+      if (n.id === newParentId) {
+        const children = n.children ? [...n.children] : []
+        children.splice(index, 0, movedNode!)
+        return { ...n, children }
+      }
+      if (n.children) {
+        return { ...n, children: insert(n.children) }
+      }
+      return n
+    })
+  }
+
+  return insert(stripped)
 }
 
 // Build a parent → children tree from the flat (depth-first ordered)
