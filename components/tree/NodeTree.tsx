@@ -52,6 +52,16 @@ const LAYER_LABELS: Record<string, readonly string[]> = {
   series:      ['SERIES', 'BOOKS',  'ACTS', 'CHAPTERS', 'SCENES', 'BEATS'],
 }
 
+// Lowercase node_type values for each layer index, parallel to
+// LAYER_LABELS. Used by handleAddChild to derive the new child's
+// node_type from the parent's layer_index. Same Phase 2 stub
+// rationale: a future fetch of layer_stacks.layers replaces this.
+const NODE_TYPES: Record<string, readonly string[]> = {
+  novel:       ['book',   'act',   'chapter', 'scene', 'beat'],
+  short_story: ['story',  'scene', 'beat'],
+  series:      ['series', 'book',  'act', 'chapter', 'scene', 'beat'],
+}
+
 export function NodeTree({ documentId, documentType }: NodeTreeProps) {
   const [data, setData]   = useState<ArboristNode[] | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -80,20 +90,48 @@ export function NodeTree({ documentId, documentType }: NodeTreeProps) {
     return () => { cancelled = true }
   }, [documentId, refreshTick])
 
+  function findInTree(nodes: ArboristNode[], id: string): ArboristNode | null {
+    for (const n of nodes) {
+      if (n.id === id) return n
+      if (n.children) {
+        const found = findInTree(n.children, id)
+        if (found) return found
+      }
+    }
+    return null
+  }
+
   function handleMore(nodeId: string, anchor: HTMLElement) {
     if (!data) return
-    // Determine if this is the root by walking the tree we already have.
-    function findRoot(nodes: ArboristNode[]): boolean {
-      for (const n of nodes) {
-        if (n.id === nodeId) return n.data.parent_id === null
-        if (n.children) {
-          const found = findRoot(n.children)
-          if (found !== undefined) return found
-        }
-      }
-      return false
+    const node = findInTree(data, nodeId)
+    if (!node) return
+    setMoreMenu({ nodeId, anchor, isRoot: node.data.parent_id === null })
+  }
+
+  async function handleAddChild(parentId: string) {
+    if (!data || !documentType) return
+    const parent = findInTree(data, parentId)
+    if (!parent) return
+    const types = NODE_TYPES[documentType]
+    if (!types) return
+    const childLayer = (parent.data.layer_index ?? 0) + 1
+    const childType = types[childLayer]
+    if (!childType) {
+      window.alert('No deeper layer available beneath this node.')
+      return
     }
-    setMoreMenu({ nodeId, anchor, isRoot: findRoot(data) })
+    const name = window.prompt(`New ${childType} name:`)
+    if (!name?.trim()) return
+    const r = await fetch(`/api/documents/${documentId}/nodes`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        parent_id: parentId,
+        node_type: childType,
+        name: name.trim(),
+      }),
+    })
+    if (r.ok) setRefreshTick(t => t + 1)
   }
 
   if (error !== null) {
@@ -117,7 +155,7 @@ export function NodeTree({ documentId, documentType }: NodeTreeProps) {
     <NodeActionsProvider
       value={{
         onMore: handleMore,
-        // onAddChild wired in T-4.7
+        onAddChild: handleAddChild,
       }}
     >
       <div
