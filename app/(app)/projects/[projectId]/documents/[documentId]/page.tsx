@@ -49,7 +49,10 @@ export default async function DocumentPage({ params }: Props) {
         </p>
       </div>
       <div style={{ flex: 1, overflow: 'hidden' }}>
-        <NodeTree documentId={documentId} />
+        <NodeTree
+          documentId={documentId}
+          documentType={document.document_type as 'novel' | 'short_story' | 'series'}
+        />
       </div>
     </div>
   )

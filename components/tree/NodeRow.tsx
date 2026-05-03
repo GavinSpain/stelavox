@@ -100,7 +100,7 @@ export function NodeRow({ node, style, dragHandle }: NodeRendererProps<ArboristN
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
-        ...style,                               // depth indent comes from here
+        ...style,
         height: '36px',
         display: 'flex',
         alignItems: 'center',

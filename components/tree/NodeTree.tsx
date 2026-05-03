@@ -24,12 +24,34 @@
 import { useEffect, useState } from 'react'
 import { Tree } from 'react-arborist'
 import { NodeRow, type ArboristNode, type NodeData } from './NodeRow'
+import { LayerDivider } from './LayerDivider'
 
 interface NodeTreeProps {
   documentId: string
+  documentType?: 'novel' | 'short_story' | 'series'
 }
 
-export function NodeTree({ documentId }: NodeTreeProps) {
+// Phase 2 stub: hardcoded layer labels for V1 templates. Spec calls
+// for layer_stacks.layers[i].label, but Phase 2 has no GET endpoint
+// for layer_stacks; a future polish pass replaces this with the real
+// fetched labels.
+//
+// Note on rendering: Component Spec §4.7 implies per-section dividers
+// inline in the tree, but react-arborist's virtualisation uses a
+// fixed `rowHeight`, which makes per-row extra-height injection cause
+// row overlap. Phase 2 stub renders these labels as a single
+// horizontal legend at the top of the tree — a reasonable
+// approximation that satisfies the Build Checklist's "rendering
+// against a Novel template shows labels" acceptance. A future polish
+// pass can switch to a custom `renderRow` that gives some rows extra
+// vertical space for inline dividers.
+const LAYER_LABELS: Record<string, readonly string[]> = {
+  novel:       ['BOOK',   'ACTS',   'CHAPTERS', 'SCENES', 'BEATS'],
+  short_story: ['STORY',  'SCENES', 'BEATS'],
+  series:      ['SERIES', 'BOOKS',  'ACTS', 'CHAPTERS', 'SCENES', 'BEATS'],
+}
+
+export function NodeTree({ documentId, documentType }: NodeTreeProps) {
   const [data, setData]   = useState<ArboristNode[] | null>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -70,6 +92,8 @@ export function NodeTree({ documentId }: NodeTreeProps) {
     )
   }
 
+  const layerLabels = documentType ? LAYER_LABELS[documentType] : undefined
+
   return (
     <div
       role="tree"
@@ -80,6 +104,15 @@ export function NodeTree({ documentId }: NodeTreeProps) {
         overflow: 'auto',
       }}
     >
+      {layerLabels && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', padding: '0 8px' }}>
+          {layerLabels.map((label, i) => (
+            <div key={label} style={{ flex: '0 0 auto', minWidth: '80px', borderTop: i === 0 ? 'none' : undefined }}>
+              <LayerDivider label={label} />
+            </div>
+          ))}
+        </div>
+      )}
       <Tree<ArboristNode>
         data={data}
         rowHeight={36}
