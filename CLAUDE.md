@@ -1,5 +1,5 @@
 # Stelavox — Claude Code Project Context
-## Version 1.2
+## Version 1.3
 
 > **Versioning note:** This file is versioned. The version lives here, not in the filename — the filename must remain `CLAUDE.md` for Claude Code to find it automatically. When this file changes, increment the version and add a changelog entry at the bottom. The source of record is `docs/CLAUDE_stelavox_project.md`; the deployed copy at the repository root must always match it. Commit both in the same commit.
 
@@ -30,7 +30,7 @@ All documents live in `/docs`. Before making any change, read the relevant docum
 | Product features, user journeys, pricing, data model | `stelavox_product_specification_v1_2.md` |
 | Any wireframe | `stelavox_wireframe_errata_v1_0.md` first, then the wireframe HTML |
 | Environment setup, deployment | `stelavox_deployment_setup_v1_0.md` |
-| Current phase tasks | `stelavox_phase1_build_checklist_v1.0.md` |
+| Current phase tasks | `stelavox_phase2_build_checklist_v1_0.md` (v1.1 amendment landed mid-Phase-2) |
 
 ---
 
@@ -248,6 +248,8 @@ Version bumps: minor for additions and corrections, major for structural changes
 ---
 
 ## Changelog
+
+**v1.3 — 2026-05-04** Updated Spec Library Reference "Current phase tasks" row from the stale `stelavox_phase1_build_checklist_v1.0.md` (Phase 1 reference + v1.0 typo for v1_0) to `stelavox_phase2_build_checklist_v1_0.md`. Build Checklist v1.1 amendment landed mid-Phase-2 (commit `b6e0d05` on master) — corrected §3.2 layout architecture from a 280-grid-with-tree-inside-sidebar arrangement to the spec-canonical 220/flex/380 three-panel structure per Brand Identity §8.2 / Component Spec §2.1. Phase 2 now shipped; Phase 2 Test Report v1.0 records 270/270 Playwright PASS, 136/136 Test Plan cases verified, and PHASE 2 PASSES verdict.
 
 **v1.2 — 2026-05-03** Bumped Technical Architecture reference from v1.3 to v1.4 across the Session Start Checklist, Spec Library Reference table, document-naming examples, and Known Hazards section. Hazards summary expanded from H-01..H-12 to H-01..H-14 (H-13 SECURITY DEFINER search_path; H-14 documents/layer_stacks insert ordering).
 
