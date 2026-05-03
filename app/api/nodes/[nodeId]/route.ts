@@ -18,7 +18,7 @@ import { createClient } from '@/lib/supabase/server'
 import { err } from '@/lib/api/errors'
 import { isValidUuid } from '@/lib/validation/uuid'
 import { nodePatchSchema } from '@/lib/validation/nodes'
-import { getNode, updateNode, deleteNode } from '@/lib/data/nodes'
+import { getNode, updateNode, updateNodeOptimistic, deleteNode } from '@/lib/data/nodes'
 
 interface Context { params: Promise<{ nodeId: string }> }
 
@@ -70,6 +70,7 @@ function mapPatchZodIssue(parsed: ReturnType<typeof nodePatchSchema.safeParse>) 
   if (path0 === 'metadata')          return err.invalidMetadata()
   if (path0 === 'locked')            return err.invalidLocked()
   if (path0 === 'lock_reason')       return err.invalidLockReason()
+  if (path0 === 'expected_version')  return err.invalidExpectedVersion()
   return err.invalidName()
 }
 
@@ -185,17 +186,51 @@ export async function PATCH(request: NextRequest, { params }: Context) {
     if (zodErr) return zodErr
     if (!parsed.success) return err.internal()  // unreachable; satisfies TS narrowing
 
-    if (Object.keys(parsed.data).length === 0) return err.emptyUpdate()
+    // Phase 3 (T-4.4): split the no-settable-fields response.
+    //   {}                           → 400 empty_update      (Phase 2 backward compat)
+    //   { expected_version: N }      → 400 missing_body      (Phase 3 TC-A-14)
+    //   anything with content/meta   → proceed
+    const parsedKeys = Object.keys(parsed.data)
+    const settableKeys = parsedKeys.filter(k => k !== 'expected_version')
+    if (settableKeys.length === 0) {
+      if ('expected_version' in parsed.data) return err.missingBody()
+      return err.emptyUpdate()
+    }
+
+    // Strip the orthogonal token before the UPDATE. The trigger handles
+    // version bumping; clients cannot send `version` (rejected by .strict()).
+    const { expected_version: expectedVersion, ...updateFields } = parsed.data
 
     const { data: node } = await getNode(supabase, nodeId)
     if (!node) return err.notFound()
 
+    // Step 10: lock check beats step 11's version check (§2.4 + TC-A-30).
     if (node.locked) return err.nodeLocked()
     if (await ancestorChainLocked(supabase, node.parent_id)) return err.parentLocked()
 
-    const updateFields: Record<string, unknown> = { ...parsed.data }
-    // metadata Zod-typed as Record<string, unknown> needs the Json cast
-    // for the typed updateNode signature.
+    // Step 11–12: atomic optimistic UPDATE. With `expected_version` set,
+    // the UPDATE's WHERE clause includes `version = expectedVersion`, so
+    // a concurrent commit between our read and write produces a 0-row
+    // UPDATE which we surface as 409 (TC-A-32). When omitted, the Phase 2
+    // last-write-wins path is preserved verbatim.
+    if (expectedVersion !== undefined) {
+      const { data: updated, error: updateError } = await updateNodeOptimistic(
+        supabase,
+        nodeId,
+        updateFields as never,
+        expectedVersion,
+      )
+      if (updateError) return err.internal()
+      if (!updated) {
+        // No row matched (id, version=expectedVersion). Either version
+        // mismatch or the row was deleted in the gap. Re-read to decide.
+        const { data: current } = await getNode(supabase, nodeId)
+        if (!current) return err.notFound()
+        return err.versionConflict(current, expectedVersion, current.version)
+      }
+      return NextResponse.json({ node: updated })
+    }
+
     const { data: updated, error: updateError } = await updateNode(
       supabase,
       nodeId,

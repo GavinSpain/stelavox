@@ -117,6 +117,28 @@ export async function updateNode(
     .single() as unknown as PostgrestSingleResponse<NodeRow>
 }
 
+// Phase 3 (T-4.3): atomic optimistic-concurrency UPDATE.
+// Adds `version = expectedVersion` to the WHERE clause so the UPDATE only
+// fires when the row's version matches. Returns null on mismatch — the
+// route re-reads via getNode() to determine 409 vs deleted-race (404).
+// This eliminates the read-compare-write race that a sequential check
+// would leave open (TC-A-32). Conflict detection lives in the route, not
+// here, per Build Checklist T-4.3.
+export async function updateNodeOptimistic(
+  supabase: Client,
+  nodeId: string,
+  fields: NodeUpdate,
+  expectedVersion: number,
+): Promise<PostgrestMaybeSingleResponse<NodeRow>> {
+  return supabase
+    .from('nodes')
+    .update({ ...fields, updated_at: new Date().toISOString() })
+    .eq('id', nodeId)
+    .eq('version', expectedVersion)
+    .select(NODE_SELECT)
+    .maybeSingle() as unknown as PostgrestMaybeSingleResponse<NodeRow>
+}
+
 export async function deleteNode(supabase: Client, nodeId: string) {
   return supabase
     .from('nodes')
