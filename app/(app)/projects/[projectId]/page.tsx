@@ -24,6 +24,7 @@ export default async function ProjectPage({ params }: Props) {
     .from('documents')
     .select('id, name, description, document_type, status, created_at')
     .eq('project_id', projectId)
+    .eq('status', 'active')
     .order('created_at', { ascending: false })
 
   return (

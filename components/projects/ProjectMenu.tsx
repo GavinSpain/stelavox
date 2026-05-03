@@ -59,7 +59,7 @@ export default function ProjectMenu({ projectId, projectName }: Props) {
   return (
     <>
       <DropdownMenu>
-        <DropdownMenuTrigger style={menuTriggerStyle} aria-label="Project options">···</DropdownMenuTrigger>
+        <DropdownMenuTrigger data-testid="project-menu" style={menuTriggerStyle} aria-label="Project options">···</DropdownMenuTrigger>
         <DropdownMenuContent align="end" style={{ background: 'var(--color-bg-elevated)', border: '1px solid var(--color-border-default)' }}>
           <DropdownMenuItem onClick={() => { setName(projectName); setRenameOpen(true) }} style={menuItemStyle}>
             Rename

@@ -1,10 +1,12 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 
 export default function SignupPage() {
+  const router = useRouter()
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -19,13 +21,17 @@ export default function SignupPage() {
     if (password !== confirm) { setError('Passwords do not match.'); return }
     setLoading(true)
     const supabase = createClient()
-    const { error: authError } = await supabase.auth.signUp({
+    const { data, error: authError } = await supabase.auth.signUp({
       email,
       password,
       options: { data: { name }, emailRedirectTo: `${location.origin}/auth/callback` },
     })
     setLoading(false)
     if (authError) { setError(authError.message); return }
+    if (data.session) {
+      router.push('/dashboard')
+      return
+    }
     setDone(true)
   }
 

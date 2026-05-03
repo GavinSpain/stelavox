@@ -73,7 +73,7 @@ export default function DocumentMenu({ documentId, documentName, documentStatus 
   return (
     <>
       <DropdownMenu>
-        <DropdownMenuTrigger style={menuTriggerStyle} aria-label="Document options">···</DropdownMenuTrigger>
+        <DropdownMenuTrigger data-testid="document-menu" style={menuTriggerStyle} aria-label="Document options">···</DropdownMenuTrigger>
         <DropdownMenuContent align="end" style={{ background: 'var(--color-bg-elevated)', border: '1px solid var(--color-border-default)' }}>
           <DropdownMenuItem onClick={() => { setName(documentName); setRenameOpen(true) }} style={menuItemStyle}>
             Rename

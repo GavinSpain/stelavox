@@ -67,7 +67,7 @@ export default function NewDocumentDialog({ projectId }: Props) {
         </DialogHeader>
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)', marginTop: 'var(--space-3)' }}>
           <Field label="Name">
-            <input value={name} onChange={e => setName(e.target.value)} required maxLength={200} style={inputStyle} />
+            <input type="text" value={name} onChange={e => setName(e.target.value)} required maxLength={200} style={inputStyle} />
           </Field>
           <Field label="Description (optional)">
             <textarea value={description} onChange={e => setDescription(e.target.value)} maxLength={5000} rows={3} style={{ ...inputStyle, resize: 'vertical' }} />

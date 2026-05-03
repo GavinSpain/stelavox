@@ -31,7 +31,12 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         >
           Stelavox
         </span>
-        <SignOutButton />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-4)' }}>
+          <span style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-secondary)' }}>
+            {user.email}
+          </span>
+          <SignOutButton />
+        </div>
       </header>
       <main style={{ padding: 'var(--space-6) var(--space-5)' }}>
         {children}

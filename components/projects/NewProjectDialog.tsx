@@ -64,6 +64,7 @@ export default function NewProjectDialog() {
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)', marginTop: 'var(--space-3)' }}>
           <Field label="Name">
             <input
+              type="text"
               value={name}
               onChange={e => setName(e.target.value)}
               required
