@@ -88,13 +88,12 @@ export function NodeRow({ node, style, dragHandle }: NodeRendererProps<ArboristN
   const textColour = active ? 'var(--color-text-primary)' : 'var(--color-text-secondary)'
   const fontWeight = active ? 500 : 400
 
+  // Note: react-arborist's outer wrapper already supplies
+  // role="treeitem" / aria-expanded / aria-level / aria-selected.
+  // We only attach aria-label here to avoid duplicate ARIA.
   return (
     <div
       ref={dragHandle}
-      role="treeitem"
-      aria-expanded={isLeaf ? undefined : isOpen}
-      aria-level={data.depth + 1}
-      aria-selected={active}
       aria-label={`${data.name ?? '(untitled)'}, ${data.status}`}
       onClick={() => node.isInternal ? node.toggle() : node.select()}
       onMouseEnter={() => setHovered(true)}

@@ -23,8 +23,9 @@
 
 import { useEffect, useState } from 'react'
 import { Tree } from 'react-arborist'
-import { NodeRow, type ArboristNode, type NodeData } from './NodeRow'
+import { NodeRow, NodeActionsProvider, type ArboristNode, type NodeData } from './NodeRow'
 import { LayerDivider } from './LayerDivider'
+import { NodeMoreMenu } from './NodeMoreMenu'
 
 interface NodeTreeProps {
   documentId: string
@@ -54,6 +55,8 @@ const LAYER_LABELS: Record<string, readonly string[]> = {
 export function NodeTree({ documentId, documentType }: NodeTreeProps) {
   const [data, setData]   = useState<ArboristNode[] | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [refreshTick, setRefreshTick] = useState(0)
+  const [moreMenu, setMoreMenu] = useState<{ nodeId: string; anchor: HTMLElement; isRoot: boolean } | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -75,7 +78,23 @@ export function NodeTree({ documentId, documentType }: NodeTreeProps) {
         setError('fetch_failed')
       })
     return () => { cancelled = true }
-  }, [documentId])
+  }, [documentId, refreshTick])
+
+  function handleMore(nodeId: string, anchor: HTMLElement) {
+    if (!data) return
+    // Determine if this is the root by walking the tree we already have.
+    function findRoot(nodes: ArboristNode[]): boolean {
+      for (const n of nodes) {
+        if (n.id === nodeId) return n.data.parent_id === null
+        if (n.children) {
+          const found = findRoot(n.children)
+          if (found !== undefined) return found
+        }
+      }
+      return false
+    }
+    setMoreMenu({ nodeId, anchor, isRoot: findRoot(data) })
+  }
 
   if (error !== null) {
     return (
@@ -95,36 +114,52 @@ export function NodeTree({ documentId, documentType }: NodeTreeProps) {
   const layerLabels = documentType ? LAYER_LABELS[documentType] : undefined
 
   return (
-    <div
-      role="tree"
-      style={{
-        background: 'var(--color-bg-base)',
-        padding: '8px 0',
-        height: '100%',
-        overflow: 'auto',
+    <NodeActionsProvider
+      value={{
+        onMore: handleMore,
+        // onAddChild wired in T-4.7
       }}
     >
-      {layerLabels && (
-        <div style={{ display: 'flex', flexWrap: 'wrap', padding: '0 8px' }}>
-          {layerLabels.map((label, i) => (
-            <div key={label} style={{ flex: '0 0 auto', minWidth: '80px', borderTop: i === 0 ? 'none' : undefined }}>
-              <LayerDivider label={label} />
-            </div>
-          ))}
-        </div>
-      )}
-      <Tree<ArboristNode>
-        data={data}
-        rowHeight={36}
-        width="100%"
-        height={600}
-        indent={16}
-        openByDefault
-        idAccessor="id"
+      <div
+        role="tree"
+        style={{
+          background: 'var(--color-bg-base)',
+          padding: '8px 0',
+          height: '100%',
+          overflow: 'auto',
+        }}
       >
-        {NodeRow}
-      </Tree>
-    </div>
+        {layerLabels && (
+          <div style={{ display: 'flex', flexWrap: 'wrap', padding: '0 8px' }}>
+            {layerLabels.map((label, i) => (
+              <div key={label} style={{ flex: '0 0 auto', minWidth: '80px', borderTop: i === 0 ? 'none' : undefined }}>
+                <LayerDivider label={label} />
+              </div>
+            ))}
+          </div>
+        )}
+        <Tree<ArboristNode>
+          data={data}
+          rowHeight={36}
+          width="100%"
+          height={600}
+          indent={16}
+          openByDefault
+          idAccessor="id"
+        >
+          {NodeRow}
+        </Tree>
+      </div>
+      {moreMenu && (
+        <NodeMoreMenu
+          nodeId={moreMenu.nodeId}
+          anchor={moreMenu.anchor}
+          isRoot={moreMenu.isRoot}
+          onClose={() => setMoreMenu(null)}
+          onMutated={() => setRefreshTick(t => t + 1)}
+        />
+      )}
+    </NodeActionsProvider>
   )
 }
 
