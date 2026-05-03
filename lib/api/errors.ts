@@ -44,4 +44,8 @@ export const err = {
   invalidLockReason:         () => apiError(400, 'invalid_lock_reason'),
   cannotDeleteRoot:          () => apiError(422, 'cannot_delete_root'),
   nodeLocked:                () => apiError(423, 'node_locked'),
+
+  // Phase 2 nodes — PATCH /move (T-3.5)
+  invalidPosition:           () => apiError(400, 'invalid_position'),
+  cycleDetected:             () => apiError(422, 'cycle_detected'),
 }

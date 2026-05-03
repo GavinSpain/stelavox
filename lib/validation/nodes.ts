@@ -75,5 +75,13 @@ export const nodePatchSchema = z.object({
   lock_reason:       lockReasonField,
 }).strict()
 
+// PATCH /api/nodes/[id]/move body — both fields required.
+// `position` is 0-indexed per API Contract §3.6.
+export const nodeMoveSchema = z.object({
+  parent_id: z.string().uuid(),
+  position:  z.number().int().nonnegative(),
+}).strict()
+
 export type NodePost  = z.infer<typeof nodePostSchema>
 export type NodePatch = z.infer<typeof nodePatchSchema>
+export type NodeMove  = z.infer<typeof nodeMoveSchema>
