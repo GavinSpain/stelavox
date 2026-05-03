@@ -229,14 +229,16 @@ function NodeTreeInner({ documentId, documentType, onSelect, refreshKey }: NodeT
     )
   }
   if (data === null) {
-    return (
-      <div style={{ padding: 'var(--space-4)', color: 'var(--color-text-muted)', fontSize: 'var(--text-sm)' }}>
-        Loading…
-      </div>
-    )
+    return <LoadingSkeleton />
   }
 
   const layerLabels = documentType ? LAYER_LABELS[documentType] : undefined
+  const childTypes  = documentType ? NODE_TYPES[documentType]   : undefined
+
+  // Empty state: tree has only the root node and no descendants.
+  // Show a hint pointing at the row's + button.
+  const isEmpty = data.length === 1 && !data[0].children
+  const firstChildType = childTypes?.[1]
 
   return (
     <NodeActionsProvider
@@ -276,6 +278,21 @@ function NodeTreeInner({ documentId, documentType, onSelect, refreshKey }: NodeT
         >
           {NodeRow}
         </Tree>
+        {isEmpty && firstChildType && (
+          <p
+            data-testid="empty-tree-hint"
+            style={{
+              marginTop: '4px',
+              paddingLeft: '40px',
+              fontSize: 'var(--text-xs)',
+              color: 'var(--color-text-muted)',
+              opacity: 0.7,
+              fontStyle: 'italic',
+            }}
+          >
+            Hover the row and click + to add your first {firstChildType}.
+          </p>
+        )}
       </div>
       {moreMenu && (
         <NodeMoreMenu
@@ -292,6 +309,48 @@ function NodeTreeInner({ documentId, documentType, onSelect, refreshKey }: NodeT
 
 function cap(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1)
+}
+
+// Loading skeleton — chevron + indent placeholder rows. No spinners
+// per Component Spec §4.1's intent (the tree is information, not an
+// event surface). Fades in via opacity to avoid drawing attention.
+function LoadingSkeleton() {
+  // A few rows at varying depths to suggest the tree shape.
+  const rows: { depth: number; width: number }[] = [
+    { depth: 0, width: 140 },
+    { depth: 1, width: 110 },
+    { depth: 2, width: 130 },
+    { depth: 2, width: 100 },
+    { depth: 1, width: 90 },
+  ]
+  return (
+    <div data-testid="tree-skeleton" style={{ padding: '8px 0', opacity: 0.5 }}>
+      {rows.map((r, i) => (
+        <div
+          key={i}
+          style={{
+            height: '36px',
+            paddingLeft: `${8 + r.depth * 16}px`,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+          }}
+        >
+          <span style={{ width: '8px', color: 'var(--color-text-muted)', fontSize: '10px' }}>▾</span>
+          <span style={{ width: '14px', textAlign: 'center', color: 'var(--color-text-muted)' }}>·</span>
+          <span
+            style={{
+              display: 'inline-block',
+              height: '10px',
+              width: `${r.width}px`,
+              background: 'var(--color-border-subtle)',
+              borderRadius: '2px',
+            }}
+          />
+        </div>
+      ))}
+    </div>
+  )
 }
 
 // Optimistic tree mutation: remove `nodeId` from its current parent
