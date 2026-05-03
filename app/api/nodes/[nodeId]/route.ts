@@ -108,6 +108,12 @@ async function countDescendants(
 // was greater than the deleted node's order. Phase 2 sibling counts are
 // small (<20 typical) so sequential UPDATEs are acceptable.
 //
+// Implementation note: PostgREST treats `order` as a reserved query
+// parameter name (used for ORDER BY). A filter like .gt('order', N)
+// emits `?order=gt.N` which PostgREST parses as a (malformed) order-by
+// clause rather than a filter — silently dropping it. Workaround: fetch
+// all siblings under the parent and filter in JS.
+//
 // Known atomicity gap: this runs AFTER the DELETE commits. If the route
 // process dies between the DELETE and the renumber, the affected
 // parent's children will have a sparse `order` (one gap). The data is
@@ -118,15 +124,17 @@ async function renumberSiblingsAfterDelete(
   parentId: string,
   deletedOrder: number,
 ): Promise<void> {
-  const { data: siblings } = await supabase
+  const { data: allSiblings } = await supabase
     .from('nodes')
     .select('id, order')
     .eq('parent_id', parentId)
-    .gt('order', deletedOrder)
-    .order('order', { ascending: true })
-  if (!siblings) return
+  if (!allSiblings) return
 
-  for (const s of siblings) {
+  const toRenumber = allSiblings
+    .filter(s => s.order > deletedOrder)
+    .sort((a, b) => a.order - b.order)
+
+  for (const s of toRenumber) {
     await supabase
       .from('nodes')
       .update({ order: s.order - 1, updated_at: new Date().toISOString() })
