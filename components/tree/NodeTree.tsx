@@ -22,34 +22,8 @@
 // react-virtualized-auto-sizer) once the surrounding layout settles.
 
 import { useEffect, useState } from 'react'
-import { Tree, type NodeRendererProps } from 'react-arborist'
-
-interface NodeRow {
-  id: string
-  parent_id: string | null
-  document_id: string | null
-  project_id: string
-  organisation_id: string
-  order: number
-  depth: number
-  layer_index: number | null
-  node_type: string
-  node_category: string
-  name: string | null
-  short_description: string | null
-  status: string
-  locked: boolean
-  word_count_target: number | null
-  word_count_actual: number | null
-  version: number
-}
-
-interface ArboristNode {
-  id: string
-  name: string
-  data: NodeRow
-  children?: ArboristNode[]
-}
+import { Tree } from 'react-arborist'
+import { NodeRow, type ArboristNode, type NodeData } from './NodeRow'
 
 interface NodeTreeProps {
   documentId: string
@@ -115,7 +89,7 @@ export function NodeTree({ documentId }: NodeTreeProps) {
         openByDefault
         idAccessor="id"
       >
-        {StubRow}
+        {NodeRow}
       </Tree>
     </div>
   )
@@ -124,8 +98,8 @@ export function NodeTree({ documentId }: NodeTreeProps) {
 // Build a parent → children tree from the flat (depth-first ordered)
 // array returned by GET /api/documents/[id]/nodes. The route already
 // applies a depth-first sort, so siblings are encountered in order.
-function buildTree(rows: NodeRow[]): ArboristNode[] {
-  const byParent = new Map<string | null, NodeRow[]>()
+function buildTree(rows: NodeData[]): ArboristNode[] {
+  const byParent = new Map<string | null, NodeData[]>()
   for (const r of rows) {
     const arr = byParent.get(r.parent_id) ?? []
     arr.push(r)
@@ -151,30 +125,3 @@ function buildTree(rows: NodeRow[]): ArboristNode[] {
   return build(null)
 }
 
-// Stub row — replaced by components/tree/NodeRow.tsx in T-4.3 (which
-// adds hover actions, status badge, type icon, the verdigris-#9 active
-// left border, and ARIA per Component Spec §4.2).
-//
-// IMPORTANT: do NOT override the `paddingLeft` (or `padding`) field
-// from react-arborist's `style` prop — it carries the depth-based
-// indentation. Spread style first; add own properties after but never
-// touch padding-left.
-function StubRow({ node, style }: NodeRendererProps<ArboristNode>) {
-  return (
-    <div
-      style={{
-        ...style,
-        display: 'flex',
-        alignItems: 'center',
-        fontSize: 'var(--text-sm)',
-        color: 'var(--color-text-secondary)',
-      }}
-      onClick={() => node.toggle()}
-    >
-      <span style={{ width: '16px', display: 'inline-block', color: 'var(--color-text-muted)' }}>
-        {node.isLeaf ? '' : node.isOpen ? '▾' : '▸'}
-      </span>
-      <span>{node.data.name}</span>
-    </div>
-  )
-}
