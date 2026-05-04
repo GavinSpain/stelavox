@@ -30,6 +30,7 @@ import { NotesEditor } from './NotesEditor'
 import { FocusModeButton } from './FocusModeButton'
 import { ConflictBanner } from './ConflictBanner'
 import { HistoryTab } from './HistoryTab'
+import { MetadataForm } from './MetadataForm'
 import { FocusMode } from '@/components/focus/FocusMode'
 import { useEditorStore } from '@/lib/stores/editor-store'
 
@@ -378,6 +379,8 @@ export function NodeDetailPanel({ nodeId, refreshKey, onMutated, onClose }: Node
                   wordTarget={node.word_count_target}
                 />
               </div>
+
+              <MetadataForm nodeType={node.node_type} readOnly={isReadOnly} />
 
               <div>
                 <label
