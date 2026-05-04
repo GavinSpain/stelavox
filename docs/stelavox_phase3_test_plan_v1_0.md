@@ -1,5 +1,5 @@
 # Stelavox — Phase 3 Pre-Phase Test Plan
-## Version 1.2
+## Version 1.3
 
 > **Tier-B per-phase document.** Written before any implementation. Derived from `stelavox_phase3_api_contract_v1_0.md` and the Phase 3 checkpoint criterion in `stelavox_technical_architecture_v1_5.md` §11. Executed at the end of Phase 3; results recorded in `stelavox_phase3_test_report_v1_0.md` (created during the build's pre-merge group).
 
@@ -242,6 +242,12 @@ These verify the Phase 3 checkpoint from a user's perspective: "Can write conten
 **Setup:** Detail panel open on a Chapter (non-leaf). Active element somewhere inside the Content tab (e.g. Summary editor).
 **Procedure:** Press `⌘Return`.
 **Expected:** No Focus Mode overlay appears (`[data-focus-mode="active"]` not present in the DOM after the keypress). The keystroke is harmlessly dropped because the panel never wires the entry handler when `node.is_leaf === false`. (On a Beat, the same keystroke would enter Focus Mode — covered by TC-U-12.)
+
+### TC-U-29 — Structural body text uses Inter, never the browser default *(v1.3)*
+**Spec:** Brand Identity v2.0 §6 (Inter for all structural UI); Inviolable #4 (typeface boundary). Closes the verification trio with TC-U-02 (SummaryEditor Inter) and TC-U-03 (ProseEditor Lora).
+**Setup:** Detail panel open on a Beat.
+**Procedure:** Read `getComputedStyle(...).fontFamily` on `<body>`, on the detail-panel heading, and on a tree row.
+**Expected:** All three resolve to a font-family stack starting with `Inter`; none contains `Lora`. The test guards against the v1.6-corrected silent-fallback bug where `--font-sans` was a circular self-reference resolving to the browser's default sans-serif (Segoe UI / Arial / Helvetica Neue) — making the structural surface visibly different from the wireframe.
 
 ---
 
@@ -707,7 +713,7 @@ Phase 3 PASSES if and only if **every** test case above resolves to PASS, AND th
 
 Concretely:
 
-1. All 27 active UI checkpoint tests (TC-U-01..13, TC-U-15..28) pass — TC-U-25..28 added in v1.1; **TC-U-14 deferred to Phase 8 (see §10)**.
+1. All 28 active UI checkpoint tests (TC-U-01..13, TC-U-15..29) pass — TC-U-25..28 added in v1.1; TC-U-29 added in v1.3 (structural Inter); **TC-U-14 deferred to Phase 8 (see §10)**.
 2. All 12 visual / opacity tests (TC-V-01 through TC-V-12) pass.
 3. All 5 active motion / transition tests (TC-M-01..03, TC-M-05, TC-M-08) pass — **TC-M-04, TC-M-06, TC-M-07 deferred to Phase 8 (see §10)**.
 4. All 35 API integration tests (TC-A-01 through TC-A-35) pass — TC-A-33..35 added in v1.1 for the server-derived `is_leaf` field.
@@ -715,7 +721,7 @@ Concretely:
 6. All 6 data integrity tests (TC-D-01 through TC-D-06) pass.
 7. All 6 accessibility tests (TC-AX-01 through TC-AX-06) pass.
 
-**Total active: 98 test cases (4 deferred to Phase 8).** Phase 3 PASSES with 98/98 active. The four deferred cases are not failures — they are formally moved to Phase 8 per TA v1.7 §11 because the underlying Sentence Focus + reduced-motion features are deferred.
+**Total active: 99 test cases (4 deferred to Phase 8).** Phase 3 PASSES with 99/99 active. The four deferred cases are not failures — they are formally moved to Phase 8 per TA v1.7 §11 because the underlying Sentence Focus + reduced-motion features are deferred.
 
 Any failure is recorded in the Phase 3 Test Report with: severity, classification (specification gap / specification error / implementation gap / environment issue), root-cause analysis, fix applied, and re-test result. A FAIL verdict is permitted to convert to PASS only after re-test.
 
@@ -760,6 +766,8 @@ This Test Plan is approved before any implementation begins. Changes after appro
 ---
 
 ## 12. Changelog
+
+**v1.3 — 2026-05-04** New TC-U-29 added: structural body text uses Inter, never the browser default. Closes the typeface-boundary verification trio with TC-U-02 (SummaryEditor Inter) and TC-U-03 (ProseEditor Lora). Records and guards against the v1.6 corrective fix to `app/globals.css` where `--font-sans` was a circular self-reference (`var(--font-sans)`) resolving to the browser default sans-serif (Segoe UI / Arial / Helvetica Neue) — silently violating Brand Identity v2.0 §6's Inter mandate. §9 verdict count adjusted 98 → 99 active.
 
 **v1.2 — 2026-05-04** Four cases deferred from active scope to Phase 8: TC-U-14 (Sentence Focus toggle), TC-M-04 (Sentence focus 200ms transition), TC-M-06 (reduced-motion sentence focus), TC-M-07 (reduced-motion WordCount). Each case has been annotated in-place with a *(DEFERRED to Phase 8 — see §10)* tag and a per-case status note explaining the dependency. New §10.1 records the four together with rationale; §9 verdict criteria updated to read "98 active cases (4 deferred)" rather than 102. The deferral is bookkeeping only — the case bodies are unchanged because the behaviour contract is unchanged; only the delivery phase moves. Tracked upstream in TA v1.7 §11 (Phase 8 row) and Component Spec v2.5 §6.4 / §6.5 (deferred banners).
 

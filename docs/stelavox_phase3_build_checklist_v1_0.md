@@ -1,5 +1,5 @@
 # Stelavox — Phase 3 Build Checklist
-## Version 1.2
+## Version 1.3
 
 > **Tier-B per-phase document.** The ordered, executable task list for Phase 3. Every task is sized to fit in one Claude Code session, has an explicit acceptance criterion, and references the spec section that authorises it. The agent works through this list top-to-bottom, marking each checkbox complete as the acceptance criterion is satisfied.
 
@@ -192,7 +192,7 @@ Authoritative spec: TA v1.5 §2.4 (`MetadataForm.tsx` referenced); API Contract 
     - `tests/helpers/tiptap.ts`, `tests/helpers/opacity.ts`, `tests/helpers/autosave.ts`, `tests/helpers/motion.ts` (per Test Plan §1.4).
    Acceptance: all 9 spec files exist; all 4 helper files exist.
 
-- [ ] **T-10.2.** Run `npx playwright test` from the worktree. Iterate on any failures: classify (spec gap / spec error / impl gap / env), fix the cause (spec fix → contract version bump → regenerate the test; impl fix → code change), re-run. **Do not modify a test case to make it pass** — that is forbidden by the Test Plan §9 rule. Acceptance: **98/98 active PASS** (102 originally-planned cases minus 4 deferred to Phase 8 per v1.2 SU-13; see Test Plan v1.2 §10.1).
+- [ ] **T-10.2.** Run `npx playwright test` from the worktree. Iterate on any failures: classify (spec gap / spec error / impl gap / env), fix the cause (spec fix → contract version bump → regenerate the test; impl fix → code change), re-run. **Do not modify a test case to make it pass** — that is forbidden by the Test Plan §9 rule. Acceptance: **99/99 active PASS** (102 originally-planned cases + 1 added (TC-U-29 in v1.3 for structural-Inter regression guard) − 4 deferred to Phase 8 per v1.2 SU-13; see Test Plan v1.3 §10.1).
 
 - [ ] **T-10.3.** Run `npm run build`, `npm run lint`, `npm run type-check`. Acceptance: all three exit 0.
 
@@ -247,6 +247,8 @@ Items raised during Phase 3 build that imply a TA v1.6 / Product Spec v1.4 / Com
 
 - **SU-5 (Phase 3 v1.1).** Tiptap v2 → v3 API drift. TA v1.5 §1 listed Tiptap 2.x; the build installed `3.22.5` (exact-pinned per the risk register's mitigation). v3 requires `immediatelyRender: false` on every `useEditor()` call for SSR safety; `setContent`'s second argument is `SetContentOptions`, not a boolean; and `useEditor` returns `Editor | null` (the editor doesn't exist during SSR). **Resolved:** TA v1.6 §2.6 (Rich Text Editing) now documents these v3 quirks explicitly; the editor components honour them.
 - **SU-6 (Phase 3 v1.1).** API Contract §5 G-6: leaf-ness is server-derived, never inferred from child count. Phase 3 v1.0's UI rendered ProseEditor on every node; the "no children" client-side heuristic mis-classifies in-construction non-leaf nodes as leaves. **Resolved:** API Contract v1.1 §2.12 adds `is_leaf: boolean`; TA v1.6 H-15 documents the structural rule; Component Spec v2.2 §4.2 / §5.1 / §5.4 / §5.7 / §5.8 / §6.1 gate the affected affordances. Build Checklist task T-5.9 (this document) implements the wiring.
+- **SU-14 (Phase 3 v1.3 — resolved).** `app/globals.css` had `--font-sans: var(--font-sans)` (a circular self-reference) which resolved to nothing, so structural surfaces (tree, sidebar, header, panel chrome, dialogs) inherited the browser's native default sans-serif (Segoe UI / Arial / Helvetica Neue) instead of Inter. Brand Identity v2.0 §6 and Inviolable #4 had always required Inter for structural UI; only the implementation diverged. **Resolved:** `--font-sans` now points at `var(--font-inter)`. New **TC-U-29** added in Test Plan v1.3 to guard the structural-Inter contract; closes the typeface-boundary verification trio with TC-U-02 / TC-U-03.
+
 - **SU-13 (Phase 3 v1.2 — deferred to Phase 8).** Sentence Focus end-to-end implementation + the prose-editor three-dot menu (toggle host) + `prefers-reduced-motion` collapse for WordCount fade and Sentence Focus transitions + the four corresponding test cases (TC-U-14 / TC-M-04 / TC-M-06 / TC-M-07). Phase 3 v1.0 shipped a CSS-only stub for `SentenceFocus.tsx`; the segmentation logic and toggle host were never built, and the four tests were never written. Audited and disclosed during the Test Report v1.5 review. Resolved in TA v1.7 §11 Phase 8 row; Component Spec v2.5 §6.4 / §6.5 carry deferred banners; Test Plan v1.2 §10.1 records the deferred test cases. Phase 3 verdict adjusted from 102/102 to 98/98 active.
 
 - **SU-7 (Phase 3 v1.1).** Component Spec §5.11 calls for a `--color-accent`-tinted current-version star, but Brand Identity v2.0 / CLAUDE.md Inviolable #2 enumerates exactly nine permitted verdigris uses, and the star is not among them. Phase 3 ships the star at `--color-text-primary` pending upstream resolution. Tracked for either Component Spec v2.3 (drop the verdigris call-out) or Brand Identity v2.1 + CLAUDE.md v1.6 (add a tenth Inviolable #2 entry).
@@ -298,6 +300,8 @@ Plus four implementation calls confirmed during contract drafting:
 ---
 
 ## 9. Changelog
+
+**v1.3 — 2026-05-04** Structural-Inter corrective absorbed. **§3.10 T-10.2** acceptance count corrected from 98/98 to 99/99 active (102 originally-planned + 1 added in v1.3 − 4 deferred to Phase 8). **§6 SU-14** records the bug (circular `--font-sans: var(--font-sans)` declaration in `app/globals.css` resolving to browser default) and the fix (`--font-sans: var(--font-inter)`). New TC-U-29 in Test Plan v1.3 guards the contract.
 
 **v1.2 — 2026-05-04** Sentence Focus + reduced-motion deferral cleanup. **§3.6 T-6.6** (SentenceFocus) re-marked as a CSS-only stub; full implementation moves to Phase 8 per TA v1.7 §11. **§3.6 T-6.5** (TypewriterContainer) gains a note that the Edit-Mode three-dot-menu opt-in is also Phase 8 work (it shares the toggle host). **§3.10 T-10.2** acceptance count corrected from 102/102 to 98/98 active (4 deferred). **§6 SU-13** records the deferral end-to-end. The disclosure was triggered by the Test Report v1.5 audit which found that TC-U-14 / TC-M-04 / TC-M-06 / TC-M-07 had never been authored despite the v1.0 verdict claiming 96/96 PASS. No code changes in this checklist amendment beyond the existing CSS-only `SentenceFocus.tsx` stub.
 

@@ -65,10 +65,19 @@
   --radius-xl:   var(--radius-lg-token);   /* no xl in our scale — maps to lg */
   --radius-full: var(--radius-full);
 
-  /* Typography */
-  --font-sans:    var(--font-sans);
+  /* Typography
+     --font-sans is the structural-UI font for everything OUTSIDE the prose
+     surface — tree rows, sidebar, header, tabs, panel chrome, dialogs.
+     Brand Identity v2.0 §6 mandates Inter for this surface (Inviolable #4
+     half — the structural side of the Inter/Lora boundary).
+     Phase 3 v1.6 corrective: was previously a circular self-reference
+     `var(--font-sans)` which resolved to nothing, leaving the browser to
+     fall back to its default (Segoe UI / Arial / Helvetica Neue), violating
+     Brand Identity v2.0 §6 silently. Now points explicitly at the
+     next/font Inter variable (--font-inter) declared in app/layout.tsx. */
+  --font-sans:    var(--font-inter);
   --font-mono:    var(--font-geist-mono);
-  --font-heading: var(--font-sans);
+  --font-heading: var(--font-inter);
 }
 
 /* ── shadcn/ui primitive variable definitions ──────────────────────────────

@@ -359,4 +359,37 @@ test.describe('Phase 3 — editors', () => {
     await expect(page.getByTestId('conflict-banner')).toBeVisible({ timeout: 3000 })
     await disposeFixture(f)
   })
+
+  test('TC-U-29 — Structural body text uses Inter, never the browser default', async ({ page }) => {
+    // Spec: Brand Identity v2.0 §6 (Inter for all structural UI);
+    //       Inviolable #4 (typeface boundary — Inter for structural,
+    //       Lora for prose). TC-U-02 verifies the editor side; this test
+    //       verifies the surrounding chrome (header, tabs, panel header,
+    //       tree rows). Regression guard for the v1.6 cursor-blink-style
+    //       silent fallback bug where --font-sans was a circular
+    //       self-reference resolving to the browser default.
+    const f = await setupFixture(orgA, 'TC-U-29')
+    await openBeat(page, f)
+
+    // body element — what every non-overridden surface inherits.
+    const bodyFont = await page.locator('body').evaluate(
+      (el: Element) => window.getComputedStyle(el).fontFamily,
+    )
+    expect(bodyFont.toLowerCase()).toContain('inter')
+    expect(bodyFont.toLowerCase()).not.toContain('lora')
+
+    // Detail-panel heading — should inherit Inter from body.
+    const headingFont = await page.getByTestId('node-name-heading').evaluate(
+      (el: Element) => window.getComputedStyle(el).fontFamily,
+    )
+    expect(headingFont.toLowerCase()).toContain('inter')
+
+    // A tree row — should also be Inter.
+    const treeRowFont = await page.getByLabel(`${f.beatName}, draft`).evaluate(
+      (el: Element) => window.getComputedStyle(el).fontFamily,
+    )
+    expect(treeRowFont.toLowerCase()).toContain('inter')
+
+    await disposeFixture(f)
+  })
 })
