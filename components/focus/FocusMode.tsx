@@ -14,6 +14,7 @@
 // 🔒 ⌘Return must NOT trigger Tiptap's hard-break inside the editor (T-6.8).
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { ProseEditor } from '@/components/detail/ProseEditor'
 import { FocusBreadcrumb } from './FocusBreadcrumb'
 import { FocusEscHint } from './FocusEscHint'
@@ -177,7 +178,24 @@ export function FocusMode({ node, onExit }: FocusModeProps) {
 
   const breadcrumbSegments = ['Document', activeNode.name ?? '(untitled)']
 
-  return (
+  // Portal target. Mount on document.body during hydration only — SSR has no
+  // body and we can't render a portal there. Returning null on the server is
+  // safe: Focus Mode is exclusively a client interaction.
+  const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null)
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setPortalTarget(document.body)
+  }, [])
+  if (!portalTarget) return null
+
+  // 🔒 createPortal to <body> per Component Spec v2.4 §6.1.
+  // FocusMode is invoked as a child of NodeDetailPanel, which lives inside
+  // AppShell's [data-shell="detail"]. The Focus-Mode entry transition sets
+  // `opacity: 0` + `transform: translateX(100%)` on [data-shell="detail"];
+  // CSS opacity and transform propagate to descendants, so a JSX-descendant
+  // FocusMode would inherit them and become invisible. Portalling escapes
+  // the AppShell's transformed subtree.
+  return createPortal(
     <div
       data-focus-mode="active"
       data-sentence-focus={sentenceFocusEnabled ? '' : undefined}
@@ -214,6 +232,7 @@ export function FocusMode({ node, onExit }: FocusModeProps) {
       <SentenceFocus enabled={sentenceFocusEnabled} />
 
       <FocusEscHint />
-    </div>
+    </div>,
+    portalTarget,
   )
 }

@@ -1,5 +1,5 @@
 # Stelavox — Component Specification
-## Version 2.3
+## Version 2.4
 
 ### Purpose
 
@@ -948,6 +948,8 @@ Built with Tiptap. The author's private scratchpad on a node — a place for hal
 
 Full-screen overlay mounted above AppShell.
 
+🔒 **Render via portal to `document.body`.** FocusMode MUST render through `ReactDOM.createPortal(<FocusMode … />, document.body)` rather than as a JSX descendant of the AppShell. The reason: AppShell's `[data-shell="detail"]` element receives `opacity: 0` and `transform: translateX(100%)` while `body.focus-mode-active` is set (the simultaneous-transition mechanism in §6.1's entry choreography). CSS `opacity` and `transform` propagate from the parent to every descendant — including any fixed-position child — so a FocusMode rendered as a JSX descendant of the detail panel inherits opacity 0 and the parent's translate, making the overlay either invisible or off-screen. A portal places the FocusMode DOM node directly under `<body>`, outside the AppShell's transformed subtree, so the overlay receives only the body-class transition rules intended for it.
+
 🔒 **Leaf-only entry.** Focus Mode can only be entered for a node where `node.is_leaf === true`. The entry shortcut `⌘Return` is wired only on leaves; the `<FocusModeButton>` is leaf-only (§5.8). This is consistent with ProseEditor's leaf-only mounting (§5.4) — Focus Mode is the prose surface at full viewport. Sibling navigation inside Focus Mode (`⌘←` / `⌘→`) only crosses sibling leaves at the same layer; the navigation never lands on a non-leaf.
 
 | Property | Value |
@@ -1633,6 +1635,8 @@ All open questions from Component Spec v1.4 are resolved. There are currently no
 ---
 
 ## 17. Changelog
+
+**v2.4 — 2026-05-04** Specification gap correction in §6.1 FocusMode. The earlier text described FocusMode as a *"full-screen overlay mounted above AppShell"* without specifying the React mechanism. The implementation rendered FocusMode as a JSX descendant of `NodeDetailPanel`, which is itself rendered into AppShell's right slot — i.e. inside `[data-shell="detail"]`. The Focus Mode entry transition (§6.1) then sets `opacity: 0` and `transform: translateX(100%)` on `[data-shell="detail"]` to slide it off-screen, but CSS opacity and transform propagate to descendants — including any fixed-position child — so the FocusMode overlay inherited opacity 0 and the parent's translate and never became visible. The user-visible symptom: full Focus Mode entry produces a blank screen. v2.4 amends §6.1 with a 🔒 rule mandating that FocusMode render via `ReactDOM.createPortal(..., document.body)` so the overlay sits outside the AppShell's transformed subtree. No behavioural change to the entry/exit choreography itself, no new tokens, no Inviolable changes.
 
 **v2.3 — 2026-05-04** Specification error correction in §5.5 ProseEditorCursor. The original example code animated `opacity` on the `.ProseMirror` element, which caused the entire prose body to fade in and out at the 600/400ms blink cadence — visible to authors as the *text* blinking. The §5.5 table description was correct from v2.0 onward ("cursor blinks; editor text does not"); only the example code was wrong. Replaced the keyframe to animate `caret-color` between `var(--color-accent)` and `transparent`, leaving editor opacity at 1 throughout. Added a 🔒 explanatory note alongside the corrected code so this can't be re-introduced. The same misimplementation also caused Focus Mode to appear blank for 400ms of every second on still observation. No other changes — no new components, no token changes, no Inviolable changes, no behaviour change for the cursor itself (still 600ms on / 400ms off when idle, solid while typing).
 
