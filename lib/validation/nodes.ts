@@ -42,10 +42,14 @@ const shortDescriptionField = z.string().max(1000).nullable().optional()
 const agentInstructionField = z.string().max(5000).nullable().optional()
 const wordCountTargetField  = z.number().int().nonnegative().nullable().optional()
 const summaryField          = z.string().max(100_000).nullable().optional()
-const proseField            = z.string().max(1_000_000).nullable().optional()
+// Phase 3 G-2: 1M → 2M chars (~400k words). 2M is a guardrail against accidental
+// megabyte payloads; per-beat content >5k words is suspect. Editor warns at 100k.
+const proseField            = z.string().max(2_000_000).nullable().optional()
 const notesField            = z.string().max(100_000).nullable().optional()
 const metadataField         = z.record(z.string(), z.unknown()).optional()
 const lockReasonField       = z.string().max(1000).nullable().optional()
+// Phase 3: optional optimistic-concurrency token. Strict integer ≥ 1.
+const expectedVersionField  = z.number().int().min(1).optional()
 
 export const nodePostSchema = z.object({
   parent_id:         z.string().uuid(),
@@ -73,6 +77,9 @@ export const nodePatchSchema = z.object({
   metadata:          metadataField,
   locked:            z.boolean().optional(),
   lock_reason:       lockReasonField,
+  // Phase 3: optimistic-concurrency check; not a settable column. The route
+  // strips it before the UPDATE.
+  expected_version:  expectedVersionField,
 }).strict()
 
 // PATCH /api/nodes/[id]/move body — both fields required.

@@ -12,7 +12,10 @@ import { err } from '@/lib/api/errors'
 import { isValidUuid } from '@/lib/validation/uuid'
 import { nodePostSchema } from '@/lib/validation/nodes'
 import { getDocument } from '@/lib/data/documents'
-import { createNode, getNode, listNodes } from '@/lib/data/nodes'
+import {
+  createNode, getNode, listNodes,
+  getDocumentMaxLayerIndex, decorateWithLeaf,
+} from '@/lib/data/nodes'
 
 interface Context { params: Promise<{ documentId: string }> }
 
@@ -182,7 +185,15 @@ export async function POST(request: NextRequest, { params }: Context) {
     })
     if (insertError || !inserted) return err.internal()
 
-    return NextResponse.json({ node: inserted }, { status: 201 })
+    // Phase 3 v1.1: decorate with is_leaf (API Contract §2.12).
+    const maxIdx = inserted.document_id
+      ? await getDocumentMaxLayerIndex(supabase, inserted.document_id)
+      : null
+
+    return NextResponse.json(
+      { node: decorateWithLeaf(inserted, maxIdx) },
+      { status: 201 },
+    )
   } catch {
     return err.internal()
   }
@@ -217,7 +228,13 @@ export async function GET(request: NextRequest, { params }: Context) {
     if (error) return err.internal()
 
     const sorted = depthFirstSort(data ?? [])
-    return NextResponse.json({ nodes: sorted })
+
+    // Phase 3 v1.1: decorate every row with is_leaf (API Contract §2.12).
+    // Single layer-stack lookup for the document; applied to every row.
+    const maxIdx = await getDocumentMaxLayerIndex(supabase, documentId)
+    const decorated = sorted.map(row => decorateWithLeaf(row, maxIdx))
+
+    return NextResponse.json({ nodes: decorated })
   } catch {
     return err.internal()
   }

@@ -48,4 +48,21 @@ export const err = {
   // Phase 2 nodes — PATCH /move (T-3.5)
   invalidPosition:           () => apiError(400, 'invalid_position'),
   cycleDetected:             () => apiError(422, 'cycle_detected'),
+
+  // Phase 3 nodes — version history (T-5.5..T-5.6)
+  invalidQuery:              () => apiError(400, 'invalid_query'),
+  invalidVersionNumber:      () => apiError(400, 'invalid_version_number'),
+  versionNotFound:           () => apiError(404, 'version_not_found'),
+
+  // Phase 3 nodes — PATCH optimistic concurrency (T-4.4)
+  invalidExpectedVersion:    () => apiError(400, 'invalid_expected_version'),
+  versionConflict:           (current: unknown, expected: number, found: number) =>
+    NextResponse.json(
+      {
+        error: 'version_conflict',
+        message: `Node was modified by another writer; expected version ${expected}, found ${found}.`,
+        current,
+      },
+      { status: 409 },
+    ),
 }

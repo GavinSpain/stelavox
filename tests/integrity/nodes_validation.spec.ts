@@ -163,7 +163,13 @@ test('PATCH: name empty after trim → fail', () => {
   expect(r.success).toBe(false)
 })
 
-test('PATCH: prose oversize → fail', () => {
-  const r = nodePatchSchema.safeParse({ prose: 'a'.repeat(1_000_001) })
+// Phase 3 G-2: prose cap raised 1M → 2M. Test updated to match the new ceiling.
+test('PATCH: prose at 2M+1 chars → fail', () => {
+  const r = nodePatchSchema.safeParse({ prose: 'a'.repeat(2_000_001) })
   expect(r.success).toBe(false)
+})
+
+test('PATCH: prose at 1M+1 chars → pass (raised under Phase 3 G-2)', () => {
+  const r = nodePatchSchema.safeParse({ prose: 'a'.repeat(1_000_001) })
+  expect(r.success).toBe(true)
 })

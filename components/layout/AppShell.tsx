@@ -119,10 +119,14 @@ export function AppShell({ userEmail, children }: AppShellProps) {
           overflow: 'hidden',
         }}
       >
-      <Header userEmail={userEmail} />
+      <div data-shell="header">
+        <Header userEmail={userEmail} />
+      </div>
 
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-        <Sidebar width={sidebarWidth} />
+        <div data-shell="sidebar" style={{ display: 'flex' }}>
+          <Sidebar width={sidebarWidth} />
+        </div>
 
         <PanelResizer
           position="sidebar-tree"
@@ -133,6 +137,7 @@ export function AppShell({ userEmail, children }: AppShellProps) {
         />
 
         <main
+          data-shell="tree"
           style={{
             flex: 1,
             minWidth: '320px',
@@ -152,6 +157,7 @@ export function AppShell({ userEmail, children }: AppShellProps) {
         />
 
         <div
+          data-shell="detail"
           aria-label="Detail panel"
           style={{
             width: `${detailWidth}px`,

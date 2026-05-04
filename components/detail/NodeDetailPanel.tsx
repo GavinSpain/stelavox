@@ -1,27 +1,38 @@
 'use client'
 
-// Spec: stelavox_component_specification_v2_0.md §5.1 (NodeDetailPanel)
-//       stelavox_phase2_build_checklist_v1_0.md v1.1 §3.6 T-6.1..T-6.3
+// Spec: stelavox_component_specification_v2_1.md §5.1 (NodeDetailPanel),
+//                                              §5.2 (TabStrip),
+//                                              §5.13 (NotesEditor)
+//       stelavox_phase3_build_checklist_v1_0.md §3.5 T-5.1 / T-5.2
+//       stelavox_phase3_api_contract_v1_0.md §2.11 (editor invariants)
 //
-// Phase 2 detail panel. Header: editable name + status dropdown.
-// TabStrip with five placeholder tabs (Content / Comments / Agent /
-// History / Context). Each tab body shows a phase-banner — the real
-// editors land in Phase 3 (Content, History), agents in Phase 5
-// (Agent, Comments), context library in Phase 4 (Context).
+// Phase 3: Content tab now hosts SummaryEditor → ProseEditor (edit mode) →
+// FocusModeButton → NotesEditor. All three pull values from editor-store
+// and route onChange → setField. ConflictBanner mounts above the editors
+// and surfaces 409/423 from the autosave loop.
 //
-// Fetches the node via GET /api/nodes/[id] on mount and on
-// `refreshKey` change (so external mutations can trigger a re-fetch).
-// PATCHes via /api/nodes/[id] for rename and status. Calls
-// onMutated() on success so the parent can refresh the tree.
+// Cross-node flush (T-4.9 alignment): the useEffect awaits flushPending()
+// for the previously-active node before fetching the new node, so node
+// switches never lose pending edits. Tree-level flush in NodeTree row
+// click is the earlier safety net; this is the panel-level guarantee.
 //
-// Inviolable #2: `--color-accent` MUST NOT appear in this file.
-// The status badge dot inside the dropdown reuses NodeStatusBadge,
-// which is the only sanctioned place for verdigris in the tree
-// surface (uses #4 and #5).
+// Inviolable #2: --color-accent MUST NOT appear in this file. NodeStatusBadge
+// owns the verdigris uses #4 (agent-complete) / #5 (approved) for the tree
+// surface; the prose-side verdigris uses (#3 cursor, #6 word count, #7 accept)
+// are inside ProseEditor / WordCount / AgentTab, not here.
 
 import { useEffect, useState } from 'react'
 import { TabStrip } from './TabStrip'
 import { NodeStatusBadge } from '@/components/tree/NodeStatusBadge'
+import { SummaryEditor } from './SummaryEditor'
+import { ProseEditor } from './ProseEditor'
+import { NotesEditor } from './NotesEditor'
+import { FocusModeButton } from './FocusModeButton'
+import { ConflictBanner } from './ConflictBanner'
+import { HistoryTab } from './HistoryTab'
+import { MetadataForm } from './MetadataForm'
+import { FocusMode } from '@/components/focus/FocusMode'
+import { useEditorStore } from '@/lib/stores/editor-store'
 
 interface NodeRecord {
   id: string
@@ -37,6 +48,14 @@ interface NodeRecord {
   word_count_actual: number | null
   agent_instruction: string | null
   version: number
+  summary: string | null
+  prose: string | null
+  notes: string | null
+  metadata: Record<string, unknown> | null
+  // Phase 3 v1.1 (API Contract §2.12): server-derived; gates the prose group
+  // (ProseEditor, FocusModeButton, WordCount) and the ⌘Return entry handler.
+  // Never inferred from child count — see TA v1.6 H-15.
+  is_leaf: boolean
 }
 
 interface NodeDetailPanelProps {
@@ -48,44 +67,95 @@ interface NodeDetailPanelProps {
 
 const STATUS_VALUES = ['draft', 'in_review', 'approved', 'locked'] as const
 
+// Order per Component Spec §5.1 + Build Checklist T-5.2:
+// Content, Agent, Comments, History, Context. Notes is folded into Content.
 const TABS = [
   { id: 'content',  label: 'Content'  },
-  { id: 'comments', label: 'Comments' },
   { id: 'agent',    label: 'Agent'    },
+  { id: 'comments', label: 'Comments' },
   { id: 'history',  label: 'History'  },
   { id: 'context',  label: 'Context'  },
 ] as const
 
-const TAB_PLACEHOLDERS: Record<string, string> = {
-  content:  'Summary, prose, and notes editors arrive in Phase 3.',
-  comments: 'Comments arrive in Phase 5 with the agent system.',
+const PHASE_PLACEHOLDERS: Record<string, string> = {
   agent:    'Agent jobs arrive in Phase 5.',
-  history:  'Version history arrives in Phase 3 alongside the editors.',
+  comments: 'Comments arrive in Phase 5 with the agent system.',
   context:  'Context links arrive in Phase 4 with the context library.',
 }
 
 export function NodeDetailPanel({ nodeId, refreshKey, onMutated, onClose }: NodeDetailPanelProps) {
-  const [node, setNode]     = useState<NodeRecord | null>(null)
-  const [error, setError]   = useState<string | null>(null)
+  const [node, setNode] = useState<NodeRecord | null>(null)
+  const [error, setError] = useState<string | null>(null)
   const [editing, setEditing] = useState(false)
   const [activeTab, setActiveTab] = useState<string>('content')
+  const [focusMode, setFocusMode] = useState(false)
 
+  // Pull editor state from the store. The editors stay presentation-only —
+  // the store owns the debounce, single-flight, and shadow.
+  const summary  = useEditorStore(s => s.summary)
+  const prose    = useEditorStore(s => s.prose)
+  const notes    = useEditorStore(s => s.notes)
+  const setField = useEditorStore(s => s.setField)
+  const lockedReason = useEditorStore(s => s.lockedReason)
+  const loadNode     = useEditorStore(s => s.loadNode)
+  const flushPending = useEditorStore(s => s.flushPending)
+
+  // Phase 3 (T-4.9): on every nodeId change, flush the prior node's pending
+  // edits BEFORE fetching the new node. Then load the new node into the
+  // store. The cleanup is fire-and-forget on unmount (best-effort).
   useEffect(() => {
     let cancelled = false
-    fetch(`/api/nodes/${nodeId}`, { headers: { 'content-type': 'application/json' } })
-      .then(async r => {
-        const body = await r.json()
-        if (cancelled) return
-        if (!r.ok) {
-          setError(typeof body?.error === 'string' ? body.error : 'fetch_failed')
-          return
-        }
-        setError(null)
-        setNode(body.node as NodeRecord)
+    ;(async () => {
+      await flushPending()
+      if (cancelled) return
+
+      const r = await fetch(`/api/nodes/${nodeId}`, {
+        headers: { 'content-type': 'application/json' },
       })
-      .catch(() => { if (!cancelled) setError('fetch_failed') })
+      const body = await r.json().catch(() => null)
+      if (cancelled) return
+      if (!r.ok || !body?.node) {
+        setError(typeof body?.error === 'string' ? body.error : 'fetch_failed')
+        return
+      }
+      setError(null)
+      const fetched = body.node as NodeRecord
+      setNode(fetched)
+      loadNode({
+        id: fetched.id,
+        version: fetched.version,
+        summary: fetched.summary,
+        prose: fetched.prose,
+        notes: fetched.notes,
+        metadata: fetched.metadata,
+      })
+    })()
     return () => { cancelled = true }
-  }, [nodeId, refreshKey])
+  }, [nodeId, refreshKey, flushPending, loadNode])
+
+  // T-6.8: ⌘Return in Edit Mode prose enters Focus Mode. capture:true so
+  // we run before Tiptap's hard-break binding (HardBreak extension binds
+  // Mod-Enter in v3); preventDefault + stopPropagation block it.
+  //
+  // v1.1 (Component Spec v2.2 §5.1): leaf-gated. The handler only registers
+  // when node.is_leaf === true. Without this, the DOM-presence check below
+  // would still no-op on non-leaves (no prose-edit element exists), but the
+  // explicit gate makes the rule visible at the call site.
+  useEffect(() => {
+    if (!node?.is_leaf) return
+    function onKeydown(e: KeyboardEvent) {
+      if (!(e.metaKey || e.ctrlKey)) return
+      if (e.key !== 'Enter') return
+      const proseEl = document.querySelector('[data-editor="prose"][data-mode="edit"] .tiptap')
+      if (proseEl && proseEl.contains(document.activeElement)) {
+        e.preventDefault()
+        e.stopPropagation()
+        setFocusMode(true)
+      }
+    }
+    window.addEventListener('keydown', onKeydown, { capture: true })
+    return () => window.removeEventListener('keydown', onKeydown, { capture: true } as EventListenerOptions)
+  }, [node?.is_leaf])
 
   async function submitName(next: string) {
     if (!node) return
@@ -134,7 +204,10 @@ export function NodeDetailPanel({ nodeId, refreshKey, onMutated, onClose }: Node
     )
   }
 
+  const isReadOnly = !!lockedReason
+
   return (
+    <>
     <div
       style={{
         height: '100%',
@@ -246,14 +319,134 @@ export function NodeDetailPanel({ nodeId, refreshKey, onMutated, onClose }: Node
       <div
         style={{
           flex: 1,
-          padding: 'var(--space-5)',
-          color: 'var(--color-text-muted)',
-          fontSize: 'var(--text-sm)',
           overflow: 'auto',
+          display: 'flex',
+          flexDirection: 'column',
         }}
       >
-        {TAB_PLACEHOLDERS[activeTab]}
+        {activeTab === 'content' && (
+          <>
+            <ConflictBanner />
+            <div
+              style={{
+                padding: 'var(--space-4) var(--space-5)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 'var(--space-4)',
+                flex: 1,
+              }}
+            >
+              <div>
+                <label
+                  style={{
+                    display: 'block',
+                    fontSize: '11px',
+                    fontFamily: 'var(--font-inter), Inter, sans-serif',
+                    fontWeight: 500,
+                    color: 'var(--color-text-muted)',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.08em',
+                    marginBottom: 'var(--space-2)',
+                  }}
+                >
+                  Summary
+                </label>
+                <SummaryEditor
+                  value={summary}
+                  onChange={(v) => setField('summary', v)}
+                  readOnly={isReadOnly}
+                />
+              </div>
+
+              {/* Prose group — leaves only (Component Spec v2.2 §5.1 / API
+                  Contract v1.1 §2.12 / TA v1.6 H-15). ProseEditor mounts only
+                  when node.is_leaf === true; on a non-leaf (Book/Act/Chapter/
+                  Scene), the prose surface, the FocusModeButton, and WordCount
+                  (rendered inside ProseEditor) are all suppressed. */}
+              {node.is_leaf && (
+                <div>
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      marginBottom: 'var(--space-2)',
+                    }}
+                  >
+                    <label
+                      style={{
+                        fontSize: '11px',
+                        fontFamily: 'var(--font-inter), Inter, sans-serif',
+                        fontWeight: 500,
+                        color: 'var(--color-text-muted)',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.08em',
+                      }}
+                    >
+                      Prose
+                    </label>
+                    <FocusModeButton onClick={() => setFocusMode(true)} />
+                  </div>
+                  <ProseEditor
+                    mode="edit"
+                    value={prose}
+                    onChange={(v) => setField('prose', v)}
+                    readOnly={isReadOnly}
+                    wordTarget={node.word_count_target}
+                  />
+                </div>
+              )}
+
+              <MetadataForm nodeType={node.node_type} readOnly={isReadOnly} />
+
+              <div>
+                <label
+                  style={{
+                    display: 'block',
+                    fontSize: '11px',
+                    fontFamily: 'var(--font-inter), Inter, sans-serif',
+                    fontWeight: 500,
+                    color: 'var(--color-text-muted)',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.08em',
+                    marginBottom: 'var(--space-2)',
+                  }}
+                >
+                  Notes
+                </label>
+                <NotesEditor
+                  value={notes}
+                  onChange={(v) => setField('notes', v)}
+                  readOnly={isReadOnly}
+                />
+              </div>
+            </div>
+          </>
+        )}
+
+        {activeTab === 'history' && (
+          <HistoryTab nodeId={nodeId} />
+        )}
+
+        {(activeTab === 'agent' || activeTab === 'comments' || activeTab === 'context') && (
+          <div
+            style={{
+              padding: 'var(--space-5)',
+              color: 'var(--color-text-muted)',
+              fontSize: 'var(--text-sm)',
+            }}
+          >
+            {PHASE_PLACEHOLDERS[activeTab]}
+          </div>
+        )}
       </div>
     </div>
+    {focusMode && (
+      <FocusMode
+        node={node}
+        onExit={() => setFocusMode(false)}
+      />
+    )}
+    </>
   )
 }
