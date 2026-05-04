@@ -270,7 +270,7 @@ File: `supabase/migrations/027_seed_agent_profiles_v1.sql`
 
 Per agent profile library v1.0 §8 — 17 INSERT statements via the `seed_agent_profile()` helper, one per profile in library doc §2.1–§2.18. The helper resolves `model_id` from `platform_config` at seed time. System prompts inlined as `$$...$$` literals with the `[SECURITY FRAME — see §4]` placeholder substituted with the §4.2 user-data instruction body.
 
-**Acceptance:** TC-D-13 (after migration replay, `SELECT count(*) FROM agent_profiles WHERE is_system_profile=TRUE` returns exactly 17). TC-D-14 (every system profile has a non-null `system_prompt`, `model_id`, and `temperature`). TC-S-08 (every system prompt contains the user-data security frame substring; no raw `[SECURITY FRAME — see §4]` placeholder remains).
+**Acceptance:** TC-D-13 (after migration replay, `SELECT count(*) FROM agent_profiles WHERE is_system_profile=TRUE` returns exactly 18). TC-D-14 (every system profile has a non-null `system_prompt`, `model_id`, and `temperature`). TC-S-08 (every system prompt contains the user-data security frame substring; no raw `[SECURITY FRAME — see §4]` placeholder remains).
 
 **T-1.4 — Migration 028: cost tracking column + price config keys**
 
@@ -782,7 +782,7 @@ This is also the model state used during T-16.2 cloud smoke. Reverts to Haiku on
 
 **T-15.1 — Run the 17 V1 prompts against a sample document**
 
-The build agent creates a sample document (use one of the Phase 3 test fixtures or seed a new one), then walks through each of the 17 V1 system prompts in agent profile library v1.0 §2:
+The build agent creates a sample document (use one of the Phase 3 test fixtures or seed a new one), then walks through each of the 18 V1 system prompts in agent profile library v1.0 §2:
 
 - 4 expand profiles → run on book/act/chapter/scene
 - 1 synthesise profile → run on a beat

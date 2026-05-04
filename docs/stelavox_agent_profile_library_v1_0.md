@@ -43,7 +43,7 @@ Phase 5 (per `stelavox_phase5_api_contract_v1_0.md`) ships single-node operation
 - **Six `generate_context` profiles** — one per V1 core context type (`character`, `location`, `organisation`, `theme`, `plot_thread`, `world`).
 - **One generic `refine` fallback** — `refine_default` for any node not covered by a more specific profile.
 
-That's **17 system profiles** seeded into `agent_profiles` by Migration 027. Each has a metadata block in §2 followed by the full system prompt body.
+That's **18 system profiles** seeded into `agent_profiles` by Migration 027 — four expand + one synthesise + seven refine (book / act / chapter / scene / beat-summary / beat-prose / generic fallback) + six generate-context. Each has a metadata block in §2 followed by the full system prompt body.
 
 Profiles for Short Story and Series document types share most of the Novel structural profiles (chapter, scene, beat are common) — see §2.18 for the Short-Story-and-Series overlay notes.
 
@@ -1449,7 +1449,7 @@ BEGIN
 END;
 $$;
 
--- Then 17 calls — one per V1 profile in §2:
+-- Then 18 calls — one per V1 profile in §2 (§2.1–§2.18):
 SELECT seed_agent_profile(
   'expand_book_into_acts',
   'Generate 3-5 act-level structural nodes from a book synopsis...',

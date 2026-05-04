@@ -28,7 +28,7 @@ Inherits from Phase 1's seeded test users plus a Phase 5 addition for cross-orga
 ### 1.3 Test data
 
 Phase 5 builds on the Phase 4 fixtures (a sample novel project with a partial tree, six core context nodes, structural↔context links). Phase 5 adds:
-- `agent_profiles` rows from Migration 027 (17 system profiles).
+- `agent_profiles` rows from Migration 027 (18 system profiles).
 - A "synthetic-prose-fixture" book with a 200-word synopsis suitable for the end-to-end CK-1 walk.
 - A pre-baked `agent_jobs` row in `completed` state for the Accept-flow tests (saves having to wait for an LLM call in every Accept test).
 
@@ -500,7 +500,7 @@ When a step or expectation references a TA / API Contract / Library doc section,
 
 ### TC-A-54 — GET /api/agent-profiles returns system + own-org
 **Steps:** Alice GET.
-**Expected:** 17 system profiles (V1 Novel set) + any of Alice's org-custom profiles (none in V1).
+**Expected:** 18 system profiles (V1 Novel set + generic refine fallback) + any of Alice's org-custom profiles (none in V1).
 
 ### TC-A-55 — GET filters by operation_type
 **Steps:** GET `?operation_type=expand`.
@@ -549,7 +549,7 @@ When a step or expectation references a TA / API Contract / Library doc section,
 ### TC-B-04 — agent_profiles RLS admits system profiles to anon-session
 **Setup:** Migration 025 applied.
 **Steps:** Anon Supabase client SELECT from agent_profiles.
-**Expected:** Empty result (no `auth.uid()` so the OR clause's organisation_id branch is also empty); but a session client of any org sees the 17 system profiles.
+**Expected:** Empty result (no `auth.uid()` so the OR clause's organisation_id branch is also empty); but a session client of any org sees the 18 system profiles.
 
 ### TC-B-05 — agent_profiles INSERT via user-session blocked
 **Steps:** Alice's session client INSERT into agent_profiles.
@@ -620,7 +620,7 @@ When a step or expectation references a TA / API Contract / Library doc section,
 **Steps:** DELETE the top-level via direct DB DELETE.
 **Expected:** All 3 rows deleted (the parent + 2 cascaded children).
 
-### TC-D-06 — Migration 027 seeds exactly 17 system profiles
+### TC-D-06 — Migration 027 seeds exactly 18 system profiles
 **Steps:** SELECT count(*) FROM agent_profiles WHERE is_system_profile=TRUE.
 **Expected:** 17.
 

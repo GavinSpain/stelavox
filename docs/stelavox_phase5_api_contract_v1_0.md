@@ -1040,7 +1040,7 @@ The Accept route (§3.7) calls `plainTextToTiptap()` before writing to `nodes.su
 
 ### G-12 — Phase 5 agent-profile coverage is Novel-only
 
-**Gap (raised in v1.1):** The seed file `supabase/seed.sql` defines three V1 system templates (Novel, Short Story, Series). Phase 5's library doc (`stelavox_agent_profile_library_v1_0.md` §2) seeds 17 system profiles, all of which target Novel-template node types (`book / act / chapter / scene / beat`). Short Story (`story / scene / beat`) and Series (`series / book / ...`) have no top-layer expand or refine profiles — `expand_story_into_scenes`, `refine_story_summary`, `expand_series_into_books`, `refine_series_summary` do not exist.
+**Gap (raised in v1.1):** The seed file `supabase/seed.sql` defines three V1 system templates (Novel, Short Story, Series). Phase 5's library doc (`stelavox_agent_profile_library_v1_0.md` §2) seeds 18 system profiles, all of which target Novel-template node types (`book / act / chapter / scene / beat`). Short Story (`story / scene / beat`) and Series (`series / book / ...`) have no top-layer expand or refine profiles — `expand_story_into_scenes`, `refine_story_summary`, `expand_series_into_books`, `refine_series_summary` do not exist.
 
 **Resolution for Phase 5:** **Phase 5 ships agent-profile coverage for the V1 Novel template only.** Short Story and Series documents remain creatable, editable, and renderable; their leaf-level `synthesise_beat` operates correctly because beats are universal across the three templates. Upper-layer agent operations on `story` or `series` node types return `400 invalid_operation_for_node_type` because the profile-resolution step (§3.1 step 10) finds no matching `agent_profiles` row.
 
