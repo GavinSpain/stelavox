@@ -31,14 +31,24 @@ import { FocusModeButton } from './FocusModeButton'
 import { ConflictBanner } from './ConflictBanner'
 import { HistoryTab } from './HistoryTab'
 import { MetadataForm } from './MetadataForm'
+import { ContextTab } from './ContextTab'
 import { FocusMode } from '@/components/focus/FocusMode'
 import { useEditorStore } from '@/lib/stores/editor-store'
+import { useSidebarProject } from '@/components/layout/AppShell'
+import { DeleteContextNodeModal } from '@/components/context/DeleteContextNodeModal'
+import { Trash2 } from 'lucide-react'
 
 interface NodeRecord {
   id: string
   name: string | null
   status: string
   node_type: string
+  // Phase 4: node_category and scope are surfaced so the detail panel can
+  // render different bodies for context nodes (no ProseEditor, no Focus
+  // Mode entry, MetadataForm renders the context-type schema).
+  node_category: 'structural' | 'context'
+  scope: 'project' | 'document' | null
+  project_id: string
   parent_id: string | null
   document_id: string | null
   depth: number
@@ -80,7 +90,6 @@ const TABS = [
 const PHASE_PLACEHOLDERS: Record<string, string> = {
   agent:    'Agent jobs arrive in Phase 5.',
   comments: 'Comments arrive in Phase 5 with the agent system.',
-  context:  'Context links arrive in Phase 4 with the context library.',
 }
 
 export function NodeDetailPanel({ nodeId, refreshKey, onMutated, onClose }: NodeDetailPanelProps) {
@@ -89,6 +98,8 @@ export function NodeDetailPanel({ nodeId, refreshKey, onMutated, onClose }: Node
   const [editing, setEditing] = useState(false)
   const [activeTab, setActiveTab] = useState<string>('content')
   const [focusMode, setFocusMode] = useState(false)
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false)
+  const { state: sidebarState, bumpRefresh } = useSidebarProject()
 
   // Pull editor state from the store. The editors stay presentation-only —
   // the store owns the debounce, single-flight, and shadow.
@@ -259,6 +270,29 @@ export function NodeDetailPanel({ nodeId, refreshKey, onMutated, onClose }: Node
               {node.name ?? '(untitled)'}
             </h2>
           )}
+          {/* Phase 4: delete button for context nodes only — uses
+              DeleteContextNodeModal which fetches back-links and
+              issues ?force=true. Structural deletes happen from the
+              tree's right-click menu (Phase 2). */}
+          {node.node_category === 'context' && (
+            <button
+              type="button"
+              onClick={() => setDeleteModalOpen(true)}
+              aria-label="Delete context node"
+              title="Delete"
+              style={{
+                background: 'transparent',
+                border: 'none',
+                color: 'var(--color-text-muted)',
+                cursor: 'pointer',
+                padding: '4px',
+                display: 'inline-flex',
+                alignItems: 'center',
+              }}
+            >
+              <Trash2 size={14} />
+            </button>
+          )}
           {onClose && (
             <button
               type="button"
@@ -428,7 +462,16 @@ export function NodeDetailPanel({ nodeId, refreshKey, onMutated, onClose }: Node
           <HistoryTab nodeId={nodeId} />
         )}
 
-        {(activeTab === 'agent' || activeTab === 'comments' || activeTab === 'context') && (
+        {activeTab === 'context' && (
+          <ContextTab
+            nodeId={nodeId}
+            nodeCategory={node.node_category}
+            projectId={node.project_id ?? sidebarState.projectId ?? ''}
+            documentId={node.document_id ?? sidebarState.documentId}
+          />
+        )}
+
+        {(activeTab === 'agent' || activeTab === 'comments') && (
           <div
             style={{
               padding: 'var(--space-5)',
@@ -445,6 +488,19 @@ export function NodeDetailPanel({ nodeId, refreshKey, onMutated, onClose }: Node
       <FocusMode
         node={node}
         onExit={() => setFocusMode(false)}
+      />
+    )}
+    {deleteModalOpen && node.node_category === 'context' && (
+      <DeleteContextNodeModal
+        open
+        contextNodeId={node.id}
+        contextName={node.name}
+        onClose={() => setDeleteModalOpen(false)}
+        onDeleted={() => {
+          setDeleteModalOpen(false)
+          bumpRefresh()
+          onClose?.()
+        }}
       />
     )}
     </>
