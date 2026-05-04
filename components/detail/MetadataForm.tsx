@@ -2,24 +2,68 @@
 
 // Spec: stelavox_phase3_build_checklist_v1_0.md §3.7 T-7.2
 //       stelavox_phase3_api_contract_v1_0.md §5 G-4
+//       stelavox_phase4_build_checklist_v1_0.md §3.7 T-7.1
+//       stelavox_phase4_api_contract_v1_0.md §5 G-2
 //
 // Renders the per-node-type metadata fields. All fields optional. Each input
 // updates editor-store.metadata, which folds into the next autosave PATCH
 // (one round trip per debounce window — invariant 3).
+//
+// Phase 4: branches on node_category. Structural nodes use the existing
+// editor schemas (POV character / time / location / mood from §3.7). Context
+// nodes use the V1 six-core schemas in lib/context/metadata-schemas.ts —
+// each schema may include `description` (helper text below the input) and
+// `type === 'textarea'` (multi-line).
 
 import { metadataSchemaForNodeType } from '@/lib/editor/metadata-schemas'
+import {
+  getMetadataSchema as getContextMetadataSchema,
+  type MetadataField as ContextMetadataField,
+} from '@/lib/context/metadata-schemas'
+import { isContextNodeType } from '@/lib/context/types'
 import { useEditorStore } from '@/lib/stores/editor-store'
 
-interface MetadataFormProps {
-  nodeType: string
-  readOnly?: boolean
+// The form deals with a unified field shape internally. Both schema sources
+// produce values that fit this superset.
+interface UnifiedField {
+  key:          string
+  label:        string
+  type:         'text' | 'textarea' | 'number' | 'date' | 'select'
+  options?:     string[]
+  description?: string
 }
 
-export function MetadataForm({ nodeType, readOnly }: MetadataFormProps) {
+interface MetadataFormProps {
+  nodeType:     string
+  nodeCategory: 'structural' | 'context'
+  readOnly?:    boolean
+}
+
+function fieldsForNode(nodeType: string, nodeCategory: 'structural' | 'context'): UnifiedField[] {
+  if (nodeCategory === 'context' && isContextNodeType(nodeType)) {
+    const schema = getContextMetadataSchema(nodeType)
+    return schema.fields.map((f: ContextMetadataField) => ({
+      key:         f.key,
+      label:       f.label,
+      type:        f.type,
+      options:     f.options,
+      description: f.description,
+    }))
+  }
+  // Structural — existing flat-array shape from lib/editor/metadata-schemas.ts.
+  return metadataSchemaForNodeType(nodeType).map(f => ({
+    key:     f.key,
+    label:   f.label,
+    type:    f.type,
+    options: f.options,
+  }))
+}
+
+export function MetadataForm({ nodeType, nodeCategory, readOnly }: MetadataFormProps) {
   const metadata = useEditorStore(s => s.metadata)
   const setMetadata = useEditorStore(s => s.setMetadata)
-  const schema = metadataSchemaForNodeType(nodeType)
-  if (schema.length === 0) return null
+  const fields = fieldsForNode(nodeType, nodeCategory)
+  if (fields.length === 0) return null
 
   function update(key: string, value: string) {
     const next = { ...(metadata ?? {}) }
@@ -44,11 +88,17 @@ export function MetadataForm({ nodeType, readOnly }: MetadataFormProps) {
       >
         Metadata
       </label>
-      <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '8px 12px', alignItems: 'center' }}>
-        {schema.map(field => {
-          const value = (metadata?.[field.key] as string | undefined) ?? ''
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+        {fields.map(field => {
+          const value = (metadata?.[field.key] as string | number | undefined) ?? ''
           return (
-            <FieldRow key={field.key} field={field} value={value} readOnly={readOnly} onChange={update} />
+            <FieldRow
+              key={field.key}
+              field={field}
+              value={String(value)}
+              readOnly={readOnly}
+              onChange={update}
+            />
           )
         })}
       </div>
@@ -62,7 +112,7 @@ function FieldRow({
   readOnly,
   onChange,
 }: {
-  field: ReturnType<typeof metadataSchemaForNodeType>[number]
+  field: UnifiedField
   value: string
   readOnly?: boolean
   onChange: (key: string, value: string) => void
@@ -79,7 +129,7 @@ function FieldRow({
   }
 
   return (
-    <>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
       <label
         htmlFor={`metadata-${field.key}`}
         style={{
@@ -98,10 +148,20 @@ function FieldRow({
           onChange={(e) => onChange(field.key, e.target.value)}
           style={sharedInputStyle}
         >
-          {(field.options ?? []).map(opt => (
-            <option key={opt} value={opt}>{opt || '—'}</option>
+          <option value="">—</option>
+          {(field.options ?? []).filter(o => o !== '').map(opt => (
+            <option key={opt} value={opt}>{opt}</option>
           ))}
         </select>
+      ) : field.type === 'textarea' ? (
+        <textarea
+          id={`metadata-${field.key}`}
+          value={value}
+          disabled={readOnly}
+          rows={3}
+          onChange={(e) => onChange(field.key, e.target.value)}
+          style={{ ...sharedInputStyle, resize: 'vertical' }}
+        />
       ) : (
         <input
           id={`metadata-${field.key}`}
@@ -112,6 +172,17 @@ function FieldRow({
           style={sharedInputStyle}
         />
       )}
-    </>
+      {field.description && (
+        <span
+          style={{
+            fontSize: '11px',
+            fontFamily: 'var(--font-inter), Inter, sans-serif',
+            color: 'var(--color-text-disabled)',
+          }}
+        >
+          {field.description}
+        </span>
+      )}
+    </div>
   )
 }

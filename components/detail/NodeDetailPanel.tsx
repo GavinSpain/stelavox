@@ -431,7 +431,11 @@ export function NodeDetailPanel({ nodeId, refreshKey, onMutated, onClose }: Node
                 </div>
               )}
 
-              <MetadataForm nodeType={node.node_type} readOnly={isReadOnly} />
+              <MetadataForm
+                nodeType={node.node_type}
+                nodeCategory={node.node_category}
+                readOnly={isReadOnly}
+              />
 
               <div>
                 <label
