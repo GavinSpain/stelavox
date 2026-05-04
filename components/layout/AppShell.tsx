@@ -39,7 +39,7 @@
 // user expands the sidebar again. Acceptable Phase 2 quirk; could be
 // resolved later by lifting collapse state up to AppShell.
 
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react'
 import { Header } from './Header'
 import { Sidebar } from './Sidebar'
 import { PanelResizer } from './PanelResizer'
@@ -117,12 +117,16 @@ export function AppShell({ userEmail, children }: AppShellProps) {
     onSelectContextNode: null,
     refreshKey: 0,
   })
-  const setProject = (patch: Partial<SidebarProjectState>) => {
+  // useCallback so consumers' useEffect dep arrays don't see a new function
+  // reference on every render — that caused an infinite update loop on the
+  // project page (DocumentClient + ProjectSidebarSetup both list setProject
+  // as a dependency).
+  const setProject = useCallback((patch: Partial<SidebarProjectState>) => {
     setSidebarProjectState(prev => ({ ...prev, ...patch }))
-  }
-  const bumpRefresh = () => {
+  }, [])
+  const bumpRefresh = useCallback(() => {
     setSidebarProjectState(prev => ({ ...prev, refreshKey: prev.refreshKey + 1 }))
-  }
+  }, [])
 
   useEffect(() => {
     // Hydrate widths from localStorage. setState-in-effect is the standard

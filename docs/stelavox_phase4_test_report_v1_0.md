@@ -165,6 +165,11 @@ New SU items raised during the build:
 - **SU-19 (Component Spec amendment)** — Modals hosting dynamic schema-driven forms must render with a scrollable body by default (`maxHeight: 85vh; overflowY: auto`). Came from §3 iteration 4. Component Spec §9.1 (Modal) gains a sub-rule.
 - **SU-20 (Component Spec amendment)** — TabStrip context-tab badge for direct + inherited count. Currently the Context tab is unbadged; the count would help the user know whether to look there. Phase 4 ships without the badge; absorb into Component Spec v2.6 / Phase 5.
 - **SU-21 (test-plan deferral)** — The 32 deferred UI/visual/motion/a11y cases from §3 iteration 5 should be authored in a Phase 4 v1.1 iteration or absorbed into Phase 8's polish phase (per TA §11 Phase 8 already absorbs Phase 3 deferrals).
+- **SU-22 (Phase 2/3 UX debt)** — Three pre-existing `window.prompt()` call sites should be replaced with styled `@/components/ui/dialog` modals that match Component Spec §9.1. The browser-native prompt sticks out against every other modal in the product (NewDocumentDialog, ContextCreateModal, NodePicker, DeleteContextNodeModal) and surfaces the bare `localhost:3000 says` chrome. **Discovered during Phase 4 manual walkthrough — not a Phase 4 regression**, but flagged here because the Phase 4 walkthrough is the moment the discrepancy became visible. Sites:
+  - `components/tree/NodeTree.tsx:140` — new-node name prompt (Phase 2)
+  - `components/detail/SelectionTooltip.tsx:51` — link URL prompt in the prose editor (Phase 3)
+  - `components/detail/NotesEditor.tsx:27` — link URL prompt in notes (Phase 3)
+  Phase 8 absorption candidate alongside SU-21. The fix shape: a small `NewNodeModal` component for the tree, a `LinkPromptModal` for the link cases (parameterised since both link sites share the same shape).
 
 Per the convention from Phase 3 (where SU items were absorbed into the upstream specs at the post-merge corrective commits), the SU-14..SU-21 list will be triaged after the merge and folded into TA v1.8 / Component Spec v2.6 / Product Spec v1.4 / CLAUDE.md v1.9 in close-out commits to master.
 
