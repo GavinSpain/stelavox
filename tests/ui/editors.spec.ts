@@ -204,7 +204,7 @@ test.describe('Phase 3 — editors', () => {
     const { status } = await waitForPatch(page, f.beatId)
     expect(status).toBe(409)
     // Banner appears with both buttons
-    const banner = page.locator('[role="alert"]')
+    const banner = page.getByTestId('conflict-banner')
     await expect(banner).toBeVisible({ timeout: 3000 })
     await expect(banner.getByRole('button', { name: /use latest/i })).toBeVisible()
     await expect(banner.getByRole('button', { name: /keep mine/i })).toBeVisible()
@@ -223,7 +223,7 @@ test.describe('Phase 3 — editors', () => {
     // Click Use latest
     await page.getByRole('button', { name: /use latest/i }).click()
     // Banner should dismiss
-    await expect(page.locator('[role="alert"]')).toBeHidden({ timeout: 2000 })
+    await expect(page.getByTestId('conflict-banner')).toBeHidden({ timeout: 2000 })
     // Editor content should reflect 'from-elsewhere'
     const proseText = await page.locator('[data-editor="prose"] .tiptap').innerText()
     expect(proseText).toContain('from-elsewhere')
@@ -246,7 +246,7 @@ test.describe('Phase 3 — editors', () => {
     expect(status).toBe(200)
     expect(body.expected_version).toBe(2)
     expect(body.prose).toContain('mine')
-    await expect(page.locator('[role="alert"]')).toBeHidden({ timeout: 2000 })
+    await expect(page.getByTestId('conflict-banner')).toBeHidden({ timeout: 2000 })
     await disposeFixture(f)
   })
 
@@ -259,7 +259,7 @@ test.describe('Phase 3 — editors', () => {
     await page.keyboard.type('x')
     const { status } = await waitForPatch(page, f.beatId)
     expect(status).toBe(423)
-    const banner = page.locator('[role="alert"]')
+    const banner = page.getByTestId('conflict-banner')
     await expect(banner).toBeVisible({ timeout: 3000 })
     await expect(banner.getByRole('button', { name: /use latest/i })).toBeVisible()
     // Keep mine should NOT be present in 423 banner
@@ -356,7 +356,7 @@ test.describe('Phase 3 — editors', () => {
     await page.keyboard.type('x')
     const { status } = await waitForPatch(page, f.beatId)
     expect(status).toBe(423)
-    await expect(page.locator('[role="alert"]')).toBeVisible({ timeout: 3000 })
+    await expect(page.getByTestId('conflict-banner')).toBeVisible({ timeout: 3000 })
     await disposeFixture(f)
   })
 })

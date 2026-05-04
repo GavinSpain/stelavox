@@ -48,6 +48,7 @@ export function ConflictBanner() {
 
   return (
     <div
+      data-testid="conflict-banner"
       role="alert"
       aria-live="assertive"
       style={{

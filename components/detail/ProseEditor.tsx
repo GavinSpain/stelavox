@@ -29,6 +29,8 @@ export function ProseEditor({ value, onChange, mode, readOnly = false, wordTarge
     extensions: proseExtensions as Parameters<typeof useEditor>[0]['extensions'],
     content: fromStorage(value),
     editable: !readOnly,
+    // Tiptap v3 SSR safety — see SummaryEditor.tsx for rationale.
+    immediatelyRender: false,
     onUpdate: ({ editor: e }) => {
       onChange(toStorage(e))
     },

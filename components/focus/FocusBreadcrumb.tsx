@@ -43,6 +43,7 @@ export function FocusBreadcrumb({ segments }: FocusBreadcrumbProps) {
 
   return (
     <div
+      data-testid="focus-breadcrumb"
       aria-hidden="true"
       style={{
         position: 'absolute',

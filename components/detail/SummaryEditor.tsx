@@ -4,7 +4,7 @@
 // 🔒 Inviolable #4: Inter ONLY — never Lora. Enforced via data-editor="summary"
 //    CSS selector in globals.css which scopes all .tiptap font rules.
 
-import { useEditor, EditorContent } from '@tiptap/react'
+import { useEditor, EditorContent, type Editor } from '@tiptap/react'
 import { useEffect, useState } from 'react'
 import { summaryExtensions } from '@/lib/editor/extensions'
 import { fromStorage, toStorage } from '@/lib/editor/serialise'
@@ -15,7 +15,7 @@ interface SummaryEditorProps {
   readOnly?: boolean
 }
 
-function SummaryToolbar({ editor }: { editor: ReturnType<typeof useEditor> }) {
+function SummaryToolbar({ editor }: { editor: Editor | null }) {
   if (!editor) return null
   return (
     <div
@@ -67,6 +67,9 @@ export function SummaryEditor({ value, onChange, readOnly = false }: SummaryEdit
     extensions: summaryExtensions as Parameters<typeof useEditor>[0]['extensions'],
     content: fromStorage(value),
     editable: !readOnly,
+    // Tiptap v3 SSR safety: required for Next.js hydration. Without this,
+    // Tiptap renders server-side and hydration throws an SSR-detected error.
+    immediatelyRender: false,
     onUpdate: ({ editor: e }) => {
       onChange(toStorage(e))
     },

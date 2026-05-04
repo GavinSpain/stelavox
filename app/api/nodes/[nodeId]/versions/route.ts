@@ -37,7 +37,28 @@ export async function GET(request: NextRequest, { params }: Context) {
     const { data: versions, count, error: listError } = await listVersions(
       supabase, nodeId, limit, offset,
     )
-    if (listError) return err.internal()
+
+    // PostgREST returns 416 (PGRST103) when offset > total. That is a valid
+    // "empty page beyond the end" case for clients paginating; surface it as
+    // 200 with the count we already know and an empty rows array. We need a
+    // separate count query because the range error short-circuits the count
+    // header that Supabase normally folds into the response.
+    if (listError) {
+      const rangeOutOfBounds =
+        listError.code === 'PGRST103' ||
+        /range/i.test(listError.message ?? '')
+      if (!rangeOutOfBounds) return err.internal()
+      // Fetch the count so the client can still see total + has_more.
+      const { count: totalCount } = await supabase
+        .from('node_versions')
+        .select('id', { count: 'exact', head: true })
+        .eq('node_id', nodeId)
+      return NextResponse.json({
+        versions: [],
+        total: totalCount ?? 0,
+        has_more: false,
+      })
+    }
 
     const total = count ?? 0
     const rows = versions ?? []

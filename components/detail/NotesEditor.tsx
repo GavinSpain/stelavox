@@ -5,7 +5,7 @@
 //    Link admitted (reference URLs); SummaryEditor does not admit Link.
 //    data-editor="notes" CSS in globals.css enforces the font boundary.
 
-import { useEditor, EditorContent } from '@tiptap/react'
+import { useEditor, EditorContent, type Editor } from '@tiptap/react'
 import { useEffect, useState } from 'react'
 import { notesExtensions } from '@/lib/editor/extensions'
 import { fromStorage, toStorage } from '@/lib/editor/serialise'
@@ -16,17 +16,20 @@ interface NotesEditorProps {
   readOnly?: boolean
 }
 
-function NotesToolbar({ editor }: { editor: ReturnType<typeof useEditor> }) {
+function NotesToolbar({ editor }: { editor: Editor | null }) {
   if (!editor) return null
+  // Pin a non-null reference for closures (TypeScript doesn't preserve outer
+  // narrowing into inner functions).
+  const ed: Editor = editor
 
   function setLink() {
-    const url = editor.getAttributes('link').href as string | undefined
+    const url = ed.getAttributes('link').href as string | undefined
     const next = window.prompt('URL', url ?? '')
     if (next === null) return
     if (next === '') {
-      editor.chain().focus().unsetLink().run()
+      ed.chain().focus().unsetLink().run()
     } else {
-      editor.chain().focus().setLink({ href: next }).run()
+      ed.chain().focus().setLink({ href: next }).run()
     }
   }
 
@@ -81,6 +84,8 @@ export function NotesEditor({ value, onChange, readOnly = false }: NotesEditorPr
     extensions: notesExtensions as Parameters<typeof useEditor>[0]['extensions'],
     content: fromStorage(value),
     editable: !readOnly,
+    // Tiptap v3 SSR safety — see SummaryEditor.tsx for rationale.
+    immediatelyRender: false,
     onUpdate: ({ editor: e }) => {
       onChange(toStorage(e))
     },

@@ -160,11 +160,13 @@ export function FocusMode({ node, onExit }: FocusModeProps) {
       }
       if (isMod && e.key === 'ArrowLeft') {
         e.preventDefault()
+        e.stopPropagation()
         void navigateSibling(-1)
         return
       }
       if (isMod && e.key === 'ArrowRight') {
         e.preventDefault()
+        e.stopPropagation()
         void navigateSibling(1)
         return
       }

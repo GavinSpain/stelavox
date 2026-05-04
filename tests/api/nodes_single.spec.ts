@@ -331,10 +331,12 @@ test.describe('PATCH /api/nodes/[id]', () => {
     await ctx.dispose()
   })
 
-  test('TC-A-58 prose >1M chars → 400 invalid_prose', async () => {
+  // Phase 3 G-2 raised the prose cap to 2M chars. The Phase 2 test is rebased
+  // to exercise the new ceiling.
+  test('TC-A-58 prose >2M chars → 400 invalid_prose', async () => {
     const ch = await freshChapter('TC-A-58')
     const ctx = await ctxA()
-    const res = await ctx.patch(`/api/nodes/${ch.id}`, { data: { prose: 'a'.repeat(1_000_001) } })
+    const res = await ctx.patch(`/api/nodes/${ch.id}`, { data: { prose: 'a'.repeat(2_000_001) } })
     expect(res.status()).toBe(400)
     expect((await res.json()).error).toBe('invalid_prose')
     await ctx.dispose()

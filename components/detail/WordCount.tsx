@@ -87,6 +87,7 @@ export function WordCount({ editor, target }: WordCountProps) {
 
   return (
     <div
+      data-testid="word-count"
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{

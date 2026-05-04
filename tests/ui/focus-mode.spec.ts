@@ -91,8 +91,11 @@ test.describe('Phase 3 — Focus Mode', () => {
     expect(await page.evaluate(() => document.body.classList.contains('focus-mode-active'))).toBe(true)
     // Focus Mode prose editor is rendered with mode="focus"
     await expect(page.locator('[data-editor="prose"][data-mode="focus"] .tiptap')).toBeVisible()
-    // Breadcrumb visible at low opacity
-    await expect(page.locator('[aria-hidden="true"]').first()).toBeVisible()
+    // Breadcrumb is rendered inside the focus overlay (aria-hidden="true" by spec
+    // is intentional, so toBeVisible() will refuse it — assert presence + non-zero box).
+    const breadcrumbBox = await page.locator('[data-focus-mode="active"] [aria-hidden="true"]').first().boundingBox()
+    expect(breadcrumbBox).not.toBeNull()
+    expect(breadcrumbBox!.width).toBeGreaterThan(0)
     await dispose(f)
   })
 
@@ -224,12 +227,20 @@ test.describe('Phase 3 — Focus Mode', () => {
     await page.locator('[data-editor="prose"] .tiptap').click()
     await page.keyboard.press(process.platform === 'darwin' ? 'Meta+Enter' : 'Control+Enter')
     await expect(page.locator('[data-focus-mode="active"]')).toBeVisible()
-    // Press ⌘→ to go to Beat 3
+    // The sibling fetch fires from inside FocusMode's useEffect; give it
+    // ample time to land + React to set state. The previous waitForResponse
+    // was racing with the page-load /nodes call.
+    await page.waitForTimeout(1500)
+    // Verify focus mode shows Beat 2's prose first
+    let initial = await page.locator('[data-editor="prose"][data-mode="focus"] .tiptap').innerText()
+    expect(initial).toContain('Prose 2')
+    void initial
+    // Press ⌘→ to go to Beat 3, then poll for the content swap
     await page.keyboard.press(process.platform === 'darwin' ? 'Meta+ArrowRight' : 'Control+ArrowRight')
-    // Allow fade-out + fetch + fade-in
-    await page.waitForTimeout(700)
-    const text = await page.locator('[data-editor="prose"][data-mode="focus"] .tiptap').innerText()
-    expect(text).toContain('Prose 3')
+    await expect.poll(
+      async () => page.locator('[data-editor="prose"][data-mode="focus"] .tiptap').innerText(),
+      { timeout: 4000, message: 'expected sibling prose to swap' },
+    ).toContain('Prose 3')
     await admin.from('projects').delete().eq('id', project!.id)
   })
 })

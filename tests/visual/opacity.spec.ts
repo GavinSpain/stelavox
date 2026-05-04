@@ -91,7 +91,7 @@ test.describe('Phase 3 — Visual / opacity state machines', () => {
     await page.keyboard.type('typing', { delay: 30 })
     // Find WordCount via known font setup: 11px Inter font, last child of prose grouping
     // Easier: locate "0 words" or any text matching word-count pattern within prose container
-    const wc = page.locator('[data-editor="prose"]').locator('..').locator('text=/^\\d+ words?$/').first()
+    const wc = page.getByTestId('word-count')
     // While typing: opacity should be ~0
     const o = await readOpacity(wc)
     expect(o).toBeLessThan(0.1)
@@ -105,7 +105,7 @@ test.describe('Phase 3 — Visual / opacity state machines', () => {
     await page.keyboard.type('typing', { delay: 30 })
     // Wait for the idle 3s + fade-in (800ms)
     await page.waitForTimeout(4000)
-    const wc = page.locator('[data-editor="prose"]').locator('..').locator('text=/^\\d+ words?$/').first()
+    const wc = page.getByTestId('word-count')
     await expectOpacityWithin(wc, 0.35, 0.45, 1500)
     await dispose(f)
   })
@@ -116,7 +116,7 @@ test.describe('Phase 3 — Visual / opacity state machines', () => {
     await page.locator('[data-editor="prose"] .tiptap').click()
     await page.keyboard.type('typing', { delay: 30 })
     await page.waitForTimeout(4000)
-    const wc = page.locator('[data-editor="prose"]').locator('..').locator('text=/^\\d+ words?$/').first()
+    const wc = page.getByTestId('word-count')
     // Hover the WordCount's parent container (which has the hover handler)
     await wc.hover()
     await expectOpacityWithin(wc, 0.85, 0.95, 1500)
@@ -130,7 +130,7 @@ test.describe('Phase 3 — Visual / opacity state machines', () => {
     await page.mouse.move(100, 100)
     await page.mouse.move(800, 600)
     await page.waitForTimeout(900)  // breadcrumb fades over 800ms
-    const bc = page.locator('[aria-hidden="true"]').first()
+    const bc = page.getByTestId('focus-breadcrumb')
     const o = await readOpacity(bc)
     expect(o).toBeLessThanOrEqual(0.21)
     await dispose(f)
@@ -143,7 +143,7 @@ test.describe('Phase 3 — Visual / opacity state machines', () => {
     await page.waitForTimeout(900)
     await page.locator('[data-editor="prose"][data-mode="focus"] .tiptap').click()
     await page.keyboard.type('hello', { delay: 30 })
-    const bc = page.locator('[aria-hidden="true"]').first()
+    const bc = page.getByTestId('focus-breadcrumb')
     await expectOpacityWithin(bc, 0, 0.05, 800)
     await dispose(f)
   })
@@ -152,7 +152,7 @@ test.describe('Phase 3 — Visual / opacity state machines', () => {
     const f = await setupFixture(orgA, 'TC-V-06')
     await openBeat(page, f)
     await enterFocusMode(page)
-    const pe = await page.locator('[aria-hidden="true"]').first().evaluate(
+    const pe = await page.getByTestId('focus-breadcrumb').evaluate(
       (el: Element) => window.getComputedStyle(el).pointerEvents,
     )
     expect(pe).toBe('none')

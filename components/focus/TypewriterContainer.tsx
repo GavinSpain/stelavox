@@ -20,6 +20,16 @@ export function TypewriterContainer({ enabled, children }: TypewriterContainerPr
     const el = ref.current
     if (!el) return
 
+    function findScrollContainer(start: Element | null): Element | Window {
+      let cur = start
+      while (cur) {
+        const overflowY = window.getComputedStyle(cur).overflowY
+        if (overflowY === 'auto' || overflowY === 'scroll') return cur
+        cur = cur.parentElement
+      }
+      return window
+    }
+
     function onSelectionChange() {
       const sel = window.getSelection()
       if (!sel || sel.rangeCount === 0) return
@@ -36,7 +46,15 @@ export function TypewriterContainer({ enabled, children }: TypewriterContainerPr
       const delta = elRect.top - targetY
       // ±2px tolerance to avoid micro-scrolls
       if (Math.abs(delta) <= 2) return
-      window.scrollBy({ top: delta, behavior: 'smooth' })
+
+      // FocusMode sets `overflow: auto` on a position:fixed div; that becomes
+      // the scrolling context, not window. Find it and scroll there instead.
+      const container = findScrollContainer(ref.current)
+      if (container === window) {
+        window.scrollBy({ top: delta, behavior: 'smooth' })
+      } else {
+        (container as Element).scrollBy({ top: delta, behavior: 'smooth' })
+      }
     }
 
     document.addEventListener('selectionchange', onSelectionChange)

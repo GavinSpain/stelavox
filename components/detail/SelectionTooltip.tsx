@@ -60,9 +60,9 @@ export function SelectionTooltip({ editor }: SelectionTooltipProps) {
   if (!visible) return null
 
   const buttons = [
-    { label: 'B', title: 'Bold (⌘B)', action: () => editor.chain().focus().toggleBold().run(), active: editor.isActive('bold'), style: { fontWeight: 700 } },
-    { label: 'I', title: 'Italic (⌘I)', action: () => editor.chain().focus().toggleItalic().run(), active: editor.isActive('italic'), style: { fontStyle: 'italic' } },
-    { label: '🔗', title: 'Link (⌘K)', action: setLink, active: editor.isActive('link'), style: {} },
+    { label: 'B', title: 'Bold (⌘B)',  ariaLabel: 'Bold',   action: () => editor.chain().focus().toggleBold().run(),   active: editor.isActive('bold'),   style: { fontWeight: 700 } },
+    { label: 'I', title: 'Italic (⌘I)', ariaLabel: 'Italic', action: () => editor.chain().focus().toggleItalic().run(), active: editor.isActive('italic'), style: { fontStyle: 'italic' } },
+    { label: '🔗', title: 'Link (⌘K)',  ariaLabel: 'Link',   action: setLink,                                            active: editor.isActive('link'),   style: {} },
   ]
 
   return (
@@ -95,6 +95,7 @@ export function SelectionTooltip({ editor }: SelectionTooltipProps) {
           <button
             type="button"
             title={btn.title}
+            aria-label={btn.ariaLabel}
             onMouseDown={(e) => { e.preventDefault(); btn.action() }}
             style={{
               padding: '2px 6px',
