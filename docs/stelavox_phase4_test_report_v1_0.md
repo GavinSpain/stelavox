@@ -14,7 +14,7 @@
 - 22 migrations applied (001–021 + 023; 022 intentionally skipped per TA v1.7 §3.5). Seed loaded — counts verified at PB-4: `nodes=0, layer_stacks=3, platform_config=41, director_configs=1, agent_profiles=0, node_context_links=0`.
 - Next.js dev server on `http://localhost:3000` (the worktree's own; the Phase 3 worktree's leftover dev server on the same port was killed and the worktree's was started afresh — see §3 iteration 1).
 - Three test users created by `tests/global-setup.ts` (User A / B / C as per Phase 1 / 2 / 3 conventions).
-- Phase B cloud target: `stelavox-dev` (project `zhcdbofshifzblkgqrsc`, region `ap-southeast-2`) — **smoke not run in this iteration; deferred to merge moment** (see §3 iteration 5 + §4 Verdict notes).
+- Phase B cloud target: `stelavox-dev` (project `zhcdbofshifzblkgqrsc`, region `ap-southeast-2`) — **4-case smoke ran 2026-05-04; 4/4 PASS** (see §2 + §4).
 
 ## 2. Test Execution Log
 
@@ -31,6 +31,7 @@ Run order followed the chunk pattern from the Phase / session start + shutdown p
 | Phase 4 — UI linker | `tests/ui/context_linker.spec.ts` | 2 (TC-U-08, 09+11) | **2/2 PASS** |
 | **Phase 4 subtotal** | | **87** | **87/87 PASS** |
 | Phase 2/3 regression — API + integrity | `tests/api/{nodes,nodes-patch,nodes_move,versions}.spec.ts`, `tests/integrity/{nodes_validation,nodes_data,data}.spec.ts` | 127 | **127/127 PASS** |
+| Phase B cloud smoke (against `stelavox-dev`) | TC-U-01 + TC-U-08 + TC-A-01 + TC-A-15 | 4 | **4/4 PASS** |
 
 The full-suite combined run was avoided per the procedure memory.
 
@@ -130,7 +131,7 @@ Per the build checklist's T-8.4 audit rule, the verdict count is the count of au
 
 ## 4. Verdict
 
-**Phase 4 — Context System: PASS (58/58 active local + 0 cloud smoke this iteration).**
+**Phase 4 — Context System: PASS (58/58 active local + 4/4 Phase B cloud smoke).**
 
 Active count breakdown:
 - TC-A (API integration): 36/36 PASS
@@ -147,7 +148,7 @@ Phase 2/3 regression: 127/127 PASS. The Phase 4 changes to the existing `/api/no
 
 Pre-merge invariants: type-check / lint / build all exit 0; CLAUDE.md ↔ docs/CLAUDE_stelavox_project.md byte-identical; lib/types/database.ts unchanged from master (no migrations this phase).
 
-**Phase B cloud smoke: not run this iteration.** The 4-case subset (TC-U-01, TC-U-08, TC-A-01, TC-A-15) is ready to run against `stelavox-dev` and is the recommended next step at merge time. This is consistent with the Phase / session start + shutdown procedure memory's "Phase B cloud smoke" task — the user provides the service-role key when prompted, and the smoke runs against the cloud DB. Listing this as a pre-merge gate rather than a post-merge follow-up.
+**Phase B cloud smoke: 4/4 PASS.** The four-case subset (TC-U-01, TC-U-08, TC-A-01, TC-A-15) was run against `stelavox-dev` (project `zhcdbofshifzblkgqrsc`) on 2026-05-04 with `--timeout=60000` per the procedure. The user-provided service-role key was stored at `C:/dev/stelavox_2/.env.servicekey` (parent repo root, .gitignore-protected — see `reference_servicekey_storage.md` memory) for future smoke runs.
 
 ## 5. Spec-update items raised during the build
 
@@ -187,4 +188,4 @@ Phase 4 deferred items (SU-21) are not blocking for Phase 5 — they are polish 
 
 ## 7. Changelog
 
-**v1.0 — 2026-05-04** Initial Phase 4 Test Report. 87/87 authored Phase 4 cases PASS locally. 127/127 Phase 2/3 regression PASS. Phase B cloud smoke deferred to merge moment (4-case subset is ready). 32 plan cases formally deferred under §3 iteration 5 (UI/visual/motion/a11y polish — Phase 8 absorption candidate). Five iterations during the build classified: 1 environment (stale dev server), 2 implementation gap (column name; modal viewport), 1 lint-rule false-positive, 1 process (audit disclosure). Eight SU items raised — SU-14..SU-17 from API Contract gaps; SU-18..SU-21 newly raised during the build.
+**v1.0 — 2026-05-04** Initial Phase 4 Test Report. 87/87 authored Phase 4 cases PASS locally + 4/4 Phase B cloud smoke PASS against `stelavox-dev`. 127/127 Phase 2/3 regression PASS. 32 plan cases formally deferred under §3 iteration 5 (UI/visual/motion/a11y polish — Phase 8 absorption candidate). Five iterations during the build classified: 1 environment (stale dev server), 2 implementation gap (column name; modal viewport), 1 lint-rule false-positive, 1 process (audit disclosure). Eight SU items raised — SU-14..SU-17 from API Contract gaps; SU-18..SU-21 newly raised during the build.

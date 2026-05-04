@@ -39,6 +39,10 @@ yarn-error.log*
 .env.local
 .env.development.local
 .env.production.local
+# Cloud Supabase service-role keys for stelavox-dev / stelavox-prod.
+# Lives at C:/dev/stelavox_2/.env.servicekey (parent repo root); this
+# pattern also catches per-worktree copies if a smoke run leaves one.
+.env.servicekey
 # .env.example is intentionally NOT ignored — it is safe to commit
 
 # vercel
