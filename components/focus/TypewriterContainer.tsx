@@ -30,21 +30,38 @@ export function TypewriterContainer({ enabled, children }: TypewriterContainerPr
       return window
     }
 
-    function onSelectionChange() {
+    function cursorLineTop(): number | null {
       const sel = window.getSelection()
-      if (!sel || sel.rangeCount === 0) return
-      const range = sel.getRangeAt(0).cloneRange()
-      // Use the start container's parent as a positional anchor.
+      if (!sel || sel.rangeCount === 0) return null
+      const range = sel.getRangeAt(0)
+
+      // Primary: range.getBoundingClientRect() on a collapsed range returns
+      // a 0-width rect at the cursor position with top/bottom = the cursor's
+      // VISUAL LINE top/bottom. This is the correct anchor — it follows the
+      // cursor through every line of a wrapped paragraph, not just the
+      // paragraph's first line. Brand Identity v2.0 §7.4 + Component Spec
+      // v2.4 §6.4: "active line centres at 42% across all typing actions."
+      const rangeRect = range.getBoundingClientRect()
+      if (rangeRect.height > 0) return rangeRect.top
+
+      // Fallback: range rect is degenerate (e.g., cursor at start of an
+      // empty paragraph that contains only a <br>). Use the parent element's
+      // rect — for a single-line empty paragraph this matches the cursor.
       const node = range.startContainer
-      const elRect = (node.nodeType === Node.ELEMENT_NODE
+      const fallback = (node.nodeType === Node.ELEMENT_NODE
         ? (node as HTMLElement)
         : node.parentElement
       )?.getBoundingClientRect()
-      if (!elRect) return
+      return fallback?.top ?? null
+    }
+
+    function onSelectionChange() {
+      const top = cursorLineTop()
+      if (top === null) return
 
       const targetY = window.innerHeight * 0.42
-      const delta = elRect.top - targetY
-      // ±2px tolerance to avoid micro-scrolls
+      const delta = top - targetY
+      // ±2px tolerance to avoid micro-scrolls (Component Spec §6.4).
       if (Math.abs(delta) <= 2) return
 
       // FocusMode sets `overflow: auto` on a position:fixed div; that becomes
