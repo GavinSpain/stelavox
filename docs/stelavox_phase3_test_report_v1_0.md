@@ -1,5 +1,5 @@
 # Stelavox — Phase 3 Test Report
-## Version 1.4
+## Version 1.5
 
 > **Tier-B per-phase document.** Test results from executing `stelavox_phase3_test_plan_v1_0.md` against the Phase 3 implementation. Every test case is recorded with status and, for cases that surfaced issues during the build, root cause + fix + re-test outcome.
 
@@ -23,24 +23,22 @@
 - 8 motion cases
 - 6 accessibility cases
 
-**Total: 102/102 local PASS + 4/4 cloud smoke PASS.** Phase 1 and Phase 2 regression tests also pass after a single Phase 2 test rebase (TC-A-58 prose-cap raised 1M → 2M per G-2). The six v1.1 cases verify the leaf-aware UI corrective added post-merge — full first-pass success (no iteration required). The cloud smoke (TC-U-01, TC-U-04, TC-U-08, TC-U-12) ran clean against `stelavox-dev` — see §7.
+**Total: 98/98 active local PASS + 4/4 cloud smoke PASS.** *(v1.5 correction: the previous verdict claim of "102/102" was overstated. Four cases — TC-U-14, TC-M-04, TC-M-06, TC-M-07 — were listed in the Test Plan v1.0 verdict count but were never authored as Playwright tests, and the underlying features (Sentence Focus end-to-end, prose-editor three-dot menu, `prefers-reduced-motion` for WordCount + Sentence Focus) were not built in Phase 3. These four are now formally deferred to Phase 8 per TA v1.7 §11 + Test Plan v1.2 §10.1 + Build Checklist v1.2 SU-13. The active count drops from 102 to 98; nothing implemented has regressed.)* Phase 1 and Phase 2 regression tests also pass after a single Phase 2 test rebase (TC-A-58 prose-cap raised 1M → 2M per G-2). The six v1.1 cases verify the leaf-aware UI corrective added post-merge — full first-pass success (no iteration required). The cloud smoke (TC-U-01, TC-U-04, TC-U-08, TC-U-12) ran clean against `stelavox-dev` — see §7.
 
 ---
 
 ## 2. Test Counts
 
-| Section | Cases | First-pass | Iterated | Final |
-|---|---|---|---|---|
-| §2 UI checkpoint (TC-U-01..24, v1.0) | 24 | 18 | 6 | **24/24 PASS** |
-| §2 UI checkpoint (TC-U-25..28, v1.1) | 4 | 4 | 0 | **4/4 PASS** |
-| §3 Visual / opacity (TC-V-01..12) | 12 | 5 | 7 | **12/12 PASS** |
-| §4 Motion / transition (TC-M-01..08) | 8 | 4 | 4 | **8/8 PASS** |
-| §5 API integration (TC-A-01..32, v1.0) | 32 | 31 | 1 | **32/32 PASS** |
-| §5 API integration (TC-A-33..35, v1.1) | 3 | 3 | 0 | **3/3 PASS** |
-| §6 Authorisation boundary (TC-B-01..08) | 8 | 8 | 0 | **8/8 PASS** |
-| §7 Data integrity (TC-D-01..06) | 6 | 6 | 0 | **6/6 PASS** |
-| §8 Accessibility (TC-AX-01..06) | 6 | 4 | 2 | **6/6 PASS** |
-| **Total** | **102** | **83** | **20** | **102/102 PASS** |
+| Section | Active | First-pass | Iterated | Final | Deferred to Phase 8 |
+|---|---|---|---|---|---|
+| §2 UI checkpoint (TC-U-01..13, U-15..24 from v1.0; U-25..28 from v1.1) | 27 | 21 | 6 | **27/27 PASS** | TC-U-14 |
+| §3 Visual / opacity (TC-V-01..12) | 12 | 5 | 7 | **12/12 PASS** | — |
+| §4 Motion / transition (TC-M-01..03, M-05, M-08) | 5 | 1 | 4 | **5/5 PASS** | TC-M-04, TC-M-06, TC-M-07 |
+| §5 API integration (TC-A-01..32 from v1.0; TC-A-33..35 from v1.1) | 35 | 34 | 1 | **35/35 PASS** | — |
+| §6 Authorisation boundary (TC-B-01..08) | 8 | 8 | 0 | **8/8 PASS** | — |
+| §7 Data integrity (TC-D-01..06) | 6 | 6 | 0 | **6/6 PASS** | — |
+| §8 Accessibility (TC-AX-01..06) | 6 | 4 | 2 | **6/6 PASS** | — |
+| **Total** | **98** | **79** | **20** | **98/98 PASS** | **4 deferred** |
 
 Phase 2 regression: 195 prior cases continue to pass with one targeted rebase (TC-A-58 prose-cap raised 1M → 2M per G-2). The Phase 2 tree tests (`tree_drag_drop`, `tree_more_menu`, `tree_empty_state`, `tree_visual_smoke`, `tree_add_child`, `tree_detail_panel`) all pass after the v1.1 NodeRow change (`+ Add child` button conditional on `data.is_leaf`).
 
@@ -119,6 +117,20 @@ Every test case that did not pass on the first run is recorded here with classif
 - **Fix:** Updated `tests/api/nodes_single.spec.ts` and `tests/integrity/nodes_validation.spec.ts` to assert `2_000_001 → 400 invalid_prose`. Added a complementary positive case asserting `1_000_001` now succeeds (documents the raised ceiling).
 - **Re-test:** PASS.
 
+### Audit disclosure — four planned cases were never authored *(v1.5)*
+- **Classification:** Specification-vs-implementation gap (audit failure of T-10.1). The Phase 3 Test Plan v1.0 listed 96 cases in its verdict count but only ~92 were authored as Playwright tests during the build. Four cases — **TC-U-14** (Sentence Focus toggle and the fade), **TC-M-04** (Sentence focus 200ms transition), **TC-M-06** (`prefers-reduced-motion` collapses sentence focus to instant), **TC-M-07** (WordCount fade-in honours `prefers-reduced-motion`) — were never written. The v1.0–v1.4 Test Reports claimed "96/96 PASS" / "102/102 PASS" without verifying that the case files actually exercised every listed case. A `grep` against `tests/` for those four IDs returns nothing.
+- **Root cause:** Build Checklist T-10.1's acceptance was *"all 9 spec files exist; all 4 helper files exist"* — file-level, not case-level. The Test Report's count was assumed to track the Test Plan's count rather than measured against the actual test bodies. Sentence Focus's underlying feature was also incomplete: the file `components/focus/SentenceFocus.tsx` is a CSS-only stub (no `Intl.Segmenter` walk, no sentence-span wrapping, no active-sentence marking), and the toggle host (a three-dot menu in the prose editor panel header) was never built. Even if TC-U-14 had been authored, the feature wouldn't have passed it.
+- **User-visible symptom:** none directly — Sentence Focus stayed at its `false` default and the WordCount-reduced-motion gap was unobservable in normal use. The disclosure was triggered by manual UX testing where the user asked *"How does sentence focus work? I can't see it working"* and probing the implementation revealed the stub.
+- **Decision:** **Defer cleanly.** Sentence Focus + the prose-editor three-dot menu + `prefers-reduced-motion` collapse for WordCount/Sentence Focus are polish features. They belong in Phase 8 (Polish and V1 release) per TA v1.7 §11. The Phase 3 verdict is corrected to 98/98 active.
+- **Spec amendments (paper trail before code):**
+  - **TA v1.6 → v1.7** (file rename `_v1_6.md` → `_v1_7.md`): §11 Phase 8 row absorbs the four items: prose-editor three-dot menu, Sentence Focus end-to-end implementation, Typewriter Edit-Mode opt-in toggle, reduced-motion collapse for WordCount + Sentence Focus.
+  - **Component Spec v2.4 → v2.5** (file rename `_v2_4.md` → `_v2_5.md`): §6.5 leading deferred banner. §6.4 Edit-Mode toggle annotated as Phase-8 work (shares the toggle host with §6.5).
+  - **Phase 3 Test Plan v1.1 → v1.2:** four cases tagged *(DEFERRED to Phase 8)* in-place + per-case status notes; new §10.1 records the deferred set; §9 verdict count corrected 102 → 98 active.
+  - **Phase 3 Build Checklist v1.1 → v1.2:** T-6.6 amended to "CSS-only stub — full implementation Phase 8"; T-6.5 notes the Edit-Mode toggle is also Phase 8; T-10.2 acceptance count corrected; new SU-13 entry.
+  - **CLAUDE.md v1.7 → v1.8:** Spec Library Reference re-pointed at v1.7 / v2.5; changelog entry.
+- **Implementation:** none required for Phase 3. `SentenceFocus.tsx` continues as a no-op stub; FocusMode keeps the import but renders the component inert because the localStorage default is off and the segmentation logic doesn't exist. Phase 8 will pick up the full work.
+- **Re-test:** the 98 active cases continue to PASS. No regressions.
+
 ### Post-merge UX-test finding — Typewriter scroll measured paragraph top, not cursor's line *(v1.4)*
 - **Classification:** Implementation gap. Brand Identity v2.0 §7.4 and Component Spec v2.4 §6.4 both require *"the active line at 42% of viewport height ... maintained within 2px tolerance across all typing actions"* — i.e. on every keystroke the cursor's line should hold at 42%. The implementation in `TypewriterContainer.tsx` measured the bounding rect of the cursor's **parent element**, which for a multi-line `<p>` paragraph is the rect of the **whole paragraph** (top = first line's top, height = full paragraph height).
 - **User-visible symptom:** scroll fired correctly while the paragraph's first line was below 42%; after a few lines the paragraph's first line had reached 42% and `getBoundingClientRect().top` no longer changed within the same paragraph, so the scroll froze even as the cursor descended past 42%. On the next paragraph break, a fresh `<p>` starts below 42% and the scroll resumes — producing the user's observed "scrolls for the first 4 lines then stops, resumes on next paragraph" pattern.
@@ -174,6 +186,7 @@ The following items were anticipated by the API Contract §5 (G-1..G-5) and abso
 | **SU-8 (open)** | Post-merge UX testing | **Tree-row `Enter` to open detail panel:** Phase 3 Test Plan TC-AX-06 originally assumed it; react-arborist's default keymap binds `Enter` to expand/collapse. The keyboard-only write-and-save test was rebased to use `click()` for tree-row open and verify the rest of the keyboard flow. Tracked for Phase 6 tree-accessibility hardening. |
 | **SU-9 (resolved v1.2)** | Post-merge UX testing | **Cursor blink animated editor opacity, not caret-color:** Component Spec v2.2 §5.5 example code animated `opacity` on the editor element, causing the entire prose body (and Focus Mode surface) to fade in and out. **Resolved in Component Spec v2.3 §5.5** — keyframe now animates `caret-color`; `app/globals.css` matches; CLAUDE.md re-pointed v1.5 → v1.6. |
 | **SU-11 (resolved v1.3)** | Post-merge UX testing | **FocusMode invisible due to AppShell opacity inheritance:** Component Spec v2.3 §6.1 didn't specify the React mechanism for FocusMode mounting. The implementation rendered it as a JSX descendant of NodeDetailPanel, inside `[data-shell="detail"]`. The detail panel's entry transition (`opacity: 0` + `translateX(100%)`) propagated to the FocusMode child, making the overlay invisible. **Resolved in Component Spec v2.4 §6.1** — 🔒 rule mandates `ReactDOM.createPortal(..., document.body)`; `FocusMode.tsx` portalled; CLAUDE.md re-pointed v1.6 → v1.7. |
+| **SU-13 (deferred to Phase 8 v1.5)** | Audit disclosure | **Sentence Focus end-to-end + reduced-motion polish + prose-editor three-dot menu + four un-authored test cases:** Phase 3 v1.0 shipped a CSS-only `SentenceFocus.tsx` stub; the `Intl.Segmenter`-based segmentation, sentence-span wrapping, active/adjacent marking, the three-dot toggle host, and `prefers-reduced-motion` collapse for WordCount + Sentence Focus were not implemented. TC-U-14, TC-M-04, TC-M-06, TC-M-07 were never authored despite being in the v1.0 verdict count. **Resolved (deferred) in Phase 3 v1.2/v1.5** — TA v1.7 §11 Phase 8 row absorbs the work; Component Spec v2.5 §6.4 / §6.5 carry deferred banners; Test Plan v1.2 §10.1 records the deferred test cases; Build Checklist v1.2 T-6.5 / T-6.6 amended; verdict corrected 102/102 → 98/98 active. |
 | **SU-12 (resolved v1.4)** | Post-merge UX testing | **Typewriter scroll measured paragraph top, not cursor's line:** `TypewriterContainer.tsx` used `range.startContainer.parentElement.getBoundingClientRect()` as the scroll anchor, which for a multi-line `<p>` returns the paragraph's first-line top — making the scroll freeze after the paragraph's first line reached 42% and resume only on paragraph breaks. **Resolved in v1.4** — anchor swapped to `range.getBoundingClientRect()` (cursor's visual line). No spec change (Brand Identity v2.0 §7.4 and Component Spec v2.4 §6.4 were already correct); pure implementation gap. |
 | **Environment note (v1.3)** | Post-merge UX testing | **Turbopack `.next/` CSS cache outlives hot-reload for `@keyframes`:** During v1.2 cursor-blink debugging the served CSS chunk continued to expose the *old* `@keyframes stelavox-blink { opacity: 1 }` body even after the source file had been edited and the dev server hot-reloaded. A `curl` against `_next/static/chunks/...css` confirmed the stale keyframe body was being shipped to the browser, while the source file on disk had the new `caret-color` keyframe. The stale chunk only cleared after killing the dev process and removing `.next/` before restart. **Lesson:** for keyframe edits or other CSS that sits inside an `@`-block, a full `rm -rf .next && npm run dev` is more reliable than relying on hot-reload. Not a spec issue, not a code bug — but worth recording so future debug sessions don't waste time chasing phantom failures. |
 | **SU-10 (open)** | Post-merge testing | **WordCount transition is gradual when typing should be instant:** Component Spec v2.2 §5.7 (carried unchanged into v2.3) prescribes opacity transitions per state, with **typing → 0** marked *instant* and **at-rest → 0.4** marked 800ms. The current `WordCount.tsx` implementation uses a single `transition: opacity 800ms` rule for both directions, so when typing the opacity gradually fades from 0.4 to 0 over 800ms instead of snapping. TC-V-01 catches this — it reads opacity ~180ms after the first keypress and observes 0.10–0.14, above the spec's 0.1 threshold. The test has been intermittently flaky (sometimes the read happens late enough in the transition for opacity < 0.1) but is fundamentally correct. **Resolution path:** WordCount needs a directional transition — `transition: none` while transitioning to 0; `transition: opacity 800ms ease-out` while transitioning to 0.4. Out of scope for the v1.2 cursor-blink corrective per CLAUDE.md "never refactor adjacent code in the same change". Recommended as a small targeted follow-up patch. |
@@ -225,6 +238,8 @@ The following items were anticipated by the API Contract §5 (G-1..G-5) and abso
 ---
 
 ## 8. Changelog
+
+**v1.5 — 2026-05-04** Audit disclosure: four cases (TC-U-14, TC-M-04, TC-M-06, TC-M-07) listed in the Test Plan v1.0 verdict count were never authored; the underlying Sentence Focus + reduced-motion features were not implemented in Phase 3 (the `SentenceFocus.tsx` shipped as a CSS-only stub). The v1.0–v1.4 Test Report's "96/96" / "102/102 PASS" claim was overstated by 4. **Verdict corrected to 98/98 active PASS** (102 originally-planned − 4 deferred). The four deferred cases are now Phase 8 work per TA v1.7 §11. §3 records the disclosure with full root-cause + spec-amendment trail. §4 SU-13 added (deferred). §2 counts table restructured to expose active vs deferred per section. §1 verdict reworded to call the correction out explicitly.
 
 **v1.4 — 2026-05-04** Typewriter-scroll cursor-anchor corrective recorded. §3 gains a "Typewriter scroll measured paragraph top, not cursor's line" entry classified as implementation gap. §4 SU registry: SU-12 added and marked resolved. No spec amendment — Brand Identity v2.0 §7.4 and Component Spec v2.4 §6.4 were already correct; only the implementation diverged. TC-U-15 (typewriter scroll near 42%) continues to pass; the fix narrows the observed ratio closer to 0.42 without requiring any test change.
 

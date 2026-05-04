@@ -1,5 +1,5 @@
 # Stelavox — Component Specification
-## Version 2.4
+## Version 2.5
 
 ### Purpose
 
@@ -1035,7 +1035,7 @@ Keeps the active line at 42% of viewport height.
 | Tolerance | ±2px before triggering scroll adjustment |
 | Scroll behaviour | `scroll-behavior: smooth` |
 | Default — Focus Mode | **On** |
-| Default — Edit Mode | **Off** (opt-in via three-dot menu in panel header) |
+| Default — Edit Mode | **Off** (opt-in via three-dot menu in panel header — *toggle ships in Phase 8 alongside SentenceFocus per TA v1.7 §11*) |
 | Persistence | `localStorage` key `stelavox_typewriter_enabled` |
 
 On `⌘←/⌘→` navigation: scroll resets to top of new node content; typewriter positioning activates on first keypress.
@@ -1046,10 +1046,12 @@ On `⌘←/⌘→` navigation: scroll resets to top of new node content; typewri
 
 **File:** `components/focus/SentenceFocus.tsx`
 
+> ⚠️ **Phase 3 deferred — full implementation lands in Phase 8 (Polish).** The Phase 3 build shipped a CSS-only stub: the file installs the opacity rules but does not segment text, does not wrap sentences in `[data-sentence]` elements, and the toggle host (the three-dot menu in the prose editor panel header) was never built. The behaviour described below remains the contract for Phase 8 — not a redesign, just a deferral of *when* it ships. See TA v1.7 §11 Phase 8 row, Phase 3 Test Plan v1.2 §10 "Deferred to Phase 8", and Phase 3 Test Report v1.5 SU-13.
+
 | Property | Value |
 |---|---|
 | Default | Off (opt-in) |
-| Toggle location | Three-dot menu in prose editor panel header |
+| Toggle location | Three-dot menu in prose editor panel header *(Phase 8)* |
 | Persistence | `localStorage` key `stelavox_sentence_focus_enabled` |
 
 **Opacity levels (all locked):**
@@ -1635,6 +1637,8 @@ All open questions from Component Spec v1.4 are resolved. There are currently no
 ---
 
 ## 17. Changelog
+
+**v2.5 — 2026-05-04** §6.5 SentenceFocus marked Phase-8-deferred via a leading banner. The behaviour spec is unchanged; only the *delivery phase* moves. The Phase 3 implementation shipped a CSS-only stub — the toggle host (three-dot menu) was never built and the segmentation logic was never written. §6.4 TypewriterContainer's "Edit-Mode toggle via three-dot menu" path is similarly noted as Phase-8 work since it shares the toggle host. Phase 8's scope is amended in TA v1.7 §11 to absorb both. No tokens, no Inviolables, no other components touched.
 
 **v2.4 — 2026-05-04** Specification gap correction in §6.1 FocusMode. The earlier text described FocusMode as a *"full-screen overlay mounted above AppShell"* without specifying the React mechanism. The implementation rendered FocusMode as a JSX descendant of `NodeDetailPanel`, which is itself rendered into AppShell's right slot — i.e. inside `[data-shell="detail"]`. The Focus Mode entry transition (§6.1) then sets `opacity: 0` and `transform: translateX(100%)` on `[data-shell="detail"]` to slide it off-screen, but CSS opacity and transform propagate to descendants — including any fixed-position child — so the FocusMode overlay inherited opacity 0 and the parent's translate and never became visible. The user-visible symptom: full Focus Mode entry produces a blank screen. v2.4 amends §6.1 with a 🔒 rule mandating that FocusMode render via `ReactDOM.createPortal(..., document.body)` so the overlay sits outside the AppShell's transformed subtree. No behavioural change to the entry/exit choreography itself, no new tokens, no Inviolable changes.
 

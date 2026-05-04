@@ -1,5 +1,5 @@
 # Stelavox — Claude Code Project Context
-## Version 1.7
+## Version 1.8
 
 > **Versioning note:** This file is versioned. The version lives here, not in the filename — the filename must remain `CLAUDE.md` for Claude Code to find it automatically. When this file changes, increment the version and add a changelog entry at the bottom. The source of record is `docs/CLAUDE_stelavox_project.md`; the deployed copy at the repository root must always match it. Commit both in the same commit.
 
@@ -13,7 +13,7 @@ Read these before writing any code in a new session:
 
 1. `docs/stelavox_wireframe_errata_v1_0.md` — corrections to wireframes (read before any wireframe HTML)
 2. The relevant spec section for today's task (see Spec Library Reference below)
-3. `docs/stelavox_technical_architecture_v1_6.md` §5 — Known Hazards H-01 to H-15, if today's task touches the database, agents, or Director
+3. `docs/stelavox_technical_architecture_v1_7.md` §5 — Known Hazards H-01 to H-15, if today's task touches the database, agents, or Director
 
 ---
 
@@ -23,10 +23,10 @@ All documents live in `/docs`. Before making any change, read the relevant docum
 
 | Change type | Read first |
 |---|---|
-| Any UI change | `stelavox_component_specification_v2_4.md` |
+| Any UI change | `stelavox_component_specification_v2_5.md` |
 | Layout, tokens, motion, accessibility | `stelavox_ui_design_specification_v1_0.md` |
 | Colour, typography, brand rules | `stelavox_brand_identity_v2_0.md` |
-| Database schema, RLS, migrations, agent system, Director, security | `stelavox_technical_architecture_v1_6.md` |
+| Database schema, RLS, migrations, agent system, Director, security | `stelavox_technical_architecture_v1_7.md` |
 | Product features, user journeys, pricing, data model | `stelavox_product_specification_v1_3.md` |
 | Any wireframe | `stelavox_wireframe_errata_v1_0.md` first, then the wireframe HTML |
 | Environment setup, deployment | `stelavox_deployment_setup_v1_0.md` |
@@ -169,7 +169,7 @@ Formatting via keyboard shortcuts and `SelectionTooltip` only (Bold · Italic ·
 
 ## Known Hazards (summary)
 
-Read Technical Architecture v1.6 §5 for the full entries (H-01 to H-15). The most common during active build:
+Read Technical Architecture v1.7 §5 for the full entries (H-01 to H-15). The most common during active build:
 
 - **H-01** — Use `.maybeSingle()` not `.single()` when zero rows is a valid result
 - **H-02** — RLS policies on `organisation_members` must not query `organisation_members`
@@ -208,7 +208,7 @@ Before implementing or modifying these components, read the exact spec in `docs/
 | `NodeRow` | §4.2 | 36px height, 16px indent per depth level |
 | `SummaryEditor` | §5.3 | Inter 400 13px — **never Lora**. No Link extension. |
 | `NotesEditor` | §5.13 | Inter 400 13px — **never Lora**. Sibling of SummaryEditor; Link extension allowed (rationale in §5.13). |
-| `ProseEditor` | §5.4 | Lora 400, 18px Focus Mode / 16px panel, 1.85 line-height. **Leaf-only mounting** — renders only when `node.is_leaf === true` (Component Spec v2.4 §5.4 / API Contract v1.1 §2.12 / TA v1.6 H-15) |
+| `ProseEditor` | §5.4 | Lora 400, 18px Focus Mode / 16px panel, 1.85 line-height. **Leaf-only mounting** — renders only when `node.is_leaf === true` (Component Spec v2.5 §5.4 / API Contract v1.1 §2.12 / TA v1.7 H-15) |
 | `FocusModeButton` | §5.8 | Inter 400 11px. **Leaf-only mounting** (same rule) |
 | `WordCount` | §5.7 | Opacity 0 while typing, 0.4 after 3s idle, 0.9 on hover. **Leaf-only mounting** (same rule as ProseEditor) |
 | `ProseEditorCursor` | §5.5 | 2px verdigris (`--color-accent`), no blink while typing |
@@ -251,6 +251,8 @@ Version bumps: minor for additions and corrections, major for structural changes
 ---
 
 ## Changelog
+
+**v1.8 — 2026-05-04** Spec Library Reference re-pointed at `stelavox_technical_architecture_v1_7.md` (was v1_6) and `stelavox_component_specification_v2_5.md` (was v2_4). The cross-cutting bumps land together because the Phase 3 v1.5 audit disclosure deferred Sentence Focus + the prose-editor three-dot menu + reduced-motion polish to Phase 8: Component Spec v2.5 carries the deferred banners on §6.4 / §6.5; TA v1.7 §11 Phase 8 row absorbs the work. Phase 3 verdict corrected from 102/102 to 98/98 active (4 cases formally deferred). Critical Component Specifications table reference for ProseEditor updated to v2.5 / v1.7. No new hazards, no Inviolable changes.
 
 **v1.7 — 2026-05-04** Spec Library Reference re-pointed at `stelavox_component_specification_v2_4.md` (was v2_3). Component Spec v2.4 closes a specification gap in §6.1 FocusMode: the original text said *"full-screen overlay mounted above AppShell"* without specifying the React-mechanism. The implementation rendered FocusMode as a JSX descendant of NodeDetailPanel (which lives inside AppShell's `[data-shell="detail"]`), and the entry transition's `opacity: 0` + `transform: translateX(100%)` on the detail panel propagated to the FocusMode child — making the overlay invisible. v2.4 mandates `ReactDOM.createPortal(..., document.body)` so the overlay sits outside the AppShell's transformed subtree. Critical Component Specifications table reference for ProseEditor updated to v2.4. No new hazards, no Inviolable changes, no behaviour changes elsewhere.
 

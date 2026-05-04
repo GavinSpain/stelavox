@@ -1,5 +1,5 @@
 # Stelavox — Technical Architecture
-## Version 1.6
+## Version 1.7
 
 ---
 
@@ -3186,7 +3186,7 @@ The build sequence is designed so each phase produces something runnable and tes
 | 5 | Agent system: context assembler, LLM abstraction, expand/synthesise/refine/generate-context operations, job progress UI, editorial comments | 7–8 | Full end-to-end: book summary → final prose |
 | 6 | Locking and workflow: status transitions, node locks, lock enforcement, comment resolution, **version restore** (the restore action; the browse list ships in Phase 3) | 9 | Can lock layers and progress deliberately |
 | 7 | Export: DOCX, outline, JSON export/import | 10 | Can export completed document to Word file |
-| 8 | Polish and V1 release: command palette, empty states, onboarding, keyboard shortcuts, performance review, e2e test, production deploy | 11–12 | V1 complete |
+| 8 | Polish and V1 release: command palette, empty states, onboarding, keyboard shortcuts, performance review, e2e test, production deploy. **Also absorbs from Phase 3 v1.2 deferral:** prose-editor three-dot menu (the toggle host); Sentence Focus end-to-end implementation (Component Spec §6.5 — `Intl.Segmenter`-based segmentation, span wrapping, active/adjacent marking, 200ms cursor-move transitions); Typewriter "opt-in via three-dot menu" path for Edit Mode (Component Spec §6.4); `prefers-reduced-motion` collapse for WordCount fade and Sentence Focus transitions; Phase 3 Test Plan cases TC-U-14, TC-M-04, TC-M-06, TC-M-07 to be authored and run. | 11–12 | V1 complete |
 
 **V2 phase plan (multi-tenancy, billing, LLM optimisations):**
 Organisation settings UI → invitation flow → Stripe integration → token budget enforcement → BYOK key UI → Vault key resolution → cache analytics in usage dashboard → Batch API activation → node lock API and UI → document read-sharing → audit log UI → Research Intermediary implementation.
@@ -3238,6 +3238,8 @@ Director tool definitions and executor → `director-runner` Edge Function (read
 ---
 
 ## 14. Changelog
+
+**v1.7 — 2026-05-04** Phase 8 row in §11 Phase Plan absorbs four items deferred from Phase 3 during Test Report v1.5's audit: the prose-editor three-dot menu (the toggle host serving Component Spec §6.4 + §6.5), full Sentence Focus implementation (Component Spec §6.5 — `Intl.Segmenter`-based segmentation, span wrapping, active/adjacent marking), the Typewriter "opt-in via three-dot menu" path for Edit Mode (§6.4), and `prefers-reduced-motion` collapse for WordCount fade and Sentence Focus transitions. The four deferred Phase 3 test cases (TC-U-14, TC-M-04, TC-M-06, TC-M-07) are now formally Phase 8 work. No schema or hazard changes; this is a Phase Plan row amendment.
 
 **v1.6 — 2026-05-04** Post-Phase-3-merge corrective absorption. **§2.5** Content-tab description now reads "Prose editor (Tiptap — renders only when `node.is_leaf === true`)" and references the Phase 3 API Contract v1.1 §2.12 + new H-15. **§2.6** Rich Text Editing block expanded to spell out the leaf-only mounting rule for ProseEditor / WordCount / FocusModeButton (Notes and Summary mount on every node), plus a Tiptap-version note documenting the v3 quirks observed during the Phase 3 build (`immediatelyRender: false`, `SetContentOptions`, `Editor | null` return). **§5** New hazard **H-15** ("Leaf-ness is a layer-stack property, not a child-count property") records the post-merge UX-test finding and the structural rule the database has used since Migration 021. Schema and migration count are unchanged (still 22 with 022 intentionally skipped). No new Phase 3 SU candidates beyond the leaf-aware UI corrective.
 
