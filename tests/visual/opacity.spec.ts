@@ -221,6 +221,12 @@ test.describe('Phase 3 — Visual / opacity state machines', () => {
   test('TC-V-11 — ProseEditorCursor uses verdigris caret-color', async ({ page }) => {
     const f = await setupFixture(orgA, 'TC-V-11')
     await openBeat(page, f)
+    // Component Spec v2.3 §5.5: caret-color animates between var(--color-accent)
+    // and `transparent` at the 600/400ms cadence when idle. Type a character
+    // first so the .is-typing class pins caret-color to the steady verdigris
+    // state — that gives a deterministic read-out for the colour assertion.
+    await page.locator('[data-editor="prose"] .tiptap').click()
+    await page.keyboard.type('x')
     const caretColour = await page.locator('[data-editor="prose"] .tiptap').evaluate(
       (el: Element) => window.getComputedStyle(el).caretColor,
     )

@@ -219,10 +219,15 @@
 /* ── ProseEditor cursor — §5.5 (Inviolable #2 verdigris use #3) ─────────────
    caret-color: --color-accent  (verdigris — one of the nine permitted uses)
    Blink: 600ms on / 400ms off total 1000ms. Suppressed while .is-typing.
+
+   🔒 The keyframe animates `caret-color`, NOT `opacity`. Animating opacity on
+   the editor element makes the entire text content fade in and out at the
+   blink cadence — the symptom that triggered Component Spec v2.3's amendment.
+   See Component Spec v2.3 §5.5 + Test Report v1.2 SU-9.
    ─────────────────────────────────────────────────────────────────────────*/
 @keyframes stelavox-blink {
-  0%, 59% { opacity: 1; }
-  60%, 100% { opacity: 0; }
+  0%, 59% { caret-color: var(--color-accent); }
+  60%, 100% { caret-color: transparent; }
 }
 
 [data-editor="prose"] .tiptap {
@@ -235,6 +240,10 @@
 
 [data-editor="prose"] .tiptap.is-typing {
   animation: none;
+  /* Steady caret while typing — both prevents the keyframe from leaving
+     caret-color in a transparent phase and matches the spec's "solid
+     while typing" rule. */
+  caret-color: var(--color-accent);
 }
 
 /* Focus Mode font size override — 18px in focus, 16px in edit */

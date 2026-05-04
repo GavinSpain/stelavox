@@ -1,5 +1,5 @@
 # Stelavox — Component Specification
-## Version 2.2
+## Version 2.3
 
 ### Purpose
 
@@ -701,15 +701,18 @@ Applied via CSS override on Tiptap's ProseMirror instance.
 | Blink — idle | 600ms on / 400ms off |
 | Blink — typing | 🔒 None — cursor is solid while typing |
 
+🔒 **Animate `caret-color`, not `opacity`.** The blink targets the cursor only; the editor's text content must remain at full opacity throughout. Animating `opacity` on the editor element (as earlier drafts of this section incorrectly showed) makes the entire prose body fade in and out — the user sees the *text* blinking, which contradicts the table above and was the symptom that triggered v2.3's amendment. The correct keyframe toggles `caret-color` between verdigris and `transparent`:
+
 ```css
 @keyframes stelavox-blink {
-  0%, 59% { opacity: 1; }
-  60%, 100% { opacity: 0; }
+  0%, 59% { caret-color: var(--color-accent); }
+  60%, 100% { caret-color: transparent; }
 }
-.ProseMirror { caret-color: var(--color-accent); }
 .ProseMirror:not(.is-typing) { animation: stelavox-blink 1s step-end infinite; }
-.ProseMirror.is-typing { animation: none; }
+.ProseMirror.is-typing { animation: none; caret-color: var(--color-accent); }
 ```
+
+The `is-typing` rule sets a steady `caret-color: var(--color-accent)` so the cursor stays solid (not blinking, not transparent) while the user types. The animation resumes after the 1200ms idle window expires (see Typing detection below).
 
 **Typing detection:**
 ```typescript
@@ -1630,6 +1633,8 @@ All open questions from Component Spec v1.4 are resolved. There are currently no
 ---
 
 ## 17. Changelog
+
+**v2.3 — 2026-05-04** Specification error correction in §5.5 ProseEditorCursor. The original example code animated `opacity` on the `.ProseMirror` element, which caused the entire prose body to fade in and out at the 600/400ms blink cadence — visible to authors as the *text* blinking. The §5.5 table description was correct from v2.0 onward ("cursor blinks; editor text does not"); only the example code was wrong. Replaced the keyframe to animate `caret-color` between `var(--color-accent)` and `transparent`, leaving editor opacity at 1 throughout. Added a 🔒 explanatory note alongside the corrected code so this can't be re-introduced. The same misimplementation also caused Focus Mode to appear blank for 400ms of every second on still observation. No other changes — no new components, no token changes, no Inviolable changes, no behaviour change for the cursor itself (still 600ms on / 400ms off when idle, solid while typing).
 
 **v2.2 — 2026-05-04** Post-Phase-3-merge corrective: leaf-aware UI gating. Five sections amended. **§4.2 NodeRow:** the `+ Add child` hover button is hidden when `node.is_leaf === true` so the UI mirrors the database's `move_node` layer-violation refusal (Migration 021). **§5.1 NodeDetailPanel:** the Content-tab body composition now spells out which components mount on every node (ConflictBanner, SummaryEditor, MetadataForm, NotesEditor) versus leaves only (ProseEditor, FocusModeButton, WordCount); the `⌘Return` shortcut is correspondingly leaf-gated. **§5.4 ProseEditor / §5.7 WordCount / §5.8 FocusModeButton:** added a 🔒 leaf-only mounting note pointing to the Phase 3 API Contract v1.1 §2.12 `is_leaf` field and TA v1.6 H-15. **§6.1 FocusMode:** clarified that entry is leaf-only — the entry shortcut is wired only on leaves and sibling navigation never lands on a non-leaf. The structural-leaf rule (`node.layer_index === max(layer_stack.layers[*].index)`) is the single source of truth. No new components, no token changes, no Inviolable changes.
 
