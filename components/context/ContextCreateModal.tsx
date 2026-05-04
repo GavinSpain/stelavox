@@ -150,13 +150,36 @@ export function ContextCreateModal({
 
   return (
     <Dialog open={open} onOpenChange={o => { if (!o) onClose() }}>
-      <DialogContent style={{ background: 'var(--color-bg-elevated)', border: '1px solid var(--color-border-default)', maxWidth: 520 }}>
+      <DialogContent
+        style={{
+          background:    'var(--color-bg-elevated)',
+          border:        '1px solid var(--color-border-default)',
+          maxWidth:      520,
+          maxHeight:     '85vh',
+          // Stack header + scrollable body so the form scrolls within
+          // the dialog rather than overflowing the viewport.
+          display:       'flex',
+          flexDirection: 'column',
+        }}
+      >
         <DialogHeader>
           <DialogTitle style={{ color: 'var(--color-text-primary)', fontSize: 'var(--text-lg)' }}>
             New {labelSingular}
           </DialogTitle>
         </DialogHeader>
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)', marginTop: 'var(--space-3)' }}>
+        <form
+          onSubmit={handleSubmit}
+          style={{
+            display:       'flex',
+            flexDirection: 'column',
+            gap:           'var(--space-4)',
+            marginTop:     'var(--space-3)',
+            overflowY:     'auto',
+            paddingRight:  'var(--space-1)',  // keep some breathing room from the scrollbar
+            flex:          1,
+            minHeight:     0,                  // critical so flex shrinking works inside the dialog grid
+          }}
+        >
           {/* Scope toggle */}
           <Field label="Scope">
             <ScopeToggle scope={scope} onChange={setScope} />
