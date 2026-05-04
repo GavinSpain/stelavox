@@ -6,7 +6,7 @@ import { test, expect, request } from '@playwright/test'
 import { USERS } from '../helpers/auth'
 import { adminClient, anonClient } from '../helpers/db'
 import {
-  createContextNodeFixture, linkContextFixture, shorthandCharacter,
+  linkContextFixture, shorthandCharacter,
 } from '../helpers/context-fixtures'
 
 const BASE = 'http://localhost:3000'

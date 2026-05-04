@@ -57,6 +57,38 @@ export function useRightSlot() {
   return useContext(RightSlotContext)
 }
 
+// Phase 4: SidebarProjectContext lets pages tell the Sidebar which project
+// is active (and optionally which document). The Sidebar uses this to fetch
+// and render the Context library (Component Spec §2.3 + Phase 4 build
+// checklist §3.4 T-4.1). The optional `onSelectContextNode` callback fires
+// when a Sidebar row is clicked — pages with a detail-panel mechanism
+// (the document page client) wire it to their selectedNodeId state so
+// clicking a context node opens its detail panel.
+//
+// `refreshKey` lets pages force the Sidebar to re-fetch (after a context
+// node was created or deleted via a different surface — e.g. a Picker
+// flow on a structural node's Context tab).
+export interface SidebarProjectState {
+  projectId:             string | null
+  documentId:            string | null
+  onSelectContextNode:   ((id: string) => void) | null
+  refreshKey:            number
+}
+
+const SidebarProjectContext = createContext<{
+  state: SidebarProjectState
+  setProject: (state: Partial<SidebarProjectState>) => void
+  bumpRefresh: () => void
+}>({
+  state: { projectId: null, documentId: null, onSelectContextNode: null, refreshKey: 0 },
+  setProject: () => {},
+  bumpRefresh: () => {},
+})
+
+export function useSidebarProject() {
+  return useContext(SidebarProjectContext)
+}
+
 const SIDEBAR_KEY = 'stelavox_sidebar_width'
 const DETAIL_KEY  = 'stelavox_detail_width'
 
@@ -77,6 +109,20 @@ export function AppShell({ userEmail, children }: AppShellProps) {
   const [sidebarWidth, setSidebarWidth] = useState(SIDEBAR_DEFAULT)
   const [detailWidth,  setDetailWidth]  = useState(DETAIL_DEFAULT)
   const [rightSlotContent, setRightSlotContent] = useState<ReactNode | null>(null)
+
+  // Phase 4 sidebar project state.
+  const [sidebarProjectState, setSidebarProjectState] = useState<SidebarProjectState>({
+    projectId: null,
+    documentId: null,
+    onSelectContextNode: null,
+    refreshKey: 0,
+  })
+  const setProject = (patch: Partial<SidebarProjectState>) => {
+    setSidebarProjectState(prev => ({ ...prev, ...patch }))
+  }
+  const bumpRefresh = () => {
+    setSidebarProjectState(prev => ({ ...prev, refreshKey: prev.refreshKey + 1 }))
+  }
 
   useEffect(() => {
     // Hydrate widths from localStorage. setState-in-effect is the standard
@@ -109,6 +155,7 @@ export function AppShell({ userEmail, children }: AppShellProps) {
   }
 
   return (
+    <SidebarProjectContext.Provider value={{ state: sidebarProjectState, setProject, bumpRefresh }}>
     <RightSlotContext.Provider value={{ setContent: setRightSlotContent }}>
       <div
         style={{
@@ -182,5 +229,6 @@ export function AppShell({ userEmail, children }: AppShellProps) {
       </div>
       </div>
     </RightSlotContext.Provider>
+    </SidebarProjectContext.Provider>
   )
 }

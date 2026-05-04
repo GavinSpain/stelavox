@@ -296,6 +296,29 @@ body.focus-mode-active [data-shell="detail"]  { transform: translateX(100%);   o
   }
 }
 
+/* ── Phase 4: Sidebar Context library hover affordances ────────────────────
+   Component Spec §2.3 — context library item hover:
+     background → --color-bg-hover, name → --color-text-primary.
+   Section header hover reveals the [+] button.
+   Inviolable #2: --color-accent must NOT appear here.
+   ─────────────────────────────────────────────────────────────────────────*/
+.sidebar-section-header:hover {
+  background-color: var(--color-bg-hover);
+}
+.sidebar-section-header:hover .sidebar-section-create {
+  opacity: 1;
+}
+.sidebar-section-create:hover,
+.sidebar-section-create:focus-visible {
+  opacity: 1 !important;
+  color: var(--color-text-primary);
+}
+.sidebar-context-row:hover,
+.sidebar-context-row:focus-visible {
+  background-color: var(--color-bg-hover);
+  color: var(--color-text-primary);
+}
+
 /* ── Base layer ─────────────────────────────────────────────────────────────*/
 @layer base {
   * {

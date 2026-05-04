@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import NewDocumentDialog from '@/components/documents/NewDocumentDialog'
 import DocumentMenu from '@/components/documents/DocumentMenu'
+import { ProjectSidebarSetup } from './_ProjectSidebarSetup'
 
 interface Props {
   params: Promise<{ projectId: string }>
@@ -29,6 +30,7 @@ export default async function ProjectPage({ params }: Props) {
 
   return (
     <div style={{ maxWidth: '800px', margin: '0 auto' }}>
+      <ProjectSidebarSetup projectId={projectId} />
       <div style={{ marginBottom: 'var(--space-5)' }}>
         <Link href="/dashboard" style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-secondary)', textDecoration: 'none' }}>
           ← Projects
