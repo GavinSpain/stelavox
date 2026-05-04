@@ -65,4 +65,36 @@ export const err = {
       },
       { status: 409 },
     ),
+
+  // Phase 4 — context-node CRUD + linking (T-3.2)
+  invalidScope:              () => apiError(400, 'invalid_scope'),
+  scopeDocumentMismatch:     () => apiError(400, 'scope_document_mismatch'),
+  documentNotInProject:      () => apiError(400, 'document_not_in_project'),
+  invalidLinkSource:         () => apiError(400, 'invalid_link_source'),
+  invalidLinkTarget:         () => apiError(400, 'invalid_link_target'),
+  linkCrossProject:          () => apiError(400, 'link_cross_project'),
+  linkCrossDocument:         () => apiError(400, 'link_cross_document'),
+  invalidMoveTarget:         () => apiError(400, 'invalid_move_target'),
+  linkAlreadyExists:         (link: unknown) =>
+    NextResponse.json(
+      {
+        error: 'link_already_exists',
+        message: 'Link already exists between these nodes.',
+        link,
+      },
+      { status: 409 },
+    ),
+  cannotDeleteWithBackLinks: (count: number) =>
+    NextResponse.json(
+      {
+        error: 'cannot_delete_with_back_links',
+        message: `Context node has ${count} incoming links. Pass ?force=true to cascade.`,
+        back_links_count: count,
+      },
+      { status: 409 },
+    ),
+  linkNotFound:              () => apiError(404, 'link_not_found'),
+  contextNodeNotFound:       () => apiError(404, 'context_node_not_found'),
+  documentNotFound:          () => apiError(404, 'document_not_found'),
+  projectNotFound:           () => apiError(404, 'project_not_found'),
 }
