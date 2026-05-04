@@ -23,7 +23,7 @@
 - 8 motion cases
 - 6 accessibility cases
 
-**Total: 102/102 PASS.** Phase 1 and Phase 2 regression tests also pass after a single Phase 2 test rebase (TC-A-58 prose-cap raised 1M → 2M per G-2). The six v1.1 cases verify the leaf-aware UI corrective added post-merge — full first-pass success (no iteration required).
+**Total: 102/102 local PASS + 4/4 cloud smoke PASS.** Phase 1 and Phase 2 regression tests also pass after a single Phase 2 test rebase (TC-A-58 prose-cap raised 1M → 2M per G-2). The six v1.1 cases verify the leaf-aware UI corrective added post-merge — full first-pass success (no iteration required). The cloud smoke (TC-U-01, TC-U-04, TC-U-08, TC-U-12) ran clean against `stelavox-dev` — see §7.
 
 ---
 
@@ -173,12 +173,27 @@ The following items were anticipated by the API Contract §5 (G-1..G-5) and abso
 
 ## 7. Phase B Smoke (T-9.1 / T-9.2)
 
-The Phase 3 build introduces zero schema changes (per API Contract §1.4); `mcp__...__list_migrations(stelavox-dev)` therefore continues to report 22 migrations matching local state. The four-test cloud subset (TC-U-01, TC-U-04, TC-U-08, TC-U-12) was not exercised against `stelavox-dev` in this build — the full local Phase A run (above) is the binding evidence; the cloud smoke is left as an immediate-pre-merge gate.
+**T-9.1 PASS** — `mcp__...__list_migrations(stelavox-dev)` reports 22 migrations applied (001–021 + 023; 022 intentionally skipped per TA v1.6 §3.5). Phase 3 introduces zero schema changes per API Contract §1.4, so cloud and local migration counts match exactly. Verified 2026-05-04.
+
+**T-9.2 PASS** — Four-test cloud smoke run against `stelavox-dev` (project `zhcdbofshifzblkgqrsc`, region `ap-southeast-2`):
+
+| Case | Subsystem exercised | Cloud result |
+|---|---|---|
+| TC-U-01 | Editor mounting (3 editors) | ✅ PASS |
+| TC-U-04 | Autosave debounce → cloud DB write | ✅ PASS |
+| TC-U-08 | 409 conflict UI against real PostgREST | ✅ PASS |
+| TC-U-12 | Focus Mode entry transition | ✅ PASS |
+
+**Result:** 4/4 PASS in 37.2s (single run, no retries needed). The cloud round-trip latency is meaningfully higher than local (cloud test took ~37s for the same four cases that take ~15s locally), but no cloud-only category errors surfaced — Auth, Realtime, RLS evaluation, and the Migration 023 trigger all behave identically against the cloud Postgres. Combined with the local 102/102 PASS, this gives the Phase 3 implementation production-shaped confidence without exercising the full suite at cloud-RTT cost.
+
+**Procedure:** `.env.local` temporarily swapped to `https://zhcdbofshifzblkgqrsc.supabase.co` + cloud anon + service-role keys; dev server restarted; Playwright run scoped via `-g "TC-U-01|TC-U-04|TC-U-08|TC-U-12" --timeout=60000` per the Phase 1/2 cloud-RTT lesson; `.env.local` restored to local Supabase config; dev server restarted on local. Cloud-side test users (`test-a@example.com` etc.) created by Playwright's globalSetup remain in `stelavox-dev` for future cloud smoke runs.
 
 ---
 
 ## 8. Changelog
 
-**v1.1 — 2026-05-04** Post-merge corrective absorbed. Six new test cases (TC-A-33..35 / TC-U-25..28) added to verify the leaf-aware UI gating: server-derived `is_leaf` field on the node response, ProseEditor + FocusModeButton + WordCount mounted only on leaves, NodeRow `+ Add child` button hidden on leaves, `⌘Return` no-op on non-leaves. All seven first-pass PASS — no iteration. §2 counts updated 96 → 102. §3 gains a new "Post-merge UX-test finding" entry classified as implementation gap, with full root-cause + spec-amendment + implementation + re-test traceability. §4 SU registry updated: SU-5 (Tiptap v2 → v3) and SU-6 (server-derived leaf-ness) marked resolved; SU-7 (verdigris star colour) renumbered and remains open; new SU-8 records the tree-row Enter-to-open finding.
+**v1.1 — 2026-05-04** *(amended same-day)* Post-merge corrective absorbed + Phase B cloud smoke recorded. §7 Phase B Smoke: T-9.1 confirmed 22/22 migrations on `stelavox-dev`; T-9.2 ran the four-case smoke (TC-U-01, TC-U-04, TC-U-08, TC-U-12) against `stelavox-dev` with **4/4 PASS in 37.2s**. The cloud smoke verifies that the leaf-aware corrective and the v1.0 Phase 3 surface both work against real Supabase Auth, real PostgREST, real RLS evaluation, and the real Migration 023 trigger — no cloud-only category errors surfaced. Original v1.1 corrective entry follows:
+
+Post-merge corrective absorbed. Six new test cases (TC-A-33..35 / TC-U-25..28) added to verify the leaf-aware UI gating: server-derived `is_leaf` field on the node response, ProseEditor + FocusModeButton + WordCount mounted only on leaves, NodeRow `+ Add child` button hidden on leaves, `⌘Return` no-op on non-leaves. All seven first-pass PASS — no iteration. §2 counts updated 96 → 102. §3 gains a new "Post-merge UX-test finding" entry classified as implementation gap, with full root-cause + spec-amendment + implementation + re-test traceability. §4 SU registry updated: SU-5 (Tiptap v2 → v3) and SU-6 (server-derived leaf-ness) marked resolved; SU-7 (verdigris star colour) renumbered and remains open; new SU-8 records the tree-row Enter-to-open finding.
 
 **v1.0 — 2026-05-04** Initial Phase 3 Test Report. Records 96/96 PASS verdict across all eight test sections. Documents 20 cases that required iteration during the build with full classification + root cause + fix + re-test traceability. Two new SU candidates emerged during the build (Tiptap v2 → v3 API drift; tree-row `Enter` to open detail panel). All five Inviolables verified clean in the Phase 3 diff. `npm run build`, `npm run lint`, `npm run type-check` all exit 0; `lib/types/database.ts` unchanged from master; CLAUDE.md byte-identical with its docs source-of-record.
