@@ -227,7 +227,14 @@ export function VersionHistory({ nodeId }: VersionHistoryProps) {
               {isCurrent && (
                 <span
                   aria-label="Current version"
-                  style={{ color: 'var(--color-accent)', fontSize: '11px' }}
+                  // Component Spec §5.11 calls for verdigris-tinted but the Brand
+                  // Identity / CLAUDE.md Inviolable #2 enumerates only nine
+                  // permitted verdigris uses, and the current-version star is
+                  // not among them. Phase 3 Build Checklist criterion 14b
+                  // admits only uses #3 (cursor) and #6 (word count at target)
+                  // for this phase, so the star uses --color-text-primary
+                  // pending upstream reconciliation (see test report SU).
+                  style={{ color: 'var(--color-text-primary)', fontSize: '11px' }}
                 >
                   ★
                 </span>
