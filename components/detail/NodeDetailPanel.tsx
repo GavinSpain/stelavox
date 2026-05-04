@@ -52,6 +52,10 @@ interface NodeRecord {
   prose: string | null
   notes: string | null
   metadata: Record<string, unknown> | null
+  // Phase 3 v1.1 (API Contract §2.12): server-derived; gates the prose group
+  // (ProseEditor, FocusModeButton, WordCount) and the ⌘Return entry handler.
+  // Never inferred from child count — see TA v1.6 H-15.
+  is_leaf: boolean
 }
 
 interface NodeDetailPanelProps {
@@ -132,7 +136,13 @@ export function NodeDetailPanel({ nodeId, refreshKey, onMutated, onClose }: Node
   // T-6.8: ⌘Return in Edit Mode prose enters Focus Mode. capture:true so
   // we run before Tiptap's hard-break binding (HardBreak extension binds
   // Mod-Enter in v3); preventDefault + stopPropagation block it.
+  //
+  // v1.1 (Component Spec v2.2 §5.1): leaf-gated. The handler only registers
+  // when node.is_leaf === true. Without this, the DOM-presence check below
+  // would still no-op on non-leaves (no prose-edit element exists), but the
+  // explicit gate makes the rule visible at the call site.
   useEffect(() => {
+    if (!node?.is_leaf) return
     function onKeydown(e: KeyboardEvent) {
       if (!(e.metaKey || e.ctrlKey)) return
       if (e.key !== 'Enter') return
@@ -145,7 +155,7 @@ export function NodeDetailPanel({ nodeId, refreshKey, onMutated, onClose }: Node
     }
     window.addEventListener('keydown', onKeydown, { capture: true })
     return () => window.removeEventListener('keydown', onKeydown, { capture: true } as EventListenerOptions)
-  }, [])
+  }, [node?.is_leaf])
 
   async function submitName(next: string) {
     if (!node) return
@@ -348,37 +358,44 @@ export function NodeDetailPanel({ nodeId, refreshKey, onMutated, onClose }: Node
                 />
               </div>
 
-              <div>
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    marginBottom: 'var(--space-2)',
-                  }}
-                >
-                  <label
+              {/* Prose group — leaves only (Component Spec v2.2 §5.1 / API
+                  Contract v1.1 §2.12 / TA v1.6 H-15). ProseEditor mounts only
+                  when node.is_leaf === true; on a non-leaf (Book/Act/Chapter/
+                  Scene), the prose surface, the FocusModeButton, and WordCount
+                  (rendered inside ProseEditor) are all suppressed. */}
+              {node.is_leaf && (
+                <div>
+                  <div
                     style={{
-                      fontSize: '11px',
-                      fontFamily: 'var(--font-inter), Inter, sans-serif',
-                      fontWeight: 500,
-                      color: 'var(--color-text-muted)',
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.08em',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      marginBottom: 'var(--space-2)',
                     }}
                   >
-                    Prose
-                  </label>
-                  <FocusModeButton onClick={() => setFocusMode(true)} />
+                    <label
+                      style={{
+                        fontSize: '11px',
+                        fontFamily: 'var(--font-inter), Inter, sans-serif',
+                        fontWeight: 500,
+                        color: 'var(--color-text-muted)',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.08em',
+                      }}
+                    >
+                      Prose
+                    </label>
+                    <FocusModeButton onClick={() => setFocusMode(true)} />
+                  </div>
+                  <ProseEditor
+                    mode="edit"
+                    value={prose}
+                    onChange={(v) => setField('prose', v)}
+                    readOnly={isReadOnly}
+                    wordTarget={node.word_count_target}
+                  />
                 </div>
-                <ProseEditor
-                  mode="edit"
-                  value={prose}
-                  onChange={(v) => setField('prose', v)}
-                  readOnly={isReadOnly}
-                  wordTarget={node.word_count_target}
-                />
-              </div>
+              )}
 
               <MetadataForm nodeType={node.node_type} readOnly={isReadOnly} />
 

@@ -1,5 +1,5 @@
 # Stelavox — Phase 3 Pre-Phase Test Plan
-## Version 1.0
+## Version 1.1
 
 > **Tier-B per-phase document.** Written before any implementation. Derived from `stelavox_phase3_api_contract_v1_0.md` and the Phase 3 checkpoint criterion in `stelavox_technical_architecture_v1_5.md` §11. Executed at the end of Phase 3; results recorded in `stelavox_phase3_test_report_v1_0.md` (created during the build's pre-merge group).
 
@@ -216,6 +216,30 @@ These verify the Phase 3 checkpoint from a user's perspective: "Can write conten
 **Setup:** Document has two beats; Beat B has `nodes.locked = TRUE`. Detail panel open on Beat A.
 **Procedure:** Click Beat B in the tree.
 **Expected:** Editors load Beat B's content but are read-only (Tiptap `editable: false`). A subdued banner reads "Locked — read only." No autosave fires. Switching back to Beat A restores edit mode.
+
+### TC-U-25 — Detail panel on a non-leaf renders Summary + Metadata + Notes only *(v1.1)*
+**Spec:** Component Spec v2.2 §5.1 (Content-tab leaf-aware composition); API Contract v1.1 §2.12 (`is_leaf`); TA v1.6 H-15.
+**Setup:** Novel document with a Chapter that has no children yet (so child-count would falsely flag it as a leaf).
+**Procedure:** Click the Chapter row → detail panel opens → Content tab.
+**Expected:** SummaryEditor, MetadataForm, and NotesEditor mount. **ProseEditor does NOT mount** (no `[data-editor="prose"]` element in the panel). **FocusModeButton does NOT render** (no `⊞ Focus Mode` text). **WordCount does NOT render** (no `[data-testid="word-count"]` element).
+
+### TC-U-26 — Detail panel on a leaf renders the full editor stack *(v1.1)*
+**Spec:** Component Spec v2.2 §5.1.
+**Setup:** Novel document with a Beat (deepest layer).
+**Procedure:** Click the Beat row → detail panel opens → Content tab.
+**Expected:** SummaryEditor + ProseEditor + FocusModeButton + WordCount + MetadataForm + NotesEditor all mount. (Same as TC-U-01 but phrased explicitly against `is_leaf === true`.)
+
+### TC-U-27 — NodeRow `+ Add child` button hidden on leaves *(v1.1)*
+**Spec:** Component Spec v2.2 §4.2; Migration 021 (`move_node` layer_violation).
+**Setup:** Novel document with an Act (non-leaf) and a Beat (leaf) both visible in the tree.
+**Procedure:** Hover the Act row, then hover the Beat row. Inspect the hover-actions area on each.
+**Expected:** Act row shows the `+ Add child` button on hover. Beat row does **not** show the `+` button — the affordance is suppressed because the database would refuse the operation with `layer_violation` anyway.
+
+### TC-U-28 — `⌘Return` on a non-leaf does not enter Focus Mode *(v1.1)*
+**Spec:** Component Spec v2.2 §5.1, §6.1; API Contract v1.1 §2.12.
+**Setup:** Detail panel open on a Chapter (non-leaf). Active element somewhere inside the Content tab (e.g. Summary editor).
+**Procedure:** Press `⌘Return`.
+**Expected:** No Focus Mode overlay appears (`[data-focus-mode="active"]` not present in the DOM after the keypress). The keystroke is harmlessly dropped because the panel never wires the entry handler when `node.is_leaf === false`. (On a Beat, the same keystroke would enter Focus Mode — covered by TC-U-12.)
 
 ---
 
@@ -532,6 +556,26 @@ Each test uses a service-role-prepared fixture (User A signed in, document with 
 **Procedure:** Issue PATCH-2 with `expected_version = 1` immediately (before PATCH-1 returns).
 **Expected:** PATCH-1 returns 200 with `version = 2`. PATCH-2 returns 409 (because `expected_version` is now stale; server has version 2). Both responses are consistent — no torn writes, no lost updates.
 
+### 5.5 Server-derived `is_leaf` *(v1.1)*
+
+#### TC-A-33 — `GET /api/nodes/[id]` returns `is_leaf: true` on a Beat
+**Spec:** API Contract v1.1 §2.12; TA v1.6 H-15.
+**Setup:** Novel document with a Beat (layer_index = 4 = deepest).
+**Procedure:** GET `/api/nodes/[beatId]`.
+**Expected:** 200. Response `node.is_leaf === true`.
+
+#### TC-A-34 — `GET /api/nodes/[id]` returns `is_leaf: false` on a Chapter with no children
+**Spec:** API Contract v1.1 §2.12; TA v1.6 H-15 (the explicit rule that child-count is not leaf-ness).
+**Setup:** Novel document with a freshly-created Chapter (layer_index = 2) and **zero descendants**. The naive client-side child-count heuristic would mis-classify this as a leaf.
+**Procedure:** GET `/api/nodes/[chapterId]`.
+**Expected:** 200. Response `node.is_leaf === false`. The deepest layer in the document's `layer_stack.layers` is `4` (Beat), and the Chapter's `layer_index` is `2`, so the structural rule says "not a leaf" regardless of child count.
+
+#### TC-A-35 — `GET /api/documents/[id]/nodes` decorates every row with `is_leaf`
+**Spec:** API Contract v1.1 §2.12.
+**Setup:** Novel document with one each of Book → Act → Chapter → Scene → Beat plus a second Chapter that has no Scenes yet.
+**Procedure:** GET `/api/documents/[docId]/nodes`.
+**Expected:** 200. Every row has `is_leaf: boolean`. Only the Beat row has `is_leaf === true`. The empty-Chapter row has `is_leaf === false` (zero children does not equal leaf-ness).
+
 ---
 
 ## 6. Section 5 — Authorisation Boundary Tests
@@ -655,15 +699,15 @@ Phase 3 PASSES if and only if **every** test case above resolves to PASS, AND th
 
 Concretely:
 
-1. All 24 UI checkpoint tests (TC-U-01 through TC-U-24) pass.
+1. All 28 UI checkpoint tests (TC-U-01 through TC-U-28) pass — TC-U-25..28 added in v1.1 for leaf-aware UI gating.
 2. All 12 visual / opacity tests (TC-V-01 through TC-V-12) pass.
 3. All 8 motion / transition tests (TC-M-01 through TC-M-08) pass.
-4. All 32 API integration tests (TC-A-01 through TC-A-32) pass.
+4. All 35 API integration tests (TC-A-01 through TC-A-35) pass — TC-A-33..35 added in v1.1 for the server-derived `is_leaf` field.
 5. All 8 authorisation boundary tests (TC-B-01 through TC-B-08) pass.
 6. All 6 data integrity tests (TC-D-01 through TC-D-06) pass.
 7. All 6 accessibility tests (TC-AX-01 through TC-AX-06) pass.
 
-**Total: 96 test cases.**
+**Total: 102 test cases.**
 
 Any failure is recorded in the Phase 3 Test Report with: severity, classification (specification gap / specification error / implementation gap / environment issue), root-cause analysis, fix applied, and re-test result. A FAIL verdict is permitted to convert to PASS only after re-test.
 
@@ -697,5 +741,7 @@ This Test Plan is approved before any implementation begins. Changes after appro
 ---
 
 ## 12. Changelog
+
+**v1.1 — 2026-05-04** Post-merge corrective additions. Six new test cases for the leaf-aware UI gating introduced in API Contract v1.1 / TA v1.6 H-15 / Component Spec v2.2: **TC-U-25** (non-leaf renders Summary+Metadata+Notes only), **TC-U-26** (leaf renders the full editor stack — explicit `is_leaf` rephrasing of TC-U-01), **TC-U-27** (NodeRow `+ Add child` button hidden on leaves), **TC-U-28** (`⌘Return` on a non-leaf does not enter Focus Mode), **TC-A-33** (GET node returns `is_leaf: true` on a Beat), **TC-A-34** (GET node returns `is_leaf: false` on a Chapter with no children — the explicit "child-count is not leaf-ness" guarantee), **TC-A-35** (document-nodes list decorates every row). New §5.5 "Server-derived `is_leaf`" sub-section under API integration. §9 verdict count raised 96 → 102. No existing case rewritten; corrective is purely additive.
 
 **v1.0 — 2026-05-04** Initial Phase 3 Pre-Phase Test Plan. 96 test cases across UI checkpoint (24), visual / opacity state-machine (12 — new category for Phase 3), motion / transition (8 — new category for Phase 3), API integration (32), authorisation boundary (8), data integrity (6), accessibility (6). Derived from `stelavox_phase3_api_contract_v1_0.md` v1.0 and the Phase 3 checkpoint criterion in Technical Architecture v1.5 §11. Out-of-scope categories enumerated to make absences explicit (version restore, agent operations, `node_versions` row creation, context nodes, real-time lock state, export, V2 features).

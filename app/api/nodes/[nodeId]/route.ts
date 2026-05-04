@@ -18,7 +18,10 @@ import { createClient } from '@/lib/supabase/server'
 import { err } from '@/lib/api/errors'
 import { isValidUuid } from '@/lib/validation/uuid'
 import { nodePatchSchema } from '@/lib/validation/nodes'
-import { getNode, updateNode, updateNodeOptimistic, deleteNode } from '@/lib/data/nodes'
+import {
+  getNode, updateNode, updateNodeOptimistic, deleteNode,
+  getDocumentMaxLayerIndex, decorateWithLeaf,
+} from '@/lib/data/nodes'
 
 interface Context { params: Promise<{ nodeId: string }> }
 
@@ -157,7 +160,11 @@ export async function GET(_request: NextRequest, { params }: Context) {
     const { data: node } = await getNode(supabase, nodeId)
     if (!node) return err.notFound()
 
-    return NextResponse.json({ node })
+    // Phase 3 v1.1: decorate with server-derived is_leaf (API Contract §2.12).
+    const maxIdx = node.document_id
+      ? await getDocumentMaxLayerIndex(supabase, node.document_id)
+      : null
+    return NextResponse.json({ node: decorateWithLeaf(node, maxIdx) })
   } catch {
     return err.internal()
   }
@@ -213,6 +220,14 @@ export async function PATCH(request: NextRequest, { params }: Context) {
     // a concurrent commit between our read and write produces a 0-row
     // UPDATE which we surface as 409 (TC-A-32). When omitted, the Phase 2
     // last-write-wins path is preserved verbatim.
+    // Phase 3 v1.1: every node response carries server-derived is_leaf
+    // (§2.12). Fetch maxLayerIndex once for the document and decorate every
+    // returned node body — including the `current` field on a 409.
+    const docId = node.document_id
+    const maxIdx = docId
+      ? await getDocumentMaxLayerIndex(supabase, docId)
+      : null
+
     if (expectedVersion !== undefined) {
       const { data: updated, error: updateError } = await updateNodeOptimistic(
         supabase,
@@ -226,9 +241,13 @@ export async function PATCH(request: NextRequest, { params }: Context) {
         // mismatch or the row was deleted in the gap. Re-read to decide.
         const { data: current } = await getNode(supabase, nodeId)
         if (!current) return err.notFound()
-        return err.versionConflict(current, expectedVersion, current.version)
+        return err.versionConflict(
+          decorateWithLeaf(current, maxIdx),
+          expectedVersion,
+          current.version,
+        )
       }
-      return NextResponse.json({ node: updated })
+      return NextResponse.json({ node: decorateWithLeaf(updated, maxIdx) })
     }
 
     const { data: updated, error: updateError } = await updateNode(
@@ -238,7 +257,7 @@ export async function PATCH(request: NextRequest, { params }: Context) {
     )
     if (updateError || !updated) return err.internal()
 
-    return NextResponse.json({ node: updated })
+    return NextResponse.json({ node: decorateWithLeaf(updated, maxIdx) })
   } catch {
     return err.internal()
   }

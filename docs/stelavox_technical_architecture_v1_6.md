@@ -1,5 +1,5 @@
 # Stelavox — Technical Architecture
-## Version 1.5
+## Version 1.6
 
 ---
 
@@ -284,7 +284,7 @@ Layer boundaries are visually separated by a subtle divider with the layer name 
 
 When a node is selected, the right panel opens with:
 
-- **Content tab:** Name, short description, Summary editor (Tiptap), Prose editor (Tiptap — leaf nodes only), word count target, metadata fields (dynamic per node type).
+- **Content tab:** Name, short description, Summary editor (Tiptap), Prose editor (Tiptap — **renders only when `node.is_leaf === true` per Phase 3 API Contract v1.1 §2.12**), word count target, metadata fields (dynamic per node type). The leaf-ness rule is structural, not based on whether children currently exist — see H-15.
 - **Agent tab:** Agent instruction field, profile selector, operation buttons (Expand / Refine / Synthesise / Generate Context / Critique), active job progress indicator, last operation summary.
 - **Comments tab:** Editorial comment thread, new comment form with type selector, resolve/reopen per comment.
 - **History tab:** Chronological version list, restore button per entry.
@@ -292,7 +292,11 @@ When a node is selected, the right panel opens with:
 
 ### 2.6 Rich Text Editing (Tiptap)
 
-Tiptap is a headless rich text editor on ProseMirror. Used for both summary and prose fields. Summary editor has minimal formatting (bold, italic, basic lists). Prose editor has full writing environment (bold, italic, em dash, smart quotes, paragraph spacing, chapter break markers, distraction-free mode). Content is stored as JSON internally; serialised to plain text or styled markup for export.
+Tiptap is a headless rich text editor on ProseMirror. Used for the summary, prose, and notes fields. Summary editor has minimal formatting (bold, italic, basic lists). Prose editor has full writing environment (bold, italic, em dash, smart quotes, paragraph spacing, chapter break markers, distraction-free mode). Notes editor mirrors Summary's shape but admits the Link extension. Content is stored as stringified Tiptap JSON in the column (per API Contract §5 G-3); plain text is extracted at LLM-prompt time only (H-06).
+
+**ProseEditor leaf-only mounting.** ProseEditor mounts on a node only when the API response carries `is_leaf === true` for that node. WordCount and the `⊞ Focus Mode` button mount on the same condition. SummaryEditor and NotesEditor mount on every node regardless of leaf-ness — they are part of the structural surface, not the prose surface. The leaf rule is enforced at the panel level (`NodeDetailPanel`), and the tree's `+ Add child` affordance is hidden on leaves to mirror the database's `move_node` layer-violation refusal (Migration 021).
+
+**Tiptap version note (post-Phase-3-build).** The library is pinned at `3.x` via `package.json` exact-pin. v3 differs from the 2.x reference originally listed in §1: every `useEditor()` call must set `immediatelyRender: false` for SSR safety; `setContent`'s second argument is `SetContentOptions`, not a boolean; and `useEditor` returns `Editor | null` (the editor doesn't exist during SSR). All three editors in `components/detail/` honour these.
 
 ### 2.7 State Management (Zustand)
 
@@ -2625,6 +2629,37 @@ This is the only safe order without using deferred constraints (which Supabase m
 
 ---
 
+### H-15 — Leaf-ness is a layer-stack property, not a child-count property
+
+**What happens:** UI gates that use *"node has no children"* as a synonym for *"node is a leaf"* mis-classify in-construction trees. A Chapter created before any Scenes are added has zero children, so a child-count heuristic flags it as a leaf, exposes the ProseEditor on it, and lets the author write prose into a structural node. The Phase 3 v1.0 ProseEditor was rendered on every node for this reason — the post-merge UX-test caught it.
+
+**Why:** A document's structure is fixed by its forked `layer_stack` at creation time (Migration 015 / 020). The deepest layer admits no children — it's the leaf. Every other layer expects children of the next type per the stack, even when none have been added yet. Child-count is *runtime tree state* and lies during construction; layer-position is *structural metadata* and is correct at every moment of the document's life.
+
+**The fix:** Treat leaf-ness as a derived property of `nodes.layer_index` against the document's `layer_stack.layers[*].index`. Concretely:
+
+```
+is_leaf = (node.layer_index === max(layer_stack.layers[*].index))
+```
+
+The database itself uses this rule today: Migration 021's `move_node` raises `layer_violation: parent at layer % is a leaf and admits no children` when a caller tries to give a deepest-layer node a child. The HTTP layer mirrors that: every node response shape carries an `is_leaf: boolean` (API Contract v1.1 §2.12). Clients MUST consume this server-derived field rather than computing leaf-ness from tree state.
+
+```typescript
+// Wrong — child-count heuristic. Lies during construction.
+const isLeaf = node.children?.length === 0
+
+// Right — server-derived structural property.
+const isLeaf = node.is_leaf
+```
+
+**Scope:** Every UI surface that varies behaviour by leaf-ness:
+- `NodeDetailPanel` (Phase 3): ProseEditor + WordCount + FocusModeButton + ⌘Return entry are gated on `node.is_leaf`.
+- `NodeRow` (Phase 2): the `+ Add child` button is hidden on leaves so the UI matches the DB's layer_violation refusal.
+- `AgentTab` (Phase 5): the Synthesise Prose button is leaf-only per Component Spec §5.9 and uses the same field.
+
+Any future leaf-aware affordance reads the same field. No client should ever recompute leaf-ness from the tree.
+
+---
+
 ## 6. AI Integration Layer
 
 ### 6.1 Architecture Overview
@@ -3203,6 +3238,8 @@ Director tool definitions and executor → `director-runner` Edge Function (read
 ---
 
 ## 14. Changelog
+
+**v1.6 — 2026-05-04** Post-Phase-3-merge corrective absorption. **§2.5** Content-tab description now reads "Prose editor (Tiptap — renders only when `node.is_leaf === true`)" and references the Phase 3 API Contract v1.1 §2.12 + new H-15. **§2.6** Rich Text Editing block expanded to spell out the leaf-only mounting rule for ProseEditor / WordCount / FocusModeButton (Notes and Summary mount on every node), plus a Tiptap-version note documenting the v3 quirks observed during the Phase 3 build (`immediatelyRender: false`, `SetContentOptions`, `Editor | null` return). **§5** New hazard **H-15** ("Leaf-ness is a layer-stack property, not a child-count property") records the post-merge UX-test finding and the structural rule the database has used since Migration 021. Schema and migration count are unchanged (still 22 with 022 intentionally skipped). No new Phase 3 SU candidates beyond the leaf-aware UI corrective.
 
 **v1.5 — 2026-05-04** Phase 2 close-out — folded the Phase 2 build-time discoveries into the canonical schema and resolved four SU items raised in `stelavox_phase2_build_checklist_v1_0.md` §6. **§3.5** updated to reflect the post-Phase-2 migration count (22; number 022 intentionally skipped) and to call out 020/021/023 as Phase 2 additions. **§3.6** gained three new migration blocks: 020 (`create_document_with_layer_stack` extends to insert root node and back-fill `documents.root_node_id`), 021 (`move_node` RPC — atomic move + sibling renumber + cycle detection + lock chain check + recursive descendant depth/layer_index update), and 023 (`bump_node_version_on_content_change` BEFORE UPDATE trigger that increments `version` only when `summary`/`prose`/`notes`/`metadata` change). A `Migration 022` placeholder block records the intentional gap. **SU-1:** Migration 004's `scope` column annotated to record that `nodes.scope` is non-NULL only for `node_category = 'context'`; the category-conditional NOT NULL is enforced at the API layer. **SU-3:** the content-only version-bump rule now lives in the Migration 023 block as the canonical spec; Phase 3 autosave's optimistic-concurrency conflict detection depends on it. **SU-4:** Migration 008 (`node_locks`) gained a "Lock-check error codes" cross-cutting note documenting the `node_locked` (self) vs `parent_locked` (ancestor) HTTP-423 distinction; this convention is shared by every later phase that mutates content. **SU-6:** §11 Phase Plan clarified — Phase 3 row now reads "Tiptap (Summary, Prose, Notes), Focus Mode, auto-save with optimistic concurrency, version-history browse and diff preview, metadata forms" with the explicit note that restore is Phase 6; Phase 6 row clarifies that browse already shipped in Phase 3.
 

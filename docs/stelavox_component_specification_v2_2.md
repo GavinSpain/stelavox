@@ -1,5 +1,5 @@
 # Stelavox — Component Specification
-## Version 2.1
+## Version 2.2
 
 ### Purpose
 
@@ -472,6 +472,8 @@ Root react-arborist component with custom `NodeRow` renderer.
 - Add child (Plus icon): same
 - More (MoreHorizontal icon): same
 
+🔒 **Add-child button is hidden on leaves.** When `node.is_leaf === true` (per Phase 3 API Contract v1.1 §2.12), the Add-child button is not rendered on hover. This mirrors the database's `move_node` layer-violation refusal (Migration 021 line 178 — *"parent at layer % is a leaf and admits no children"*) so the UI never offers an action the database would reject. Leaf-ness is a structural property of the document's `layer_stack` and is *not* the same as "has zero children" — a Chapter created before any Scenes are added has zero children but is not a leaf. See TA v1.6 H-15.
+
 **Locked node:** Lock icon (Lucide Lock) replaces type icon entirely. Drag handle hidden.
 
 ♿ `role="treeitem"`, `aria-expanded`, `aria-level`, `aria-selected`. `aria-label` includes name and status: `aria-label="Chapter 5, approved"`.
@@ -583,6 +585,22 @@ Subtle visual separator between structural layers in the tree.
 - Breadcrumb: Inter 300 11px `--color-text-muted`. Each segment clickable (opens ancestor). `white-space: nowrap; overflow: hidden; text-overflow: ellipsis`
 - Tab strip: `<TabStrip>` component
 
+**Content-tab body composition (leaf vs non-leaf).** The Content tab renders a different stack depending on `node.is_leaf` (per Phase 3 API Contract v1.1 §2.12). The structural-side editors (Summary, Notes) and the metadata form mount on every node; the prose surface mounts only on leaves.
+
+| Position | Component | Renders on… |
+|---|---|---|
+| 1 | `<ConflictBanner />` | Both (the autosave conflict UI is universal) |
+| 2 | `<SummaryEditor />` | Both — structural planning input |
+| 3 | `<ProseEditor mode="edit" />` | 🔒 **Leaves only** (`is_leaf === true`) |
+| 4 | `<FocusModeButton />` | 🔒 **Leaves only** — sits in the prose label row |
+| 5 | `<WordCount />` | 🔒 **Leaves only** — bottom of prose column |
+| 6 | `<MetadataForm />` | Both — per-node-type schema |
+| 7 | `<NotesEditor />` | Both — author commentary, never agent-consumed |
+
+The `⌘Return` shortcut for Focus Mode entry is also leaf-only — it relies on the prose-edit DOM element (`[data-editor="prose"][data-mode="edit"]`) being mounted, so on a non-leaf there is no element to capture focus and the shortcut is a no-op. Implementations should explicitly guard on `is_leaf` for clarity rather than relying on the DOM-presence side effect.
+
+The leaf rule is structural — it depends on `node.layer_index` against the document's `layer_stack`, never on whether children currently exist. See TA v1.6 H-15.
+
 ---
 
 ### 5.2 TabStrip
@@ -642,6 +660,8 @@ Built with Tiptap. The structural planning field — 🔒 **always Inter, never 
 🔒 The most constrained component in the product. Every value here is final.
 
 Built with Tiptap. The prose surface — 🔒 **always Lora, never Inter**.
+
+🔒 **Leaf-only mounting.** ProseEditor renders only when `node.is_leaf === true` (Phase 3 API Contract v1.1 §2.12). A node is a leaf iff its `layer_index` equals the maximum index in the document's `layer_stack.layers` — a structural property, never inferred from child count (TA v1.6 H-15). The parent panel must gate the mount; ProseEditor itself does not check leaf-ness.
 
 | Property | Value |
 |---|---|
@@ -737,6 +757,8 @@ Button separator: `1px solid --color-border-subtle` vertical, `margin: 0 2px`.
 
 **File:** `components/detail/WordCount.tsx`
 
+🔒 **Leaf-only mounting.** WordCount renders only on leaves (same condition as ProseEditor §5.4). It has no role on a non-leaf because there is no prose to count.
+
 | Property | Value |
 |---|---|
 | Font | Inter 300 `--text-xs` (11px) `--color-text-muted` |
@@ -768,6 +790,8 @@ No toast, no animation, no pulse on reaching target. The colour change is the on
 **File:** `components/detail/FocusModeButton.tsx`
 
 Positioned in the prose label row of the Content tab.
+
+🔒 **Leaf-only mounting.** FocusModeButton renders only on leaves (same condition as ProseEditor §5.4). The button has no surface to enter Focus Mode for on a non-leaf, and the `⌘Return` shortcut handler is correspondingly leaf-gated (see §5.1 NodeDetailPanel).
 
 | Property | Value |
 |---|---|
@@ -921,11 +945,13 @@ Built with Tiptap. The author's private scratchpad on a node — a place for hal
 
 Full-screen overlay mounted above AppShell.
 
+🔒 **Leaf-only entry.** Focus Mode can only be entered for a node where `node.is_leaf === true`. The entry shortcut `⌘Return` is wired only on leaves; the `<FocusModeButton>` is leaf-only (§5.8). This is consistent with ProseEditor's leaf-only mounting (§5.4) — Focus Mode is the prose surface at full viewport. Sibling navigation inside Focus Mode (`⌘←` / `⌘→`) only crosses sibling leaves at the same layer; the navigation never lands on a non-leaf.
+
 | Property | Value |
 |---|---|
 | Position | fixed, inset: 0, z-index: 100 |
 | Background | 🔒 `--color-bg-base` (#0d1014) — full viewport |
-| Entry shortcut | `⌘Return` from Edit Mode prose field |
+| Entry shortcut | `⌘Return` from Edit Mode prose field (leaf nodes only) |
 | Exit shortcut | `Escape` or `⌘Return` |
 
 **Contents (z-order top to bottom):**
@@ -1604,6 +1630,8 @@ All open questions from Component Spec v1.4 are resolved. There are currently no
 ---
 
 ## 17. Changelog
+
+**v2.2 — 2026-05-04** Post-Phase-3-merge corrective: leaf-aware UI gating. Five sections amended. **§4.2 NodeRow:** the `+ Add child` hover button is hidden when `node.is_leaf === true` so the UI mirrors the database's `move_node` layer-violation refusal (Migration 021). **§5.1 NodeDetailPanel:** the Content-tab body composition now spells out which components mount on every node (ConflictBanner, SummaryEditor, MetadataForm, NotesEditor) versus leaves only (ProseEditor, FocusModeButton, WordCount); the `⌘Return` shortcut is correspondingly leaf-gated. **§5.4 ProseEditor / §5.7 WordCount / §5.8 FocusModeButton:** added a 🔒 leaf-only mounting note pointing to the Phase 3 API Contract v1.1 §2.12 `is_leaf` field and TA v1.6 H-15. **§6.1 FocusMode:** clarified that entry is leaf-only — the entry shortcut is wired only on leaves and sibling navigation never lands on a non-leaf. The structural-leaf rule (`node.layer_index === max(layer_stack.layers[*].index)`) is the single source of truth. No new components, no token changes, no Inviolable changes.
 
 **v2.1 — 2026-05-04** Phase 2 close-out absorption + Phase 3 prep. Two changes, both in section 5 (Detail Panel Components). **SU-5 (NotesEditor):** added a new **§5.13 NotesEditor** — Tiptap, Inter 400 13px, sibling to `SummaryEditor` (§5.3), bound to `nodes.notes`. The Notes tab existed as a placeholder in Phase 2's TabStrip but had no component-level spec; this section closes that gap. The architectural rule that NotesEditor and SummaryEditor are separate components (no shared base) is documented. The Link extension is admitted in NotesEditor (and forbidden in SummaryEditor) — rationale recorded. Autosave participation in the Phase 3 1.5s-debounce state machine is referenced. **§5.11 VersionHistory clarification:** added a Phase 3 vs Phase 6 split note. The list, current-version star, hover diff tooltip, and "Show N more" pagination ship in Phase 3 (per Technical Architecture v1.5 §11 — "browseable" checkpoint). The Restore button and all of its lock-aware semantics ship in Phase 6. Phase 3 implementations MUST NOT render the Restore button. The existing "Restore button" row remains as the canonical Phase 6 spec to keep the Phase 6 contract stable. No other components changed.
 

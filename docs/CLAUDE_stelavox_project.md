@@ -1,5 +1,5 @@
 # Stelavox — Claude Code Project Context
-## Version 1.4
+## Version 1.5
 
 > **Versioning note:** This file is versioned. The version lives here, not in the filename — the filename must remain `CLAUDE.md` for Claude Code to find it automatically. When this file changes, increment the version and add a changelog entry at the bottom. The source of record is `docs/CLAUDE_stelavox_project.md`; the deployed copy at the repository root must always match it. Commit both in the same commit.
 
@@ -13,7 +13,7 @@ Read these before writing any code in a new session:
 
 1. `docs/stelavox_wireframe_errata_v1_0.md` — corrections to wireframes (read before any wireframe HTML)
 2. The relevant spec section for today's task (see Spec Library Reference below)
-3. `docs/stelavox_technical_architecture_v1_5.md` §5 — Known Hazards H-01 to H-14, if today's task touches the database, agents, or Director
+3. `docs/stelavox_technical_architecture_v1_6.md` §5 — Known Hazards H-01 to H-15, if today's task touches the database, agents, or Director
 
 ---
 
@@ -23,14 +23,14 @@ All documents live in `/docs`. Before making any change, read the relevant docum
 
 | Change type | Read first |
 |---|---|
-| Any UI change | `stelavox_component_specification_v2_1.md` |
+| Any UI change | `stelavox_component_specification_v2_2.md` |
 | Layout, tokens, motion, accessibility | `stelavox_ui_design_specification_v1_0.md` |
 | Colour, typography, brand rules | `stelavox_brand_identity_v2_0.md` |
-| Database schema, RLS, migrations, agent system, Director, security | `stelavox_technical_architecture_v1_5.md` |
+| Database schema, RLS, migrations, agent system, Director, security | `stelavox_technical_architecture_v1_6.md` |
 | Product features, user journeys, pricing, data model | `stelavox_product_specification_v1_3.md` |
 | Any wireframe | `stelavox_wireframe_errata_v1_0.md` first, then the wireframe HTML |
 | Environment setup, deployment | `stelavox_deployment_setup_v1_0.md` |
-| Current phase tasks | `stelavox_phase2_build_checklist_v1_0.md` (v1.1 amendment landed mid-Phase-2) |
+| Current phase tasks | `stelavox_phase3_build_checklist_v1_0.md` (v1.1 leaf-aware UI corrective amendment); `stelavox_phase3_api_contract_v1_0.md` v1.1; `stelavox_phase3_test_plan_v1_0.md` v1.1; `stelavox_phase3_test_report_v1_0.md` v1.1 |
 
 ---
 
@@ -169,7 +169,7 @@ Formatting via keyboard shortcuts and `SelectionTooltip` only (Bold · Italic ·
 
 ## Known Hazards (summary)
 
-Read Technical Architecture v1.5 §5 for the full entries (H-01 to H-14). The most common during active build:
+Read Technical Architecture v1.6 §5 for the full entries (H-01 to H-15). The most common during active build:
 
 - **H-01** — Use `.maybeSingle()` not `.single()` when zero rows is a valid result
 - **H-02** — RLS policies on `organisation_members` must not query `organisation_members`
@@ -185,6 +185,7 @@ Read Technical Architecture v1.5 §5 for the full entries (H-01 to H-14). The mo
 - **H-12** — No hardcoded operational values in TypeScript — all values via `getConfig()`
 - **H-13** — `SECURITY DEFINER` functions must declare `SET search_path = public`
 - **H-14** — `documents ↔ layer_stacks` insert order: stack first (NULL doc_id), then document, then UPDATE
+- **H-15** — Leaf-ness is a layer-stack property (`node.layer_index === max(layers[*].index)`), never inferred from child count — clients consume server-derived `is_leaf`
 
 ---
 
@@ -207,9 +208,10 @@ Before implementing or modifying these components, read the exact spec in `docs/
 | `NodeRow` | §4.2 | 36px height, 16px indent per depth level |
 | `SummaryEditor` | §5.3 | Inter 400 13px — **never Lora**. No Link extension. |
 | `NotesEditor` | §5.13 | Inter 400 13px — **never Lora**. Sibling of SummaryEditor; Link extension allowed (rationale in §5.13). |
-| `ProseEditor` | §5.4 | Lora 400, 18px Focus Mode / 16px panel, 1.85 line-height |
+| `ProseEditor` | §5.4 | Lora 400, 18px Focus Mode / 16px panel, 1.85 line-height. **Leaf-only mounting** — renders only when `node.is_leaf === true` (Component Spec v2.2 §5.4 / API Contract v1.1 §2.12 / TA v1.6 H-15) |
+| `FocusModeButton` | §5.8 | Inter 400 11px. **Leaf-only mounting** (same rule) |
+| `WordCount` | §5.7 | Opacity 0 while typing, 0.4 after 3s idle, 0.9 on hover. **Leaf-only mounting** (same rule as ProseEditor) |
 | `ProseEditorCursor` | §5.5 | 2px verdigris (`--color-accent`), no blink while typing |
-| `WordCount` | §5.7 | Opacity 0 while typing, 0.4 after 3s idle, 0.9 on hover |
 | `FocusMode` | §6.1 | 280ms expo-out (`--easing-default`), all elements simultaneous |
 | `FocusBreadcrumb` | §6.2 | `pointer-events: none` always. Max opacity 0.2 — never higher |
 | `PlanCard` | §7.6 | Always fully expanded. Approve button label updates live on checkbox changes |
@@ -249,6 +251,8 @@ Version bumps: minor for additions and corrections, major for structural changes
 ---
 
 ## Changelog
+
+**v1.5 — 2026-05-04** Post-Phase-3-merge corrective absorption. Spec Library Reference table re-pointed at the two cross-cutting specs that bumped: `stelavox_technical_architecture_v1_6.md` (was v1_5) and `stelavox_component_specification_v2_2.md` (was v2_1). Phase 3 docs (api contract, build checklist, test plan, test report) all bumped internally to v1.1; their filenames stay at the v1_0 form per the Phase 2 precedent. Session Start Checklist points at TA v1.6 §5 covering H-01..H-15 (was H-14). Critical Component Specifications table now annotates ProseEditor / FocusModeButton / WordCount as **leaf-only mounting** per Component Spec v2.2 §5.1; FocusModeButton added as a first-class row. Hazards summary gains **H-15** ("Leaf-ness is a layer-stack property, never inferred from child count — clients consume server-derived `is_leaf`"). Five Inviolables unchanged. Five Inviolables audit during the Phase 3 build flagged Component Spec §5.11's verdigris-tinted current-version star as a deviation from Inviolable #2's nine-uses enumeration; the star ships at `--color-text-primary` pending upstream resolution (SU-7).
 
 **v1.4 — 2026-05-04** Phase 2 close-out absorption. Spec Library Reference table updated to point at the three bumped specs: `stelavox_technical_architecture_v1_5.md` (was v1_4), `stelavox_product_specification_v1_3.md` (was v1_2), `stelavox_component_specification_v2_1.md` (was v2_0). Same versions reflected in the Session Start Checklist, Document Naming Convention examples, and inline references throughout. Critical Component Specifications table: added a `NotesEditor` row pointing at the new Component Spec §5.13 — Notes is now first-class alongside Summary and Prose (Inter 13px; Link extension admitted; sibling of SummaryEditor; no shared base). The Five Inviolables and Hazards summary are unchanged — TA v1.5 added no new hazards (SU-4 added a cross-cutting API convention, not a hazard). All four SU items raised in the Phase 2 Build Checklist §6 are now resolved upstream of Phase 3 Tier-B drafting (SU-1 / SU-3 / SU-4 / SU-6 in TA v1.5; SU-2 in Product Spec v1.3; SU-5 in Component Spec v2.1).
 

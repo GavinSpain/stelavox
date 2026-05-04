@@ -46,6 +46,41 @@ type NodeRow    = Database['public']['Tables']['nodes']['Row']
 type NodeInsert = Database['public']['Tables']['nodes']['Insert']
 type NodeUpdate = Database['public']['Tables']['nodes']['Update']
 
+// ─── Leaf-ness derivation (H-15) ──────────────────────────────────────────
+// `is_leaf` is a structural property of the document's layer_stack — a node
+// is a leaf iff its layer_index equals the maximum layer index in the stack.
+// Never stored on the row; never inferred from child count.
+//
+// We expose the layer-count fetch as a helper so list endpoints can fetch
+// once per document and decorate every row, instead of N queries.
+
+export async function getDocumentMaxLayerIndex(
+  supabase: Client,
+  documentId: string,
+): Promise<number | null> {
+  const { data } = await supabase
+    .from('layer_stacks')
+    .select('layers')
+    .eq('document_id', documentId)
+    .eq('is_template', false)
+    .maybeSingle()
+  if (!data?.layers) return null
+  const layers = data.layers as Array<{ index?: number }>
+  if (!Array.isArray(layers) || layers.length === 0) return null
+  // Defensive: layers should be 0-indexed contiguous, so length-1 IS the max.
+  // We compute via Math.max for robustness against any future out-of-band
+  // insertion / non-contiguity.
+  return Math.max(...layers.map(l => l.index ?? 0))
+}
+
+export function decorateWithLeaf<T extends NodeRow>(
+  node: T,
+  maxLayerIndex: number | null,
+): T & { is_leaf: boolean } {
+  const is_leaf = maxLayerIndex !== null && node.layer_index === maxLayerIndex
+  return { ...node, is_leaf }
+}
+
 // §2.12: returned fields. Excludes mobile_notes, attachment_count,
 // export_*, external_ref, created_by, last_modified_by, locked_at,
 // locked_version, scope (Phase 2 doesn't surface them).

@@ -57,6 +57,11 @@ export interface NodeData {
   word_count_target: number | null
   word_count_actual: number | null
   version: number
+  // Phase 3 v1.1: server-derived per API Contract §2.12 / TA v1.6 H-15.
+  // Hides the `+ Add child` button so the UI mirrors the database's
+  // move_node layer_violation refusal. Optional for backwards compat with
+  // any caller that hasn't been re-fetched against the v1.1 API.
+  is_leaf?: boolean
 }
 
 export interface ArboristNode {
@@ -177,12 +182,17 @@ export function NodeRow({ node, style, dragHandle }: NodeRendererProps<ArboristN
           flexShrink: 0,
         }}
       >
-        <RowActionButton
-          aria-label="Add child"
-          onClick={(e) => { e.stopPropagation(); actions.onAddChild?.(data.id) }}
-          disabled={locked}
-          glyph="+"
-        />
+        {/* `+ Add child` is hidden on leaves so the UI mirrors the DB's
+            move_node layer_violation refusal (Migration 021). Component
+            Spec v2.2 §4.2 + TA v1.6 H-15. */}
+        {!data.is_leaf && (
+          <RowActionButton
+            aria-label="Add child"
+            onClick={(e) => { e.stopPropagation(); actions.onAddChild?.(data.id) }}
+            disabled={locked}
+            glyph="+"
+          />
+        )}
         <RowActionButton
           aria-label="Agent — available in Phase 5"
           disabled

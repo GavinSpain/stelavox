@@ -1,5 +1,5 @@
 # Stelavox — Phase 3 API Contract
-## Version 1.0
+## Version 1.1
 
 > **Tier-B per-phase document.** Frozen for Phase 3 build. Defines every API route added or modified in Phase 3 (Content Editing). Companion to `stelavox_phase3_test_plan_v1_0.md` and `stelavox_phase3_build_checklist_v1_0.md`. Source of truth for endpoint shape, validation, error codes, autosave concurrency semantics, and the editor invariants that bind the implementation to the schema in `stelavox_technical_architecture_v1_5.md` §3.6 (Migrations 004 / 005 / 023).
 
@@ -143,7 +143,13 @@ These are the invariants every Phase 3 editor surface upholds. They are not enfo
 
 ### 2.12 Response shape — node object
 
-Identical to Phase 2 §2.12. Phase 3 does not add or remove fields; it activates the content fields (`summary`, `prose`, `notes`, `metadata`) that were already present-but-unsurfaced in Phase 2 responses.
+Inherits Phase 2 §2.12 plus the Phase 3 v1.1 addition:
+
+| Field | Type | Source | Notes |
+|---|---|---|---|
+| `is_leaf` | `boolean` | server-derived | `true` iff `node.layer_index` equals the maximum `index` in the document's `layer_stack.layers`. Never inferred from child count — see G-6. Returned on every response shape that includes a node object: GET `/api/nodes/[id]`, the PATCH 200 response, the POST 201 response, and every row of GET `/api/documents/[id]/nodes`. |
+
+All other fields carry over unchanged. Phase 3 still activates the content fields (`summary`, `prose`, `notes`, `metadata`) that were already present-but-unsurfaced in Phase 2 responses.
 
 ### 2.13 Response shape — version object
 
@@ -363,6 +369,21 @@ For Phase 3, structural node types (`book`, `act`, `chapter`, `scene`, `beat` �
 
 **SU candidate (Phase 4 → TA v1.6 / Product Spec v1.4):** When Phase 4 introduces the context node metadata schemas, lift the structural-node schemas alongside them and document the unified mechanism.
 
+### G-6 — Leaf-ness is server-derived, never inferred from child count
+
+**Gap (post-merge, surfaced by manual UX testing 2026-05-04):** TA v1.5 §2.5 stated *"Prose editor (Tiptap — leaf nodes only)"* and Component Spec v2.1 §5.9 stated *"Synthesise Prose ← leaf nodes only"*, but neither defined how the client knows whether a node is a leaf. The Phase 3 v1.0 implementation rendered ProseEditor on every node. The instinctive client-side heuristic — *"a node is a leaf if it has no children"* — is wrong: a Chapter that hasn't been populated with Scenes yet has zero children, but is structurally still a non-leaf because the document's `layer_stack` defines deeper layers (Scene, Beat). The "no children" check makes a Chapter look like a leaf during construction.
+
+**Resolution for Phase 3 v1.1:** Leaf-ness is a **layer-stack property**, not a runtime tree-state property. A node is a leaf iff `node.layer_index === max(layer_stack.layers[*].index)` for the node's document. The database itself uses this rule today: Migration 021's `move_node` RPC raises `layer_violation: parent at layer % is a leaf and admits no children` when a caller tries to give a deepest-layer node a child (lines 158–181). The API now exposes the same fact directly: every response shape that includes a node object includes a server-derived `is_leaf: boolean` field (§2.12).
+
+**Why server-derived (not client-derived):**
+1. Single source of truth — the rule lives in the database/data layer once, not in every UI surface that needs leaf-awareness (NodeDetailPanel, NodeRow's `+` button, AgentTab's Synthesise Prose button, future leaf-gated affordances).
+2. Robust against client lookups — a UI that only has the node ID would otherwise need a separate fetch of the document's `layer_stack` to compute leaf-ness.
+3. Forward-compatible — Phase 5 agent operations that gate on leaf-ness (Synthesise Prose, per Component Spec §5.9) read the same field.
+
+**Implementation note for clients:** clients MUST NOT compute leaf-ness from the tree's child count (e.g., `siblings.children.length === 0`). The server's `is_leaf` is the only correct signal, and using it remains correct during tree construction when leaf nodes have not yet been populated under a non-leaf parent.
+
+**SU candidate (Phase 3 → TA v1.6 / Component Spec v2.2 / Build Checklist v1.1):** Document the structural definition of leaf-ness; add new hazard H-15; amend Component Spec to gate ProseEditor + WordCount + FocusModeButton + the `+ Add child` button on `is_leaf`.
+
 ### G-5 — Version-list ordering when version numbers are non-contiguous
 
 **Gap:** `nodes.version` is incremented by the trigger; `node_versions.version` is set by whoever inserts the row. If Phase 5's agent-system trigger inserts with `version = OLD.version` (capturing the pre-agent state), the `node_versions` table will end up with `1, 2, 3, …` matching `nodes.version` post-edits. But the contract should not assume contiguity — the list endpoint should order by `version DESC`, not by `created_at`, to handle any future case where a version row is inserted out of band.
@@ -396,5 +417,9 @@ Plus four implementation calls confirmed during contract drafting:
 ---
 
 ## 7. Changelog
+
+**v1.1 — 2026-05-04** §2.12 response shape: adds server-derived `is_leaf: boolean` to every response that includes a node object. Computed as `node.layer_index === max(layer_stack.layers[*].index)` for the node's document. Returned by `GET /api/nodes/[id]`, the PATCH 200 response, the POST 201 response, and every row of `GET /api/documents/[id]/nodes`. New §5 G-6 documents the structural-leaf rule and the no-child-count rationale. No schema change. The Phase 2 response shape carries forward; clients that ignore unknown fields continue to work. Phase 3 v1.0 → v1.1 minor bump because no tests are removed and the wire change is purely additive.
+
+
 
 **v1.0 — 2026-05-04** Initial Phase 3 API Contract. Two new endpoints (GET `/versions` paginated list; GET `/versions/[n]` single-version read). One modified endpoint (PATCH `/api/nodes/[id]` adds optional `expected_version` field with 409 conflict response). Cross-cutting rules introduce 409 status code, the lock-beats-conflict ordering, the 1.5s debounce + single-flight + shared-debounce autosave invariants, the local-storage shadow, and the beforeunload guard. Five specification gaps documented (G-1 through G-5) with Phase 3 resolutions and downstream SU candidates flagged. Four architectural decisions and four implementation calls recorded for Phase 3 sign-off.

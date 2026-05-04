@@ -1,5 +1,5 @@
 # Stelavox — Phase 3 Build Checklist
-## Version 1.0
+## Version 1.1
 
 > **Tier-B per-phase document.** The ordered, executable task list for Phase 3. Every task is sized to fit in one Claude Code session, has an explicit acceptance criterion, and references the spec section that authorises it. The agent works through this list top-to-bottom, marking each checkbox complete as the acceptance criterion is satisfied.
 
@@ -119,7 +119,7 @@ Authoritative spec: API Contract §2.11, §3.1; TA v1.5 §2.7. **Opus territory*
 
 Authoritative spec: Component Spec §5.1, §5.2 (TabStrip — already in Phase 2 placeholder).
 
-- [ ] **T-5.1.** Update `components/detail/NodeDetailPanel.tsx` (Phase 2 stub). Replace the `Content` tab's "Coming in Phase 3" placeholder with a layout containing: name heading (existing from Phase 2), status pill (existing), then a stack of `<SummaryEditor />`, `<ProseEditor mode="edit" />`, `<FocusModeButton />`, `<WordCount />`, `<NotesEditor />`. Each editor's value comes from `editorStore`; `onChange` calls `editorStore.setField`. Acceptance: TC-U-01 passes; the three editors mount in order with their placeholders.
+- [ ] **T-5.1.** Update `components/detail/NodeDetailPanel.tsx` (Phase 2 stub). Replace the `Content` tab's "Coming in Phase 3" placeholder with a layout containing: name heading (existing from Phase 2), status pill (existing), then a stack of `<SummaryEditor />`, **(leaves only)** `<ProseEditor mode="edit" /> + <FocusModeButton /> + <WordCount />`, `<MetadataForm />`, `<NotesEditor />`. Each editor's value comes from `editorStore`; `onChange` calls `editorStore.setField`. The prose group renders only when `node.is_leaf === true` per **API Contract v1.1 §2.12** + **TA v1.6 H-15** + **Component Spec v2.2 §5.1** — leaf-ness is structural (`node.layer_index === max(layer_stack.layers[*].index)`), never inferred from child count. The `⌘Return` Focus Mode entry handler is correspondingly leaf-gated. Acceptance: TC-U-01 / TC-U-25 / TC-U-26 / TC-U-28 pass; on a Beat all three editor surfaces mount; on a Chapter only Summary/Metadata/Notes mount.
 
 - [ ] **T-5.2.** The `Notes` tab is folded into the Content tab per the Phase 2 placeholder TabStrip's prior arrangement — Notes is the last editor in the Content tab, not a separate tab. Update the TabStrip to remove the `Notes` placeholder. Tabs remaining: `Content`, `Agent` (placeholder, Phase 5), `Comments` (placeholder, Phase 5), `History` (Phase 3, this build), `Context` (placeholder, Phase 4). Acceptance: TabStrip renders 5 tabs; the `Notes` tab is gone; `History` becomes the third active tab.
 
@@ -134,6 +134,8 @@ Authoritative spec: Component Spec §5.1, §5.2 (TabStrip — already in Phase 2
 - [ ] **T-5.7.** Create `lib/validation/versions.ts` with the `versionsListQuerySchema` Zod. Mirror Phase 2's pattern. Acceptance: schema rejects `limit=500`, `limit=0`, `offset=-1`; accepts default omitted.
 
 - [ ] **T-5.8.** Create `lib/data/versions.ts` with `listVersions(nodeId, limit, offset)` and `getVersion(nodeId, versionNumber)` thin Supabase wrappers. Acceptance: each returns typed rows from `lib/types/database.ts`.
+
+- [ ] **T-5.9.** *(v1.1 corrective)* Wire the server-derived `is_leaf` field through the data + API + frontend per **API Contract v1.1 §2.12** + **TA v1.6 H-15** + **Component Spec v2.2**. (a) `lib/types/nodes.ts` exports `type NodeWithMeta = NodeRow & { is_leaf: boolean }`. (b) `lib/data/nodes.ts` `getNode()` and `listNodes()` decorate every returned row with `is_leaf` computed as `node.layer_index === (max layer_index in document's layer_stack.layers)`; the layer_stack is fetched once per request. (c) The PATCH and POST node endpoints include `is_leaf` in their response shapes. (d) `components/tree/NodeRow.tsx` hides the `+ Add child` button when `data.is_leaf === true`. (e) `components/detail/NodeDetailPanel.tsx` gates the prose group (ProseEditor + FocusModeButton + WordCount) and the `⌘Return` entry handler on `node.is_leaf`. **Implementation note:** `is_leaf` is a derived property — never stored on the row; never inferred from child count (a Chapter created before any Scenes still has zero children but is structurally not a leaf). Acceptance: TC-A-33 / TC-A-34 / TC-A-35 / TC-U-25 / TC-U-26 / TC-U-27 / TC-U-28 pass.
 
 ### 3.6 Focus Mode
 
@@ -190,7 +192,7 @@ Authoritative spec: TA v1.5 §2.4 (`MetadataForm.tsx` referenced); API Contract 
     - `tests/helpers/tiptap.ts`, `tests/helpers/opacity.ts`, `tests/helpers/autosave.ts`, `tests/helpers/motion.ts` (per Test Plan §1.4).
    Acceptance: all 9 spec files exist; all 4 helper files exist.
 
-- [ ] **T-10.2.** Run `npx playwright test` from the worktree. Iterate on any failures: classify (spec gap / spec error / impl gap / env), fix the cause (spec fix → contract version bump → regenerate the test; impl fix → code change), re-run. **Do not modify a test case to make it pass** — that is forbidden by the Test Plan §9 rule. Acceptance: 96/96 PASS in a clean run.
+- [ ] **T-10.2.** Run `npx playwright test` from the worktree. Iterate on any failures: classify (spec gap / spec error / impl gap / env), fix the cause (spec fix → contract version bump → regenerate the test; impl fix → code change), re-run. **Do not modify a test case to make it pass** — that is forbidden by the Test Plan §9 rule. Acceptance: 102/102 PASS in a clean run (96 original cases + 6 v1.1 leaf-aware cases TC-A-33..35 / TC-U-25..28).
 
 - [ ] **T-10.3.** Run `npm run build`, `npm run lint`, `npm run type-check`. Acceptance: all three exit 0.
 
@@ -241,7 +243,13 @@ Items raised during Phase 3 build that imply a TA v1.6 / Product Spec v1.4 / Com
 - **SU-3 (Phase 3).** API Contract §5 G-3: editor storage shape = stringified Tiptap JSON in TEXT columns; `lib/editor/serialise.ts` centralises the conversion. Document in TA v1.6 §2.6 (Rich Text Editing).
 - **SU-4 (Phase 3).** API Contract §5 G-4: `metadata` schema validation is client-side only in Phase 3; server-side validation arrives with Phase 4 context schemas. Document in TA v1.6 §3.6 Migration 004 (or a new §3.x section on metadata) + Product Spec v1.4 §4.5.
 
-Additional SU items may surface during the build; add them to this list when discovered, then process them in a single follow-up TA v1.6 / Product Spec v1.4 / Component Spec v2.2 close-out commit after Phase 3 merges (mirror of the TA v1.5 close-out after Phase 2).
+**SU items resolved in this v1.1 corrective (post-merge):**
+
+- **SU-5 (Phase 3 v1.1).** Tiptap v2 → v3 API drift. TA v1.5 §1 listed Tiptap 2.x; the build installed `3.22.5` (exact-pinned per the risk register's mitigation). v3 requires `immediatelyRender: false` on every `useEditor()` call for SSR safety; `setContent`'s second argument is `SetContentOptions`, not a boolean; and `useEditor` returns `Editor | null` (the editor doesn't exist during SSR). **Resolved:** TA v1.6 §2.6 (Rich Text Editing) now documents these v3 quirks explicitly; the editor components honour them.
+- **SU-6 (Phase 3 v1.1).** API Contract §5 G-6: leaf-ness is server-derived, never inferred from child count. Phase 3 v1.0's UI rendered ProseEditor on every node; the "no children" client-side heuristic mis-classifies in-construction non-leaf nodes as leaves. **Resolved:** API Contract v1.1 §2.12 adds `is_leaf: boolean`; TA v1.6 H-15 documents the structural rule; Component Spec v2.2 §4.2 / §5.1 / §5.4 / §5.7 / §5.8 / §6.1 gate the affected affordances. Build Checklist task T-5.9 (this document) implements the wiring.
+- **SU-7 (Phase 3 v1.1).** Component Spec §5.11 calls for a `--color-accent`-tinted current-version star, but Brand Identity v2.0 / CLAUDE.md Inviolable #2 enumerates exactly nine permitted verdigris uses, and the star is not among them. Phase 3 ships the star at `--color-text-primary` pending upstream resolution. Tracked for either Component Spec v2.3 (drop the verdigris call-out) or Brand Identity v2.1 + CLAUDE.md v1.6 (add a tenth Inviolable #2 entry).
+
+Additional SU items may surface during the build; add them to this list when discovered, then process them in a single follow-up TA / Product Spec / Component Spec close-out commit after Phase 3 merges (mirror of the TA v1.5 close-out after Phase 2).
 
 ---
 
@@ -288,5 +296,7 @@ Plus four implementation calls confirmed during contract drafting:
 ---
 
 ## 9. Changelog
+
+**v1.1 — 2026-05-04** Post-Phase-3-merge corrective absorbed. **§3.5 T-5.1 amendment:** the Content-tab editor stack composition is now leaf-aware — the prose group (ProseEditor + FocusModeButton + WordCount) and the `⌘Return` entry handler are gated on `node.is_leaf` per API Contract v1.1 §2.12 + TA v1.6 H-15 + Component Spec v2.2. **§3.5 new T-5.9:** the wiring task — extension type, data-layer derivation, API decoration, NodeRow `+` button gating, NodeDetailPanel prose-group gating. **§3.10 T-10.2 acceptance:** test count raised from 96 to 102 (six new cases TC-A-33..35 / TC-U-25..28 added in Test Plan v1.1). **§6 SU registry:** three additional items recorded — SU-5 (Tiptap v2 → v3 drift, resolved in TA v1.6 §2.6), SU-6 (server-derived leaf-ness, resolved across API Contract v1.1 + TA v1.6 H-15 + Component Spec v2.2 + this checklist's T-5.9), SU-7 (current-version star verdigris call-out vs Inviolable #2 — pending upstream resolution). No PB or task-list reordering; corrective is purely additive on top of the merged Phase 3 v1.0 implementation.
 
 **v1.0 — 2026-05-04** Initial Phase 3 Build Checklist. Eleven task groups: §3.1 editor primitives (3 tasks), §3.2 SummaryEditor + NotesEditor (2 tasks, parallelisable), §3.3 ProseEditor + cursor + tooltip + word count + focus-mode button (5 tasks — Inviolable territory), §3.4 autosave + concurrency (9 tasks — Opus territory), §3.5 detail panel wiring + history tab + version endpoints (8 tasks), §3.6 Focus Mode (8 tasks — Opus territory for transitions), §3.7 metadata form (2 tasks), §3.8 empty states (2 tasks), §3.9 Phase B smoke (2 tasks), §3.10 test execution (3 tasks), §3.11 pre-merge checks (6 tasks). Seven pre-build prerequisites (PB-1 to PB-7). Fourteen phase-checkpoint criteria. Four SU items pre-staged for TA v1.6 / Product Spec v1.4 / Component Spec v2.2 absorption. Risk register lists nine Phase-3-specific risks with mitigations.

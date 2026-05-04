@@ -232,7 +232,7 @@ test.describe('Phase 3 — Focus Mode', () => {
     // was racing with the page-load /nodes call.
     await page.waitForTimeout(1500)
     // Verify focus mode shows Beat 2's prose first
-    let initial = await page.locator('[data-editor="prose"][data-mode="focus"] .tiptap').innerText()
+    const initial = await page.locator('[data-editor="prose"][data-mode="focus"] .tiptap').innerText()
     expect(initial).toContain('Prose 2')
     void initial
     // Press ⌘→ to go to Beat 3, then poll for the content swap
