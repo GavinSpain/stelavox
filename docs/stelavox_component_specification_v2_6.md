@@ -1,5 +1,5 @@
 # Stelavox — Component Specification
-## Version 2.5
+## Version 2.6
 
 ### Purpose
 
@@ -617,6 +617,7 @@ The leaf rule is structural — it depends on `node.layer_index` against the doc
 **Tab badges:**
 - Comments: 5px circle `--color-status-review`, shown when unresolved comments exist
 - History: Inter 300 10px count, `--color-bg-elevated` bg, shown when versions > 1 exist
+- Context: Inter 300 10px count, `--color-bg-elevated` bg, shown when direct + inherited context links > 0. The count combines both groups (the user's mental model is "how many context things does this node connect to" — direct + inherited treated as one number for the badge). Hover tooltip clarifies: "N linked, M inherited". (Phase 4 ships ContextLinker without the badge — SU-20; the badge ships in Phase 5 alongside the agent system's context-assembly UI signals.)
 - Agent tab: 🔒 Hidden until node has content (progressive disclosure)
 
 **Tab order:** Content · Comments · Agent · History · Context
@@ -1350,6 +1351,8 @@ Background on conflict row: `rgba(184,112,48,0.06)`. Text: `--color-status-revie
 **Body:** Inter 400 14px `--color-text-secondary`, line-height 1.6, padding `0 24px 20px`.
 **Footer:** padding `16px 24px`, border-top `1px solid --color-border-subtle`, right-aligned buttons.
 
+🔒 **Scrollable body when content overflows.** Modals hosting dynamic schema-driven forms (e.g., the Phase 4 `ContextCreateModal` with the per-context-type metadata fields) MUST render with `maxHeight: 85vh` on the panel and `overflowY: auto; minHeight: 0` on the inner content / form. Without this rule, a long form's submit button can fall outside the viewport on smaller test browsers (typically 720p) and the user has no way to reach it. This was Phase 4 SU-19 — discovered when TC-U-05 timed out clicking a Create button reported as "outside of the viewport." The header stays fixed at the top via flex column layout. Static-content modals (Lock layer / Delete node / Unsaved changes) are short enough that the rule is permissive but harmless.
+
 **Standard modal copy:**
 
 | Modal | Title | Body | Primary button |
@@ -1637,6 +1640,8 @@ All open questions from Component Spec v1.4 are resolved. There are currently no
 ---
 
 ## 17. Changelog
+
+**v2.6 — 2026-05-04** Phase 4 close-out absorption — SU-19 + SU-20. **§9.1 Modal** gains a 🔒 "Scrollable body when content overflows" sub-rule mandating `maxHeight: 85vh` + `overflowY: auto; minHeight: 0` for modals hosting dynamic schema-driven forms (e.g., the Phase 4 `ContextCreateModal` with the per-context-type metadata fields). The rule was discovered when Phase 4 TC-U-05 timed out clicking a `Create` button reported as "outside of the viewport" on a 720p test browser. **§5.2 TabStrip** gains a Context badge row — Inter 300 10px count of direct + inherited context links, hover tooltip splits the totals. Phase 4 ships ContextLinker without the badge (deferred to Phase 5 alongside agent-context-assembly UI signals). No token changes. No Inviolable changes. No new components.
 
 **v2.5 — 2026-05-04** §6.5 SentenceFocus marked Phase-8-deferred via a leading banner. The behaviour spec is unchanged; only the *delivery phase* moves. The Phase 3 implementation shipped a CSS-only stub — the toggle host (three-dot menu) was never built and the segmentation logic was never written. §6.4 TypewriterContainer's "Edit-Mode toggle via three-dot menu" path is similarly noted as Phase-8 work since it shares the toggle host. Phase 8's scope is amended in TA v1.7 §11 to absorb both. No tokens, no Inviolables, no other components touched.
 

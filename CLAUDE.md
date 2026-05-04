@@ -1,5 +1,5 @@
 # Stelavox — Claude Code Project Context
-## Version 1.8
+## Version 1.9
 
 > **Versioning note:** This file is versioned. The version lives here, not in the filename — the filename must remain `CLAUDE.md` for Claude Code to find it automatically. When this file changes, increment the version and add a changelog entry at the bottom. The source of record is `docs/CLAUDE_stelavox_project.md`; the deployed copy at the repository root must always match it. Commit both in the same commit.
 
@@ -13,7 +13,7 @@ Read these before writing any code in a new session:
 
 1. `docs/stelavox_wireframe_errata_v1_0.md` — corrections to wireframes (read before any wireframe HTML)
 2. The relevant spec section for today's task (see Spec Library Reference below)
-3. `docs/stelavox_technical_architecture_v1_7.md` §5 — Known Hazards H-01 to H-15, if today's task touches the database, agents, or Director
+3. `docs/stelavox_technical_architecture_v1_8.md` §5 — Known Hazards H-01 to H-15, if today's task touches the database, agents, or Director
 
 ---
 
@@ -23,14 +23,14 @@ All documents live in `/docs`. Before making any change, read the relevant docum
 
 | Change type | Read first |
 |---|---|
-| Any UI change | `stelavox_component_specification_v2_5.md` |
+| Any UI change | `stelavox_component_specification_v2_6.md` |
 | Layout, tokens, motion, accessibility | `stelavox_ui_design_specification_v1_0.md` |
 | Colour, typography, brand rules | `stelavox_brand_identity_v2_0.md` |
-| Database schema, RLS, migrations, agent system, Director, security | `stelavox_technical_architecture_v1_7.md` |
-| Product features, user journeys, pricing, data model | `stelavox_product_specification_v1_3.md` |
+| Database schema, RLS, migrations, agent system, Director, security | `stelavox_technical_architecture_v1_8.md` |
+| Product features, user journeys, pricing, data model | `stelavox_product_specification_v1_4.md` |
 | Any wireframe | `stelavox_wireframe_errata_v1_0.md` first, then the wireframe HTML |
 | Environment setup, deployment | `stelavox_deployment_setup_v1_0.md` |
-| Current phase tasks | `stelavox_phase3_build_checklist_v1_0.md` (v1.1 leaf-aware UI corrective amendment); `stelavox_phase3_api_contract_v1_0.md` v1.1; `stelavox_phase3_test_plan_v1_0.md` v1.1; `stelavox_phase3_test_report_v1_0.md` v1.1 |
+| Current phase tasks | Phase 4 shipped 2026-05-04 — `stelavox_phase4_api_contract_v1_0.md`, `stelavox_phase4_build_checklist_v1_0.md`, `stelavox_phase4_test_plan_v1_0.md`, `stelavox_phase4_test_report_v1_0.md` (87/87 active local + 4/4 cloud smoke). Phase 5 (Agent System) starts next; Tier-B docs to be authored on Opus before implementation. |
 
 ---
 
@@ -251,6 +251,8 @@ Version bumps: minor for additions and corrections, major for structural changes
 ---
 
 ## Changelog
+
+**v1.9 — 2026-05-04** Phase 4 close-out absorption. Spec Library Reference re-pointed at `stelavox_technical_architecture_v1_8.md` (was v1_7), `stelavox_product_specification_v1_4.md` (was v1_3), `stelavox_component_specification_v2_6.md` (was v2_5). The cross-cutting bumps land together because Phase 4's SU items SU-14..SU-22 split across all three specs: TA v1.8 documents new Migration 024 (`nodes.scope` conditional NOT NULL CHECK constraint promoting the API-layer rule into the database — SU-14); Product Spec v1.4 pins the V1 six-core context-type whitelist slugs in §4.7 (SU-16); Component Spec v2.6 adds the §9.1 Modal scrollable-body sub-rule (SU-19) and the §5.2 TabStrip Context badge spec (SU-20). Phase 2 API Contract gains a retroactive amendment row for the `/move` endpoint's context-source rejection (SU-17) without re-versioning. Migration count moves from 22 to 23 — the Hazards summary in this file does not change (no new H-NN hazards in Phase 4); H-15 still covers leaf-ness which is unchanged. The "Current phase tasks" row now flags Phase 4 shipped (87/87 active local + 4/4 cloud smoke) with Phase 5 (Agent System) as the next-up Tier-B authoring target. Five Inviolables unchanged. SU-15 (V2 metadata_schemas table), SU-21 (32 deferred Phase 4 test cases), and SU-22 (three pre-existing window.prompt sites) remain queued for V2 / Phase 8 absorption respectively. SU-18 (procedure-memory step) is a memory-file update.
 
 **v1.8 — 2026-05-04** Spec Library Reference re-pointed at `stelavox_technical_architecture_v1_7.md` (was v1_6) and `stelavox_component_specification_v2_5.md` (was v2_4). The cross-cutting bumps land together because the Phase 3 v1.5 audit disclosure deferred Sentence Focus + the prose-editor three-dot menu + reduced-motion polish to Phase 8: Component Spec v2.5 carries the deferred banners on §6.4 / §6.5; TA v1.7 §11 Phase 8 row absorbs the work. Phase 3 verdict corrected from 102/102 to 98/98 active (4 cases formally deferred). Critical Component Specifications table reference for ProseEditor updated to v2.5 / v1.7. No new hazards, no Inviolable changes.
 

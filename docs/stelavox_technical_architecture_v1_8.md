@@ -1,5 +1,5 @@
 # Stelavox — Technical Architecture
-## Version 1.7
+## Version 1.8
 
 ---
 
@@ -396,7 +396,7 @@ export async function POST(request: Request) {
 
 Migrations are numbered SQL files in `supabase/migrations/`. Applied in order via `supabase db push`. All V1 migrations are backwards-compatible — no destructive schema changes.
 
-**Migration count at TA v1.5:** 22 migrations (001 through 021, plus 023; number 022 is intentionally skipped — reserved gap for a future legacy-data backfill if one becomes necessary post-launch). The numbering in §3.6 below matches the filename ordinal. Migrations 016–019 are post-build correctives discovered during Phase 1 integration testing; Migrations 020/021/023 are Phase 2 additions (root-node creation extension, `move_node` RPC, content-only version-bump trigger). All such files are kept as separate (not folded into earlier migrations) so the production schema history is reproducible by replay.
+**Migration count at TA v1.8:** 23 migrations (001 through 021, plus 023 and 024; number 022 is intentionally skipped — reserved gap for a future legacy-data backfill if one becomes necessary post-launch). The numbering in §3.6 below matches the filename ordinal. Migrations 016–019 are post-build correctives discovered during Phase 1 integration testing; Migrations 020/021/023 are Phase 2 additions (root-node creation extension, `move_node` RPC, content-only version-bump trigger); Migration 024 is the Phase 4 close-out (nodes.scope conditional NOT NULL CHECK). All such files are kept as separate (not folded into earlier migrations) so the production schema history is reproducible by replay.
 
 **Migration naming:** `YYYYMMDDHHMMSS_description.sql` — auto-generated prefix from Supabase CLI.
 
@@ -1788,6 +1788,23 @@ EXECUTE FUNCTION bump_node_version_on_content_change();
 ```
 
 The function is `SECURITY INVOKER` (default) — it only mutates `NEW`, so it does not need elevated privileges. Matches the Migration 012 `trg_attachment_count` pattern. `SET search_path = public` is included as defensive practice against same-named function shadowing in the caller's `search_path`.
+
+#### Migration 024 — `nodes.scope` Conditional NOT NULL CHECK
+
+Phase 4 close-out (SU-14). Promotes the API-layer rule "scope is non-NULL when `node_category='context'`; NULL when `'structural'`" — documented since TA v1.5 §3.6 SU-1 and enforced at the route layer through Phase 1 / 2 / 3 / 4 — to a database-level CHECK constraint. The constraint structure makes it impossible to insert a row that violates the rule regardless of whether the call comes through the public API, the service-role client, the agent system, or a future ad-hoc admin script.
+
+```sql
+ALTER TABLE nodes
+  ADD CONSTRAINT nodes_scope_conditional_not_null CHECK (
+    (node_category = 'context'    AND scope IS NOT NULL)
+    OR
+    (node_category = 'structural' AND scope IS NULL)
+  );
+```
+
+The constraint is added without `NOT VALID` because V1's row count is small enough for an immediate validate. A future tenant approaching the row-count threshold where validation becomes a write-stall concern can add `NOT VALID` and validate later; not in V1 scope.
+
+A pre-flight scan against the seed + Phase 4 test fixtures confirmed zero violating rows before the migration. The Phase 4 test report's TC-D-01 / TC-D-02 cases (verifying `scope` is non-NULL for context and NULL for structural) re-ran against the constrained schema and continued to pass — they are now belt-and-braces above the DB-level guard.
 
 ### 3.7 Platform Configuration
 
@@ -3238,6 +3255,8 @@ Director tool definitions and executor → `director-runner` Edge Function (read
 ---
 
 ## 14. Changelog
+
+**v1.8 — 2026-05-04** Phase 4 close-out absorption. **§3.6** gains a new Migration 024 block — `nodes.scope` conditional NOT NULL CHECK constraint promoting the SU-1 / Phase 4 G-1 API-layer rule into a database-level guard. Migration count moves from 22 (with 022 skipped) to 23 (021 + 023 + 024, with 022 still skipped). The constraint is structured `(node_category='context' AND scope IS NOT NULL) OR (node_category='structural' AND scope IS NULL)` and is added without `NOT VALID`. Pre-flight scan against the seed + Phase 4 fixtures confirmed zero violating rows; Phase 4's TC-D-01 / TC-D-02 cases re-ran and pass under the constrained schema. No new hazards in §5. No Inviolable changes. Phase 4 SU items SU-15..SU-22 remain in the post-merge close-out queue (SU-15 / SU-21 are Phase 8 / V2 candidates that don't bump TA; SU-19 / SU-20 land in Component Spec v2.6; SU-16 lands in Product Spec v1.4; SU-17 lands as a Phase 2 API Contract amendment row; SU-18 is a procedure-memory update; SU-22 is a Phase 8 polish candidate).
 
 **v1.7 — 2026-05-04** Phase 8 row in §11 Phase Plan absorbs four items deferred from Phase 3 during Test Report v1.5's audit: the prose-editor three-dot menu (the toggle host serving Component Spec §6.4 + §6.5), full Sentence Focus implementation (Component Spec §6.5 — `Intl.Segmenter`-based segmentation, span wrapping, active/adjacent marking), the Typewriter "opt-in via three-dot menu" path for Edit Mode (§6.4), and `prefers-reduced-motion` collapse for WordCount fade and Sentence Focus transitions. The four deferred Phase 3 test cases (TC-U-14, TC-M-04, TC-M-06, TC-M-07) are now formally Phase 8 work. No schema or hazard changes; this is a Phase Plan row amendment.
 

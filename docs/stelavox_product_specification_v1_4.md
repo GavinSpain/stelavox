@@ -1,5 +1,5 @@
 # Stelavox — Product Specification
-## Version 1.3
+## Version 1.4
 
 ---
 
@@ -229,11 +229,13 @@ Features are grouped by surface area. The Phase column indicates the development
 
 | Feature | Description | User Story | Data Touched | Phase |
 |---|---|---|---|---|
-| Context node types | Character, Location, Organisation, Theme, Plot Thread, World, and 30+ other sub-types | As an author, I want to create a structured character profile that agents can reference | `nodes` (context category) | 1 (core types); 2+ (extended) |
+| Context node types | V1 ships exactly six core types — slugs `'character'` / `'location'` / `'organisation'` / `'theme'` / `'plot_thread'` / `'world'`. 30+ other sub-types (evidence, prop, custom-defined etc.) arrive in 2+. | As an author, I want to create a structured character profile that agents can reference | `nodes` (context category) | 1 (core types); 2+ (extended) |
 | Context linking | Connect context nodes to structural nodes via junction table | As an author, I want to tell the system which characters appear in Chapter 5 | `node_context_links` | 1 |
 | Project vs document scope | Context nodes scoped to project (shared across all documents) or document (private to one) | As an author writing a trilogy, I want my character library shared across all three books | `nodes.scope` | 1 |
 | Context-to-context linking | Link context nodes to each other (character to location, theme to plot thread) | As an author, I want to record that my protagonist lives in the northern city | `node_context_links.link_type = 'context_to_context'` | 3a |
-| Metadata schemas | Structured JSON schemas per context type (character, location, evidence, theme, etc.) | As an author, I want to fill in a structured form for a character with fields like age, want, fear | `nodes.metadata` | 1 |
+| Metadata schemas | Structured JSON schemas per context type. V1 schemas are hardcoded in `lib/context/metadata-schemas.ts` (Character: role / age / want / fear / voice; Location: region / climate / era / mood / physical_description; Organisation: type / power_level / goals / key_members; Theme: statement / evidence / counter_examples; Plot Thread: arc / key_moments / status; World: genre_grounding / magic_or_technology / historical_period / core_rules). Server keeps `metadata` as free-form JSONB; per-type validation is client-side only. V2 introduces `metadata_schemas` config table (per organisation, per type — supersedes the hardcoded V1 schemas). | As an author, I want to fill in a structured form for a character with fields like age, want, fear | `nodes.metadata` | 1 (V1 hardcoded); V2 (config-table) |
+
+**V1 whitelist** is an architectural enum (Hazard H-12 — operational-vs-architectural distinction): additions require a contract bump and a code change, not a `platform_config` edit. `lib/context/types.ts` exports the `as const` tuple `CONTEXT_NODE_TYPES_V1` and the type-narrowed union `ContextNodeType`. The server-side POST `/api/projects/[id]/context-nodes` route validates `node_type` against this list and returns `400 invalid_node_type` for anything outside it. Phase 4 API Contract §5 G-4 documents the rationale.
 
 ### 4.8 Agent System — Single-Node Operations
 
@@ -525,6 +527,8 @@ All open questions from v1.1 have been resolved. There are currently no open que
 ---
 
 ## 10. Changelog
+
+**v1.4 — 2026-05-04** Phase 4 close-out absorption — SU-16 (V1 six-core whitelist promotion). §4.7 "Context node types" row now pins the six V1 slugs explicitly (`'character'` / `'location'` / `'organisation'` / `'theme'` / `'plot_thread'` / `'world'`) instead of leaving the names as prose. §4.7 "Metadata schemas" row expanded to enumerate the V1 hardcoded schema fields per context type (Character: role/age/want/fear/voice; Location: region/climate/era/mood/physical_description; Organisation: type/power_level/goals/key_members; Theme: statement/evidence/counter_examples; Plot Thread: arc/key_moments/status; World: genre_grounding/magic_or_technology/historical_period/core_rules) and to record the V2 transition path (`metadata_schemas` config table — SU-15). New paragraph below the table records the architectural-vs-operational distinction (Hazard H-12) — the V1 whitelist is an architectural enum, not a runtime-tunable value. No feature added or removed; this is a precision pass on §4.7's contract surface that Phase 4 actually shipped against.
 
 **v1.3 — 2026-05-04** Phase 2 close-out absorption. Two SU items raised in `stelavox_phase2_build_checklist_v1_0.md` §6 are resolved here. **SU-2:** §4.5 The Node System gained a "Document root node" row recording that every document has exactly one structural node with `parent_id IS NULL`, created atomically with the document; the root node's `node_type` is the layer-stack template's layer 0 (`book`/`story`/`series`); its name defaults to the document's name; it cannot be deleted while the document exists. The phase column on the new row is "2" — root-node creation is delivered by Migration 020 in Phase 2. **SU-6:** §4.12 Versioning rows reconciled with `stelavox_technical_architecture_v1_5.md` §11 Phase Plan. The "Per-node version record" row now describes the content-only bump rule (the `node_versions` row is created and `nodes.version` is incremented only when `summary`/`prose`/`notes`/`metadata` changes; non-content updates leave the version alone) and shows the column-existed-from-Phase-1 / trigger-shipped-in-Phase-2 split. The "Version history browse" row replaces the prior "Version comparison" row; phase column corrected to 3 (the Phase 3 History tab ships browse + a hover-preview diff tooltip — full side-by-side comparison is not in V1 scope). The "Version restore" row's phase column is corrected from 2 to 6 (TA §11 Phase 6 owns restore alongside the lock-aware status state machine). No feature is added or removed; this is an alignment edit between the Product Spec phase column and the Technical Architecture phase plan.
 
