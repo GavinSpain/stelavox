@@ -21,9 +21,11 @@
 // Same separation of concerns as Phase 1's documents PATCH route.
 
 import { z } from 'zod'
+import { CONTEXT_NODE_TYPES_V1 } from '@/lib/context/types'
 
 const NODE_STATUS_V2   = ['draft', 'in_review', 'approved', 'locked'] as const
 const NODE_CATEGORY_V2 = ['structural'] as const
+const NODE_SCOPE_V4    = ['project', 'document'] as const
 
 // `.transform(trim).pipe(min(1).max(N))` matches Phase 1: empty-after-trim
 // is rejected; the route maps the Zod issue path to the right error code
@@ -65,6 +67,36 @@ export const nodePostSchema = z.object({
   metadata:          metadataField,
 }).strict()
 
+// Phase 4: context-node creation. Distinct shape from the structural POST:
+//   - parent_id is forbidden (context nodes have no parent — invariant 3)
+//   - scope is required (enum project|document)
+//   - document_id is conditionally required (scope=document) and forbidden
+//     when scope=project (the route enforces consistency in step 10 of §3.1
+//     because Zod cannot express the conditional cleanly without verbose
+//     refinements)
+//   - node_type is constrained to the V1 whitelist (G-4)
+//   - prose is forbidden (context nodes have no ProseEditor; Component Spec
+//     §5.1 leaf-only mounting + context nodes are structurally non-leaf)
+//   - agent_instruction / word_count_target are forbidden (structural-only)
+//   - tags accepts an array of short strings, max 20 entries
+//   - name is REQUIRED (Sidebar / Picker need a label; nameless is unusable)
+const tagsField = z
+  .array(z.string().trim().min(1).max(50))
+  .max(20)
+  .optional()
+
+export const nodeContextPostSchema = z.object({
+  scope:             z.enum(NODE_SCOPE_V4),
+  document_id:       z.string().uuid().optional(),
+  node_type:         z.enum(CONTEXT_NODE_TYPES_V1),
+  name:              nameField,                  // mandatory for context
+  short_description: shortDescriptionField,
+  summary:           summaryField,
+  notes:             notesField,
+  metadata:          metadataField,
+  tags:              tagsField,
+}).strict()
+
 export const nodePatchSchema = z.object({
   name:              nameField.optional(),
   short_description: shortDescriptionField,
@@ -89,6 +121,7 @@ export const nodeMoveSchema = z.object({
   position:  z.number().int().nonnegative(),
 }).strict()
 
-export type NodePost  = z.infer<typeof nodePostSchema>
-export type NodePatch = z.infer<typeof nodePatchSchema>
-export type NodeMove  = z.infer<typeof nodeMoveSchema>
+export type NodePost            = z.infer<typeof nodePostSchema>
+export type NodeContextPost     = z.infer<typeof nodeContextPostSchema>
+export type NodePatch           = z.infer<typeof nodePatchSchema>
+export type NodeMove            = z.infer<typeof nodeMoveSchema>
