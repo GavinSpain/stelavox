@@ -69,6 +69,9 @@ export async function PATCH(request: NextRequest, { params }: Context) {
     // instead, matching the route-level boundary convention.
     const { data: movedVisible } = await getNode(supabase, nodeId)
     if (!movedVisible) return err.notFound()
+    // Phase 4 (G-5 / SU-17): context nodes have no parent and cannot be
+    // moved. Reject before the existence-leak guard on the parent runs.
+    if (movedVisible.node_category === 'context') return err.invalidMoveTarget()
     const { data: parentVisible } = await getNode(supabase, parsed.data.parent_id)
     if (!parentVisible) return err.notFound()
 

@@ -50,6 +50,7 @@ export default async function DocumentPage({ params }: Props) {
       </div>
       <div style={{ flex: 1, overflow: 'hidden' }}>
         <DocumentClient
+          projectId={projectId}
           documentId={documentId}
           documentType={document.document_type as 'novel' | 'short_story' | 'series'}
         />

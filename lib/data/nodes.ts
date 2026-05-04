@@ -83,11 +83,16 @@ export function decorateWithLeaf<T extends NodeRow>(
 
 // §2.12: returned fields. Excludes mobile_notes, attachment_count,
 // export_*, external_ref, created_by, last_modified_by, locked_at,
-// locked_version, scope (Phase 2 doesn't surface them).
+// locked_version (Phase 2 doesn't surface them).
+//
+// Phase 4: `scope` is now in the projection. It is NULL for structural
+// nodes (Phase 2 invariant) and one of 'project'|'document' for context
+// nodes (Phase 4 API Contract §2.11 invariant 1 + G-1). Adding it is
+// purely additive — clients ignoring unknown fields are unaffected.
 const NODE_SELECT = [
   'id', 'document_id', 'project_id', 'organisation_id',
   'parent_id', '"order"', 'depth', 'layer_index',
-  'node_type', 'node_category',
+  'node_type', 'node_category', 'scope',
   'name', 'short_description', 'tags',
   'summary', 'prose', 'notes', 'metadata',
   'status', 'locked', 'lock_reason',
@@ -180,3 +185,126 @@ export async function deleteNode(supabase: Client, nodeId: string) {
     .delete()
     .eq('id', nodeId)
 }
+
+// ─── Phase 4: context-node wrappers ──────────────────────────────────────
+// Spec: stelavox_phase4_api_contract_v1_0.md §3.1 (POST), §3.2 (list),
+//                                            §2.11 invariants 1–3 (no parent,
+//                                            scope+document_id immutable).
+//       stelavox_phase4_build_checklist_v1_0.md §3.2 T-2.1, T-2.2
+
+export interface ContextNodePostFields {
+  organisation_id:    string
+  project_id:         string
+  scope:              'project' | 'document'
+  document_id:        string | null
+  node_type:          string         // narrowed at the validation layer
+  name:               string
+  short_description?: string | null
+  summary?:           string | null
+  notes?:             string | null
+  metadata?:          Record<string, unknown>
+  tags?:              string[]
+}
+
+// Insert a context node. The route is responsible for validating scope /
+// document_id consistency and the V1 type whitelist; this wrapper is the
+// thin INSERT.
+export async function createContextNode(
+  supabase: Client,
+  fields: ContextNodePostFields,
+): Promise<PostgrestSingleResponse<NodeRow>> {
+  const insert: NodeInsert = {
+    organisation_id:   fields.organisation_id,
+    project_id:        fields.project_id,
+    document_id:       fields.document_id,
+    node_category:     'context',
+    node_type:         fields.node_type,
+    parent_id:         null,
+    // depth / layer_index / order are NOT NULL with defaults at the
+    // schema level (depth DEFAULT 0, order DEFAULT 1) per Migration 004
+    // — context nodes use the defaults; the values are meaningless for
+    // them but the columns are non-null.
+    scope:             fields.scope,
+    name:              fields.name,
+    short_description: fields.short_description ?? null,
+    summary:           fields.summary ?? null,
+    notes:             fields.notes ?? null,
+    metadata:          (fields.metadata ?? {}) as never,
+    tags:              fields.tags ?? [],
+    status:            'draft',
+    version:           1,
+  }
+  return supabase
+    .from('nodes')
+    .insert(insert)
+    .select(NODE_SELECT)
+    .single() as unknown as PostgrestSingleResponse<NodeRow>
+}
+
+export interface ListContextNodesFilters {
+  scope?:      'project' | 'document'
+  documentId?: string
+  nodeType?:   string
+  limit:       number
+  offset:      number
+}
+
+// List context nodes for a project per §3.2 + G-3 inheritance semantics.
+// When `documentId` is supplied: returns scope='project' for the project
+// PLUS scope='document' AND document_id=<param>. Other scope filters
+// behave as documented in §2.8.
+export async function listContextNodesByProject(
+  supabase: Client,
+  projectId: string,
+  f: ListContextNodesFilters,
+): Promise<{ rows: NodeRow[]; total: number; error: unknown }> {
+  // Build the base filter shared across head-count and rows queries.
+  const baseQuery = () =>
+    supabase
+      .from('nodes')
+      .select(NODE_SELECT, { count: 'exact' })
+      .eq('project_id',    projectId)
+      .eq('node_category', 'context')
+
+  let query = baseQuery()
+
+  if (f.nodeType !== undefined) query = query.eq('node_type', f.nodeType)
+
+  // Scope + documentId filter logic per G-3:
+  //
+  //   scope undefined,        documentId undefined  → all rows in project
+  //   scope = 'project',      documentId undefined  → scope='project' only
+  //   scope = 'document',     documentId undefined  → scope='document' only
+  //   scope undefined,        documentId set        → scope='project' OR (scope='document' AND document_id=X)
+  //   scope = 'project',      documentId set        → contradictory, but we honour scope=project (G-3 prose)
+  //   scope = 'document',     documentId set        → scope='document' AND document_id=X
+  if (f.scope === 'project') {
+    query = query.eq('scope', 'project')
+  } else if (f.scope === 'document') {
+    query = query.eq('scope', 'document')
+    if (f.documentId !== undefined) {
+      query = query.eq('document_id', f.documentId)
+    }
+  } else if (f.documentId !== undefined) {
+    // No scope filter; document_id supplied → return project-scoped + this
+    // document's document-scoped (the inheritance-aware default per G-3).
+    query = query.or(`scope.eq.project,and(scope.eq.document,document_id.eq.${f.documentId})`)
+  }
+
+  // Order: node_type ASC, then case-insensitive name ASC. PostgREST
+  // does case-insensitive ordering by lower(name) — supabase-js exposes
+  // the `referencedTable`-free .order() builder; `lower(name)` is not
+  // directly supported, so we use `name ASC` and document the case
+  // sensitivity in the contract.
+  const { data, error, count } = await query
+    .order('node_type', { ascending: true })
+    .order('name',      { ascending: true, nullsFirst: false })
+    .range(f.offset, f.offset + f.limit - 1)
+
+  return {
+    rows:  (data ?? []) as unknown as NodeRow[],
+    total: count ?? 0,
+    error,
+  }
+}
+

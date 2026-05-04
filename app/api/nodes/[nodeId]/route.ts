@@ -22,6 +22,7 @@ import {
   getNode, updateNode, updateNodeOptimistic, deleteNode,
   getDocumentMaxLayerIndex, decorateWithLeaf,
 } from '@/lib/data/nodes'
+import { countBackLinks } from '@/lib/data/context-links'
 
 interface Context { params: Promise<{ nodeId: string }> }
 
@@ -285,6 +286,29 @@ export async function DELETE(request: NextRequest, { params }: Context) {
     const { data: node } = await getNode(supabase, nodeId)
     if (!node) return err.notFound()
 
+    // Phase 4: context-node delete branches off here. The existing
+    // structural cannot_delete_root and sibling-renumber logic does
+    // not apply to context nodes (they have no parent and no siblings
+    // in the structural tree).
+    if (node.node_category === 'context') {
+      if (node.locked) return err.nodeLocked()
+
+      // §2.11 invariant 11: default DELETE returns 409 with the count
+      // unless ?force=true is supplied. The FK ON DELETE CASCADE on
+      // node_context_links does the actual link cleanup either way.
+      const { searchParams } = new URL(request.url)
+      const force = searchParams.get('force') === 'true'
+      if (!force) {
+        const count = await countBackLinks(supabase, nodeId)
+        if (count > 0) return err.cannotDeleteWithBackLinks(count)
+      }
+
+      const { error: deleteError } = await deleteNode(supabase, nodeId)
+      if (deleteError) return err.internal()
+      return NextResponse.json({ deleted: true, node_id: node.id })
+    }
+
+    // Structural-node delete (Phase 2 path, unchanged).
     if (node.parent_id === null) return err.cannotDeleteRoot()
 
     if (node.locked) return err.nodeLocked()
