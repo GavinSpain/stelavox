@@ -1,5 +1,5 @@
 # Stelavox — Component Specification
-## Version 2.6
+## Version 2.7
 
 ### Purpose
 
@@ -827,10 +827,10 @@ Positioned in the prose label row of the Content tab.
 
 **Active job state:**
 ```
-[████████░░░░░  Generating scenes...]
-Using: claude-sonnet-4-6 / 2,340 tokens    [Stop]
+[░░░░████░░░░░  ← sliding stripe, indeterminate]
+Generating scenes…    [Stop]
 ```
-Progress bar: 3px `--color-agent-running` fill. Token count: Inter 300 10px `--color-text-muted`. Stop button: ghost style, `--color-error` text.
+Progress bar: 3px `--color-agent-running` fill. **Indeterminate sliding-stripe animation** (CSS keyframes — `@keyframes agent-progress` translates a 30% wide stripe right-to-left in a 1.4s linear infinite cycle). The Anthropic SDK's non-streaming `messages.create` endpoint does not expose mid-call token counts, so a percentage progress bar would falsely imply progress measurement; the indeterminate stripe correctly conveys "operation in progress" without false precision (Phase 5 SU absorption — see Phase 5 Test Report Iteration 5). Stop button: ghost style, `--color-error` text. **No token count is shown during the running state** — `tokens_input` / `tokens_output` are populated only when the LLM call returns. The complete state below is where token data appears.
 
 **Complete state — Accept button:**
 After a successful operation, an Accept button appears above the operation buttons:
@@ -843,6 +843,13 @@ After a successful operation, an Accept button appears above the operation butto
 | Width | Full width of tab |
 
 Accept commits the result. Dismiss reverts to previous version. Both are available until the author navigates away or explicitly accepts.
+
+**Complete state — token + cost summary:**
+Below the result preview and above Accept/Dismiss, a one-line summary in Inter 300 10px `--color-text-muted`:
+```
+tokens: 1,124 in · 577 out · 1,701 total · cost $0.0086 · model claude-haiku-4-5-20251001
+```
+The summary shows on completion only (Anthropic non-streaming SDK doesn't expose mid-call usage). `cost_usd` is computed at completion via `lib/llm/cost.ts → computeCostUsd()` against `platform_config` price keys (Migration 028). Per Product Spec §3.2 the dollar amount is platform-internal and never surfaces in the V1 user-facing UI for billing — this summary line is the AgentTab developer/diagnostic display, not a billing surface.
 
 ---
 
@@ -1640,6 +1647,8 @@ All open questions from Component Spec v1.4 are resolved. There are currently no
 ---
 
 ## 17. Changelog
+
+**v2.7 — 2026-05-05** Phase 5 close-out absorption — §5.9 AgentTab active-state spec. Two changes to the active-job-state block: (a) the progress bar is now an **indeterminate sliding-stripe** CSS animation (was a percentage-fill bar). The Anthropic SDK's non-streaming `messages.create` call doesn't expose mid-call token usage, so percentage progress would falsely imply progress measurement. The indeterminate stripe correctly conveys "in progress" without false precision. Discovered during T-15 manual UI testing (Phase 5 Test Report Iteration 5) when the user reported the progress bar appearing stuck at ~70%. (b) **No token count is shown during the running state** — `tokens_input` / `tokens_output` are populated only on completion. The complete state gains a one-line summary in Inter 300 10px `--color-text-muted`: `tokens: X in · Y out · Z total · cost $N · model M`. This summary is platform-internal (Product Spec §3.2 — billing surface uses allocation percentage, not dollars; the AgentTab summary is a developer/diagnostic display). No Inviolable changes — Accept button remains verdigris use #7. No other component changes; the §5.10 CommentThread + §5.13 Notes Editor + §5.4 ProseEditor specs are unchanged.
 
 **v2.6 — 2026-05-04** Phase 4 close-out absorption — SU-19 + SU-20. **§9.1 Modal** gains a 🔒 "Scrollable body when content overflows" sub-rule mandating `maxHeight: 85vh` + `overflowY: auto; minHeight: 0` for modals hosting dynamic schema-driven forms (e.g., the Phase 4 `ContextCreateModal` with the per-context-type metadata fields). The rule was discovered when Phase 4 TC-U-05 timed out clicking a `Create` button reported as "outside of the viewport" on a 720p test browser. **§5.2 TabStrip** gains a Context badge row — Inter 300 10px count of direct + inherited context links, hover tooltip splits the totals. Phase 4 ships ContextLinker without the badge (deferred to Phase 5 alongside agent-context-assembly UI signals). No token changes. No Inviolable changes. No new components.
 

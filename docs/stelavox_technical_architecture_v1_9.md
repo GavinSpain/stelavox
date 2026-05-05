@@ -1,5 +1,5 @@
 # Stelavox — Technical Architecture
-## Version 1.8
+## Version 1.9
 
 ---
 
@@ -396,7 +396,7 @@ export async function POST(request: Request) {
 
 Migrations are numbered SQL files in `supabase/migrations/`. Applied in order via `supabase db push`. All V1 migrations are backwards-compatible — no destructive schema changes.
 
-**Migration count at TA v1.8:** 23 migrations (001 through 021, plus 023 and 024; number 022 is intentionally skipped — reserved gap for a future legacy-data backfill if one becomes necessary post-launch). The numbering in §3.6 below matches the filename ordinal. Migrations 016–019 are post-build correctives discovered during Phase 1 integration testing; Migrations 020/021/023 are Phase 2 additions (root-node creation extension, `move_node` RPC, content-only version-bump trigger); Migration 024 is the Phase 4 close-out (nodes.scope conditional NOT NULL CHECK). All such files are kept as separate (not folded into earlier migrations) so the production schema history is reproducible by replay.
+**Migration count at TA v1.9:** 30 migrations (001 through 021, plus 023, 024, and 025–030; number 022 is intentionally skipped — reserved gap for a future legacy-data backfill if one becomes necessary post-launch). The numbering in §3.6 below matches the filename ordinal. Migrations 016–019 are post-build correctives discovered during Phase 1 integration testing; Migrations 020/021/023 are Phase 2 additions (root-node creation extension, `move_node` RPC, content-only version-bump trigger); Migration 024 is the Phase 4 close-out (nodes.scope conditional NOT NULL CHECK); Migrations 025–030 are Phase 5 (agent_profiles RLS, agent_jobs lifecycle + result_* columns, system-profile seed, cost_usd column + price keys, accept_agent_job RPC, supabase_realtime publication). All such files are kept as separate (not folded into earlier migrations) so the production schema history is reproducible by replay.
 
 **Migration naming:** `YYYYMMDDHHMMSS_description.sql` — auto-generated prefix from Supabase CLI.
 
@@ -1806,6 +1806,50 @@ The constraint is added without `NOT VALID` because V1's row count is small enou
 
 A pre-flight scan against the seed + Phase 4 test fixtures confirmed zero violating rows before the migration. The Phase 4 test report's TC-D-01 / TC-D-02 cases (verifying `scope` is non-NULL for context and NULL for structural) re-ran against the constrained schema and continued to pass — they are now belt-and-braces above the DB-level guard.
 
+#### Migration 025 — `agent_profiles` RLS Policy
+
+Phase 5. Phase 1's Migration 003 enabled RLS on `agent_profiles` with no SELECT policy (so user-session clients saw zero rows). Phase 5 adds a SELECT policy admitting (a) system profiles (`organisation_id IS NULL`) and (b) own-organisation profiles. INSERT/UPDATE/DELETE remain admin-only — service-role only via Migration 027's seed helper. V2 adds per-organisation custom-profile write policies alongside the agent-profile lifecycle (SU-24).
+
+```sql
+CREATE POLICY "agent_profiles_read_system_and_own_org" ON agent_profiles
+  FOR SELECT USING (
+    organisation_id IS NULL
+    OR organisation_id IN (
+      SELECT organisation_id FROM organisation_members WHERE user_id = auth.uid()
+    )
+  );
+```
+
+#### Migration 026 — `agent_jobs` Lifecycle + Result Columns
+
+Phase 5. Extends `agent_jobs` for the full V1 single-node lifecycle: status enum gains `accepted`, `dismissed`, `cancelled` (Phase 1 had only `pending`/`running`/`completed`/`failed`); the pre-existing `result_summary` column is renamed to `result_summary_text` (reserved for the post-V1 document-operation report-summary path) so the new `result_summary` can hold the agent's proposed summary content for refine/generate-context single-node ops. New result columns: `result_summary` / `result_prose` / `result_notes` (all TEXT — plain text per agent profile output format; converted to Tiptap JSON in the Accept route via `plainTextToTiptap()`); `result_metadata` / `result_child_nodes` (both JSONB — structured proposals); `target_node_version_at_capture` (INTEGER — used by Migration 029's Accept RPC to detect concurrent author edits via 409 `target_version_mismatch`). `node_comments.parent_comment_id` FK gains `ON DELETE CASCADE` so deleting a top-level comment cleans up replies.
+
+#### Migration 027 — System Agent Profiles Seed (V1 Novel)
+
+Phase 5. Inserts 18 system profiles (`is_system_profile=TRUE`, `organisation_id=NULL`) covering the V1 Novel template's structural operations + the six V1 core context-type generators + a generic `refine_default` cross-type fallback. Each profile is created via a `SECURITY DEFINER` helper function `seed_agent_profile()` that resolves `model_id` from `platform_config.model.<operation>` (so model selection follows central config without re-seeding), appends the §4.2 user-data security frame (single source of truth — the prompt body in this migration omits the frame, the helper concatenates), and writes the row with `ON CONFLICT DO NOTHING` (so idempotent replay). The helper is dropped at the end. The 18 profiles: 4 expand (book/act/chapter/scene) + 1 synthesise (beat) + 6 refine (book/act/chapter/scene/beat-summary/beat-prose) + 6 generate-context (character/location/organisation/world/theme/plot_thread) + 1 refine_default fallback. Source of truth for each prompt body: `docs/stelavox_agent_profile_library_v1_0.md` v1.1 §2.1–§2.18.
+
+**Production discipline:** every production edit to `agent_profiles.system_prompt` MUST be reflected by a Library-doc commit AND a follow-up migration that replicates the change to the database. The library doc + migrations together are the version-control mechanism while V1 is in market — see Library doc §6.1.
+
+#### Migration 028 — Cost Tracking Column + Price Config Keys
+
+Phase 5. Adds `agent_jobs.cost_usd DECIMAL(10,6)` populated by the runner at job completion via `lib/llm/cost.ts → computeCostUsd()`. Frozen at completion — historical rows show the cost as it was on the day the operation ran, insulated from later Anthropic price changes. Inserts six `platform_config` price keys: input + output USD-per-million-tokens for Haiku 4.5, Sonnet 4.6, Opus 4.6. Cache pricing is derived in code as Anthropic-published multipliers (cache_write = 1.25× input, cache_read = 0.10× input). UI implications: none — per Product Spec §3.2 platform-paid users see allocation percentage only; `cost_usd` surfaces only in `scripts/cost-report.ts` and the per-phase Test Report §10 Cost Analysis.
+
+#### Migration 029 — `accept_agent_job` Stored Procedure
+
+Phase 5. Atomic Accept path for the agent-job → node commit transaction. The procedure (1) locks the target `agent_jobs` row and verifies it is in `completed` status (idempotent on `accepted` — returns existing committed state without writing); (2) locks the target node `FOR UPDATE` and checks `nodes.version = agent_jobs.target_node_version_at_capture` — mismatch raises `target_version_mismatch:<current>:<captured>` which the API route translates to 409; (3) snapshots pre-agent state to `node_versions` with `change_reason='agent_<operation>'`; (4) per-operation result write — `synthesise`/`refine`/`generate_context` UPDATE the node's `summary`/`prose`/`notes`/`metadata` (Migration 023 trigger auto-bumps version); `expand` resolves `child_node_type` from the document's `layer_stack.layers` at `(target.layer_index + 1)` and INSERTs each proposed child with `"order"` appended after existing children (Phase 2 1-indexed convention — SU-29); (5) marks the job `accepted` with `completed_at = NOW()`. Returns `(out_node_id, out_new_version, out_child_node_ids[])`. `SECURITY DEFINER SET search_path = public` per H-13. Plain-text → Tiptap JSON conversion happens in the API route via `plainTextToTiptap()` *before* the RPC call — keeping the converter in TypeScript (where Tiptap's text representation lives) and the DB transaction atomic.
+
+#### Migration 030 — Real-time Publication Coverage
+
+Phase 5 (SU-30). The `supabase_realtime` publication exists from Phase 1's Supabase install but no Phase 1–4 migration ran `ALTER PUBLICATION ... ADD TABLE` for the tables that need real-time. The Phase 5 manual UI test surfaced this gap: the AgentTab subscribed to `agent_jobs` change events but received nothing; the NodeTree didn't refresh after Accept inserted child nodes. This migration explicitly adds the three Phase 5-relevant tables to the publication.
+
+```sql
+ALTER PUBLICATION supabase_realtime ADD TABLE agent_jobs;
+ALTER PUBLICATION supabase_realtime ADD TABLE node_comments;
+ALTER PUBLICATION supabase_realtime ADD TABLE nodes;
+```
+
+`node_versions` is intentionally not added — version history updates on user navigation, not in real-time. Future tables that need real-time MUST be added to the publication via a follow-up migration; per §10.3 below, the publication-add is now part of the standard schema-setup pattern.
+
 ### 3.7 Platform Configuration
 
 #### 3.7.1 Principle
@@ -3123,7 +3167,7 @@ Two cloud projects: `stelavox-dev` and `stelavox-prod`. Both in **Singapore** (a
 Key settings on both projects:
 - Connection pooling via PgBouncer (mandatory for serverless — prevents connection exhaustion)
 - Automated daily backups (7-day retention on free tier)
-- Real-time enabled on `nodes`, `agent_jobs`, `agent_reports` tables
+- Real-time enabled on `nodes`, `agent_jobs`, `node_comments`, `agent_reports` tables — explicitly added to the `supabase_realtime` publication via Migration 030 (Phase 5 SU-30 absorbed this previously-implicit step into the migration sequence). Future tables that need real-time MUST be added to the publication via a follow-up migration; component-level subscription hooks (e.g. `lib/hooks/useNodesRealtime.ts`, `lib/hooks/useNodeRealtime.ts`) read the publication and surface change events to the React tree (Phase 5 SU-31 documents the per-component pattern as the V1 convention vs a global Zustand-style store).
 
 ### 10.4 Deployment Pipeline
 
@@ -3200,7 +3244,9 @@ The build sequence is designed so each phase produces something runnable and tes
 | 2 | Node tree: CRUD, react-arborist, status badges, reordering | 3–4 | Can build a manual node tree; drag-and-drop works |
 | 3 | Content editing: Tiptap (Summary, Prose, Notes), Focus Mode, auto-save with optimistic concurrency, version-history browse and diff preview, metadata forms | 5 | Can write content; versions created (Phase 2 trigger) and **browsable with hover diff** in this phase. Restore is Phase 6. |
 | 4 | Context system: context node CRUD, linking UI, context panel | 6 | Can create characters/locations; link them to scenes |
-| 5 | Agent system: context assembler, LLM abstraction, expand/synthesise/refine/generate-context operations, job progress UI, editorial comments | 7–8 | Full end-to-end: book summary → final prose |
+| 5 | Agent system (single-node ops only): context assembler, LLM abstraction, expand/synthesise/refine/generate-context operations, job progress UI, editorial comments. Director and synthesise streaming carved out per SU-23. | 7–8 | **MET** — Phase 5 shipped 2026-05-05 (52/52 active local + 4/4 cloud smoke; β-scope per SU-33). Full end-to-end: book summary → final prose works against Haiku 4.5 (local) and Sonnet 4.6 / Opus 4.6 (production defaults). |
+| 5b | Director: tool definitions + agentic-loop executor + DirectorPanel conversation UI + workflow generation + WorkflowCard approval flow + write-tool plan-card execution. Per Phase 5 SU-23 carve-out: AnthropicProvider stub at `lib/llm/providers/anthropic.ts:101` (`completeWithTools()`) currently throws NotImplementedError. | 8a | Author can converse with the Director, plan multi-step revisions, approve, and watch execution land cleanly across nodes. |
+| 5c | Synthesise streaming: SSE-based real-time prose streaming on the synthesise operation. AnthropicProvider stub at `lib/llm/providers/anthropic.ts:96` (`stream()`) currently throws NotImplementedError. | 8b | Synthesise prose appears progressively in the AgentTab during generation, not only at completion. |
 | 6 | Locking and workflow: status transitions, node locks, lock enforcement, comment resolution, **version restore** (the restore action; the browse list ships in Phase 3) | 9 | Can lock layers and progress deliberately |
 | 7 | Export: DOCX, outline, JSON export/import | 10 | Can export completed document to Word file |
 | 8 | Polish and V1 release: command palette, empty states, onboarding, keyboard shortcuts, performance review, e2e test, production deploy. **Also absorbs from Phase 3 v1.2 deferral:** prose-editor three-dot menu (the toggle host); Sentence Focus end-to-end implementation (Component Spec §6.5 — `Intl.Segmenter`-based segmentation, span wrapping, active/adjacent marking, 200ms cursor-move transitions); Typewriter "opt-in via three-dot menu" path for Edit Mode (Component Spec §6.4); `prefers-reduced-motion` collapse for WordCount fade and Sentence Focus transitions; Phase 3 Test Plan cases TC-U-14, TC-M-04, TC-M-06, TC-M-07 to be authored and run. | 11–12 | V1 complete |
@@ -3208,8 +3254,8 @@ The build sequence is designed so each phase produces something runnable and tes
 **V2 phase plan (multi-tenancy, billing, LLM optimisations):**
 Organisation settings UI → invitation flow → Stripe integration → token budget enforcement → BYOK key UI → Vault key resolution → cache analytics in usage dashboard → Batch API activation → node lock API and UI → document read-sharing → audit log UI → Research Intermediary implementation.
 
-**Director phase plan (Product Roadmap Phase 5):**
-Director tool definitions and executor → `director-runner` Edge Function (read-only tools first) → conversation UI (DirectorPanel, MessageThread) → workflow generation and WorkflowCard UI → workflow approval and execution engine → write tools and full execution → Director system prompt seeded to `director_configs` → e2e test with multi-step revision workflow.
+**Director phase plan (now Phase 5b — see Phase 5 SU-23 carve-out absorption):**
+Director tool definitions and executor → `director-runner` Edge Function (read-only tools first) → conversation UI (DirectorPanel, MessageThread) → workflow generation and WorkflowCard UI → workflow approval and execution engine → write tools and full execution → Director system prompt seeded to `director_configs` → e2e test with multi-step revision workflow. Phase 5 ships the LLM substrate (`lib/llm/factory.ts`, AnthropicProvider with cache_control + canary scan), Director config schema (Migration 007 / Phase 1), and `director_configs` table — Phase 5b builds the agentic loop on top.
 
 **Document operations phase plan (Product Roadmap Phase 3a):**
 `chunk-analyzer` implementation → `document-operation-runner` Edge Function → Reports panel UI → scope query builder testing → seed built-in profiles → e2e test with Style Consistency Analysis on a completed novel.
@@ -3255,6 +3301,8 @@ Director tool definitions and executor → `director-runner` Edge Function (read
 ---
 
 ## 14. Changelog
+
+**v1.9 — 2026-05-05** Phase 5 close-out absorption. **§3.5** migration count moves from 23 to 30 — Phase 5 added six migrations (025–030). **§3.6** gains six new migration blocks: 025 (`agent_profiles` SELECT RLS — system + own-org), 026 (`agent_jobs` lifecycle — 7-status enum, `result_summary_text` rename, five new result_* columns + `target_node_version_at_capture`, `node_comments.parent_comment_id` ON DELETE CASCADE), 027 (18 V1 system agent profiles seeded via `SECURITY DEFINER` helper that resolves model_id from platform_config and appends the §4.2 security frame; library doc + migrations are the V1 version-control mechanism), 028 (`cost_usd` column + 6 platform_config price keys for Haiku 4.5 / Sonnet 4.6 / Opus 4.6), 029 (`accept_agent_job` atomic stored procedure — version-check, node_versions snapshot, per-operation result write, child-node insert with Phase 2 1-indexed `"order"`), 030 (`supabase_realtime` publication adds `agent_jobs` / `node_comments` / `nodes` — SU-30 absorption). **§10.3** updated: real-time bullet now lists `node_comments` alongside `nodes`/`agent_jobs`/`agent_reports`, makes the publication-add explicit as part of standard schema setup, and references the component-level subscription hook pattern (`useNodesRealtime` / `useNodeRealtime`) as the V1 convention (SU-31 absorption). **§11 Phase Plan** Phase 5 row checkpoint set to "MET" (52/52 active local + 4/4 cloud smoke); two new rows added — Phase 5b (Director) and Phase 5c (synthesise streaming) — per SU-23 carve-out. The "Director phase plan" paragraph below the table updated to point at Phase 5b. No new H-NN hazards (SU-30/31/32/35 are architectural absorptions or spec gaps, not invariant-violating hazards). Five Inviolables unchanged. Phase 5 SU-23 (5b/5c slotting), SU-24 (agent profile lifecycle V2), SU-25 (Short Story / Series profile coverage) carry forward — SU-23 absorbed here in §11; SU-24/25 are V2 / V1.x candidates respectively. SU-32 (book-synopsis context-fetch architectural addition) absorbed implicitly into the agent runner / context-assembler description; SU-35 (validateProfile multi-row deterministic ordering) flagged for follow-up amendment when API Contract v1.3 lands.
 
 **v1.8 — 2026-05-04** Phase 4 close-out absorption. **§3.6** gains a new Migration 024 block — `nodes.scope` conditional NOT NULL CHECK constraint promoting the SU-1 / Phase 4 G-1 API-layer rule into a database-level guard. Migration count moves from 22 (with 022 skipped) to 23 (021 + 023 + 024, with 022 still skipped). The constraint is structured `(node_category='context' AND scope IS NOT NULL) OR (node_category='structural' AND scope IS NULL)` and is added without `NOT VALID`. Pre-flight scan against the seed + Phase 4 fixtures confirmed zero violating rows; Phase 4's TC-D-01 / TC-D-02 cases re-ran and pass under the constrained schema. No new hazards in §5. No Inviolable changes. Phase 4 SU items SU-15..SU-22 remain in the post-merge close-out queue (SU-15 / SU-21 are Phase 8 / V2 candidates that don't bump TA; SU-19 / SU-20 land in Component Spec v2.6; SU-16 lands in Product Spec v1.4; SU-17 lands as a Phase 2 API Contract amendment row; SU-18 is a procedure-memory update; SU-22 is a Phase 8 polish candidate).
 

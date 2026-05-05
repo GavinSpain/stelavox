@@ -1,5 +1,5 @@
 # Stelavox — Product Specification
-## Version 1.4
+## Version 1.5
 
 ---
 
@@ -527,6 +527,8 @@ All open questions from v1.1 have been resolved. There are currently no open que
 ---
 
 ## 10. Changelog
+
+**v1.5 — 2026-05-05** Phase 5 close-out absorption. Phase 5 ships the single-node agent system: `expand` / `synthesise` / `refine` / `generate_context` operations + agent-job lifecycle UI + editorial comments. The Director (multi-step agentic workflow) is **not** part of Phase 5 — per Phase 5 SU-23, Director is now Phase 5b and synthesise streaming is Phase 5c. **§4 Feature Inventory** rows for "Agent operations" and "Director conversation" remain as written (the user-facing description doesn't change with the build-phase carve-out), but the phase column on the Director row is **5b** (was previously implicit 5). User Journey **J5 (Director: Document-Level Review and Planned Revisions)** in §6 is unaffected at the user-experience level — the journey describes the V1 product the user encounters; the build-phase split is internal scheduling. No feature added or removed; pricing, tier definitions (§3), and BYOK / Vault flow (§4.13) unchanged. The Phase 5 ship is β-scope per Phase 5 Test Plan v1.2 §10 (52 of 152 planned cases) — this is internal verdict-discipline, not a product-surface change.
 
 **v1.4 — 2026-05-04** Phase 4 close-out absorption — SU-16 (V1 six-core whitelist promotion). §4.7 "Context node types" row now pins the six V1 slugs explicitly (`'character'` / `'location'` / `'organisation'` / `'theme'` / `'plot_thread'` / `'world'`) instead of leaving the names as prose. §4.7 "Metadata schemas" row expanded to enumerate the V1 hardcoded schema fields per context type (Character: role/age/want/fear/voice; Location: region/climate/era/mood/physical_description; Organisation: type/power_level/goals/key_members; Theme: statement/evidence/counter_examples; Plot Thread: arc/key_moments/status; World: genre_grounding/magic_or_technology/historical_period/core_rules) and to record the V2 transition path (`metadata_schemas` config table — SU-15). New paragraph below the table records the architectural-vs-operational distinction (Hazard H-12) — the V1 whitelist is an architectural enum, not a runtime-tunable value. No feature added or removed; this is a precision pass on §4.7's contract surface that Phase 4 actually shipped against.
 
