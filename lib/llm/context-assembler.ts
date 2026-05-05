@@ -95,6 +95,17 @@ export async function assembleContext(
 
   if (!node) throw new Error(`Node ${nodeId} not found in context assembly`)
 
+  // 1b. For generate_context (and any other profile with
+  //     context_rules.include_book_synopsis = true), fetch the project's
+  //     first document's book root summary so the agent has thematic
+  //     grounding. Context nodes have no ancestors of their own, so without
+  //     this they assemble with empty stable context and the model
+  //     declines. SU surfaced from T-15 prompt review.
+  let bookSynopsis: NodeForAssembly | null = null
+  if (profile.context_rules?.['include_book_synopsis'] === true) {
+    bookSynopsis = await fetchBookSynopsisForContextNode(supabase, node)
+  }
+
   // 2. Run injection scan on the agent_instruction (the only user input
   //    here that wasn't scanned at API-route time — defensive double scan).
   if (agentInstruction.trim()) {
@@ -109,10 +120,12 @@ export async function assembleContext(
   const formattedAncestors = formatAncestorChain(ancestors, nodeId)
   const formattedContextNodes = formatContextNodes(contextNodes, nodeId)
   const formattedStyleGuide = formatStyleGuide(contextNodes, nodeId)
+  const formattedBookSynopsis = formatBookSynopsis(bookSynopsis, nodeId)
   const formattedCurrentNode = formatCurrentNode(node, nodeId)
   const formattedComments = formatComments(comments, nodeId)
 
   const stableRaw = [
+    formattedBookSynopsis,
     formattedAncestors,
     formattedContextNodes,
     formattedStyleGuide,
@@ -169,6 +182,7 @@ interface NodeForAssembly {
   node_category: string
   depth: number | null
   parent_id: string | null
+  document_id?: string | null
   summary: string | null
   prose: string | null
   notes: string | null
@@ -210,6 +224,74 @@ async function fetchAncestors(
 
   // Reverse so root is first, immediate parent is last (reading order).
   return ancestors.reverse()
+}
+
+/**
+ * Fetch the book synopsis to ground a context-node operation.
+ * Strategy:
+ *   1. Look for any structural node linking TO this context node
+ *      (back-links via node_context_links).
+ *   2. If found: walk up its parent chain to the document root.
+ *   3. If not found (project-scope context node with no incoming links):
+ *      fall back to the project's first document's root node.
+ * Returns null if no plausible book synopsis exists in the project.
+ */
+async function fetchBookSynopsisForContextNode(
+  supabase: Client,
+  contextNode: { id: string; document_id?: string | null; node_category: string },
+): Promise<NodeForAssembly | null> {
+  // Try back-link path first
+  const { data: backLinks } = await supabase
+    .from('node_context_links')
+    .select('source_node_id')
+    .eq('target_node_id', contextNode.id)
+    .limit(1)
+  const sourceId = backLinks?.[0]?.source_node_id
+  if (sourceId) {
+    return walkToBookRoot(supabase, sourceId)
+  }
+
+  // Fall back to project's first document's root
+  if (contextNode.node_category !== 'context') return null
+  const { data: ctxNode } = await supabase
+    .from('nodes')
+    .select('project_id')
+    .eq('id', contextNode.id)
+    .maybeSingle()
+  if (!ctxNode?.project_id) return null
+
+  const { data: doc } = await supabase
+    .from('documents')
+    .select('root_node_id')
+    .eq('project_id', ctxNode.project_id)
+    .order('created_at', { ascending: true })
+    .limit(1)
+    .maybeSingle()
+  if (!doc?.root_node_id) return null
+
+  const { data: root } = await supabase
+    .from('nodes')
+    .select('id, name, node_type, node_category, depth, parent_id, summary, prose, notes, metadata')
+    .eq('id', doc.root_node_id)
+    .maybeSingle()
+  return (root as NodeForAssembly | null) ?? null
+}
+
+async function walkToBookRoot(supabase: Client, startId: string): Promise<NodeForAssembly | null> {
+  let currentId: string | null = startId
+  for (let i = 0; i < MAX_ANCESTOR_DEPTH; i++) {
+    if (!currentId) break
+    const { data } = await supabase
+      .from('nodes')
+      .select('id, name, node_type, node_category, depth, parent_id, summary, prose, notes, metadata')
+      .eq('id', currentId)
+      .maybeSingle()
+    if (!data) return null
+    const n = data as NodeForAssembly
+    if (n.parent_id === null && n.node_category === 'structural') return n
+    currentId = n.parent_id
+  }
+  return null
 }
 
 async function fetchLinkedContextNodes(
@@ -313,6 +395,18 @@ function formatContextNodes(contextNodes: NodeForAssembly[], nodeId: string): st
 </context_node>`
   })
   return `\n<context_nodes>${blocks.join('')}\n</context_nodes>`
+}
+
+function formatBookSynopsis(book: NodeForAssembly | null, nodeId: string): string {
+  if (!book) return ''
+  const name = scanAndWrap(book.name ?? '', `book.name`, nodeId)
+  const summary = scanAndWrap(extractPlainText(book.summary), `book.summary`, nodeId)
+  if (!summary) return ''
+  return `
+<book_synopsis id="${book.id}">
+  <name>${name}</name>
+  <user_data>${summary}</user_data>
+</book_synopsis>`
 }
 
 function formatStyleGuide(contextNodes: NodeForAssembly[], nodeId: string): string {

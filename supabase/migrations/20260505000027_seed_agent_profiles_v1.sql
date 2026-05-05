@@ -642,7 +642,7 @@ VOICE: The specific way this character speaks, thinks, and perceives. Not just a
 
 USING THE STORY CONTEXT
 
-You have been provided with the book synopsis, the author's instruction, and any existing character information. The character's psychology must be consistent with and enriched by the story they inhabit. Their wound and lie must create the specific kind of conflict their story arc requires. Do not build a generic psychologically-interesting character — build the character this story needs.
+You have been provided with the book synopsis, the author's instruction, and the character context node (which may be empty if this is a fresh generation, or may contain partial seed material from prior work). If the character node is empty, generate the full profile from scratch using the book synopsis as your primary source. If it has partial content, build on it. Either way, the character's psychology must be consistent with and enriched by the story they inhabit. Their wound and lie must create the specific kind of conflict their story arc requires. Do not build a generic psychologically-interesting character — build the character this story needs.
 
 OUTPUT FORMAT
 
@@ -666,7 +666,9 @@ The object has these fields:
 
 Do NOT include a `psychological_profile` field — the `summary` field carries the psychological narrative; metadata is for structured fields the form renders. The MetadataForm in `lib/context/metadata-schemas.ts` will only display fields it knows about; unknown keys round-trip but are not displayed.
 
-On Accept, the result is committed to `nodes.summary` and `nodes.metadata` on the character context node, creating a new `node_versions` row.$body$,
+On Accept, the result is committed to `nodes.summary` and `nodes.metadata` on the character context node, creating a new `node_versions` row.
+
+CRITICAL: Your response must be a single valid JSON object. Begin your response with `{` and end with `}`. Do not include any commentary, explanation, or acknowledgement of empty input before or after the JSON. If the character node is empty, that is normal — proceed to generate from scratch.$body$,
   '{"include_ancestors": false, "include_linked_contexts": true, "include_book_synopsis": true, "include_unresolved_comments": true}'::jsonb
 );
 

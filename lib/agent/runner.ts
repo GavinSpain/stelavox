@@ -207,6 +207,12 @@ export async function runAgentJob(jobId: string): Promise<void> {
       await markJobFailed(jobId, 'canary_leak_detected')
     } else if (err instanceof Error) {
       await markJobFailed(jobId, err.message)
+      // T-15 debug aid: when output schema validation fails, the raw LLM
+      // response is the most useful signal for prompt iteration. Log it
+      // to console so the dev server output shows what came back.
+      if (err.message.includes('output_schema_invalid')) {
+        console.error('[agent-runner] Zod validation failed for job', jobId, 'error:', err.message)
+      }
     } else {
       await markJobFailed(jobId, 'unknown_error')
     }

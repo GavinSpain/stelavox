@@ -54,6 +54,9 @@ export async function runGenerateContext(
   try {
     parsed = JSON.parse(extractJsonObject(content))
   } catch (err) {
+    // Log raw model output for prompt iteration (T-15 debug aid).
+    console.error('[generate-context] raw output that failed to parse (first 500 chars):')
+    console.error(content.slice(0, 500))
     throw new Error(`output_schema_invalid:json_parse:${(err as Error).message}`)
   }
 
