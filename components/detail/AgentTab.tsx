@@ -24,6 +24,7 @@
 
 import { useState, useEffect } from 'react'
 import { useActiveJobForNode, type AgentJob } from '@/lib/hooks/useAgentJobsRealtime'
+import { useSidebarProject } from '@/components/layout/AppShell'
 
 interface AgentTabProps {
   nodeId: string
@@ -52,6 +53,7 @@ const OPERATION_BUTTONS: Array<{
 
 export function AgentTab({ nodeId, nodeType, nodeCategory, isLeaf }: AgentTabProps) {
   const activeJob = useActiveJobForNode(nodeId)
+  const { bumpRefresh } = useSidebarProject()
   const [profiles, setProfiles] = useState<AgentProfile[]>([])
   const [selectedProfileId, setSelectedProfileId] = useState<string>('')
   const [instruction, setInstruction] = useState('')
@@ -107,6 +109,14 @@ export function AgentTab({ nodeId, nodeType, nodeCategory, isLeaf }: AgentTabPro
       if (!res.ok) {
         const json = await res.json().catch(() => ({}))
         setError(json.error ?? `HTTP ${res.status}`)
+        return
+      }
+      // Accept inserts new child nodes (for expand) or bumps the target
+      // node's version (for refine/synthesise/generate-context). Refresh
+      // the tree so the user sees the result. NodeTree consumes the
+      // SidebarProject refreshKey to refetch.
+      if (action === 'accept') {
+        bumpRefresh()
       }
     } catch (e) {
       setError((e as Error).message)
