@@ -130,8 +130,10 @@ BEGIN
       RAISE EXCEPTION 'no_child_layer' USING ERRCODE = 'P0001';
     END IF;
 
-    -- Append after existing children
-    SELECT COALESCE(MAX(position), -1) INTO v_max_position
+    -- Append after existing children. Per Phase 2's nodes."order" convention
+    -- (1-indexed; reserved keyword hence quoted), the agent emits position
+    -- 0,1,2,... but we translate to "order" 1,2,3,... before INSERT.
+    SELECT COALESCE(MAX("order"), 0) INTO v_max_position
     FROM nodes WHERE parent_id = v_node.id;
 
     FOR v_child IN SELECT * FROM jsonb_array_elements(p_child_nodes)
@@ -140,7 +142,7 @@ BEGIN
       INSERT INTO nodes (
         organisation_id, project_id, document_id, parent_id,
         node_category, node_type,
-        layer_index, depth, position,
+        layer_index, depth, "order",
         name, short_description, summary,
         metadata, word_count_target,
         status, version

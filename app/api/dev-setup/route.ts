@@ -170,9 +170,9 @@ export async function POST() {
           summary: 'Eleanor knows enough now to expose the truth, but no one she could expose it to is alive or untouched. The harbourmaster\'s widow refuses to speak; the local paper editor was at school with the ship\'s owner\'s son; the police inspector is the wreck investigator\'s nephew. Eleanor is offered, by indirection, the same arrangement her father took: silence, and the modest comfort of being permitted to live in the house. She refuses. The climax is not a confrontation but a publication: she sends the second ledger to a journalist in Edinburgh who has no skin in this place, and waits at the kitchen window for whatever comes next. What comes is not what she expects. The book ends in the morning after, the wind still not stopping, Eleanor making tea and watching the door, no longer afraid of it but no longer pretending the fear is gone either.',
         },
       ]
-      let pos = 0
+      let pos = 1  // Phase 2's nodes."order" is 1-indexed
       for (const act of acts) {
-        await supabase.from('nodes').insert({
+        const { error: actErr } = await supabase.from('nodes').insert({
           organisation_id: orgId,
           project_id: projectId,
           document_id: documentId,
@@ -181,13 +181,14 @@ export async function POST() {
           node_type: 'act',
           layer_index: 1,
           depth: 1,
-          position: pos++,
+          order: pos++,
           name: act.name,
           short_description: act.short_description,
           summary: tiptapDoc(act.summary),
           status: 'draft',
           version: 1,
         })
+        if (actErr) throw new Error(`act insert (${act.name}): ${actErr.message}`)
       }
       log.push(`3 acts created`)
     } else {
