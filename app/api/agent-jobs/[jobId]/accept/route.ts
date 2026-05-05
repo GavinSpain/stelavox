@@ -83,6 +83,10 @@ export async function POST(_request: NextRequest, { params }: Context) {
 
   // Call the RPC via service-role (the procedure is SECURITY DEFINER)
   const svc = createServiceRoleClient()
+  // p_child_nodes is JSONB on the procedure side. Pass the JS array
+  // directly — supabase-js serialises it correctly. Stringifying first
+  // would make it a JSONB scalar string, and jsonb_array_elements()
+  // would error: "cannot extract elements from a scalar".
   const { data: rpcResult, error: rpcErr } = await svc.rpc('accept_agent_job', {
     p_job_id: jobId,
     p_actor_id: user.id,
@@ -90,7 +94,7 @@ export async function POST(_request: NextRequest, { params }: Context) {
     p_target_prose: tiptapProse,
     p_target_notes: tiptapNotes,
     p_target_metadata: job.result_metadata ?? null,
-    p_child_nodes: childNodesForRpc ? JSON.stringify(childNodesForRpc) : null,
+    p_child_nodes: childNodesForRpc,
   })
 
   if (rpcErr) {
