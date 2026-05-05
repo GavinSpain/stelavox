@@ -20,6 +20,18 @@
   "functions": {
     "app/api/**": {
       "maxDuration": 60
+    },
+    "app/api/director/message/route.ts": {
+      "maxDuration": 300
+    },
+    "app/api/director/conversation/[conversationId]/resume/route.ts": {
+      "maxDuration": 300
     }
-  }
+  },
+  "crons": [
+    {
+      "path": "/api/cron/director-recovery",
+      "schedule": "* * * * *"
+    }
+  ]
 }

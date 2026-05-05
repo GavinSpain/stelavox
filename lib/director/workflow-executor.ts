@@ -42,8 +42,10 @@ import 'server-only'
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 
+import { getConfigInt } from '@/lib/config/platform-config'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import type { Database } from '@/lib/types/database'
+import type { WorkflowProposalParsed } from '@/lib/director/schemas'
 
 type Client = SupabaseClient<Database>
 
@@ -166,15 +168,89 @@ export async function advanceWorkflow(workflowId: string): Promise<void> {
 }
 
 /**
- * Translate a workflow_step into an agent_jobs row + run-via-waitUntil.
- * Phase 5b T-11 wiring connects this to the existing Phase 5 dispatch
- * path. For now: marks the step 'running' so advanceWorkflow doesn't
- * re-dispatch it on the next tick.
+ * Persist a draft workflow + its steps from a Director-emitted
+ * WorkflowProposalParsed. Called by the streaming Director route at
+ * end-of-turn when the agentic loop yields a workflow_proposal event.
+ * Returns the new workflow id.
  *
- * Real dispatch is implemented by the route layer (T-13's /approve
- * endpoint, plus the recovery + resume routes). This module exposes
- * the workflow-state-management half; the actual job-creation half
- * lives in lib/agents/dispatch.ts (T-7 placeholder; T-11 finalises).
+ * Steps are inserted with status='pending'. Workflow inherits
+ * status='draft'. The author must approve via /api/director/workflows/
+ * [id]/approve before any agent_jobs are dispatched.
+ *
+ * Step count is capped at agent.director_max_workflow_steps (default 30).
+ * Excess steps are truncated; the route layer's UI can show a "capped at
+ * 30" notice.
+ */
+export async function persistDraftWorkflow(args: {
+  supabase: SupabaseClient
+  organisationId: string
+  documentId: string
+  conversationId: string
+  proposal: WorkflowProposalParsed
+}): Promise<string> {
+  const { supabase, organisationId, documentId, conversationId, proposal } =
+    args
+  const cap = await getConfigInt('agent.director_max_workflow_steps')
+  const cappedSteps = proposal.steps.slice(0, cap)
+
+  const { data: wf, error: wfErr } = await supabase
+    .from('workflows')
+    .insert({
+      organisation_id: organisationId,
+      document_id: documentId,
+      conversation_id: conversationId,
+      title: proposal.title,
+      description: proposal.description ?? null,
+      impact_summary: proposal.impact_summary ?? null,
+      estimated_total_minutes: proposal.estimated_total_minutes ?? null,
+      status: 'draft',
+      locked_nodes_requiring_unlock:
+        proposal.locked_nodes_requiring_unlock ?? [],
+    })
+    .select('id')
+    .single()
+
+  if (wfErr || !wf) {
+    throw new Error(`persistDraftWorkflow failed: ${wfErr?.message}`)
+  }
+
+  // Insert steps with order=1..N (1-indexed per Phase 2 convention).
+  const stepRows = cappedSteps.map((s, i) => ({
+    workflow_id: wf.id,
+    order: i + 1,
+    operation_type: s.operation_type,
+    target_node_id: s.target_node_id,
+    parameters: s.parameters,
+    description: s.description,
+    estimated_duration_seconds: s.estimated_duration_seconds,
+    depends_on_step_orders: s.depends_on_step_orders ?? [],
+    status: 'pending',
+  }))
+
+  if (stepRows.length > 0) {
+    const { error: stepsErr } = await supabase
+      .from('workflow_steps')
+      .insert(stepRows)
+    if (stepsErr) {
+      // Rollback: delete the workflow row to avoid an empty draft.
+      await supabase.from('workflows').delete().eq('id', wf.id)
+      throw new Error(`persistDraftWorkflow steps failed: ${stepsErr.message}`)
+    }
+  }
+
+  return wf.id
+}
+
+/**
+ * Translate a workflow_step into an agent_jobs row + run-via-waitUntil.
+ * Phase 5b T-11: lifts the Phase 5 createJobAndDispatch pattern into
+ * a non-HTTP form so the workflow executor can dispatch without going
+ * back through the API layer.
+ *
+ * Per Phase 5b §1.5: agent_jobs.triggered_by encodes the workflow
+ * relationship as `workflow_step:<step_id>:<workflow_id>`. The Phase 5
+ * agent runner's notifyWorkflowIfStep parses this on terminal status
+ * to call advanceWorkflow().
  */
 async function dispatchAgentJobForStep(
   supabase: Client,
@@ -186,15 +262,187 @@ async function dispatchAgentJobForStep(
     parameters: unknown
   },
 ): Promise<void> {
-  // Mark step running. Real LLM-job dispatch wired by T-11.
+  // Synchronous step types: comment + node_reorder run as direct DB
+  // writes (no agent_jobs row, no LLM call). They're fast enough to
+  // complete inline; the executor marks them complete immediately.
+  if (step.operation_type === 'comment' || step.operation_type === 'node_reorder') {
+    await executeSynchronousStep(supabase, workflow, step)
+    return
+  }
+
+  // LLM-bearing step types: expand / synthesise / refine / generate_context.
+  // Create the agent_jobs row, then fire-and-forget runAgentJob() via
+  // Vercel waitUntil(). triggered_by encodes the workflow relationship
+  // for the runner's notifyWorkflowIfStep continuation hook.
+  const triggeredBy = `workflow_step:${step.id}:${workflow.id}`
+
+  // Resolve a default profile for this operation_type. Phase 5b auto-Accept
+  // mode: the workflow doesn't pin a profile_id at proposal time; resolve
+  // the system default at dispatch time.
+  // (More sophisticated profile selection — e.g. matching node_type — is a
+  // V1.x SU; for now we pick any system profile for the operation_type.)
+  const { data: profile } = await supabase
+    .from('agent_profiles')
+    .select('id')
+    .eq('is_system_profile', true)
+    .eq('operation_type', step.operation_type)
+    .order('created_at', { ascending: true })
+    .limit(1)
+    .maybeSingle()
+
+  if (!profile) {
+    await supabase
+      .from('workflow_steps')
+      .update({
+        status: 'failed',
+        error_message: `no_system_profile_for_${step.operation_type}`,
+        completed_at: new Date().toISOString(),
+      })
+      .eq('id', step.id)
+    return
+  }
+
+  // Build dynamic context block from step.parameters (operation-specific).
+  const dynamicCtx: Record<string, unknown> = {}
+  const params = (step.parameters ?? {}) as Record<string, unknown>
+  if (typeof params.instruction === 'string') {
+    dynamicCtx.refinement_instruction = params.instruction
+    dynamicCtx.agent_instruction = params.instruction
+  }
+  if (typeof params.target_field === 'string') {
+    dynamicCtx.target_field = params.target_field
+  }
+
+  const { data: jobRow, error: jobErr } = await supabase
+    .from('agent_jobs')
+    .insert({
+      organisation_id: workflow.organisation_id,
+      document_id: workflow.document_id,
+      node_id: step.target_node_id,
+      profile_id: profile.id,
+      operation_type: step.operation_type,
+      operation_class: 'single_node',
+      status: 'pending',
+      triggered_by: triggeredBy,
+      context_snapshot: { dynamic: dynamicCtx } as never,
+    })
+    .select('id')
+    .single()
+
+  if (jobErr || !jobRow) {
+    await supabase
+      .from('workflow_steps')
+      .update({
+        status: 'failed',
+        error_message: `dispatch_failed:${jobErr?.message ?? 'unknown'}`,
+        completed_at: new Date().toISOString(),
+      })
+      .eq('id', step.id)
+    return
+  }
+
+  await supabase
+    .from('workflow_steps')
+    .update({
+      status: 'running',
+      started_at: new Date().toISOString(),
+      agent_job_id: jobRow.id,
+    })
+    .eq('id', step.id)
+
+  // Fire the runner via waitUntil(). Imported lazily to avoid a circular
+  // import chain (runner imports advanceWorkflow from this module).
+  const { runAgentJob } = await import('@/lib/agent/runner')
+  const { waitUntil } = await import('@vercel/functions')
+  waitUntil(runAgentJob(jobRow.id))
+}
+
+async function executeSynchronousStep(
+  supabase: Client,
+  workflow: { id: string; organisation_id: string },
+  step: {
+    id: string
+    operation_type: string
+    target_node_id: string | null
+    parameters: unknown
+  },
+): Promise<void> {
   await supabase
     .from('workflow_steps')
     .update({ status: 'running', started_at: new Date().toISOString() })
     .eq('id', step.id)
 
-  // T-11 follow-up: call lib/agents/dispatch.ts dispatchAgentJob() to
-  // create the agent_jobs row + waitUntil(runAgentJob(jobId)).
-  // For now this is the workflow-state side; the dispatch side lands
-  // when the /approve route is wired.
-  void workflow
+  try {
+    if (step.operation_type === 'comment' && step.target_node_id) {
+      const params = (step.parameters ?? {}) as {
+        comment_type?: string
+        content?: string
+      }
+      if (!params.content || !params.comment_type) {
+        throw new Error('comment_step_missing_parameters')
+      }
+      await supabase.from('node_comments').insert({
+        node_id: step.target_node_id,
+        organisation_id: workflow.organisation_id,
+        author_type: 'agent',
+        author_label: 'Director',
+        comment_type: params.comment_type,
+        content: params.content,
+        resolved: false,
+      })
+    } else if (step.operation_type === 'node_reorder' && step.target_node_id) {
+      const params = (step.parameters ?? {}) as {
+        new_order?: number
+        parent_id?: string
+      }
+      if (typeof params.new_order !== 'number') {
+        throw new Error('node_reorder_step_missing_parameters')
+      }
+      // Resolve current parent if not provided.
+      let parentId = params.parent_id
+      if (!parentId) {
+        const { data: cur } = await supabase
+          .from('nodes')
+          .select('parent_id')
+          .eq('id', step.target_node_id)
+          .maybeSingle()
+        parentId = cur?.parent_id ?? undefined
+      }
+      if (!parentId) {
+        throw new Error('node_reorder_root_node_cannot_be_reordered')
+      }
+      // Migration 021's move_node RPC handles atomic sibling renumber.
+      // Phase 2 convention: position is 0-indexed in the RPC; new_order
+      // from the proposal is 1-indexed → subtract 1.
+      const { error: rpcErr } = await supabase.rpc('move_node', {
+        p_node_id: step.target_node_id,
+        p_parent_id: parentId,
+        p_position: params.new_order - 1,
+      })
+      if (rpcErr) throw new Error(`move_node_failed:${rpcErr.message}`)
+    }
+
+    await supabase
+      .from('workflow_steps')
+      .update({
+        status: 'completed',
+        completed_at: new Date().toISOString(),
+        result_summary: `${step.operation_type} executed`,
+      })
+      .eq('id', step.id)
+
+    // Trigger the next continuation tick.
+    await advanceWorkflow(workflow.id)
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'unknown_error'
+    await supabase
+      .from('workflow_steps')
+      .update({
+        status: 'failed',
+        error_message: msg,
+        completed_at: new Date().toISOString(),
+      })
+      .eq('id', step.id)
+    await advanceWorkflow(workflow.id)
+  }
 }

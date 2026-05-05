@@ -31,6 +31,7 @@ import { getConfigInt } from '@/lib/config/platform-config'
 import { getProvider } from '@/lib/llm/factory'
 import { computeCostUsd } from '@/lib/llm/cost'
 import { runAgenticTurn, type TurnEvent } from '@/lib/director/executor'
+import { persistDraftWorkflow } from '@/lib/director/workflow-executor'
 import {
   appendUserMessage,
   buildConversationContext,
@@ -288,6 +289,29 @@ export async function POST(req: NextRequest): Promise<Response> {
           } else if (event.type === 'turn_complete') {
             accumulator.usage = event.usage
             accumulator.cost = await computeCostUsd(event.usage, modelId).catch(() => null)
+          } else if (event.type === 'workflow_proposal') {
+            // Persist the draft workflow now so the assistant message
+            // it accompanies has a corresponding workflow_id to link to.
+            try {
+              const workflowId = await persistDraftWorkflow({
+                supabase: service,
+                organisationId,
+                documentId: document_id,
+                conversationId: conversation.id,
+                proposal: event.proposal,
+              })
+              // Link the workflow id back onto the assistant message row
+              // so the UI can render the PlanCard inline (Phase 5b §2.13).
+              await service
+                .from('conversation_messages')
+                .update({ workflow_id: workflowId })
+                .eq('id', assistantRow.id)
+            } catch (err) {
+              console.error('[director-message] persistDraftWorkflow failed', {
+                conversation: conversation.id,
+                error: err instanceof Error ? err.message : String(err),
+              })
+            }
           }
 
           const sse = turnEventToSse(event)
