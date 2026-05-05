@@ -12,7 +12,6 @@ import {
 } from '@/lib/api/agent-operation-helper'
 import { err } from '@/lib/api/errors'
 import { getDocumentMaxLayerIndex, getNode, decorateWithLeaf } from '@/lib/data/nodes'
-import { getOrgId } from '@/lib/data/projects'
 import { checkTokenBudget } from '@/lib/llm/token-budget'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'

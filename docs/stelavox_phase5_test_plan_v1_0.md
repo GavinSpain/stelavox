@@ -1,5 +1,5 @@
 # Stelavox — Phase 5 Test Plan
-## Version 1.1
+## Version 1.2
 
 > **Tier-B per-phase document.** The authoritative test-case list for Phase 5 (Agent System). Companion to `stelavox_phase5_api_contract_v1_0.md` (v1.1) and `stelavox_phase5_build_checklist_v1_0.md`. Every authored test case in `tests/` must correspond to a TC-X-N entry here; every TC-X-N entry must have a matching `test('TC-X-N — ...')` in a spec file by phase end. The Test Report's verdict count must match T-16.3's grep count, not this plan's planned count (Phase 3 v1.5 audit lesson).
 
@@ -786,20 +786,21 @@ When a step or expectation references a TA / API Contract / Library doc section,
 
 ### 10.1 Verdict count gates
 
-The Phase 5 Test Report v1.0 §1 must report:
+Per the v1.2 β-scope amendment: Phase 5 V1 ships 52 of 152 planned cases. The remaining 100 are deferred to Phase 8 alongside SU-21 (Phase 4's deferral set), captured collectively as SU-33. The β subset was selected against the merge-blocker risks: golden paths for all four operations, Accept transactionality, security frame + injection scanner, RLS cross-org boundary, Zod schema validation, token budget gate. UI checkpoint cases (TC-U) and visual/motion cases (TC-V/M) were validated by manual UI testing during the T-1..T-15 build phase.
 
-| Category | Planned | Active | Deferred |
+| Category | Planned | Active (β V1) | Deferred (Phase 8) |
 |---|---|---|---|
-| TC-A | 60 | TBD | TBD |
-| TC-B | 14 | 14 | 0 |
-| TC-D | 18 | 18 | 0 |
-| TC-S | 14 | 14 | 0 |
-| TC-U | 24 | TBD | TBD (Phase 8 if any) |
-| TC-V | 8 | 8 | 0 |
-| TC-M | 6 | TBD | TBD (Phase 8 reduce-motion candidates) |
-| TC-AX | 8 | TBD | TBD |
+| TC-A | 60 | 22 | 38 |
+| TC-B | 14 | 10 | 4 |
+| TC-D | 18 | 8 | 10 |
+| TC-S | 14 | 10 | 4 |
+| TC-U | 24 | 0 (manual UI in T-1..T-15) | 24 |
+| TC-V | 8 | 0 | 8 |
+| TC-M | 6 | 0 | 6 |
+| TC-AX | 8 | 2 | 6 |
+| **Total** | **152** | **52** | **100** |
 
-Total planned: **152** (v1.1 — added TC-D-17, TC-D-18). The Test Report's Active count is the verdict-gate count for "PHASE 5 PASSES" — Active must be 100% pass.
+The Active count is the verdict-gate count for "PHASE 5 PASSES" — Active must be 100% pass. Phase 5 v1.0 Test Report records 52/52 PASS on Haiku and 4/4 cloud smoke PASS on Sonnet.
 
 ### 10.2 Audit verification
 
@@ -840,6 +841,8 @@ The Phase 5 Test Report v1.0 inherits from Phase 4's structure. §3 (Iteration L
 ---
 
 ## 11. Changelog
+
+**v1.2 — 2026-05-05** β-scope amendment. §10.1 verdict-count table updated to record Phase 5 V1 ships 52 of 152 planned cases (`Active (β V1)` column). Per-category breakdown: TC-A 22/38 (golden paths + validation/Accept/lifecycle/comments + LLM-bearing happy paths), TC-B 10/4 (cross-org RLS), TC-D 8/10 (Zod + DB integrity), TC-S 10/4 (security incl. injection scanner, canary, escapeXml, budget gate), TC-AX 2/6 (operation button names + non-colour status signal). TC-U (24), TC-V (8), TC-M (6), and 6 TC-AX cases deferred entirely to Phase 8 — TC-U was validated by manual UI testing during T-1..T-15. The 100-case deferral is tracked under SU-33 in the Phase 5 Test Report and Build Checklist v1.2 §6. The verdict gate language unchanged — "PHASE 5 PASSES" requires 100% pass on the Active set (now 52, was previously the implied 152). Phase 5 Test Report v1.0 records 52/52 active local PASS and 4/4 cloud smoke PASS.
 
 **v1.1 — 2026-05-05** Cost-as-first-class amendment. §1.4 Tooling: added `tests/reporters/cost-reporter.ts` Playwright reporter and `scripts/cost-report.ts` CLI. New §1.7 Cost capture during tests — documents per-test cost logging, model-in-use during functional vs quality phases, and per-run cost discipline ($0.50 build-test, $0.20 cloud-smoke). Section 1.7 (Notation) renumbered to 1.8. Two new TC-D cases: TC-D-17 (every completed agent_jobs row populates cost_usd), TC-D-18 (cost computation matches expected formula across Haiku/Sonnet/Opus). Total cases moves 150 → 152. Section 10 expanded to "Verdict Counts, Cost Analysis, and Hand-Off"; new §10.4 Cost Analysis Verdict establishes a hard verdict gate at 35% cost-per-revenue threshold for V1 launch business-case decision; existing 10.4 (Hand-off) renumbered to 10.5. Aligned with API Contract v1.2 G-13 and Build Checklist v1.1 PB-7a/b, T-1.6, T-2.6, T-7.3, T-15.0, T-16.1.5/2.5/6.
 

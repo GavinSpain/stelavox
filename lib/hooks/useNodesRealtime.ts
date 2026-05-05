@@ -37,7 +37,9 @@ export function useNodesRealtime(
   // Stash the latest callback in a ref so we don't re-subscribe on every render
   // when the consumer passes an inline arrow function.
   const onChangeRef = useRef(onChange)
-  onChangeRef.current = onChange
+  useEffect(() => {
+    onChangeRef.current = onChange
+  }, [onChange])
 
   useEffect(() => {
     if (!documentId) return

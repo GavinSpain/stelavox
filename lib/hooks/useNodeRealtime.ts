@@ -22,7 +22,9 @@ export function useNodeRealtime(
   onChange: () => void,
 ): void {
   const onChangeRef = useRef(onChange)
-  onChangeRef.current = onChange
+  useEffect(() => {
+    onChangeRef.current = onChange
+  }, [onChange])
 
   useEffect(() => {
     if (!nodeId) return

@@ -13,9 +13,13 @@
 # testing
 /coverage
 /test-results
+/test-reports
 tests/.auth
 tests/results.json
 test-rpc.mjs
+
+# Claude Code session-runtime files (per-session lock state)
+.claude/scheduled_tasks.lock
 
 # next.js
 /.next/

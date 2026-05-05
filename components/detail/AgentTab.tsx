@@ -39,17 +39,6 @@ interface AgentProfile {
   node_type: string | null
 }
 
-const OPERATION_BUTTONS: Array<{
-  op: 'expand' | 'synthesise' | 'refine' | 'generate_context'
-  label: string
-  icon: string
-  fullWidth?: boolean
-}> = [
-  { op: 'expand',    label: 'Expand',    icon: '⚡' },
-  { op: 'refine',    label: 'Refine',    icon: '✏' },
-  { op: 'synthesise', label: 'Synthesise Prose', icon: '✨', fullWidth: true },
-]
-
 export function AgentTab({ nodeId, nodeType, nodeCategory, isLeaf }: AgentTabProps) {
   const activeJob = useActiveJobForNode(nodeId)
   const [profiles, setProfiles] = useState<AgentProfile[]>([])
