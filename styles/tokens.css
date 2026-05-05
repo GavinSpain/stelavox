@@ -189,3 +189,54 @@
     --duration-emphasis: 0ms;
   }
 }
+
+/* ──────────────────────────────────────────────────────
+   AGENT ACTIVITY PULSE
+   Component Spec §4.4 — opacity 1 → 0.4 → 1 over 2s
+   ease-in-out, infinite. The only animation that runs
+   unsolicited in the tree (calm, not urgent).
+   prefers-reduced-motion collapses to a static dot.
+   ────────────────────────────────────────────────────── */
+@keyframes stelavox-agent-pulse {
+  0%   { opacity: 1; }
+  50%  { opacity: 0.4; }
+  100% { opacity: 1; }
+}
+
+.agent-activity-pulse {
+  animation: stelavox-agent-pulse 2s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .agent-activity-pulse {
+    animation: none;
+    opacity: 0.4;
+  }
+}
+
+/* ──────────────────────────────────────────────────────
+   AGENT PROGRESS INDETERMINATE BAR
+   AgentTab active-state progress indicator. LLM
+   operations don't expose real-time progress, so the
+   bar slides left-to-right indeterminately — honest
+   "running, no ETA" rather than fake percentage.
+   prefers-reduced-motion: hide the slide animation
+   (the pulse and Stop button still convey activity).
+   ────────────────────────────────────────────────────── */
+@keyframes stelavox-progress-slide {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(250%); }
+}
+
+.agent-progress-indeterminate {
+  animation: stelavox-progress-slide 1.4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .agent-progress-indeterminate {
+    animation: none;
+    transform: translateX(0);
+    width: 100% !important;
+    opacity: 0.4;
+  }
+}

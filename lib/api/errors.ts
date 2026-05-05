@@ -97,4 +97,38 @@ export const err = {
   contextNodeNotFound:       () => apiError(404, 'context_node_not_found'),
   documentNotFound:          () => apiError(404, 'document_not_found'),
   projectNotFound:           () => apiError(404, 'project_not_found'),
+
+  // Phase 5 — agent system (API Contract v1.2 §2.3)
+  tokenBudgetExceeded:           () => apiError(402, 'token_budget_exceeded'),
+  injectionBlocked:              () => apiError(422, 'injection_blocked'),
+  outputSchemaInvalid:           () => apiError(422, 'output_schema_invalid'),
+  llmProviderError:              () => apiError(503, 'llm_provider_error'),
+  canaryLeakDetected:            () => apiError(422, 'canary_leak_detected'),
+  agentJobInProgress:            () => apiError(409, 'agent_job_in_progress'),
+  agentJobNotInProgress:         () => apiError(409, 'agent_job_not_in_progress'),
+  agentJobAlreadyTerminal:       (status: string) =>
+    NextResponse.json(
+      { error: 'agent_job_already_terminal', current_status: status },
+      { status: 409 },
+    ),
+  notALeafNode:                  () => apiError(400, 'not_a_leaf_node'),
+  invalidTargetField:            () => apiError(400, 'invalid_target_field'),
+  invalidOperationForNodeType:   () => apiError(400, 'invalid_operation_for_node_type'),
+  targetVersionMismatch:         (current: number, captured: number) =>
+    NextResponse.json(
+      { error: 'target_version_mismatch', current_version: current, captured_version: captured },
+      { status: 409 },
+    ),
+  commentThreadTooDeep:          () => apiError(400, 'comment_thread_too_deep'),
+  commentNotInNode:              () => apiError(400, 'comment_not_in_node'),
+  notCommentAuthor:              () => apiError(403, 'not_comment_author'),
+  cannotEditAgentComment:        () => apiError(400, 'cannot_edit_agent_comment'),
+  agentProfileNotFound:          () => apiError(404, 'agent_profile_not_found'),
+  profileOperationMismatch:      () => apiError(400, 'profile_operation_mismatch'),
+  invalidTargetLayerCount:       () => apiError(400, 'invalid_target_layer_count'),
+  invalidProseTargetWords:       () => apiError(400, 'invalid_prose_target_words'),
+  invalidRefinementInstruction:  () => apiError(400, 'invalid_refinement_instruction'),
+  refineEmptyField:              () => apiError(400, 'refine_empty_field'),
+  invalidCommentType:            () => apiError(400, 'invalid_comment_type'),
+  invalidContent:                () => apiError(400, 'invalid_content'),
 }

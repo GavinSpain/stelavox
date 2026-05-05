@@ -25,5 +25,6 @@ export async function getConfig<T = unknown>(key: string): Promise<T> {
 }
 
 export const getConfigInt    = (key: string) => getConfig<number>(key)
+export const getConfigNumber = (key: string) => getConfig<number>(key)
 export const getConfigString = (key: string) => getConfig<string>(key)
 export const getConfigBool   = (key: string) => getConfig<boolean>(key)

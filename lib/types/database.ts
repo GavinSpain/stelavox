@@ -7,10 +7,30 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: "14.5"
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
   }
   public: {
     Tables: {
@@ -19,6 +39,7 @@ export type Database = {
           batch_id: string | null
           completed_at: string | null
           context_snapshot: Json | null
+          cost_usd: number | null
           created_at: string
           document_id: string | null
           error_message: string | null
@@ -31,10 +52,16 @@ export type Database = {
           organisation_id: string
           profile_id: string | null
           provider: string | null
+          result_child_nodes: Json | null
+          result_metadata: Json | null
+          result_notes: string | null
+          result_prose: string | null
           result_report_id: string | null
           result_summary: string | null
+          result_summary_text: string | null
           started_at: string | null
           status: string
+          target_node_version_at_capture: number | null
           tokens_cache_read: number | null
           tokens_cache_write: number | null
           tokens_input: number | null
@@ -45,6 +72,7 @@ export type Database = {
           batch_id?: string | null
           completed_at?: string | null
           context_snapshot?: Json | null
+          cost_usd?: number | null
           created_at?: string
           document_id?: string | null
           error_message?: string | null
@@ -57,10 +85,16 @@ export type Database = {
           organisation_id: string
           profile_id?: string | null
           provider?: string | null
+          result_child_nodes?: Json | null
+          result_metadata?: Json | null
+          result_notes?: string | null
+          result_prose?: string | null
           result_report_id?: string | null
           result_summary?: string | null
+          result_summary_text?: string | null
           started_at?: string | null
           status?: string
+          target_node_version_at_capture?: number | null
           tokens_cache_read?: number | null
           tokens_cache_write?: number | null
           tokens_input?: number | null
@@ -71,6 +105,7 @@ export type Database = {
           batch_id?: string | null
           completed_at?: string | null
           context_snapshot?: Json | null
+          cost_usd?: number | null
           created_at?: string
           document_id?: string | null
           error_message?: string | null
@@ -83,10 +118,16 @@ export type Database = {
           organisation_id?: string
           profile_id?: string | null
           provider?: string | null
+          result_child_nodes?: Json | null
+          result_metadata?: Json | null
+          result_notes?: string | null
+          result_prose?: string | null
           result_report_id?: string | null
           result_summary?: string | null
+          result_summary_text?: string | null
           started_at?: string | null
           status?: string
+          target_node_version_at_capture?: number | null
           tokens_cache_read?: number | null
           tokens_cache_write?: number | null
           tokens_input?: number | null
@@ -1703,6 +1744,22 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      accept_agent_job: {
+        Args: {
+          p_actor_id: string
+          p_child_nodes?: Json
+          p_job_id: string
+          p_target_metadata?: Json
+          p_target_notes?: string
+          p_target_prose?: string
+          p_target_summary?: string
+        }
+        Returns: {
+          out_child_node_ids: string[]
+          out_new_version: number
+          out_node_id: string
+        }[]
+      }
       create_document_with_layer_stack: {
         Args: {
           p_authors: string[]
@@ -1846,7 +1903,11 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {},
   },
 } as const
+

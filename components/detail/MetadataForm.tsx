@@ -24,11 +24,14 @@ import { isContextNodeType } from '@/lib/context/types'
 import { useEditorStore } from '@/lib/stores/editor-store'
 
 // The form deals with a unified field shape internally. Both schema sources
-// produce values that fit this superset.
+// produce values that fit this superset. `string_array` was added in Phase 5
+// (G-10) for agent-emitted list-shaped metadata (e.g. character.key_relationships);
+// the renderer is a temporary multi-line textarea (one entry per line) until
+// T-6.2 lands the full list-control UI.
 interface UnifiedField {
   key:          string
   label:        string
-  type:         'text' | 'textarea' | 'number' | 'date' | 'select'
+  type:         'text' | 'textarea' | 'number' | 'date' | 'select' | 'string_array'
   options?:     string[]
   description?: string
 }
@@ -153,12 +156,15 @@ function FieldRow({
             <option key={opt} value={opt}>{opt}</option>
           ))}
         </select>
-      ) : field.type === 'textarea' ? (
+      ) : field.type === 'textarea' || field.type === 'string_array' ? (
+        // string_array uses textarea-as-list-stub for Phase 5 — see T-6.2 for
+        // the proper list-control UI. Each line is one entry. The store sees
+        // it as a string; a future improvement parses to/from string[].
         <textarea
           id={`metadata-${field.key}`}
           value={value}
           disabled={readOnly}
-          rows={3}
+          rows={field.type === 'string_array' ? 4 : 3}
           onChange={(e) => onChange(field.key, e.target.value)}
           style={{ ...sharedInputStyle, resize: 'vertical' }}
         />
