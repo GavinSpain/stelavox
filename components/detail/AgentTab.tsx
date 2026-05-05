@@ -176,30 +176,6 @@ export function AgentTab({ nodeId, nodeType, nodeCategory, isLeaf }: AgentTabPro
         />
       </div>
 
-      {refineCapable && (
-        <div>
-          <Label>Refine target</Label>
-          <select
-            value={refineField}
-            onChange={(e) => setRefineField(e.target.value as 'summary' | 'prose' | 'notes')}
-            disabled={busy}
-            style={selectStyle}
-          >
-            <option value="summary">summary</option>
-            <option value="prose" disabled={!isLeaf}>prose {isLeaf ? '' : '(leaf-only)'}</option>
-            <option value="notes">notes</option>
-          </select>
-          <textarea
-            value={refinementInstruction}
-            onChange={(e) => setRefinementInstruction(e.target.value)}
-            placeholder="What should the refine change?"
-            rows={2}
-            disabled={busy}
-            style={{ ...textareaStyle, marginTop: 'var(--space-2)' }}
-          />
-        </div>
-      )}
-
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
         {expandCapable && (
           <OpButton
@@ -208,15 +184,6 @@ export function AgentTab({ nodeId, nodeType, nodeCategory, isLeaf }: AgentTabPro
             icon="⚡"
             disabled={busy}
             onClick={() => trigger('expand')}
-          />
-        )}
-        {refineCapable && (
-          <OpButton
-            op="refine"
-            label="Refine"
-            icon="✏"
-            disabled={busy || !refinementInstruction.trim()}
-            onClick={() => trigger('refine')}
           />
         )}
         {generateContextCapable && (
@@ -241,6 +208,53 @@ export function AgentTab({ nodeId, nodeType, nodeCategory, isLeaf }: AgentTabPro
         {/* Critique button — V1.x; rendered disabled per Component Spec §5.9 layout */}
         <OpButton op="expand" label="Critique" icon="🔍" disabled tooltip="Critique is V1.x — coming soon" onClick={() => {}} />
       </div>
+
+      {refineCapable && (
+        <div
+          style={{
+            marginTop: 'var(--space-3)',
+            padding: 'var(--space-3)',
+            border: '1px solid var(--color-border-subtle)',
+            borderRadius: '4px',
+            background: 'var(--color-bg-base)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 'var(--space-2)',
+          }}
+        >
+          <Label>Refine</Label>
+          <div style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center' }}>
+            <span style={{ fontSize: '11px', color: 'var(--color-text-muted)', fontFamily: 'var(--font-inter), Inter, sans-serif' }}>
+              Target field:
+            </span>
+            <select
+              value={refineField}
+              onChange={(e) => setRefineField(e.target.value as 'summary' | 'prose' | 'notes')}
+              disabled={busy}
+              style={{ ...selectStyle, width: 'auto', flex: 1 }}
+            >
+              <option value="summary">summary</option>
+              <option value="prose" disabled={!isLeaf}>prose {isLeaf ? '' : '(leaf-only)'}</option>
+              <option value="notes">notes</option>
+            </select>
+          </div>
+          <textarea
+            value={refinementInstruction}
+            onChange={(e) => setRefinementInstruction(e.target.value)}
+            placeholder="What should the refine change?"
+            rows={2}
+            disabled={busy}
+            style={textareaStyle}
+          />
+          <OpButton
+            op="refine"
+            label="Refine"
+            icon="✏"
+            disabled={busy || !refinementInstruction.trim()}
+            onClick={() => trigger('refine')}
+          />
+        </div>
+      )}
     </div>
   )
 }
