@@ -45,6 +45,7 @@ export type Database = {
           error_message: string | null
           id: string
           job_progress: Json | null
+          last_heartbeat_at: string | null
           model_id: string | null
           node_id: string | null
           operation_class: string
@@ -78,6 +79,7 @@ export type Database = {
           error_message?: string | null
           id?: string
           job_progress?: Json | null
+          last_heartbeat_at?: string | null
           model_id?: string | null
           node_id?: string | null
           operation_class?: string
@@ -111,6 +113,7 @@ export type Database = {
           error_message?: string | null
           id?: string
           job_progress?: Json | null
+          last_heartbeat_at?: string | null
           model_id?: string | null
           node_id?: string | null
           operation_class?: string
@@ -485,6 +488,7 @@ export type Database = {
           tokens_input: number | null
           tokens_output: number | null
           tool_calls: Json | null
+          turn_state: string
         }
         Insert: {
           author_user_id?: string | null
@@ -500,6 +504,7 @@ export type Database = {
           tokens_input?: number | null
           tokens_output?: number | null
           tool_calls?: Json | null
+          turn_state?: string
         }
         Update: {
           author_user_id?: string | null
@@ -515,6 +520,7 @@ export type Database = {
           tokens_input?: number | null
           tokens_output?: number | null
           tool_calls?: Json | null
+          turn_state?: string
         }
         Relationships: [
           {
@@ -1695,6 +1701,7 @@ export type Database = {
           estimated_total_minutes: number | null
           id: string
           impact_summary: string | null
+          last_heartbeat_at: string | null
           locked_nodes_requiring_unlock: string[] | null
           organisation_id: string
           status: string
@@ -1711,6 +1718,7 @@ export type Database = {
           estimated_total_minutes?: number | null
           id?: string
           impact_summary?: string | null
+          last_heartbeat_at?: string | null
           locked_nodes_requiring_unlock?: string[] | null
           organisation_id: string
           status?: string
@@ -1727,6 +1735,7 @@ export type Database = {
           estimated_total_minutes?: number | null
           id?: string
           impact_summary?: string | null
+          last_heartbeat_at?: string | null
           locked_nodes_requiring_unlock?: string[] | null
           organisation_id?: string
           status?: string

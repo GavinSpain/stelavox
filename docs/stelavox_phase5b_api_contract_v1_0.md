@@ -1,5 +1,5 @@
 # Stelavox — Phase 5b API Contract
-## Version 1.0
+## Version 1.1
 
 > **Tier-B per-phase document.** Frozen for Phase 5b build. Defines every API route added or modified in Phase 5b (Director: conversational interface + tool-using agentic loop + plan approval + workflow execution). Companion to `stelavox_phase5b_test_plan_v1_0.md` and `stelavox_phase5b_build_checklist_v1_0.md`. Source of truth for endpoint shape, the Director streaming wire format, the agentic-loop boundaries, the tool registry, the plan approval contract, the workflow execution semantics, and the security pipeline (Defence 4 — `validateToolCall`). Cross-cutting rules unchanged since Phase 1 / 2 / 3 / 4 / 5 are inherited from the earlier phases' API contracts; only the additions are spelled out here.
 
@@ -22,14 +22,21 @@
 
 ### 1.1 Routes added in Phase 5b
 
-**Conversation (4):**
+**Conversation (5):**
 
 | Method | Path | Purpose |
 |---|---|---|
 | POST | `/api/director/message` | Stream a Director response (SSE) for a user message; create the conversation if absent |
+| POST | `/api/director/conversation/[conversationId]/resume` | Resume an interrupted turn (SSE; v1.1 SU-41) |
 | GET | `/api/director/conversation/[conversationId]` | Fetch a conversation row + paginated messages |
 | GET | `/api/documents/[documentId]/conversation` | Resolve the (single) conversation for a document, creating an empty row if absent |
 | POST | `/api/director/conversation/[conversationId]/messages` | Non-streaming message append (admin tooling / replay; not used by the UI) |
+
+**Cron / system (1):**
+
+| Method | Path | Purpose |
+|---|---|---|
+| POST | `/api/cron/director-recovery` | Vercel Cron — recovery sweep for orphaned agent_jobs / stalled workflows (v1.1 SU-40) |
 
 **Workflow (8):**
 
@@ -44,7 +51,7 @@
 | PATCH | `/api/director/workflows/[workflowId]/steps/[stepOrder]` | Update a single step in a `draft` workflow (deselect via `status='removed'` or edit `parameters`) |
 | GET | `/api/documents/[documentId]/workflows` | Paginated workflow history for a document |
 
-**Total: 12 routes added in Phase 5b.**
+**Total: 14 routes added in Phase 5b** (v1.1 — was 12; +1 resume per SU-41, +1 cron-recovery per SU-40).
 
 ### 1.2 Routes modified in Phase 5b
 
@@ -59,7 +66,7 @@ None.
 
 ### 1.4 Database changes
 
-**One migration (031).** Migration count moves from 30 (Phase 5 close-out) to 31. Migration 031 covers five concerns in a single atomic file: (1) Director v1.0 system prompt + tool_suite finalisation, (2) `conversation_messages.author_user_id` column (G-2), (3) `conversation_messages` cost-tracking columns (G-11), (4) `supabase_realtime` publication ADD for `workflows` / `workflow_steps` (G-6), (5) seed of the five Phase 5b operational-limit keys into `platform_config` per §2.7 (no-deployment-to-change discipline per H-12).
+**One migration (031).** Migration count moves from 30 (Phase 5 close-out) to 31. Migration 031 covers eight concerns in a single atomic file (v1.1 expanded — see SU-40 / SU-41 in §5): (1) Director v1.0 system prompt + tool_suite finalisation (G-1), (2) `conversation_messages.author_user_id` column (G-2), (3) `conversation_messages` cost-tracking columns (G-11), (4) `supabase_realtime` publication ADD for `workflows` / `workflow_steps` (G-6), (5) seed of three Phase 5b operational-limit keys into `platform_config` per §2.7, (6) `agent_jobs.last_heartbeat_at` + `workflows.last_heartbeat_at` columns for the liveness signal (SU-40 / I-10), (7) `conversation_messages.turn_state` enum (`interim` | `final` | `interrupted`) for mid-turn persistence (SU-41 / I-12) plus a partial index on `WHERE turn_state='interim'` for cheap interim-turn lookup, (8) seed of four heartbeat / recovery-sweep config keys into `platform_config`. All schema additions are non-breaking (default values supplied).
 
 - **Migration 031 — Director v1.0 production system prompt + tool_suite finalisation.** Phase 1 Migration 013 seeded a placeholder `director_configs` row (`'-- loaded from supabase/seed/director-v1.0.txt --'`). Phase 5b's migration replaces this with the real production prompt loaded from `supabase/seed/director-v1.0.txt` (a new file authored in Build Checklist T-3.3). The `tool_suite` JSONB array is also re-asserted to the canonical Phase 5b list (13 entries — 7 read + 6 write; `create_document_operation_step` is **not** in the Phase 5b tool_suite, see §1 carve-outs). `create_node_reorder_step` IS included to satisfy J5's narrative requirement (chapter scene reorder); not in TA §8.3 enumeration → flagged as SU-37 for absorption at close-out. `model_id` is **not** changed by this migration — it stays at `claude-opus-4-6` per TA §6.3. The migration is idempotent: `UPDATE director_configs SET system_prompt = $1, tool_suite = $2 WHERE version_number = '1.0'` against the unique `('1.0', 'production')` row.
 
@@ -67,7 +74,38 @@ No schema-level table additions. Phase 1 Migration 005 already created `conversa
 
 Type regeneration (`supabase gen types typescript --linked > lib/types/database.ts`) is required after Migration 031 because Migration 031's prompt body contains tokens consumed by the runtime executor; types do not actually change for this migration but the regenerate step is in the standard procedure (H-10) and is run regardless.
 
-### 1.5 Auth surface
+### 1.5 Runtime architecture (corrects v1.0 — SU-39)
+
+The v1.0 contract used "Edge Function" language (`director-runner`, `workflow-executor`) borrowed from TA §8.2 / §8.4. Phase 5 SU-28 already established that Stelavox runs the agent runner as a Vercel Node.js function via `waitUntil()`, not a Supabase Edge Function. Phase 5b follows the same precedent. **No Supabase Edge Functions are introduced in Phase 5b.**
+
+**The streaming Director path (`/api/director/message`):**
+- Vercel Node.js API route with `export const maxDuration = 300` (5 minutes — Vercel Pro)
+- Returns `Response` with a `ReadableStream` body for SSE
+- Agentic loop runs **inline** in the request handler — no separate runtime
+- Canary scan, tool validation, workflow proposal parsing all happen in-process
+- The author's browser holds the SSE connection for the duration of the turn
+
+**The workflow execution path (after `/approve`):**
+- The `/approve` route validates, writes initial state (`workflow.status='approved'`, deselected steps marked `'removed'`), dispatches the first batch of agent jobs via the Phase 5 dispatch path, and returns 202
+- Each agent job runs via Phase 5's existing `waitUntil()` pattern (Vercel Node.js function backgrounded by `@vercel/functions`)
+- On terminal status (`completed` or `failed`), the agent runner calls `advanceWorkflow(workflow_id)` from inside its own `waitUntil()` window — **continuation-passing style**:
+  - `advanceWorkflow()` reads the workflow + steps, finds the next dispatchable batch (steps whose `depends_on_step_orders` are satisfied), dispatches them via the same Phase 5 dispatch path
+  - On `failed` step: workflow → `paused` with `error_message` set; chain stops
+  - On no remaining `pending` steps: workflow → `completed`
+- No process needs to live for the workflow's full duration. Each "tick" lives within an agent job's `waitUntil()` window. Browser closing has no effect on workflow execution — the chain runs server-side regardless.
+
+**The recovery sweep:**
+- A Vercel Cron Job (configured in `vercel.json`) hits `POST /api/cron/director-recovery` every 60 seconds
+- Authenticated via `CRON_SECRET` header (Vercel Cron sets this automatically)
+- The route runs two SQL UPDATEs:
+  - `agent_jobs SET status='failed', error_message='heartbeat_timeout' WHERE status='running' AND last_heartbeat_at < now() - interval 'agent.heartbeat_timeout_ms ms'`
+  - `workflows SET status='paused', error_message='heartbeat_timeout' WHERE status='running' AND last_heartbeat_at < now() - interval 'workflow.heartbeat_timeout_ms ms'`
+- For each newly-failed agent_job that belongs to a workflow_step, the route calls `advanceWorkflow(workflow_id)` so the workflow transitions to `paused` cleanly
+- See I-11 below
+
+**Why not Supabase Edge Functions** (rationale, for the record): Same deployment surface as the Next.js app means single env-var store, single observability surface, no Deno↔Node compat work, no extra latency from Vercel→Supabase hop. Vercel Pro `maxDuration: 300` covers the streaming Director worst case; per-step `waitUntil()` ceilings cover individual agent jobs; the continuation chain handles total workflow duration without any single function spanning it. SU-28 has already validated this pattern works in Stelavox.
+
+### 1.6 Auth surface
 
 Unchanged from Phase 5. All Phase 5b routes require an authenticated session via the cookie-bound Supabase client. RLS enforcement:
 - `conversations` (Migration 005) — already in place; org-scoped.
@@ -152,6 +190,10 @@ Phase 5b inherits Phase 5's rate limiting and adds the following limits. **All a
 | `agent.director_max_tool_iterations` | 20 | TA §3.7 / Migration 014 (existing) | Agentic loop's hard cap (TA §8.2). Exceeding terminates the turn with an `error` SSE event `director_loop_iteration_cap` and a partial assistant message persisted with the accumulated tool-call log |
 | `agent.director_session_max_tokens` | 60000 | TA §3.7 / Migration 014 (existing) | Conversation summarisation trigger (TA §8.5). When `total_input_tokens(messages) >= threshold`, an inline summary pass runs |
 | `agent.director_max_workflow_steps` | 30 | Migration 031 (new) | Maximum steps the executor accepts in a single workflow (G-5). Excess steps truncated; assistant message notes the cap |
+| `agent.heartbeat_interval_ms` | 5000 | Migration 031 v1.1 (SU-40) | Frequency at which the agent runner updates `agent_jobs.last_heartbeat_at` during LLM calls. UI heartbeat indicator updates from real-time fires |
+| `agent.heartbeat_timeout_ms` | 120000 | Migration 031 v1.1 (SU-40) | Threshold beyond which a `running` agent_job with no heartbeat is considered orphaned by the recovery sweep — marked `failed` with `error_message='heartbeat_timeout'` |
+| `workflow.heartbeat_timeout_ms` | 300000 | Migration 031 v1.1 (SU-40) | Threshold beyond which a `running` workflow with no continuation tick in this window is considered stalled — marked `paused` with `error_message='heartbeat_timeout'`. Larger than the agent-job timeout because workflow ticks happen *between* agent jobs |
+| `agent.recovery_sweep_interval_seconds` | 60 | Migration 031 v1.1 (SU-40) | Vercel Cron interval for `/api/cron/director-recovery`. MUST match the schedule in `vercel.json` |
 
 Migration 031 seeds the three new keys (idempotent `INSERT ... ON CONFLICT DO NOTHING`); the iteration cap and summarisation threshold reuse the existing TA §3.7 registry names (Migration 014 already seeds them). Defaults are admin-tunable post-launch via the platform_config admin tooling without a deployment. The `getConfig()` 1-minute in-process cache means a default change propagates within ~60s.
 
@@ -190,6 +232,39 @@ Resolved server-side from the session's `auth.uid()` via a single `organisation_
 **I-8. Auto-accept inside workflow execution.** Workflow step results are committed automatically when the underlying agent job reaches `completed`. The author has already approved the plan; per-step Accept would be friction without value. (For user-triggered single-node operations, Accept remains explicit — Phase 5 contract.) Failed steps do NOT auto-fail-then-accept; failure pauses the workflow at `workflows.status='paused'` per TA §8.4.
 
 **I-9. Conversation summarisation runs inline when needed.** Before each `/api/director/message` call, if `total_input_tokens(messages) > 60_000`, the executor first runs a summarisation pass (a single non-tool LLM call against the oldest half of messages) and persists `conversations.conversation_summary` + `conversations.summary_covers_through`. The actual user-message-handling call then uses the summary + recent messages. See TA §8.5 and G-9.
+
+**I-10. Heartbeats during long-running operations** (v1.1 SU-40). The Director must never go silent for >10 seconds without a liveness signal:
+
+- **Inside the streaming Director route** (`/api/director/message`): SSE comment lines `:heartbeat <iso-timestamp>\n\n` are emitted every 10 seconds during silence (between LLM streaming events; during slow tool execution; during summarisation). The lines are invisible to `EventSource.onmessage` but flush through the connection, telling the browser, Vercel edge, and intermediaries (Cloudflare, etc.) the server is alive. Loss of heartbeats for >30 seconds is a signal to the client that the server has died.
+- **Inside the agent runner**: every `agent.heartbeat_interval_ms` (default 5000) the runner UPDATEs `agent_jobs.last_heartbeat_at = now()` while the LLM call is in flight. Real-time fires; the ExecutionCard's heartbeat indicator updates from green-pulse (heartbeat <15s ago) to amber (15–60s) to red (>60s, recovery sweep imminent).
+- **Inside the workflow executor**: `advanceWorkflow()` UPDATEs `workflows.last_heartbeat_at = now()` on every continuation tick (every time it dispatches the next batch). The ExecutionCard's overall workflow indicator uses this.
+
+**I-11. Recovery sweep is mandatory** (v1.1 SU-40). A Vercel Cron Job at `/api/cron/director-recovery` runs every `agent.recovery_sweep_interval_seconds` (default 60). The endpoint:
+
+1. Authenticates via `CRON_SECRET` header (Vercel Cron sets this automatically; route returns 401 otherwise).
+2. UPDATEs `agent_jobs SET status='failed', error_message='heartbeat_timeout', completed_at=now() WHERE status='running' AND (last_heartbeat_at IS NULL OR last_heartbeat_at < now() - interval 'agent.heartbeat_timeout_ms ms') AND started_at < now() - interval '2 minutes'` (the started_at clause prevents a fresh job that hasn't yet emitted its first heartbeat from being killed).
+3. For each newly-failed agent_job that belongs to a `workflow_steps` row, calls `advanceWorkflow(workflow_id)` so the workflow transitions to `paused` cleanly with `error_message` mirroring the failed step.
+4. UPDATEs `workflows SET status='paused', error_message='heartbeat_timeout' WHERE status='running' AND (last_heartbeat_at IS NULL OR last_heartbeat_at < now() - interval 'workflow.heartbeat_timeout_ms ms')` (catches the case where the continuation chain itself broke — agent jobs aren't running but the workflow is stuck in `running`).
+
+The recovery sweep is the system's heartbeat. Without it, a single Vercel cold-start failure could leave a workflow stuck in `running` indefinitely. With it, the worst case is a 60-second visible delay before the UI shows the failure card.
+
+**I-12. Mid-turn persistence — the Director never wastes work** (v1.1 SU-41). The streaming Director's assistant message row is written **at the start of the turn** with `turn_state='interim'`, NOT at end-of-turn. Each agentic-loop iteration's tool calls land in `tool_calls` JSONB as they execute (incremental UPDATE). Accumulated text is flushed to `content` every iteration boundary. The row's `turn_state` transitions:
+
+- `interim` (created at start of turn; updated incrementally)
+- `final` (clean end-of-turn — model emitted `stop_reason: end_turn` and any `<workflow_proposal>` block parsed cleanly)
+- `interrupted` (set by the recovery sweep on heartbeat-timeout, OR by the streaming route's flush-failure handler on detected SSE disconnect)
+
+A conversation has **at most one** `interim` row at a time (the agentic loop is single-flight per conversation; a new `/api/director/message` call rejects with 409 `conversation_locked` if an interim row exists).
+
+**Resumption** (new endpoint §3.13): when the conversation has an `interrupted` row, the DirectorPanel shows a "Resume Director" button. Clicking it calls `POST /api/director/conversation/[id]/resume`, which:
+
+1. Loads the interrupted row (text + tool_calls already done)
+2. Constructs an agentic-loop initial-state from the interrupted row's accumulated content
+3. Continues the loop — feeds the prior user message + the partial assistant output back to the model, which sees its own incomplete response and continues from there
+4. Streams the continuation back via SSE, the same way `/api/director/message` does
+5. On clean end-of-turn, the interim row transitions `interrupted → final` (the row is updated, not duplicated)
+
+The author preserves the cost of every tool call already paid for. A 90% complete turn that was killed by a Vercel cold-start gets recovered for the cost of one extra LLM call that re-reads the partial output.
 
 ### 2.12 Response shape — `conversation` object
 
@@ -326,7 +401,17 @@ The response is `Content-Type: text/event-stream` with `Cache-Control: no-store`
 4. `assistant_message_complete` precedes `done`.
 5. An `error` event may fire at any point; once fired, no further events follow.
 
-**Re-connection:** SSE clients reconnect with `Last-Event-ID` on disconnect. Phase 5b ships **without** mid-stream resumption — the server discards the in-flight loop on disconnect. A reconnect from the client receives a fresh `error` event (`stream_disconnected`) and the conversation is in a "stuck" state until the user sends another message. See G-10.
+**Heartbeat** (v1.1 SU-40 / I-10): every 10 seconds during silence (no other event traffic), the server emits an SSE comment line `:heartbeat <iso-timestamp>\n\n`. Comment lines are invisible to `EventSource.onmessage` (they don't fire a `message` event) but flush through the connection. The client's connection-monitor (a 30-second timer that resets on any incoming bytes) treats absence-of-bytes-for-30-seconds as a server death and surfaces "Director connection lost — reconnect" UI.
+
+**Disconnection and resumption** (v1.1 SU-41 / I-12 — supersedes v1.0 G-10): on detected SSE disconnect (browser close, network drop, or Vercel function exit), the streaming route's `ReadableStream` cancellation handler runs. The handler:
+
+1. UPDATEs the in-flight `conversation_messages` row from `turn_state='interim'` → `'interrupted'`
+2. Persists whatever text and tool_calls have accumulated up to this point (already happening incrementally, but a final flush ensures consistency)
+3. Lets the `waitUntil()` continuation finish if it was already in flight (e.g. the closing tool_use_complete write)
+
+The conversation is now in a **resumable** state. The DirectorPanel re-mounting (e.g. after page reload) sees the `interrupted` row and renders a "Resume Director" button; clicking calls `POST /api/director/conversation/[id]/resume` (§3.12). The interrupted turn's accumulated work is preserved.
+
+**Recovery sweep backstop**: if the disconnect handler itself fails (e.g. process killed mid-cleanup), the sweep at `/api/cron/director-recovery` will catch the row via the `agent_jobs.last_heartbeat_at` timeout and the `conversation_messages.turn_state='interim'` partial index — the row transitions to `interrupted` and the resume path is available the same way.
 
 ### 2.17 Real-time subscription contract
 
@@ -555,7 +640,55 @@ All fields optional.
 
 **Response 200:** `{ workflow: { /* updated workflow with steps */ } }` — full workflow returned for UI consistency.
 
-### 3.12 `GET /api/documents/[documentId]/workflows` — Workflow history
+### 3.12 `POST /api/director/conversation/[conversationId]/resume` — Resume an interrupted turn
+
+**Purpose** (v1.1 SU-41 / I-12). When a Director conversation has a `conversation_messages` row with `turn_state='interrupted'`, this endpoint resumes the turn — feeds the partial assistant output back to the model and continues the agentic loop. Preserves the cost of all tool calls already paid for.
+
+**Request body:** none. The endpoint locates the interrupted row implicitly (at most one per conversation).
+
+**Headers:**
+- `Accept: text/event-stream`
+
+**Response:** `200 text/event-stream`. Same wire format as §3.1 (`POST /api/director/message`) — `start`, `text_delta`, `tool_use_*`, `workflow_proposal`, `assistant_message_complete`, `done`, `error`. The `start` event payload includes `{ resumed: true, recovered_tool_call_count: N }` so the client can show a banner.
+
+**Validation order:**
+1. Auth, 401.
+2. Conversation exists in caller's org, 404 / 403.
+3. **Exactly one** `turn_state='interrupted'` row in the conversation, else 409 `no_interrupted_turn`.
+4. Director-message rate limit (a resume counts as a message turn for rate-limit purposes).
+5. Token budget gate (the resume call costs LLM tokens for the re-feed).
+
+**Failure modes:**
+| Cause | HTTP / SSE | Code |
+|---|---|---|
+| No interrupted row | 409 | `no_interrupted_turn` |
+| Multiple interrupted rows (data integrity violation) | 500 | `multiple_interrupted_turns` (logged; manual recovery required) |
+| All other modes | (per §3.1) | (per §3.1) |
+
+**On success:** the interrupted row transitions `interrupted → final` (UPDATE in place; the row's `created_at` is preserved; `tool_calls` and `content` are updated to the new full content; `tokens_*` and `cost_usd` are accumulated across the original + resume LLM calls).
+
+### 3.13 `POST /api/cron/director-recovery` — Recovery sweep (Vercel Cron)
+
+**Purpose** (v1.1 SU-40 / I-11). The mandatory recovery sweep. Runs every 60 seconds via Vercel Cron Job (configured in `vercel.json`). Marks orphaned `running` agent jobs `failed` and stalled workflows `paused`.
+
+**Request body:** none.
+
+**Auth:** `Authorization: Bearer <CRON_SECRET>` header (set by Vercel Cron automatically). Route returns 401 if header is missing or doesn't match `process.env.CRON_SECRET`.
+
+**Response 200:**
+```json
+{
+  "agent_jobs_failed": 0,
+  "workflows_paused": 0,
+  "ran_at": "2026-05-06T01:23:45.000Z"
+}
+```
+
+**Failure modes:** 401 only. The route is idempotent on re-runs — concurrent invocations (rare; Vercel Cron is single-flight per schedule) are safe due to the SQL UPDATE's WHERE clause being status-conditional.
+
+**Local development:** Vercel Cron does not run in `npm run dev`. Tests invoke the route manually via `fetch` with the dev `CRON_SECRET`. A `npm run cron:director-recovery` script convenience-wraps the dev invocation.
+
+### 3.14 `GET /api/documents/[documentId]/workflows` — Workflow history
 
 **Purpose.** Per-document workflow history, paginated. Used by the DirectorHeader's "History" button.
 
@@ -652,11 +785,11 @@ Phase 5's API routes invoke the `agent-runner` Edge Function via the standard Ve
 
 **Resolution:** Lift the "create agent_jobs row + invoke agent-runner" pair out of the Phase 5 API routes into a shared library `lib/agents/dispatch.ts`. Phase 5 API routes are refactored to call `dispatchAgentJob({ ... })`. Phase 5b workflow executor calls the same function with `triggered_by='workflow_step:<step_id>'`. This is the only Phase-5 modification Phase 5b makes (a refactor with no behavioural change); flagged in Build Checklist T-3.7 as the **only** Phase 5 source-tree edit.
 
-### G-10 — SSE disconnection recovery
+### G-10 — SSE disconnection recovery (SUPERSEDED by v1.1 SU-41)
 
-If the user's network drops mid-stream, the partial assistant message is lost. The agentic loop running server-side keeps going (possibly to completion), but the client doesn't see it. On reconnect, the client gets a "stream_disconnected" error.
+**v1.0 said:** Server discards the in-flight loop on detected disconnect; partial work is lost; user re-sends.
 
-**Resolution (V1):** Server discards the in-flight loop on detected disconnect (the SSE writer raises on flush failure, the Edge Function aborts). No partial messages are persisted. The conversation is in a "the user's last message has no assistant response" state; the client displays a "Director was interrupted — try again" toast and the user can re-send. **V2** will add mid-stream resumption via Last-Event-ID + a server-side scratchpad.
+**v1.1 corrects this** per the user's cost-and-progress-recovery requirement (raised at the v1.1 amendment review): the Director must not discard work that's already been paid for. Mid-turn persistence (turn_state='interim'/'interrupted'/'final') is now first-class. The disconnect handler transitions the in-flight row to `interrupted`; a Resume button on the panel re-feeds the partial output back to the model via §3.12. See I-12.
 
 ### G-11 — Director cost tracking
 
@@ -688,6 +821,36 @@ The system prompt instructs the Director on its capabilities; one common mistake
 
 **Resolution:** The Director system prompt does NOT name its model. It refers to itself as "the Stelavox Director." Model identity is a runtime concern (`director_configs.model_id` resolves the actual API call). Documented in Build Checklist T-3.3.
 
+### G-16 — Runtime architecture: Vercel Node.js, not Supabase Edge Functions (v1.1 SU-39)
+
+The v1.0 contract used "Edge Function" language imported from TA §8.2 / §8.4. Phase 5 SU-28 already established that Stelavox runs the agent runner as a Vercel Node.js function via `@vercel/functions` `waitUntil()`. Phase 5b follows the same precedent.
+
+**Resolution:** §1.5 v1.1 spells out the Vercel-Node-only architecture. The streaming Director uses an inline `ReadableStream` SSE response with `maxDuration: 300`. Workflow execution uses continuation passing (`advanceWorkflow()` called inside each agent runner's `waitUntil()` window). The recovery sweep is a Vercel Cron Job. No Supabase Edge Functions are introduced. SU-39 absorbs into TA v2.0 §8.2 + §8.4 at close-out.
+
+### G-17 — Heartbeats for liveness verification (v1.1 SU-40)
+
+A 60-second silent LLM call is indistinguishable from a crashed Vercel function without an explicit liveness signal. The user flagged that long silences would cause authors to close the browser believing the system has crashed. Phase 5 has the same gap (long synthesise calls were sometimes opaque in T-15 testing).
+
+**Resolution:** I-10 mandates heartbeats at three layers (SSE comment lines every 10s, `agent_jobs.last_heartbeat_at` every 5s during LLM calls, `workflows.last_heartbeat_at` on every continuation tick). Migration 031 v1.1 adds the columns and the four config keys. The ExecutionCard surfaces heartbeat age as a pulsing indicator (Component Spec §7.7 amendment SU-42 at close-out).
+
+### G-18 — Recovery sweep is mandatory, not optional (v1.1 SU-40)
+
+The v1.0 architecture mentioned a recovery sweep as "optional" in passing. The user's cost-and-progress-recovery requirement makes it load-bearing — without it, a single Vercel cold-start failure can leave a workflow stuck in `running` indefinitely.
+
+**Resolution:** I-11 + §3.13 (`/api/cron/director-recovery`) make it mandatory. Vercel Cron at 60s intervals. SQL UPDATEs for orphaned agent_jobs and stalled workflows. SU-40 absorbs into TA at close-out alongside the heartbeat columns.
+
+### G-19 — Mid-turn persistence and resume (v1.1 SU-41)
+
+The v1.0 G-10 said "server discards the in-flight loop on disconnect" — wrong call. If the Director has done 4 read-tool calls (each costing tokens) and the connection drops at iteration 5, throwing away that work and forcing the user to re-send is exactly the cost-waste the user flagged. The fix preserves up to 90% of completed work.
+
+**Resolution:** I-12 + §3.12 (resume endpoint). `conversation_messages.turn_state` enum + partial index (Migration 031 v1.1). Persist tool_calls + accumulated text on every iteration boundary. On disconnect: UPDATE `interim → interrupted`. Resume re-feeds the partial output to the model and continues. The author preserves the cost of every tool call already paid for.
+
+### G-20 — UI heartbeat indicator (v1.1 SU-42)
+
+Component Spec §7.7 ExecutionCard does not currently spec a heartbeat indicator. The v1.1 amendments to the API Contract require one — without it, the heartbeat columns are invisible to the user and the cost-recovery story falls apart.
+
+**Resolution:** Component Spec §7.7 amendment to be authored at Phase 5b close-out. Pulse colour: green (heartbeat <15s ago), amber (15–60s), red (>60s, recovery imminent). The "last heartbeat 3s ago" tooltip on hover. SU-42 absorbs into Component Spec v2.8 at close-out.
+
 ---
 
 ## 6. Approval
@@ -699,5 +862,20 @@ The Phase 5b API Contract is approved by the user before any code is written for
 ---
 
 ## 7. Changelog
+
+**v1.1 — 2026-05-06** Major amendment for runtime architecture, liveness, and mid-turn recovery — raised by the user at the start of T-4 build, captured as SU-39 / SU-40 / SU-41 / SU-42:
+
+- **§1.4** Migration 031 expanded from 5 to 8 concerns: adds heartbeat columns on agent_jobs / workflows (SU-40), `conversation_messages.turn_state` enum + partial index for mid-turn persistence (SU-41), and four heartbeat / recovery-sweep config keys.
+- **§1.5 (new)** Runtime architecture section explicitly drops "Edge Function" language. Streaming Director runs as a Vercel Node.js API route with `maxDuration: 300` and `ReadableStream` SSE. Workflow execution uses continuation passing (`advanceWorkflow()` from inside each agent runner's `waitUntil()` window). Recovery sweep is a Vercel Cron Job hitting an API route. No Supabase Edge Functions introduced. Old §1.5 (Auth surface) renumbered to §1.6.
+- **§1.1 routes** count moves 12 → 14: adds `POST /api/director/conversation/[id]/resume` (SU-41) and `POST /api/cron/director-recovery` (SU-40).
+- **§2.7 config keys** table grows from 5 to 9 rows: adds `agent.heartbeat_interval_ms`, `agent.heartbeat_timeout_ms`, `workflow.heartbeat_timeout_ms`, `agent.recovery_sweep_interval_seconds`.
+- **§2.11 invariants** I-10 (heartbeats), I-11 (recovery sweep mandatory), I-12 (mid-turn persistence + resume) added.
+- **§2.16 SSE wire format** adds `:heartbeat <iso-timestamp>\n\n` comment-line emission every 10s during silence. Disconnection-and-resumption section rewritten to describe the `interim → interrupted → final` lifecycle (supersedes v1.0 G-10).
+- **§3.12 (new)** `POST /api/director/conversation/[id]/resume` — SSE endpoint that re-feeds the interrupted assistant message back to the model and continues the agentic loop. Preserves the cost of every tool call already paid for.
+- **§3.13 (new)** `POST /api/cron/director-recovery` — Vercel Cron Job. Marks orphaned agent_jobs `failed` and stalled workflows `paused`. Runs every 60s.
+- **§3.14** original `GET /api/documents/[id]/workflows` renumbered from §3.12.
+- **§5** new specification gaps documented: G-16 (runtime — SU-39), G-17 (heartbeats — SU-40), G-18 (recovery sweep mandatory — SU-40), G-19 (mid-turn persistence — SU-41), G-20 (UI heartbeat indicator — SU-42). G-10 marked SUPERSEDED.
+
+The amendments preserve every wire-level behaviour from v1.0 except where v1.0 was explicitly wrong (G-10 disconnect = lose work). All v1.0 endpoint shapes carry forward; the two new endpoints are additive. Migration 031 is non-breaking (defaults supplied for the new columns).
 
 **v1.0 — 2026-05-06** Initial Phase 5b API Contract. 12 routes (4 conversation + 8 workflow), 1 migration (031), SSE wire format defined, agentic-loop boundaries established, tool-call audit trail decided (G-7 — reuse `conversation_messages.tool_calls`), workflow auto-accept decided (G-3), conversation summarisation inline (G-8), shared-library dispatch decided (G-9), 12 directors-system invariants enumerated (I-1..I-9 for the executor; tracking 12 in §2.11 covers the broader Director-level invariants), 15 specification gaps surfaced and resolved at draft time (G-1..G-15). Migration 031 covers five concerns: system prompt seed (G-1), `conversation_messages.author_user_id` column (G-2), `conversation_messages` cost columns (G-11), publication add for `workflows` / `workflow_steps` (G-6), and seed of five operational-limit `platform_config` keys per §2.7 (rate limits + agentic-loop iteration cap + summarisation threshold + max workflow steps — H-12-bound, no hardcoded operational values). §2.7 expanded mid-draft to be explicit that ALL operational limits are config-backed, not constants. Phase 5 carve-out items (research tools, document operations as Director tools, workflow scheduling, multi-conversation per document, Director config V2 lifecycle) explicitly listed as deferred. Cross-cutting rules unchanged from Phase 5 except for the new error codes, the new rate-limits (now five config keys), and the SSE wire format. β-scope test target: ~40 cases locally + ~4 cloud smoke — all on Haiku 4.5 per the user's Haiku-everywhere standing direction (reaffirmed 2026-05-06 at Phase 5b startup). Production-default in `director_configs` remains Opus.

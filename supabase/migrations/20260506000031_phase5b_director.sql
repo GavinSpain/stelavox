@@ -1,12 +1,15 @@
 -- Migration 031 — Phase 5b: Director system prompt + conversation message extensions
--- Source: stelavox_phase5b_api_contract_v1_0.md §1.4
+-- Source: stelavox_phase5b_api_contract_v1_0.md §1.4 (v1.1 amendments)
 --
--- This migration covers five concerns in a single atomic file:
+-- This migration covers eight concerns in a single atomic file:
 --   1. Director v1.0 system prompt + tool_suite finalisation (G-1)
 --   2. conversation_messages.author_user_id column (G-2)
 --   3. conversation_messages cost-tracking columns (G-11)
 --   4. supabase_realtime publication ADD for workflows / workflow_steps (G-6)
---   5. platform_config seed of five Phase 5b operational-limit keys (§2.7)
+--   5. platform_config seed of three new Phase 5b operational-limit keys (§2.7)
+--   6. Heartbeat columns on agent_jobs + workflows (SU-40 — I-10/I-11)
+--   7. conversation_messages.turn_state for mid-turn persistence (SU-41 — I-12)
+--   8. platform_config seed of four heartbeat / recovery-sweep config keys
 
 ------------------------------------------------------------
 -- 1. Director v1.0 production system prompt + tool_suite
@@ -134,5 +137,68 @@ INSERT INTO platform_config (key, value, description, value_type) VALUES
   ('agent.director_max_workflow_steps',
     '30'::jsonb,
     'Max steps in a single Director-proposed workflow. Excess steps are truncated; assistant message notes the cap.',
+    'integer')
+ON CONFLICT (key) DO NOTHING;
+
+------------------------------------------------------------
+-- 6. Heartbeat columns on agent_jobs + workflows (SU-40 — I-10/I-11)
+------------------------------------------------------------
+-- Liveness signal for long-running operations. The runner updates
+-- last_heartbeat_at every agent.heartbeat_interval_ms while an LLM call
+-- is in flight; advanceWorkflow() touches workflows.last_heartbeat_at
+-- on every continuation tick. The recovery sweep (Vercel Cron Job hitting
+-- /api/cron/director-recovery every 60s) scans for orphaned 'running'
+-- rows whose heartbeat exceeds the configured timeout.
+--
+-- Rationale: a 60-second silent LLM call is indistinguishable from a
+-- crashed Vercel function without an explicit liveness signal. The
+-- ExecutionCard surfaces "last heartbeat Ns ago" so the author sees
+-- the system is alive (Component Spec §7.7 — to be amended at close-out
+-- per SU-42).
+ALTER TABLE agent_jobs
+  ADD COLUMN last_heartbeat_at TIMESTAMPTZ;
+
+ALTER TABLE workflows
+  ADD COLUMN last_heartbeat_at TIMESTAMPTZ;
+
+------------------------------------------------------------
+-- 7. conversation_messages.turn_state (SU-41 — I-12)
+------------------------------------------------------------
+-- Mid-turn persistence. The Director's assistant message row is created
+-- at the start of the turn with turn_state='interim' and updated on each
+-- agentic-loop iteration boundary (after each tool_use cycle). Tool-call
+-- results land in tool_calls JSONB as they happen. On clean end-of-turn
+-- the row transitions to 'final'. On detected disconnect or recovery-
+-- sweep timeout it goes to 'interrupted', preserving 90% of the work
+-- (read-tool calls already paid for) for resumption via
+-- POST /api/director/conversation/[id]/resume.
+ALTER TABLE conversation_messages
+  ADD COLUMN turn_state TEXT NOT NULL DEFAULT 'final'
+    CHECK (turn_state IN ('interim', 'final', 'interrupted'));
+
+-- An index on (conversation_id, turn_state) makes "find the interim turn"
+-- a single index hit. There's at most one interim row per conversation
+-- at a time (the agentic loop is single-flight per conversation).
+CREATE INDEX idx_conversation_messages_interim
+  ON conversation_messages(conversation_id, turn_state)
+  WHERE turn_state = 'interim';
+
+------------------------------------------------------------
+-- 8. Heartbeat / recovery-sweep config keys (§2.7 v1.1)
+------------------------------------------------------------
+-- Per H-12. All four read via getConfig() in the runner and the cron
+-- recovery endpoint. Admin-tunable post-launch via platform_config.
+INSERT INTO platform_config (key, value, description, value_type) VALUES
+  ('agent.heartbeat_interval_ms', '5000'::jsonb,
+    'Frequency at which the agent runner updates agent_jobs.last_heartbeat_at during LLM calls.',
+    'integer'),
+  ('agent.heartbeat_timeout_ms', '120000'::jsonb,
+    'Threshold beyond which a running agent_job with no heartbeat update is considered orphaned by the recovery sweep (marked failed with error_message=''heartbeat_timeout'').',
+    'integer'),
+  ('workflow.heartbeat_timeout_ms', '300000'::jsonb,
+    'Threshold beyond which a running workflow with no continuation tick in this window is considered stalled (marked paused with error_message=''heartbeat_timeout''). Larger than the agent-job timeout because workflow ticks happen between agent jobs.',
+    'integer'),
+  ('agent.recovery_sweep_interval_seconds', '60'::jsonb,
+    'Vercel Cron interval at which /api/cron/director-recovery runs. Must match the schedule in vercel.json.',
     'integer')
 ON CONFLICT (key) DO NOTHING;

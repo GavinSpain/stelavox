@@ -1,5 +1,5 @@
 # Stelavox — Phase 5b Build Checklist
-## Version 1.0
+## Version 1.1
 
 > **Tier-B per-phase document.** Frozen for Phase 5b build. Defines the ordered task list, prerequisites, checkpoint criteria, and merge gates for Phase 5b — the Director. Companion to `stelavox_phase5b_api_contract_v1_0.md` and `stelavox_phase5b_test_plan_v1_0.md`. Source of truth for what gets built and in what order.
 
@@ -214,6 +214,22 @@ Per the session shutdown procedure:
 
 Each task has a target file set, an acceptance criterion (what "done" looks like), and a manual-verification step. Tasks within a section may run in parallel; sections must run in order.
 
+### v1.1 amendments to the task list (read first)
+
+The v1.1 doc amendments (SU-39 / SU-40 / SU-41 / SU-42) change the runtime model and add liveness + recovery + resume. Specific task adjustments apply across §3.7, §3.8, §3.10, §3.11, §3.12, plus two **new** task sections appended below:
+
+| Task | v1.1 amendment |
+|---|---|
+| T-7 (dispatch refactor) | After Phase 5 dispatch behaviour is preserved, additionally: agent runner emits a heartbeat update to `agent_jobs.last_heartbeat_at` every `agent.heartbeat_interval_ms` (default 5000) during the LLM call (use a `setInterval` cleared in a `try/finally`). On terminal status (`completed` / `failed` / `cancelled`), if the job's `triggered_by` starts with `workflow_step:`, call `advanceWorkflow(workflow_id)` from inside `waitUntil()` — this is the workflow continuation chain. |
+| T-8 (agentic loop) | Persist `conversation_messages` row with `turn_state='interim'` at start of turn. UPDATE `tool_calls` JSONB after each tool execution (incremental; not buffered to end-of-turn). UPDATE `content` after each iteration boundary. On clean end-of-turn (stop_reason=`end_turn`, optional workflow proposal parsed): `turn_state='final'`. SSE response emits `:heartbeat <timestamp>\n\n` comment lines every 10s during silence (use a separate setInterval cleared on stream close). On detected `ReadableStream` cancellation: UPDATE `turn_state='interrupted'`. |
+| T-10 (director-runner) | NOT a Supabase Edge Function. Implemented as **inline logic inside the `/api/director/message` Vercel Node.js route** with `export const maxDuration = 300`. The route returns `Response` with a `ReadableStream` body. Agentic loop runs in the request handler. |
+| T-11 (workflow executor) | NOT a Supabase Edge Function. Implemented as **`lib/director/workflow-executor.ts` invoked via continuation passing** — `/approve` route writes initial state and dispatches the first batch via `dispatchAgentJob()`; each agent runner's `waitUntil()` callback calls `advanceWorkflow(workflow_id)` on terminal status; `advanceWorkflow()` reads the workflow + steps, finds the next dispatchable batch (deps satisfied), dispatches it, updates `workflows.last_heartbeat_at`. No long-lived process required. |
+| T-12 (conversation routes) | Add a 5th route: `POST /api/director/conversation/[id]/resume` per API Contract §3.12. Streams SSE; loads the `interim`/`interrupted` row; re-feeds the partial assistant content back to the model; continues the agentic loop. |
+| T-NEW-A (below) | Recovery sweep route + Vercel Cron config (SU-40). |
+| T-NEW-B (below) | Heartbeat indicator integration into the runner's setInterval pattern + `lib/director/heartbeat.ts` helper (SU-40). |
+
+The two new task sections are §3.19 and §3.20 below.
+
 ### 3.1 Migration 031 + Types + Zod schemas
 
 #### T-1.1 — Create the Director system prompt seed file
@@ -228,11 +244,11 @@ Each task has a target file set, an acceptance criterion (what "done" looks like
 
 **Files:** `supabase/migrations/20260506000031_phase5b_director.sql` (new).
 
-**SQL:**
+**SQL** (v1.1 expanded — see API Contract §1.4 v1.1 / SU-40 / SU-41):
 
 ```sql
 -- Migration 031 — Phase 5b: Director system prompt + conversation message extensions
--- Source: stelavox_phase5b_api_contract_v1_0.md §1.4
+-- Source: stelavox_phase5b_api_contract_v1_0.md §1.4 (v1.1)
 
 -- 1. Update Director v1.0 production config with the real system prompt + tool_suite
 --    (System prompt body is read from supabase/seed/director-v1.0.txt at apply time
@@ -273,6 +289,28 @@ INSERT INTO platform_config (key, value, description, value_type) VALUES
     'Max validateToolCall passes per conversation per 60 seconds (TA §4.5 Defence 4).', 'integer'),
   ('agent.director_max_workflow_steps', '30'::jsonb,
     'Max steps in a single Director-proposed workflow.', 'integer')
+ON CONFLICT (key) DO NOTHING;
+
+-- 5. Heartbeat columns + interim turn state (v1.1 SU-40 / SU-41)
+ALTER TABLE agent_jobs ADD COLUMN last_heartbeat_at TIMESTAMPTZ;
+ALTER TABLE workflows ADD COLUMN last_heartbeat_at TIMESTAMPTZ;
+ALTER TABLE conversation_messages
+  ADD COLUMN turn_state TEXT NOT NULL DEFAULT 'final'
+    CHECK (turn_state IN ('interim', 'final', 'interrupted'));
+CREATE INDEX idx_conversation_messages_interim
+  ON conversation_messages(conversation_id, turn_state)
+  WHERE turn_state = 'interim';
+
+-- 6. Heartbeat / recovery-sweep config keys (v1.1 §2.7)
+INSERT INTO platform_config (key, value, description, value_type) VALUES
+  ('agent.heartbeat_interval_ms',          '5000'::jsonb,
+    'Frequency at which the agent runner updates last_heartbeat_at.', 'integer'),
+  ('agent.heartbeat_timeout_ms',           '120000'::jsonb,
+    'Threshold beyond which a running agent_job is considered orphaned.', 'integer'),
+  ('workflow.heartbeat_timeout_ms',        '300000'::jsonb,
+    'Threshold beyond which a running workflow is considered stalled.', 'integer'),
+  ('agent.recovery_sweep_interval_seconds','60'::jsonb,
+    'Vercel Cron interval for /api/cron/director-recovery.', 'integer')
 ON CONFLICT (key) DO NOTHING;
 ```
 
@@ -655,6 +693,64 @@ Once T-17.1 + T-17.2 are clean on Haiku, the system prompt body is frozen. Updat
 
 **Acceptance:** `git diff supabase/seed/director-v1.0.txt` shows the final body; `SELECT system_prompt FROM director_configs` matches.
 
+### 3.19 Recovery sweep + Vercel Cron (v1.1 SU-40)
+
+#### T-19.1 — `lib/director/heartbeat.ts` helper
+
+A small wrapper that runs a callback every N ms and is cleared by a returned function. Used by the agent runner and the workflow executor.
+
+```ts
+export function startHeartbeat(updateFn: () => Promise<void>, intervalMs: number) {
+  const id = setInterval(() => { updateFn().catch(() => {}) }, intervalMs)
+  return () => clearInterval(id)
+}
+```
+
+**Acceptance:** unit-equivalent: integrated into T-7's runner; `agent_jobs.last_heartbeat_at` updates visibly on the timeline of a manual run.
+
+#### T-19.2 — `app/api/cron/director-recovery/route.ts`
+
+POST handler implementing API Contract §3.13:
+
+1. Auth: check `Authorization: Bearer <CRON_SECRET>` header against `process.env.CRON_SECRET`. 401 if missing/wrong.
+2. Read configs: `agent.heartbeat_timeout_ms`, `workflow.heartbeat_timeout_ms`.
+3. Run two SQL UPDATEs (orphaned agent_jobs → failed; stalled workflows → paused). Return counts.
+4. For each newly-failed agent_job whose `triggered_by` starts with `workflow_step:`, call `advanceWorkflow(workflow_id)` so the workflow transitions cleanly.
+
+**Acceptance:** TC-A: a manually-orphaned agent_job (UPDATE the row to set `last_heartbeat_at` to 5 minutes ago) is marked `failed` on the next sweep call; the parent workflow transitions to `paused`.
+
+#### T-19.3 — `vercel.json` cron config
+
+Add the cron schedule:
+
+```json
+{
+  "crons": [
+    { "path": "/api/cron/director-recovery", "schedule": "* * * * *" }
+  ]
+}
+```
+
+The `CRON_SECRET` env var is set in Vercel dashboard for cloud deployments. For local dev, set it in `.env.local`; tests invoke the route via `fetch` with the dev secret.
+
+**Acceptance:** `vercel.json` validates; in Phase B cloud smoke, the recovery sweep runs every 60s on `stelavox-dev`.
+
+### 3.20 Resume endpoint (v1.1 SU-41)
+
+#### T-20.1 — `app/api/director/conversation/[conversationId]/resume/route.ts`
+
+POST handler implementing API Contract §3.12:
+
+1. Auth + RLS guard (caller's org, conversation visible).
+2. `SELECT * FROM conversation_messages WHERE conversation_id=$1 AND turn_state='interrupted' LIMIT 2` — exactly 1 expected; 0 → 409 `no_interrupted_turn`; 2+ → 500 `multiple_interrupted_turns`.
+3. Load the prior user message (the one before the interrupted assistant message) and the conversation context (handle summarisation if needed).
+4. Token budget gate.
+5. Open SSE response with `start` event including `{ resumed: true, recovered_tool_call_count: N }`.
+6. Run the agentic loop with the partial assistant content pre-seeded as the model's initial output. The model sees its own incomplete response and continues from there.
+7. UPDATE the same row (do NOT insert a new row) — `turn_state` transitions `interrupted → final`. Tool calls and content are merged with the new continuation. `tokens_*` and `cost_usd` accumulate.
+
+**Acceptance:** TC-A: simulate a mid-turn interruption (UPDATE turn_state='interrupted'); call resume; verify the row transitions to `final`; verify the assistant content is coherent (read-tool calls aren't re-executed; the model picks up where it left off).
+
 ### 3.18 Pre-Merge — Regression, Cloud Smoke, Audit
 
 #### T-18.1 — Phase 5 regression
@@ -737,5 +833,7 @@ The Phase 5b Test Report records all final SUs with status (RESOLVED + ABSORBED,
 ---
 
 ## 7. Changelog
+
+**v1.1 — 2026-05-06** Aligns with API Contract v1.1 amendments (SU-39 / SU-40 / SU-41 / SU-42). Migration 031 SQL block expanded to 8 concerns (heartbeat columns + interim turn state + recovery-sweep config keys). New §3.19 (recovery sweep + Vercel Cron config) and §3.20 (resume endpoint) appended. Per-task adjustments to T-7 (heartbeats + advanceWorkflow), T-8 (mid-turn persistence + SSE heartbeats), T-10/T-11 (drop Edge Function language; specify Vercel Node.js + waitUntil()), T-12 (resume endpoint added) captured in the v1.1 amendment table at the top of §3. Build remains targeted at 40 cases on Haiku locally + 4 cloud smoke on Haiku.
 
 **v1.0 — 2026-05-06** Initial Phase 5b Build Checklist. 18 task sections covering migration / Zod / LLM-extension / system-prompt / tool registry / tool validator / dispatch refactor (the only Phase-5 source edit) / agentic loop / conversation context / Edge Functions / workflow executor / 12 API routes / 9 UI components / system prompt review / pre-merge regression. β-scope target 40 local + 4 cloud smoke — **all on Haiku 4.5** per the user's Haiku-everywhere standing direction (reaffirmed 2026-05-06 at Phase 5b startup). Production-default in `director_configs` remains Opus (runtime/launch behaviour); the Haiku selection is a per-environment test override applied via PB-7a / PB-7b. One pre-emptive SU (SU-37 for `create_node_reorder_step`).

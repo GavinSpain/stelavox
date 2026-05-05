@@ -1,13 +1,13 @@
 # Stelavox — Phase 5b Test Plan
-## Version 1.0
+## Version 1.1
 
 > **Tier-B per-phase document.** The authoritative test-case list for Phase 5b (Director). Companion to `stelavox_phase5b_api_contract_v1_0.md` and `stelavox_phase5b_build_checklist_v1_0.md`. Every authored test case in `tests/` must correspond to a TC-X-N entry here; every TC-X-N entry must have a matching `test('TC-X-N — ...')` in a spec file by phase end. The Test Report's verdict count must match the grep audit, not this plan's planned count (Phase 3 v1.5 audit lesson).
 
 **Phase:** 5b — Director: conversation thread, agentic loop, plan approval, workflow execution.
 
-**Total planned cases:** 94 (30 TC-A + 6 TC-B + 8 TC-D + 8 TC-S + 28 TC-U + 6 TC-V + 4 TC-M + 4 TC-AX).
+**Total planned cases:** 100 (v1.1 — was 94). 35 TC-A + 6 TC-B + 8 TC-D + 8 TC-S + 30 TC-U + 6 TC-V + 4 TC-M + 4 TC-AX. v1.1 adds 5 TC-A cases (heartbeat liveness, recovery sweep, resume after interrupt) and 2 TC-U cases (heartbeat indicator pulse + amber-on-timeout) per SU-40 / SU-41 / SU-42.
 
-**β-scope (must-pass for Phase 5b merge):** 40 cases — listed in §10.1. Remaining 54 cases deferred to Phase 8 expansion as SU-37 (joining SU-33's existing Phase 5 deferral set), per the Phase 5 precedent of carving an executable β-scope from a fuller planned-case count.
+**β-scope (must-pass for Phase 5b merge):** 45 cases (was 40). Remaining 55 cases deferred to Phase 8 expansion as SU-37.
 
 ---
 
@@ -215,6 +215,14 @@ When a step or expectation references the API Contract / TA / Component Spec, th
 **Steps:** Switch to Director Mode, then back to Edit Mode.
 **Expected:** Chapter 3 is still selected; NodeDetailPanel reopens to its previous state.
 
+### TC-U-29 — ExecutionCard heartbeat indicator pulses (v1.1 SU-42)
+**Setup:** ExecutionCard rendered with one running step. The underlying agent_job's `last_heartbeat_at` is updating every 5s.
+**Expected:** A small pulsing dot adjacent to the running step row. Colour: green when `last_heartbeat_at < 15s ago`. Pulse animation: opacity 1 → 0.3 → 1 over 2s. Tooltip on hover: "Last heartbeat 3s ago" (live-updated).
+
+### TC-U-30 — ExecutionCard heartbeat goes amber on timeout (v1.1 SU-42)
+**Setup:** Mid-execution, manually update `agent_jobs.last_heartbeat_at` to 30s ago (simulate stalled runner).
+**Expected:** Heartbeat indicator transitions green → amber within 1s of the real-time fire. Tooltip: "Last heartbeat 30s ago — recovery sweep imminent". After another 60s without heartbeat update (now 90s old): indicator goes red; on the next recovery sweep, the step shows the failed icon ✗.
+
 ### TC-U-28 — DirectorMessage inline node link navigates the tree
 **Setup:** A Director message contains a "[Chapter 4 Scene 1](node:uuid)" inline link.
 **Steps:** Click the link.
@@ -414,6 +422,30 @@ Note: The CLAUDE.md v1.10 enumeration lists 9 uses; PlanCard Approve does NOT ap
 **Steps:** Send a message (cloud, on Haiku).
 **Expected:** Inline summary pass runs; persists. Subsequent assistant response references the summary (Director's text mentions earlier topics).
 
+### TC-A-31 — Heartbeat updates fire during a long agent job (v1.1 SU-40)
+**Setup:** A workflow with one synthesise step targeting a large beat (expected ~30s LLM call on Haiku).
+**Steps:** Approve the workflow; observe `agent_jobs` row via real-time during execution.
+**Expected:** `last_heartbeat_at` updates at least 5 times during the LLM call (every ~5s). Real-time fires for each update. The ExecutionCard's heartbeat indicator pulses (TC-U-29).
+
+### TC-A-32 — SSE heartbeat comment lines emitted during silence (v1.1 SU-40)
+**Setup:** A Director conversation that triggers a slow read tool (mock the tool's executor with a 15s delay).
+**Steps:** Send a message; record raw SSE bytes via the test helper.
+**Expected:** During the 15s tool execution, the response stream contains at least 1 `:heartbeat <iso-timestamp>\n\n` line. The EventSource does NOT fire `message` events for these lines (they're SSE comments).
+
+### TC-A-33 — Recovery sweep marks orphaned agent_jobs failed (v1.1 SU-40)
+**Setup:** Manually create an `agent_jobs` row with `status='running'`, `started_at = now() - 10 minutes`, `last_heartbeat_at = NULL`. Configure a fresh workflow_step pointing at it.
+**Steps:** Call `POST /api/cron/director-recovery` with the dev `CRON_SECRET`.
+**Expected:** Response: `{ "agent_jobs_failed": 1, "workflows_paused": 1 }`. The orphaned job is now `failed` with `error_message='heartbeat_timeout'`. The workflow is now `paused` with `error_message` mirroring.
+
+### TC-A-34 — Recovery sweep rejects unauthenticated calls (v1.1 SU-40)
+**Steps:** Call `POST /api/cron/director-recovery` without `Authorization` header (or with a wrong secret).
+**Expected:** 401 `unauthenticated`. No DB writes.
+
+### TC-A-35 — Resume after interrupted turn preserves tool calls (v1.1 SU-41)
+**Setup:** A `conversation_messages` row with `role='assistant'`, `turn_state='interrupted'`, `tool_calls` JSONB containing 3 completed read tools (e.g. get_node_tree, get_node × 2). The prior user message is the original prompt that initiated the turn.
+**Steps:** Call `POST /api/director/conversation/[id]/resume` with `Accept: text/event-stream`.
+**Expected:** SSE stream begins with `start` event including `{ resumed: true, recovered_tool_call_count: 3 }`. The Director continues from the partial state — does NOT re-call the 3 already-completed tools (verified via tool_calls counter; only NEW tool calls increment the count). On clean end-of-turn, the row's `turn_state` transitions `interrupted → final` (UPDATE in place; same row id; created_at preserved). `cost_usd` is the sum of original + resume LLM call costs.
+
 ---
 
 ## 6. Section 5 — Cross-Org RLS Tests (TC-B)
@@ -538,20 +570,20 @@ Per TC-A-22.
 
 ## 10. Verdict Count and Summary
 
-### 10.1 β-scope (must-pass for Phase 5b merge) — 40 cases
+### 10.1 β-scope (must-pass for Phase 5b merge) — 45 cases (v1.1)
 
-The Phase 5b merge gate is a 40-case β-scope:
+The Phase 5b merge gate is a 45-case β-scope (v1.1: was 40; +5 for the new SU-40 / SU-41 / SU-42 must-pass cases):
 
-- TC-A: 14 — TC-A-01, 02, 03, 04, 09, 10, 13, 14, 15, 16, 17, 18, 22, 29
+- TC-A: 19 — TC-A-01, 02, 03, 04, 09, 10, 13, 14, 15, 16, 17, 18, 22, 29, **31** (heartbeat updates), **32** (SSE heartbeat lines), **33** (recovery sweep marks orphans), **34** (cron auth), **35** (resume preserves tool calls)
 - TC-B: 4 — TC-B-01, 02, 03, 04
 - TC-D: 4 — TC-D-01, 02, 03, 08
 - TC-S: 6 — TC-S-01, 02, 03, 06, 07, 08
-- TC-U: 8 — TC-U-01, 02, 03, 06, 07, 14, 18, 19
+- TC-U: 10 — TC-U-01, 02, 03, 06, 07, 14, 18, 19, **29** (heartbeat indicator pulse), **30** (amber on timeout)
 - TC-V: 2 — TC-V-01, TC-V-04
 - TC-M: 1 — TC-M-01
 - TC-AX: 1 — TC-AX-01
 
-Phase 5b ships if these 40 PASS local + 4 PASS cloud smoke. The remaining 54 cases are deferred to Phase 8 expansion as **SU-37**.
+Phase 5b ships if these 45 PASS local + 4 PASS cloud smoke. The remaining 55 cases are deferred to Phase 8 expansion as **SU-37**.
 
 ### 10.2 Cloud smoke set — 4 cases
 
@@ -577,5 +609,7 @@ At Phase 5b merge:
 ---
 
 ## 11. Changelog
+
+**v1.1 — 2026-05-06** Aligns with API Contract v1.1 amendments (SU-40 / SU-41 / SU-42). Total planned cases 94 → 100. β-scope 40 → 45. New cases: TC-A-31 (heartbeat updates fire during long agent jobs), TC-A-32 (SSE heartbeat comment lines), TC-A-33 (recovery sweep marks orphans failed), TC-A-34 (cron route rejects unauthenticated calls), TC-A-35 (resume preserves tool calls), TC-U-29 (heartbeat indicator pulses green), TC-U-30 (heartbeat goes amber on timeout). All five new TC-A cases are β-scope and must-pass for merge. Cloud smoke set unchanged at 4 cases on Haiku.
 
 **v1.0 — 2026-05-06** Initial Phase 5b Test Plan. 94 planned cases across 8 categories. β-scope of 40 cases for merge; remaining 54 deferred to Phase 8 as SU-37 (joins SU-33's 100-case Phase 5 deferral set). Cloud smoke set of 4 cases on **Haiku** against `stelavox-dev`. **All Phase 5b LLM API calls run on Haiku 4.5** — local build-test, T-17 prompt review, and cloud smoke — per the user's standing Haiku-everywhere direction (`feedback_haiku_default.md`, reaffirmed 2026-05-06 at Phase 5b startup). Production-default in `director_configs` remains Opus. One pre-emptive SU recorded against TC-V-04 (SU-38: align CLAUDE.md Inviolable #2 enumeration with Component Spec §7.6's PlanCard Approve verdigris use).
