@@ -24,7 +24,6 @@
 
 import { useState, useEffect } from 'react'
 import { useActiveJobForNode, type AgentJob } from '@/lib/hooks/useAgentJobsRealtime'
-import { useSidebarProject } from '@/components/layout/AppShell'
 
 interface AgentTabProps {
   nodeId: string
@@ -53,7 +52,6 @@ const OPERATION_BUTTONS: Array<{
 
 export function AgentTab({ nodeId, nodeType, nodeCategory, isLeaf }: AgentTabProps) {
   const activeJob = useActiveJobForNode(nodeId)
-  const { bumpRefresh } = useSidebarProject()
   const [profiles, setProfiles] = useState<AgentProfile[]>([])
   const [selectedProfileId, setSelectedProfileId] = useState<string>('')
   const [instruction, setInstruction] = useState('')
@@ -111,13 +109,9 @@ export function AgentTab({ nodeId, nodeType, nodeCategory, isLeaf }: AgentTabPro
         setError(json.error ?? `HTTP ${res.status}`)
         return
       }
-      // Accept inserts new child nodes (for expand) or bumps the target
-      // node's version (for refine/synthesise/generate-context). Refresh
-      // the tree so the user sees the result. NodeTree consumes the
-      // SidebarProject refreshKey to refetch.
-      if (action === 'accept') {
-        bumpRefresh()
-      }
+      // No tree-refresh trigger needed here — NodeTree subscribes to the
+      // nodes realtime channel via useNodesRealtime and refetches itself
+      // when Accept's INSERTs land in the database. (SU-31 proper fix.)
     } catch (e) {
       setError((e as Error).message)
     } finally {
@@ -364,7 +358,14 @@ function OpButton({
 }
 
 function ActiveState({ job, onCancel, busy }: { job: AgentJob; onCancel: () => void; busy: boolean }) {
-  const tokensSoFar = job.tokens_output ?? 0
+  const tokensIn = job.tokens_input ?? 0
+  const tokensOut = job.tokens_output ?? 0
+
+  // Indeterminate progress bar — a sliding stripe animated via CSS @keyframes
+  // (defined in styles/tokens.css). LLM operations don't expose true progress
+  // (we get tokens AFTER the call completes, not during), so a percentage-
+  // based bar would always be misleading. The indeterminate sweep
+  // communicates "running, no ETA" honestly.
   return (
     <div style={{ padding: 'var(--space-5)', display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
       <div>
@@ -379,11 +380,14 @@ function ActiveState({ job, onCancel, busy }: { job: AgentJob; onCancel: () => v
           }}
         >
           <div
+            className="agent-progress-indeterminate"
             style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
               height: '100%',
+              width: '40%',
               background: 'var(--color-agent-running)',
-              width: job.status === 'running' ? '70%' : '20%',
-              transition: 'width 200ms linear',
             }}
           />
         </div>
@@ -394,9 +398,17 @@ function ActiveState({ job, onCancel, busy }: { job: AgentJob; onCancel: () => v
             fontSize: '10px',
             fontWeight: 300,
             color: 'var(--color-text-muted)',
+            display: 'flex',
+            justifyContent: 'space-between',
+            gap: 'var(--space-3)',
           }}
         >
-          {job.operation_type} · {job.status} · {job.model_id ?? ''} · {tokensSoFar} tokens
+          <span>
+            {job.operation_type} · {job.status} · {job.model_id ?? ''}
+          </span>
+          <span>
+            in: {tokensIn.toLocaleString()} · out: {tokensOut.toLocaleString()}
+          </span>
         </div>
       </div>
       <button

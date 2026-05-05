@@ -213,3 +213,30 @@
     opacity: 0.4;
   }
 }
+
+/* ──────────────────────────────────────────────────────
+   AGENT PROGRESS INDETERMINATE BAR
+   AgentTab active-state progress indicator. LLM
+   operations don't expose real-time progress, so the
+   bar slides left-to-right indeterminately — honest
+   "running, no ETA" rather than fake percentage.
+   prefers-reduced-motion: hide the slide animation
+   (the pulse and Stop button still convey activity).
+   ────────────────────────────────────────────────────── */
+@keyframes stelavox-progress-slide {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(250%); }
+}
+
+.agent-progress-indeterminate {
+  animation: stelavox-progress-slide 1.4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .agent-progress-indeterminate {
+    animation: none;
+    transform: translateX(0);
+    width: 100% !important;
+    opacity: 0.4;
+  }
+}

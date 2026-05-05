@@ -21,13 +21,14 @@
 // 600px height. T-4.x can swap to a measured parent height (or
 // react-virtualized-auto-sizer) once the surrounding layout settles.
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Tree } from 'react-arborist'
 import type { MoveHandler } from 'react-arborist'
 import { NodeRow, NodeActionsProvider, type ArboristNode, type NodeData } from './NodeRow'
 import { LayerDivider } from './LayerDivider'
 import { NodeMoreMenu } from './NodeMoreMenu'
 import { ToastProvider, useToast } from '@/components/feedback/Toast'
+import { useNodesRealtime } from '@/lib/hooks/useNodesRealtime'
 
 interface NodeTreeProps {
   documentId: string
@@ -84,6 +85,14 @@ function NodeTreeInner({ documentId, documentType, onSelect, refreshKey }: NodeT
   const [error, setError] = useState<string | null>(null)
   const [refreshTick, setRefreshTick] = useState(0)
   const [moreMenu, setMoreMenu] = useState<{ nodeId: string; anchor: HTMLElement; isRoot: boolean } | null>(null)
+
+  // Phase 5 (SU-31 proper fix): subscribe to realtime nodes-table changes for
+  // this document. Any INSERT/UPDATE/DELETE triggers a refetch (debounced 200ms
+  // so a multi-row Accept transaction = one refetch). This replaces the
+  // pattern of every mutation site calling bumpRefresh() — the tree now
+  // self-syncs from the source of truth.
+  const triggerRefetch = useCallback(() => setRefreshTick((t) => t + 1), [])
+  useNodesRealtime(documentId, triggerRefetch)
 
   useEffect(() => {
     let cancelled = false
