@@ -358,14 +358,13 @@ function OpButton({
 }
 
 function ActiveState({ job, onCancel, busy }: { job: AgentJob; onCancel: () => void; busy: boolean }) {
-  const tokensIn = job.tokens_input ?? 0
-  const tokensOut = job.tokens_output ?? 0
-
   // Indeterminate progress bar — a sliding stripe animated via CSS @keyframes
   // (defined in styles/tokens.css). LLM operations don't expose true progress
   // (we get tokens AFTER the call completes, not during), so a percentage-
   // based bar would always be misleading. The indeterminate sweep
-  // communicates "running, no ETA" honestly.
+  // communicates "running, no ETA" honestly. Token counts are NOT shown
+  // during running because Anthropic only reports them post-completion;
+  // they appear in the COMPLETE state instead.
   return (
     <div style={{ padding: 'var(--space-5)', display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
       <div>
@@ -398,17 +397,9 @@ function ActiveState({ job, onCancel, busy }: { job: AgentJob; onCancel: () => v
             fontSize: '10px',
             fontWeight: 300,
             color: 'var(--color-text-muted)',
-            display: 'flex',
-            justifyContent: 'space-between',
-            gap: 'var(--space-3)',
           }}
         >
-          <span>
-            {job.operation_type} · {job.status} · {job.model_id ?? ''}
-          </span>
-          <span>
-            in: {tokensIn.toLocaleString()} · out: {tokensOut.toLocaleString()}
-          </span>
+          {job.operation_type} · {job.status} · {job.model_id ?? ''}
         </div>
       </div>
       <button
@@ -443,6 +434,9 @@ function CompleteState({
 }) {
   const previewLines = describeResult(job)
   const cost = job.cost_usd != null ? `$${job.cost_usd.toFixed(4)}` : '—'
+  const tokensIn = job.tokens_input ?? 0
+  const tokensOut = job.tokens_output ?? 0
+  const tokensTotal = tokensIn + tokensOut
   return (
     <div style={{ padding: 'var(--space-5)', display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
       <div
@@ -459,7 +453,17 @@ function CompleteState({
         }}
       >
         <div style={{ fontWeight: 500, marginBottom: 'var(--space-2)' }}>
-          {job.operation_type} complete · {cost} · {job.tokens_output ?? 0} output tokens
+          {job.operation_type} complete · {cost}
+        </div>
+        <div
+          style={{
+            marginBottom: 'var(--space-2)',
+            fontSize: '10px',
+            fontWeight: 300,
+            color: 'var(--color-text-muted)',
+          }}
+        >
+          tokens: {tokensIn.toLocaleString()} in · {tokensOut.toLocaleString()} out · {tokensTotal.toLocaleString()} total
         </div>
         <pre
           style={{

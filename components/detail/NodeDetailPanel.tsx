@@ -36,6 +36,8 @@ import { AgentTab } from './AgentTab'
 import { CommentThread } from './CommentThread'
 import { AgentJobHistory } from './AgentJobHistory'
 import { createClient } from '@/lib/supabase/client'
+import { useNodeRealtime } from '@/lib/hooks/useNodeRealtime'
+import { useCallback } from 'react'
 import { FocusMode } from '@/components/focus/FocusMode'
 import { useEditorStore } from '@/lib/stores/editor-store'
 import { useSidebarProject } from '@/components/layout/AppShell'
@@ -102,7 +104,16 @@ export function NodeDetailPanel({ nodeId, refreshKey, onMutated, onClose }: Node
   const [focusMode, setFocusMode] = useState(false)
   const [deleteModalOpen, setDeleteModalOpen] = useState(false)
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
+  const [realtimeTick, setRealtimeTick] = useState(0)
   const { state: sidebarState, bumpRefresh } = useSidebarProject()
+
+  // Phase 5 (SU-31 proper fix): refresh the open node when its row in the
+  // nodes table changes (e.g. after an agent Accept commits new prose to
+  // nodes.prose). Bumps a tick that the existing fetch useEffect deps on.
+  // The fetch flushes pending local edits first, so this is safe even
+  // mid-typing.
+  const triggerRefetch = useCallback(() => setRealtimeTick((t) => t + 1), [])
+  useNodeRealtime(nodeId, triggerRefetch)
 
   // Load the current user ID once for the CommentThread (author check).
   useEffect(() => {
@@ -154,7 +165,7 @@ export function NodeDetailPanel({ nodeId, refreshKey, onMutated, onClose }: Node
       })
     })()
     return () => { cancelled = true }
-  }, [nodeId, refreshKey, flushPending, loadNode])
+  }, [nodeId, refreshKey, realtimeTick, flushPending, loadNode])
 
   // T-6.8: ⌘Return in Edit Mode prose enters Focus Mode. capture:true so
   // we run before Tiptap's hard-break binding (HardBreak extension binds
