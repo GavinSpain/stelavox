@@ -1,0 +1,530 @@
+/**
+ * Director — agentic loop executor.
+ *
+ * Source: stelavox_phase5b_api_contract_v1_0.md §2.16, §2.11 (I-2/I-3/
+ *         I-10/I-12), TA §8.2.
+ * Build Checklist: T-8.
+ *
+ * Runs the streaming tool-using agentic loop for one Director turn.
+ * Yields TurnEvent objects to the caller (the streaming API route);
+ * caller maps these to SSE events on the wire.
+ *
+ * Flow (per TA §8.2 / API Contract §2.16):
+ *
+ *   1. Build the assembled prompt (system + canary + security frame +
+ *      tool definitions). Initial messages array = conversation context
+ *      from buildConversationContext().
+ *   2. Inside loop (max agent.director_max_tool_iterations):
+ *      a. Call provider.streamWithTools(prompt). Yields chunks:
+ *         text → 'text_delta' event; tool_use_start → 'tool_use_start';
+ *         tool_use_complete → validate + execute + yield with result.
+ *      b. On stop_reason='tool_use': append tool_use blocks to assistant
+ *         message; append tool_result blocks to messages; loop.
+ *      c. On stop_reason='end_turn': parse <workflow_proposal> JSON
+ *         block from accumulated text. Yield 'workflow_proposal' event
+ *         if present. Yield 'turn_complete' with final usage. Break.
+ *      d. On stop_reason='max_tokens': treat as end of turn but flag.
+ *   3. Mid-turn persistence (Phase 5b I-12):
+ *      - Before loop: INSERT conversation_messages row with
+ *        turn_state='interim', content='', tool_calls=[].
+ *      - On every tool_use_complete: UPDATE tool_calls JSONB.
+ *      - On every iteration boundary: UPDATE content with accumulated text.
+ *      - On clean exit: caller transitions turn_state to 'final' with
+ *        full final state. On disconnect: caller transitions to
+ *        'interrupted'.
+ *   4. Canary scan (I-3): runs inside provider.streamWithTools() per
+ *      lib/llm/providers/anthropic.ts. Throws SecurityViolationError on
+ *      detection; caller maps to SSE 'error' event with director_canary_leak.
+ */
+
+import 'server-only'
+
+import type { SupabaseClient } from '@supabase/supabase-js'
+
+import { getConfigInt } from '@/lib/config/platform-config'
+import { wrapContextWithSecurityFrame } from '@/lib/security/security-frame'
+import {
+  buildToolDefinitions,
+  getToolByName,
+  getToolExecutor,
+} from '@/lib/director/tools'
+import { validateToolCall } from '@/lib/security/tool-validator'
+import {
+  WorkflowProposalSchema,
+  type WorkflowProposalParsed,
+} from '@/lib/director/schemas'
+import type {
+  DirectorConfig,
+  DirectorSession,
+  ToolResult,
+} from '@/lib/director/types'
+import type {
+  AssembledPrompt,
+  LLMProvider,
+  TokenUsage,
+  ToolCall,
+  ToolDefinition,
+} from '@/lib/llm/types'
+
+// ---------------------------------------------------------------------------
+// TurnEvent — abstract event stream the route layer maps to SSE
+// ---------------------------------------------------------------------------
+
+export type TurnEvent =
+  | { type: 'text_delta'; delta: string }
+  | {
+      type: 'tool_use_start'
+      tool_call_id: string
+      name: string
+    }
+  | {
+      type: 'tool_use_complete'
+      tool_call_id: string
+      name: string
+      validation_result: 'allowed' | string
+      result_summary: string
+    }
+  | {
+      type: 'workflow_proposal'
+      proposal: WorkflowProposalParsed
+    }
+  | {
+      type: 'turn_complete'
+      stop_reason: string
+      usage: TokenUsage
+      assistant_message_id: string
+      cost_usd: number | null
+    }
+  | { type: 'iteration_boundary'; iteration: number }
+  | { type: 'error'; error: string; message: string }
+
+// ---------------------------------------------------------------------------
+// Inputs
+// ---------------------------------------------------------------------------
+
+export interface RunAgenticTurnInput {
+  session: DirectorSession
+  config: DirectorConfig
+  provider: LLMProvider
+  /** Conversation context (from buildConversationContext) — array of role+content. */
+  conversationContext: Array<{ role: 'user' | 'assistant'; content: string }>
+  /** The new user message content. */
+  userMessageContent: string
+  /** Mentioned node IDs (for the system prompt's <mentioned_nodes> block). */
+  mentionedNodeIds: string[]
+  /** The interim conversation_messages row id (created by the route before invoking). */
+  assistantMessageId: string
+  /** Service-role supabase for persistence side-effects. */
+  supabase: SupabaseClient
+}
+
+// ---------------------------------------------------------------------------
+// runAgenticTurn — async generator yielding TurnEvent
+// ---------------------------------------------------------------------------
+
+export async function* runAgenticTurn(
+  input: RunAgenticTurnInput,
+): AsyncGenerator<TurnEvent, void, void> {
+  const {
+    session,
+    config,
+    provider,
+    conversationContext,
+    userMessageContent,
+    mentionedNodeIds,
+    assistantMessageId,
+    supabase,
+  } = input
+
+  const maxIterations = await getConfigInt('agent.director_max_tool_iterations')
+  const tools = buildToolDefinitions(config.tool_suite)
+
+  if (!provider.streamWithTools) {
+    yield {
+      type: 'error',
+      error: 'provider_no_stream_tools',
+      message: 'Active LLM provider does not implement streamWithTools()',
+    }
+    return
+  }
+
+  // Prompt assembly. The "stable" half is the system prompt + tool
+  // definitions (cache_control eligible). The "dynamic" half is the
+  // conversation history + new user message.
+  const stable = await buildStableBlock(config, mentionedNodeIds)
+  const baseToolDefs: ToolDefinition[] = tools.map((t) => ({
+    name: t.name,
+    description: t.description,
+    input_schema: t.input_schema,
+  }))
+
+  // Anthropic-format messages array, mutated across iterations as the
+  // loop appends assistant tool_use blocks and user tool_result blocks.
+  // The first user message is the new author input; conversationContext
+  // is folded into the system block via assembled-prompt's stable half
+  // (Phase 5b — full fidelity wiring of conversation history to the
+  // provider messages array is in T-9 buildConversationContext output).
+  let dynamicForFirstCall = await buildInitialDynamic(
+    conversationContext,
+    userMessageContent,
+  )
+
+  // Accumulated assistant text + tool calls across all iterations.
+  // These get UPDATEd onto the interim conversation_messages row at
+  // each iteration boundary (Phase 5b I-12).
+  let accumulatedText = ''
+  const accumulatedToolCalls: Array<{
+    id: string
+    name: string
+    arguments: Record<string, unknown>
+    validation_result: string
+    executed_at: string
+    result_summary: string
+  }> = []
+
+  let totalUsage: TokenUsage = {
+    tokens_input: 0,
+    tokens_output: 0,
+    tokens_cache_read: 0,
+    tokens_cache_write: 0,
+  }
+
+  let stopReason = 'unknown'
+  let workflowProposal: WorkflowProposalParsed | null = null
+
+  for (let iteration = 1; iteration <= maxIterations; iteration++) {
+    yield { type: 'iteration_boundary', iteration }
+
+    const prompt: AssembledPrompt = {
+      stable,
+      dynamic: {
+        currentNode: '',
+        agentInstruction: '',
+        editorialComments: '',
+        securityWrapped: dynamicForFirstCall,
+      },
+      config: {
+        model: config.model_id,
+        temperature: config.model_params.temperature ?? 0.7,
+        maxTokens: config.model_params.max_tokens ?? 8192,
+        stream: true,
+        operationType: 'director',
+        tools: baseToolDefs,
+      },
+    }
+
+    // Per-iteration accumulators
+    const turnToolCalls: ToolCall[] = []
+    let iterationStopReason = 'unknown'
+    let iterationText = ''
+
+    for await (const chunk of provider.streamWithTools(prompt)) {
+      switch (chunk.type) {
+        case 'text': {
+          if (chunk.text) {
+            accumulatedText += chunk.text
+            iterationText += chunk.text
+            yield { type: 'text_delta', delta: chunk.text }
+          }
+          break
+        }
+        case 'tool_use_start': {
+          if (chunk.toolStart) {
+            yield {
+              type: 'tool_use_start',
+              tool_call_id: chunk.toolStart.id,
+              name: chunk.toolStart.name,
+            }
+          }
+          break
+        }
+        case 'tool_use_complete': {
+          if (chunk.toolCall) {
+            turnToolCalls.push(chunk.toolCall)
+          }
+          break
+        }
+        case 'message_stop': {
+          if (chunk.usage) {
+            totalUsage = {
+              tokens_input: totalUsage.tokens_input + chunk.usage.tokens_input,
+              tokens_output: totalUsage.tokens_output + chunk.usage.tokens_output,
+              tokens_cache_read:
+                totalUsage.tokens_cache_read + chunk.usage.tokens_cache_read,
+              tokens_cache_write:
+                totalUsage.tokens_cache_write + chunk.usage.tokens_cache_write,
+            }
+          }
+          iterationStopReason = chunk.stopReason ?? 'unknown'
+          break
+        }
+        default:
+          break
+      }
+    }
+
+    stopReason = iterationStopReason
+
+    // Validate + execute every tool call.
+    const toolResultBlocks: Array<{
+      tool_use_id: string
+      content: string
+      is_error: boolean
+    }> = []
+    for (const call of turnToolCalls) {
+      const validation = await validateToolCall({
+        toolName: call.name,
+        arguments: call.arguments,
+        session,
+      })
+
+      if (!validation.allowed) {
+        const reason = validation.reason
+        accumulatedToolCalls.push({
+          id: call.id,
+          name: call.name,
+          arguments: call.arguments,
+          validation_result: `denied:${reason}`,
+          executed_at: new Date().toISOString(),
+          result_summary: `Denied: ${reason}`,
+        })
+        yield {
+          type: 'tool_use_complete',
+          tool_call_id: call.id,
+          name: call.name,
+          validation_result: `denied:${reason}`,
+          result_summary: `Denied: ${reason}`,
+        }
+        toolResultBlocks.push({
+          tool_use_id: call.id,
+          content: JSON.stringify({ error: reason }),
+          is_error: true,
+        })
+        continue
+      }
+
+      const executor = getToolExecutor(call.name)
+      if (!executor) {
+        accumulatedToolCalls.push({
+          id: call.id,
+          name: call.name,
+          arguments: call.arguments,
+          validation_result: 'denied:unknown_tool',
+          executed_at: new Date().toISOString(),
+          result_summary: 'Unknown tool',
+        })
+        yield {
+          type: 'tool_use_complete',
+          tool_call_id: call.id,
+          name: call.name,
+          validation_result: 'denied:unknown_tool',
+          result_summary: 'Unknown tool',
+        }
+        toolResultBlocks.push({
+          tool_use_id: call.id,
+          content: JSON.stringify({ error: 'unknown_tool' }),
+          is_error: true,
+        })
+        continue
+      }
+
+      let result: ToolResult
+      try {
+        result = await executor(call.arguments, session)
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'tool_execution_error'
+        result = { ok: false, error: 'tool_execution_error', reason: msg }
+      }
+
+      const summary = summariseToolResult(call.name, result)
+      accumulatedToolCalls.push({
+        id: call.id,
+        name: call.name,
+        arguments: call.arguments,
+        validation_result: 'allowed',
+        executed_at: new Date().toISOString(),
+        result_summary: summary,
+      })
+      yield {
+        type: 'tool_use_complete',
+        tool_call_id: call.id,
+        name: call.name,
+        validation_result: 'allowed',
+        result_summary: summary,
+      }
+      toolResultBlocks.push({
+        tool_use_id: call.id,
+        content: JSON.stringify(result.ok ? (result as { data?: unknown; proposal?: unknown }).data ?? (result as { proposal?: unknown }).proposal : result),
+        is_error: !result.ok,
+      })
+    }
+
+    // Persist iteration boundary state (Phase 5b I-12).
+    await supabase
+      .from('conversation_messages')
+      .update({
+        content: accumulatedText,
+        tool_calls: accumulatedToolCalls,
+      })
+      .eq('id', assistantMessageId)
+
+    if (stopReason === 'tool_use') {
+      // Feed tool results back to the model.
+      // Re-issue the streamWithTools call with the appended messages.
+      // For Phase 5b V1 we keep the dynamic-half wire format simple: we
+      // pass the *original* user message as the first user content +
+      // the assistant's tool_use blocks as the assistant content +
+      // the tool_result blocks as the next user content. This matches
+      // the Anthropic API expectation for tool-use turn continuation.
+      dynamicForFirstCall = await buildToolUseContinuation(
+        userMessageContent,
+        iterationText,
+        turnToolCalls,
+        toolResultBlocks,
+      )
+      continue
+    }
+
+    // Any non-tool-use stop reason: parse workflow proposal + exit.
+    workflowProposal = parseWorkflowProposal(accumulatedText)
+    if (workflowProposal) {
+      yield { type: 'workflow_proposal', proposal: workflowProposal }
+    }
+    break
+  }
+
+  // Compute cost (caller may overwrite if it has access to a richer cost helper).
+  yield {
+    type: 'turn_complete',
+    stop_reason: stopReason,
+    usage: totalUsage,
+    assistant_message_id: assistantMessageId,
+    cost_usd: null,
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+async function buildStableBlock(
+  config: DirectorConfig,
+  mentionedNodeIds: string[],
+): Promise<AssembledPrompt['stable']> {
+  // The system prompt is the production prompt body from director_configs.
+  // Phase 5b T-1 has it as a placeholder; T-3 / T-17 iterate the real body.
+  const systemPrompt = config.system_prompt
+
+  // Build a minimal stable body — TA's full security frame wrapping
+  // happens here too. Phase 5b doesn't include ancestor chains / context
+  // nodes (the Director reads those via tools), so the stable body is
+  // primarily the system prompt + a brief mentioned-nodes hint.
+  const mentionedHint =
+    mentionedNodeIds.length > 0
+      ? `\n\n<mentioned_nodes>${mentionedNodeIds.map((id) => `<node_id>${id}</node_id>`).join('')}</mentioned_nodes>`
+      : ''
+
+  const wrapped = wrapContextWithSecurityFrame(systemPrompt + mentionedHint, '')
+
+  return {
+    systemPrompt,
+    ancestors: '',
+    contextNodes: '',
+    styleGuide: '',
+    securityWrapped: wrapped.stable,
+  }
+}
+
+async function buildInitialDynamic(
+  conversationContext: Array<{ role: 'user' | 'assistant'; content: string }>,
+  userMessageContent: string,
+): Promise<string> {
+  // V1 wire format: serialise the conversation history into a single
+  // user-message body that prefaces the new question. Anthropic's tools
+  // API accepts an array of messages; this V1 simplification avoids
+  // round-tripping the full Anthropic message-array shape through
+  // the AssembledPrompt's `dynamic.securityWrapped` field. T-9
+  // upgrades to the proper messages-array form when it lands.
+  const lines: string[] = []
+  for (const m of conversationContext) {
+    lines.push(`<${m.role}>${m.content}</${m.role}>`)
+  }
+  lines.push(`<user>${userMessageContent}</user>`)
+  return lines.join('\n\n')
+}
+
+async function buildToolUseContinuation(
+  originalUserMessage: string,
+  assistantTextSoFar: string,
+  toolCalls: ToolCall[],
+  toolResults: Array<{ tool_use_id: string; content: string; is_error: boolean }>,
+): Promise<string> {
+  // V1: same simplification — flatten the tool round-trip into a
+  // single dynamic body. T-9 finalises to the proper message-array form.
+  return [
+    `<user>${originalUserMessage}</user>`,
+    `<assistant_partial>${assistantTextSoFar}</assistant_partial>`,
+    `<assistant_tool_calls>${JSON.stringify(toolCalls)}</assistant_tool_calls>`,
+    `<tool_results>${JSON.stringify(toolResults)}</tool_results>`,
+    '<continue>The assistant should now react to the tool results above and either call more tools or produce its final response.</continue>',
+  ].join('\n\n')
+}
+
+function summariseToolResult(toolName: string, result: ToolResult): string {
+  if (!result.ok) {
+    return `Error: ${result.error}${result.reason ? ` (${result.reason})` : ''}`
+  }
+  if ('data' in result) {
+    const dataLen = JSON.stringify(result.data).length
+    return `${toolName}: returned ${dataLen} chars of data`
+  }
+  if ('proposal' in result) {
+    return `${toolName}: proposal for ${result.proposal.operation_type} on ${result.proposal.target_node_id}`
+  }
+  return `${toolName}: ok`
+}
+
+/**
+ * Locate and parse the <workflow_proposal>...</workflow_proposal> JSON
+ * block from the Director's accumulated text. Returns null if absent.
+ * Returns null and logs if present-but-malformed (the loop yields a
+ * turn_complete without a workflow event in that case).
+ */
+export function parseWorkflowProposal(text: string): WorkflowProposalParsed | null {
+  // Match either a fenced JSON block tagged <workflow_proposal>...</workflow_proposal>
+  // or a markdown JSON block followed by the tag. The placeholder system
+  // prompt instructs the model to use the tagged form.
+  const match = text.match(
+    /<workflow_proposal>\s*(?:```json)?\s*([\s\S]*?)\s*(?:```)?\s*<\/workflow_proposal>/,
+  )
+  if (!match) {
+    // Tolerant fallback: a leading `<workflow_proposal>` followed by
+    // raw JSON until end-of-string. Useful when the model truncates.
+    const lazy = text.match(/<workflow_proposal>\s*([\s\S]*)$/)
+    if (!lazy) return null
+    try {
+      const obj = JSON.parse(lazy[1].trim()) as unknown
+      const result = WorkflowProposalSchema.safeParse(obj)
+      return result.success ? result.data : null
+    } catch {
+      return null
+    }
+  }
+
+  try {
+    const obj = JSON.parse(match[1].trim()) as unknown
+    const result = WorkflowProposalSchema.safeParse(obj)
+    if (!result.success) {
+      console.warn('[director] workflow proposal failed schema validation', {
+        error: result.error.message,
+      })
+      return null
+    }
+    return result.data
+  } catch (err) {
+    console.warn('[director] workflow proposal JSON parse failed', {
+      error: err instanceof Error ? err.message : String(err),
+    })
+    return null
+  }
+}
