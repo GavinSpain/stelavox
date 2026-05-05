@@ -472,30 +472,48 @@ export type Database = {
       }
       conversation_messages: {
         Row: {
+          author_user_id: string | null
           content: string
           conversation_id: string
+          cost_usd: number | null
           created_at: string
           id: string
           role: string
           sequence: number
+          tokens_cache_read: number | null
+          tokens_cache_write: number | null
+          tokens_input: number | null
+          tokens_output: number | null
           tool_calls: Json | null
         }
         Insert: {
+          author_user_id?: string | null
           content: string
           conversation_id: string
+          cost_usd?: number | null
           created_at?: string
           id?: string
           role: string
           sequence: number
+          tokens_cache_read?: number | null
+          tokens_cache_write?: number | null
+          tokens_input?: number | null
+          tokens_output?: number | null
           tool_calls?: Json | null
         }
         Update: {
+          author_user_id?: string | null
           content?: string
           conversation_id?: string
+          cost_usd?: number | null
           created_at?: string
           id?: string
           role?: string
           sequence?: number
+          tokens_cache_read?: number | null
+          tokens_cache_write?: number | null
+          tokens_input?: number | null
+          tokens_output?: number | null
           tool_calls?: Json | null
         }
         Relationships: [

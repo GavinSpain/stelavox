@@ -261,18 +261,18 @@ ALTER TABLE conversation_messages
 ALTER PUBLICATION supabase_realtime ADD TABLE workflows;
 ALTER PUBLICATION supabase_realtime ADD TABLE workflow_steps;
 
--- 4. Operational-limit config keys (API Contract §2.7; H-12 — never hardcoded)
-INSERT INTO platform_config (key, value, description) VALUES
+-- 4. Three new Phase 5b operational keys (API Contract §2.7; H-12 — never
+--    hardcoded). The iteration cap (agent.director_max_tool_iterations = 20)
+--    and summarisation threshold (agent.director_session_max_tokens = 60000)
+--    already exist in the TA §3.7 canonical registry from Migration 014;
+--    Phase 5b reuses those names rather than creating duplicates.
+INSERT INTO platform_config (key, value, description, value_type) VALUES
   ('agent.director_message_rate_limit_per_60s', '6'::jsonb,
-    'Max Director-message POSTs per user per document per 60 seconds.'),
+    'Max Director-message POSTs per user per document per 60 seconds.', 'integer'),
   ('agent.director_tool_call_rate_limit_per_60s', '30'::jsonb,
-    'Max validateToolCall passes per conversation per 60 seconds (TA §4.5 Defence 4).'),
-  ('agent.director_max_loop_iterations', '20'::jsonb,
-    'Hard cap on agentic-loop iterations per turn (TA §8.2).'),
-  ('agent.director_summary_token_threshold', '60000'::jsonb,
-    'Total input tokens that trigger inline conversation summarisation (TA §8.5).'),
+    'Max validateToolCall passes per conversation per 60 seconds (TA §4.5 Defence 4).', 'integer'),
   ('agent.director_max_workflow_steps', '30'::jsonb,
-    'Max steps in a single Director-proposed workflow.')
+    'Max steps in a single Director-proposed workflow.', 'integer')
 ON CONFLICT (key) DO NOTHING;
 ```
 

@@ -145,17 +145,17 @@ Phase 5b endpoints follow the same idempotency rules as Phase 5:
 
 Phase 5b inherits Phase 5's rate limiting and adds the following limits. **All are stored in `platform_config` and read via `getConfig()` per H-12 (no hardcoded operational values in TypeScript).** TA §4.5's example code shows a literal `30` for the tool-call rate; that is example code only — the running implementation reads from `platform_config`.
 
-| Config key | Default | Used by |
-|---|---|---|
-| `agent.director_message_rate_limit_per_60s` | 6 | `/api/director/message` API route — per-user, per-document. Returned as HTTP 429 `director_message_rate_limit` with `retry_after_seconds: N` |
-| `agent.director_tool_call_rate_limit_per_60s` | 30 | `validateToolCall()` per-conversation gate (TA §4.5 Defence 4). Exceeded calls return as a tool result `{ "error": "tool_rate_limit_exceeded" }`; audit log entry written |
-| `agent.director_max_loop_iterations` | 20 | Agentic loop's hard cap (TA §8.2). Exceeding terminates the turn with an `error` SSE event `director_loop_iteration_cap` and a partial assistant message persisted with the accumulated tool-call log |
-| `agent.director_summary_token_threshold` | 60000 | Conversation summarisation trigger (TA §8.5). When `total_input_tokens(messages) >= threshold`, an inline summary pass runs |
-| `agent.director_max_workflow_steps` | 30 | Maximum steps the executor accepts in a single workflow (G-5). Excess steps truncated; assistant message notes the cap |
+| Config key | Default | Source | Used by |
+|---|---|---|---|
+| `agent.director_message_rate_limit_per_60s` | 6 | Migration 031 (new) | `/api/director/message` API route — per-user, per-document. Returned as HTTP 429 `director_message_rate_limit` with `retry_after_seconds: N` |
+| `agent.director_tool_call_rate_limit_per_60s` | 30 | Migration 031 (new) | `validateToolCall()` per-conversation gate (TA §4.5 Defence 4). Exceeded calls return as a tool result `{ "error": "tool_rate_limit_exceeded" }`; audit log entry written |
+| `agent.director_max_tool_iterations` | 20 | TA §3.7 / Migration 014 (existing) | Agentic loop's hard cap (TA §8.2). Exceeding terminates the turn with an `error` SSE event `director_loop_iteration_cap` and a partial assistant message persisted with the accumulated tool-call log |
+| `agent.director_session_max_tokens` | 60000 | TA §3.7 / Migration 014 (existing) | Conversation summarisation trigger (TA §8.5). When `total_input_tokens(messages) >= threshold`, an inline summary pass runs |
+| `agent.director_max_workflow_steps` | 30 | Migration 031 (new) | Maximum steps the executor accepts in a single workflow (G-5). Excess steps truncated; assistant message notes the cap |
 
-Migration 031 seeds all five keys (idempotent `INSERT ... ON CONFLICT DO NOTHING`). Defaults are admin-tunable post-launch via the platform_config admin tooling without a deployment. The `getConfig()` 1-minute in-process cache means a default change propagates within ~60s.
+Migration 031 seeds the three new keys (idempotent `INSERT ... ON CONFLICT DO NOTHING`); the iteration cap and summarisation threshold reuse the existing TA §3.7 registry names (Migration 014 already seeds them). Defaults are admin-tunable post-launch via the platform_config admin tooling without a deployment. The `getConfig()` 1-minute in-process cache means a default change propagates within ~60s.
 
-**Why config keys rather than constants:** the rate limits and caps are operational levers — during a security incident or rate-limit breach, the platform admin must be able to tighten them in seconds without a deployment. The `agent.director_max_loop_iterations` key is particularly important — a misbehaving prompt that induces tool-call recursion could otherwise burn through Opus tokens until Vercel's 60s timeout fires.
+**Why config keys rather than constants:** the rate limits and caps are operational levers — during a security incident or rate-limit breach, the platform admin must be able to tighten them in seconds without a deployment. The `agent.director_max_tool_iterations` key is particularly important — a misbehaving prompt that induces tool-call recursion could otherwise burn through Opus tokens until Vercel's 60s timeout fires.
 
 **Phase 5b inherits unchanged from Phase 5:** the per-org token-budget gate (`/api/director/message` calls `checkTokenBudget()` before the SSE response begins), and the platform-wide rate limit applied at the API boundary by Vercel/CDN.
 
