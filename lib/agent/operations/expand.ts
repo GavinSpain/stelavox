@@ -12,10 +12,52 @@
 
 import { ExpandOutputSchema, assertContiguousPositions } from '@/lib/llm/schemas/expand'
 
+/**
+ * Extract the first JSON array from the model output.
+ *
+ * Models frequently:
+ *   - Wrap structured output in Markdown code fences (```json ... ```)
+ *   - Add commentary before or after the JSON
+ *
+ * This function:
+ *   1. Strips opening/closing Markdown code fences if present
+ *   2. Finds the first '[' and matches to its closing ']' (counting
+ *      brackets, respecting strings)
+ *   3. Returns the JSON substring; throws if no valid array is found
+ */
+function extractJsonArray(content: string): string {
+  let s = content.trim()
+  // Strip opening fence
+  s = s.replace(/^```(?:json|JSON)?\s*\n?/, '')
+  // Strip closing fence
+  s = s.replace(/\n?```\s*$/, '')
+  s = s.trim()
+
+  const start = s.indexOf('[')
+  if (start === -1) throw new Error('no JSON array found in output')
+
+  let depth = 0
+  let inString = false
+  let escape = false
+  for (let i = start; i < s.length; i++) {
+    const ch = s[i]
+    if (escape) { escape = false; continue }
+    if (ch === '\\' && inString) { escape = true; continue }
+    if (ch === '"') { inString = !inString; continue }
+    if (inString) continue
+    if (ch === '[') depth++
+    else if (ch === ']') {
+      depth--
+      if (depth === 0) return s.slice(start, i + 1)
+    }
+  }
+  throw new Error('unterminated JSON array')
+}
+
 export async function runExpand(content: string): Promise<{ result_child_nodes: unknown[] }> {
   let parsed: unknown
   try {
-    parsed = JSON.parse(content)
+    parsed = JSON.parse(extractJsonArray(content))
   } catch (err) {
     throw new Error(`output_schema_invalid:json_parse:${(err as Error).message}`)
   }

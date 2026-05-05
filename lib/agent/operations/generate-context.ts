@@ -16,12 +16,43 @@
 
 import { GenerateContextOutputSchema } from '@/lib/llm/schemas/generate-context'
 
+/**
+ * Extract the first JSON object from the model output.
+ * Strips Markdown code fences and ignores any leading/trailing commentary.
+ */
+function extractJsonObject(content: string): string {
+  let s = content.trim()
+  s = s.replace(/^```(?:json|JSON)?\s*\n?/, '')
+  s = s.replace(/\n?```\s*$/, '')
+  s = s.trim()
+
+  const start = s.indexOf('{')
+  if (start === -1) throw new Error('no JSON object found in output')
+
+  let depth = 0
+  let inString = false
+  let escape = false
+  for (let i = start; i < s.length; i++) {
+    const ch = s[i]
+    if (escape) { escape = false; continue }
+    if (ch === '\\' && inString) { escape = true; continue }
+    if (ch === '"') { inString = !inString; continue }
+    if (inString) continue
+    if (ch === '{') depth++
+    else if (ch === '}') {
+      depth--
+      if (depth === 0) return s.slice(start, i + 1)
+    }
+  }
+  throw new Error('unterminated JSON object')
+}
+
 export async function runGenerateContext(
   content: string,
 ): Promise<{ result_summary: string; result_metadata: Record<string, unknown> }> {
   let parsed: unknown
   try {
-    parsed = JSON.parse(content)
+    parsed = JSON.parse(extractJsonObject(content))
   } catch (err) {
     throw new Error(`output_schema_invalid:json_parse:${(err as Error).message}`)
   }
