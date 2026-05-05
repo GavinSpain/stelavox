@@ -1744,6 +1744,22 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      accept_agent_job: {
+        Args: {
+          p_actor_id: string
+          p_child_nodes?: Json
+          p_job_id: string
+          p_target_metadata?: Json
+          p_target_notes?: string
+          p_target_prose?: string
+          p_target_summary?: string
+        }
+        Returns: {
+          out_child_node_ids: string[]
+          out_new_version: number
+          out_node_id: string
+        }[]
+      }
       create_document_with_layer_stack: {
         Args: {
           p_authors: string[]
