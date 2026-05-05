@@ -43,6 +43,8 @@ import { createContext, useCallback, useContext, useEffect, useState, type React
 import { Header } from './Header'
 import { Sidebar } from './Sidebar'
 import { PanelResizer } from './PanelResizer'
+import { createClient } from '@/lib/supabase/client'
+import { useAgentJobsRealtime } from '@/lib/hooks/useAgentJobsRealtime'
 
 // RightSlotContext lets any descendant of AppShell push content into
 // the right-panel slot. Pages call useRightSlot() and call setContent
@@ -109,6 +111,26 @@ export function AppShell({ userEmail, children }: AppShellProps) {
   const [sidebarWidth, setSidebarWidth] = useState(SIDEBAR_DEFAULT)
   const [detailWidth,  setDetailWidth]  = useState(DETAIL_DEFAULT)
   const [rightSlotContent, setRightSlotContent] = useState<ReactNode | null>(null)
+  const [organisationId, setOrganisationId] = useState<string | null>(null)
+
+  // Resolve the user's organisation_id once on mount so the agent_jobs
+  // real-time subscription (Phase 5) can be filtered to this org.
+  useEffect(() => {
+    void (async () => {
+      const supabase = createClient()
+      const { data } = await supabase
+        .from('organisation_members')
+        .select('organisation_id')
+        .limit(1)
+        .maybeSingle()
+      setOrganisationId(data?.organisation_id ?? null)
+    })()
+  }, [])
+
+  // Mount the org-wide agent_jobs real-time subscription. All UI components
+  // that show agent state (AgentTab, AgentActivityIndicator, AgentJobHistory)
+  // read from this single subscription via useAgentJobs* selectors.
+  useAgentJobsRealtime(organisationId)
 
   // Phase 4 sidebar project state.
   const [sidebarProjectState, setSidebarProjectState] = useState<SidebarProjectState>({

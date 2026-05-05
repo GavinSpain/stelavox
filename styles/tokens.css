@@ -189,3 +189,27 @@
     --duration-emphasis: 0ms;
   }
 }
+
+/* ──────────────────────────────────────────────────────
+   AGENT ACTIVITY PULSE
+   Component Spec §4.4 — opacity 1 → 0.4 → 1 over 2s
+   ease-in-out, infinite. The only animation that runs
+   unsolicited in the tree (calm, not urgent).
+   prefers-reduced-motion collapses to a static dot.
+   ────────────────────────────────────────────────────── */
+@keyframes stelavox-agent-pulse {
+  0%   { opacity: 1; }
+  50%  { opacity: 0.4; }
+  100% { opacity: 1; }
+}
+
+.agent-activity-pulse {
+  animation: stelavox-agent-pulse 2s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .agent-activity-pulse {
+    animation: none;
+    opacity: 0.4;
+  }
+}

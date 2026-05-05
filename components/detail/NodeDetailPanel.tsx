@@ -32,6 +32,10 @@ import { ConflictBanner } from './ConflictBanner'
 import { HistoryTab } from './HistoryTab'
 import { MetadataForm } from './MetadataForm'
 import { ContextTab } from './ContextTab'
+import { AgentTab } from './AgentTab'
+import { CommentThread } from './CommentThread'
+import { AgentJobHistory } from './AgentJobHistory'
+import { createClient } from '@/lib/supabase/client'
 import { FocusMode } from '@/components/focus/FocusMode'
 import { useEditorStore } from '@/lib/stores/editor-store'
 import { useSidebarProject } from '@/components/layout/AppShell'
@@ -78,19 +82,17 @@ interface NodeDetailPanelProps {
 const STATUS_VALUES = ['draft', 'in_review', 'approved', 'locked'] as const
 
 // Order per Component Spec §5.1 + Build Checklist T-5.2:
-// Content, Agent, Comments, History, Context. Notes is folded into Content.
+// Content, Agent, Comments, History (versions), Jobs, Context.
+// Notes is folded into Content.
+// Jobs tab (Phase 5) is document-wide agent-job history per Build Checklist T-14.1.
 const TABS = [
   { id: 'content',  label: 'Content'  },
   { id: 'agent',    label: 'Agent'    },
   { id: 'comments', label: 'Comments' },
   { id: 'history',  label: 'History'  },
+  { id: 'jobs',     label: 'Jobs'     },
   { id: 'context',  label: 'Context'  },
 ] as const
-
-const PHASE_PLACEHOLDERS: Record<string, string> = {
-  agent:    'Agent jobs arrive in Phase 5.',
-  comments: 'Comments arrive in Phase 5 with the agent system.',
-}
 
 export function NodeDetailPanel({ nodeId, refreshKey, onMutated, onClose }: NodeDetailPanelProps) {
   const [node, setNode] = useState<NodeRecord | null>(null)
@@ -99,7 +101,17 @@ export function NodeDetailPanel({ nodeId, refreshKey, onMutated, onClose }: Node
   const [activeTab, setActiveTab] = useState<string>('content')
   const [focusMode, setFocusMode] = useState(false)
   const [deleteModalOpen, setDeleteModalOpen] = useState(false)
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const { state: sidebarState, bumpRefresh } = useSidebarProject()
+
+  // Load the current user ID once for the CommentThread (author check).
+  useEffect(() => {
+    void (async () => {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      setCurrentUserId(user?.id ?? null)
+    })()
+  }, [])
 
   // Pull editor state from the store. The editors stay presentation-only —
   // the store owns the debounce, single-flight, and shadow.
@@ -475,16 +487,21 @@ export function NodeDetailPanel({ nodeId, refreshKey, onMutated, onClose }: Node
           />
         )}
 
-        {(activeTab === 'agent' || activeTab === 'comments') && (
-          <div
-            style={{
-              padding: 'var(--space-5)',
-              color: 'var(--color-text-muted)',
-              fontSize: 'var(--text-sm)',
-            }}
-          >
-            {PHASE_PLACEHOLDERS[activeTab]}
-          </div>
+        {activeTab === 'agent' && (
+          <AgentTab
+            nodeId={nodeId}
+            nodeType={node.node_type}
+            nodeCategory={node.node_category}
+            isLeaf={node.is_leaf}
+          />
+        )}
+
+        {activeTab === 'comments' && (
+          <CommentThread nodeId={nodeId} currentUserId={currentUserId} />
+        )}
+
+        {activeTab === 'jobs' && node.document_id && (
+          <AgentJobHistory documentId={node.document_id} />
         )}
       </div>
     </div>

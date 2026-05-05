@@ -30,6 +30,7 @@
 import { createContext, useContext, useState } from 'react'
 import type { NodeRendererProps } from 'react-arborist'
 import { NodeStatusBadge } from './NodeStatusBadge'
+import { useNodeHasRunningJob } from '@/lib/hooks/useAgentJobsRealtime'
 
 export interface NodeActions {
   onAddChild?: (parentId: string) => void
@@ -168,8 +169,10 @@ export function NodeRow({ node, style, dragHandle }: NodeRendererProps<ArboristN
         {data.name ?? '(untitled)'}
       </span>
 
-      {/* Status badge */}
-      <NodeStatusBadge status={data.status} />
+      {/* Status badge — replaced by AgentActivityIndicator-styled spinner
+          when a pending/running agent job targets this node (Phase 5,
+          Component Spec §4.4). */}
+      <NodeWithAgentBadge nodeId={data.id} status={data.status} />
 
       {/* Hover actions — visible on row hover; disabled when locked.
           opacity transition keeps layout space stable. */}
@@ -214,6 +217,35 @@ interface RowActionButtonProps {
   disabled?: boolean
   onClick?: (e: React.MouseEvent<HTMLButtonElement>) => void
   'aria-label': string
+}
+
+/**
+ * Wrapper that swaps NodeStatusBadge for the AgentActivityIndicator pulse
+ * when an agent job is actively running on this node. Per Component Spec
+ * §4.4: type icon (proxied here by the status badge container) opacity
+ * pulses 1 → 0.4 → 1 over 2s ease-in-out infinite.
+ *
+ * Falls through to the standard NodeStatusBadge when no job is active.
+ */
+function NodeWithAgentBadge({ nodeId, status }: { nodeId: string; status: string }) {
+  const hasRunningJob = useNodeHasRunningJob(nodeId)
+  if (hasRunningJob) {
+    return (
+      <span
+        aria-label="agent running on this node"
+        className="agent-activity-pulse"
+        style={{
+          display: 'inline-block',
+          width: '8px',
+          height: '8px',
+          borderRadius: '50%',
+          background: 'var(--color-agent-running)',
+          flexShrink: 0,
+        }}
+      />
+    )
+  }
+  return <NodeStatusBadge status={status} />
 }
 
 function RowActionButton({ glyph, disabled, onClick, ...rest }: RowActionButtonProps) {
