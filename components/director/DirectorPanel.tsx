@@ -23,6 +23,8 @@
 
 import { useDirectorConversation } from '@/lib/hooks/useDirectorConversation'
 import { ConversationThread, type ConversationMessage } from './ConversationThread'
+import { PlanCard } from './PlanCard'
+import { ExecutionCard } from './ExecutionCard'
 
 interface DirectorPanelProps {
   documentId: string
@@ -35,7 +37,8 @@ export function DirectorPanel({
   documentName,
   onClose,
 }: DirectorPanelProps) {
-  const { messages, isLoading, error } = useDirectorConversation(documentId)
+  const { messages, isLoading, error, currentWorkflow, refresh } =
+    useDirectorConversation(documentId)
 
   const threadMessages: ConversationMessage[] = messages.map((m) => ({
     id: m.id,
@@ -44,6 +47,30 @@ export function DirectorPanel({
     created_at: m.created_at,
     workflow_id: m.workflow_id,
   }))
+
+  // Plan / Execution card mounting (T-15). The card mounts inline
+  // beneath the assistant message that produced the workflow. There is
+  // at most one active workflow per conversation (current_workflow) so
+  // the slot only renders for the matching message.
+  const renderWorkflowSlot = (messageId: string, workflowId: string) => {
+    if (!currentWorkflow || currentWorkflow.id !== workflowId) return null
+    const status = currentWorkflow.status
+    if (status === 'draft') {
+      return (
+        <PlanCard
+          workflow={currentWorkflow}
+          onApproved={() => void refresh()}
+          onCancelled={() => void refresh()}
+        />
+      )
+    }
+    return (
+      <ExecutionCard
+        workflow={currentWorkflow}
+        onUpdated={() => void refresh()}
+      />
+    )
+  }
 
   return (
     <section
@@ -92,7 +119,10 @@ export function DirectorPanel({
           Loading conversation…
         </div>
       ) : (
-        <ConversationThread messages={threadMessages} />
+        <ConversationThread
+          messages={threadMessages}
+          renderWorkflowSlot={renderWorkflowSlot}
+        />
       )}
 
       <DirectorInputPlaceholder />
