@@ -52,6 +52,7 @@ export default async function DocumentPage({ params }: Props) {
         <DocumentClient
           projectId={projectId}
           documentId={documentId}
+          documentName={document.name}
           documentType={document.document_type as 'novel' | 'short_story' | 'series'}
         />
       </div>

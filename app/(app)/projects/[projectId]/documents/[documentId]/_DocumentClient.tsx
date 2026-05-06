@@ -2,37 +2,49 @@
 
 // Spec: stelavox_phase2_build_checklist_v1_0.md v1.1 §3.6
 //       stelavox_phase4_build_checklist_v1_0.md §3.4 T-4.3
+//       stelavox_phase5b_build_checklist_v1_0.md §3.14 T-14.1 (G-12)
 //
 // Client-side wrapper for the document page. The page itself is an
-// async server component (it does the auth/document lookup); this
-// component holds the selectedNodeId + treeRefreshKey state and
-// pushes <NodeDetailPanel> into AppShell's right slot via
-// useRightSlot() when a node is selected.
+// async server component (auth + document lookup); this component
+// holds selectedNodeId + treeRefreshKey + mode and pushes the right
+// panel content into AppShell's right slot.
 //
-// Phase 4: also wires the Sidebar's project context so the Sidebar's
-// Context library renders the document's project's context nodes,
-// and a Sidebar row click opens the same NodeDetailPanel.
+// Phase 4: tells the Sidebar which project + document is active so
+// sidebar context-row clicks open the detail panel.
+//
+// Phase 5b (G-12): when the global ModeTabBar is on Director, the
+// right-slot content swaps from NodeDetailPanel to DirectorPanel.
+// The node selection persists across the swap so toggling back to
+// Edit returns the user to where they were.
 
 import { useEffect, useState } from 'react'
 import { NodeTree } from '@/components/tree/NodeTree'
 import { NodeDetailPanel } from '@/components/detail/NodeDetailPanel'
+import { DirectorPanel } from '@/components/director/DirectorPanel'
 import { useRightSlot, useSidebarProject } from '@/components/layout/AppShell'
+import { useMode } from '@/components/layout/ModeContext'
 
 interface Props {
   projectId: string
   documentId: string
+  documentName: string
   documentType: 'novel' | 'short_story' | 'series'
 }
 
-export function DocumentClient({ projectId, documentId, documentType }: Props) {
+const DIRECTOR_MIN_WIDTH = 400 // Component Spec §7.1
+
+export function DocumentClient({
+  projectId,
+  documentId,
+  documentName,
+  documentType,
+}: Props) {
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
   const [refreshKey, setRefreshKey] = useState(0)
-  const { setContent } = useRightSlot()
+  const { setContent, setMinWidthOverride } = useRightSlot()
   const { setProject } = useSidebarProject()
+  const { mode, setEnabled, setMode } = useMode()
 
-  // Phase 4: tell the Sidebar which project + document is active and
-  // pass our setSelectedNodeId so sidebar context-row clicks open the
-  // detail panel.
   useEffect(() => {
     setProject({
       projectId,
@@ -44,9 +56,31 @@ export function DocumentClient({ projectId, documentId, documentType }: Props) {
     }
   }, [projectId, documentId, setProject])
 
-  // Push the detail panel into AppShell's right slot when a node is
-  // selected. Cleanup restores the default placeholder.
+  // Enable the global ModeTabBar (and ⌘. shortcut) while a document
+  // client is mounted. Disabling on unmount returns the bar to its
+  // disabled state on non-document routes.
   useEffect(() => {
+    setEnabled(true)
+    return () => setEnabled(false)
+  }, [setEnabled])
+
+  // Push the right-slot content based on (mode, selectedNodeId).
+  useEffect(() => {
+    if (mode === 'director') {
+      setMinWidthOverride(DIRECTOR_MIN_WIDTH)
+      setContent(
+        <DirectorPanel
+          documentId={documentId}
+          documentName={documentName}
+          onClose={() => setMode('edit')}
+        />,
+      )
+      return () => {
+        setContent(null)
+        setMinWidthOverride(null)
+      }
+    }
+    // Edit mode
     if (!selectedNodeId) {
       setContent(null)
       return
@@ -55,12 +89,21 @@ export function DocumentClient({ projectId, documentId, documentType }: Props) {
       <NodeDetailPanel
         nodeId={selectedNodeId}
         refreshKey={refreshKey}
-        onMutated={() => setRefreshKey(k => k + 1)}
+        onMutated={() => setRefreshKey((k) => k + 1)}
         onClose={() => setSelectedNodeId(null)}
-      />
+      />,
     )
     return () => setContent(null)
-  }, [selectedNodeId, refreshKey, setContent])
+  }, [
+    mode,
+    selectedNodeId,
+    refreshKey,
+    documentId,
+    documentName,
+    setContent,
+    setMinWidthOverride,
+    setMode,
+  ])
 
   return (
     <NodeTree
