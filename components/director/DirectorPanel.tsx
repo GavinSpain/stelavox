@@ -1,30 +1,34 @@
 'use client'
 
 // Spec: stelavox_component_specification_v2_7.md §7.1 (DirectorPanel)
-//       stelavox_phase5b_api_contract_v1_0.md §3.3, §2.17, G-12
-//       stelavox_phase5b_build_checklist_v1_0.md §3.14 T-14.1
+//       stelavox_phase5b_api_contract_v1_0.md §3.1, §3.3, §2.16, §2.17, G-12
+//       stelavox_phase5b_build_checklist_v1_0.md §3.14 T-14.1, §3.16 T-16
 //
-// The Director panel mounts in the right column when ModeTabBar is on
-// Director. Header (◆ The Director + document tag + History) at top,
-// scrollable ConversationThread below, DirectorInput (T-16) at the
-// bottom. Conversation state via useDirectorConversation (fetch +
-// real-time on workflows / workflow_steps).
+// Mounts in the right column when ModeTabBar is on Director. Header +
+// scrollable ConversationThread + DirectorInput. Conversation state
+// via useDirectorConversation (fetch + real-time on workflows /
+// workflow_steps). Send goes through streamDirectorMessage and the
+// SSE handlers update local streaming state; on `done` we refresh the
+// canonical message list from the server.
 //
-// Width: 580px preferred (clamped by the host slot to 400–55vw). The
-// AppShell right slot enforces actual layout width; here we pin a
-// min-width so the slot expands to fit when entering Director Mode.
+// Width: 580px preferred (clamped by the host slot to 400–55vw).
 //
-// PlanCard / ExecutionCard mount via children of DirectorMessage in
-// T-15; this panel passes a renderWorkflowSlot callback through that
-// is currently a no-op (returns null). T-15 will replace that.
+// PlanCard / ExecutionCard mount via children of DirectorMessage —
+// renderWorkflowSlot returns the right card based on workflow.status.
 //
-// H-05: subscriptions live in useDirectorConversation and are torn down
-// by its own useEffect cleanup.
+// H-05: subscriptions live in useDirectorConversation and are torn
+// down by its own useEffect cleanup.
 
-import { useDirectorConversation } from '@/lib/hooks/useDirectorConversation'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import {
+  useDirectorConversation,
+  type ConversationMessageDto,
+} from '@/lib/hooks/useDirectorConversation'
 import { ConversationThread, type ConversationMessage } from './ConversationThread'
+import { DirectorInput } from './DirectorInput'
 import { PlanCard } from './PlanCard'
 import { ExecutionCard } from './ExecutionCard'
+import { streamDirectorMessage } from '@/lib/director/streamMessage'
 
 interface DirectorPanelProps {
   documentId: string
@@ -32,45 +36,175 @@ interface DirectorPanelProps {
   onClose?: () => void
 }
 
+interface StreamingState {
+  // Synthetic local message ids while the SSE turn is in flight.
+  userMessageId: string
+  assistantMessageId: string
+  conversationId: string | null
+  text: string
+  isThinking: boolean // true between start and first text_delta
+}
+
 export function DirectorPanel({
   documentId,
   documentName,
   onClose,
 }: DirectorPanelProps) {
-  const { messages, isLoading, error, currentWorkflow, refresh } =
-    useDirectorConversation(documentId)
+  const {
+    conversation,
+    messages,
+    isLoading,
+    error,
+    currentWorkflow,
+    refresh,
+    appendMessage,
+  } = useDirectorConversation(documentId)
+  const [streaming, setStreaming] = useState<StreamingState | null>(null)
+  const [streamError, setStreamError] = useState<string | null>(null)
+  const abortRef = useRef<AbortController | null>(null)
 
-  const threadMessages: ConversationMessage[] = messages.map((m) => ({
-    id: m.id,
-    role: m.role,
-    content: m.content,
-    created_at: m.created_at,
-    workflow_id: m.workflow_id,
-  }))
+  // Tear down any in-flight stream on unmount.
+  useEffect(() => {
+    return () => {
+      abortRef.current?.abort()
+    }
+  }, [])
 
-  // Plan / Execution card mounting (T-15). The card mounts inline
-  // beneath the assistant message that produced the workflow. There is
-  // at most one active workflow per conversation (current_workflow) so
-  // the slot only renders for the matching message.
-  const renderWorkflowSlot = (messageId: string, workflowId: string) => {
-    if (!currentWorkflow || currentWorkflow.id !== workflowId) return null
-    const status = currentWorkflow.status
-    if (status === 'draft') {
+  const handleSend = useCallback(
+    async (content: string, mentionedNodeIds: string[]) => {
+      if (streaming) return
+      setStreamError(null)
+      const ts = new Date().toISOString()
+      const localUserId = `_local-user-${Date.now()}`
+      const localAssistantId = `_local-assistant-${Date.now()}`
+      // Optimistically show the user's message and a thinking-state
+      // assistant placeholder.
+      appendMessage({
+        id: localUserId,
+        conversation_id: conversation?.id ?? '',
+        role: 'user',
+        content,
+        sequence: -1,
+        tool_calls: [],
+        workflow_id: null,
+        created_at: ts,
+      })
+      setStreaming({
+        userMessageId: localUserId,
+        assistantMessageId: localAssistantId,
+        conversationId: conversation?.id ?? null,
+        text: '',
+        isThinking: true,
+      })
+      const ctrl = new AbortController()
+      abortRef.current = ctrl
+      try {
+        await streamDirectorMessage(
+          {
+            documentId,
+            conversationId: conversation?.id ?? null,
+            content,
+            mentionedNodeIds,
+            signal: ctrl.signal,
+          },
+          {
+            onStart: (d) => {
+              setStreaming((s) =>
+                s
+                  ? { ...s, conversationId: d.conversation_id, isThinking: true }
+                  : s,
+              )
+            },
+            onTextDelta: (delta) => {
+              setStreaming((s) =>
+                s ? { ...s, text: s.text + delta, isThinking: false } : s,
+              )
+            },
+            onToolUseStart: () => {
+              // Show a brief thinking pulse between tool boundaries.
+              setStreaming((s) => (s ? { ...s, isThinking: true } : s))
+            },
+            onToolUseComplete: () => {
+              setStreaming((s) => (s ? { ...s, isThinking: false } : s))
+            },
+            onWorkflowProposal: () => {
+              // The workflow row will arrive via real-time; force a
+              // refresh so the inline PlanCard mounts immediately.
+              void refresh()
+            },
+            onAssistantMessageComplete: () => {
+              // Persisted; canonical state will be reloaded on done.
+            },
+            onError: (d) => {
+              setStreamError(d.message ?? d.error ?? 'Stream error')
+            },
+            onDone: () => {
+              // No-op here; the finally block clears streaming and
+              // triggers a refresh.
+            },
+          },
+        )
+      } catch (e) {
+        if ((e as { name?: string })?.name === 'AbortError') return
+        setStreamError(e instanceof Error ? e.message : 'Stream failed')
+      } finally {
+        abortRef.current = null
+        setStreaming(null)
+        // Final reconciliation with the server.
+        await refresh()
+      }
+    },
+    [appendMessage, conversation, documentId, refresh, streaming],
+  )
+
+  // Compose the rendered message list: server messages + (if streaming)
+  // a synthetic assistant message with the current text. The user's
+  // optimistic message is already in `messages` via appendMessage().
+  const threadMessages: ConversationMessage[] = useMemo(() => {
+    const mapped: ConversationMessage[] = messages.map((m: ConversationMessageDto) => ({
+      id: m.id,
+      role: m.role,
+      content: m.content,
+      created_at: m.created_at,
+      workflow_id: m.workflow_id,
+    }))
+    if (streaming && streaming.text.length > 0) {
+      mapped.push({
+        id: streaming.assistantMessageId,
+        role: 'assistant',
+        content: streaming.text,
+        created_at: new Date().toISOString(),
+        workflow_id: null,
+      })
+    }
+    return mapped
+  }, [messages, streaming])
+
+  const renderWorkflowSlot = useCallback(
+    (_messageId: string, workflowId: string) => {
+      if (!currentWorkflow || currentWorkflow.id !== workflowId) return null
+      const status = currentWorkflow.status
+      if (status === 'draft') {
+        return (
+          <PlanCard
+            workflow={currentWorkflow}
+            onApproved={() => void refresh()}
+            onCancelled={() => void refresh()}
+          />
+        )
+      }
       return (
-        <PlanCard
+        <ExecutionCard
           workflow={currentWorkflow}
-          onApproved={() => void refresh()}
-          onCancelled={() => void refresh()}
+          onUpdated={() => void refresh()}
         />
       )
-    }
-    return (
-      <ExecutionCard
-        workflow={currentWorkflow}
-        onUpdated={() => void refresh()}
-      />
-    )
-  }
+    },
+    [currentWorkflow, refresh],
+  )
+
+  const showThinking = !!streaming && streaming.isThinking
+  const streamingMessageId = streaming?.assistantMessageId ?? null
 
   return (
     <section
@@ -86,7 +220,7 @@ export function DirectorPanel({
     >
       <DirectorHeader documentName={documentName} onClose={onClose} />
 
-      {error ? (
+      {error || streamError ? (
         <div
           role="alert"
           style={{
@@ -100,7 +234,7 @@ export function DirectorPanel({
             color: 'var(--color-text-primary)',
           }}
         >
-          Director unavailable — {error}
+          Director — {streamError ?? error}
         </div>
       ) : null}
 
@@ -121,21 +255,23 @@ export function DirectorPanel({
       ) : (
         <ConversationThread
           messages={threadMessages}
+          isThinking={showThinking}
+          streamingMessageId={streamingMessageId}
           renderWorkflowSlot={renderWorkflowSlot}
         />
       )}
 
-      <DirectorInputPlaceholder />
+      <DirectorInput
+        documentId={documentId}
+        isStreaming={streaming !== null}
+        onSend={handleSend}
+      />
     </section>
   )
 }
 
 // ────────────────────────────────────────────────────────────────────
 // DirectorHeader (Component Spec §7.1)
-//
-// Title "◆ The Director" Inter 600 13px (◆ in --color-accent — brand
-// identity marker, not subject to the nine-use rule per §7.1).
-// Document tag chip + History button on the right.
 
 function DirectorHeader({
   documentName,
@@ -235,38 +371,5 @@ function DirectorHeader({
         ) : null}
       </div>
     </header>
-  )
-}
-
-// Placeholder for the DirectorInput surface (T-16). Keeping it here so
-// the panel lays out correctly during T-14 — flex column with a fixed
-// bottom region. T-16 replaces this with the real DirectorInput.
-
-function DirectorInputPlaceholder() {
-  return (
-    <div
-      style={{
-        flexShrink: 0,
-        padding: '12px 20px 16px',
-        borderTop: '1px solid var(--color-border-subtle)',
-        background: 'var(--color-bg-surface)',
-      }}
-    >
-      <div
-        style={{
-          background: 'var(--color-bg-base)',
-          border: '1px solid var(--color-border-subtle)',
-          borderRadius: 5,
-          padding: '10px 12px',
-          fontFamily: 'var(--font-inter), Inter, sans-serif',
-          fontWeight: 300,
-          fontSize: 12,
-          color: 'var(--color-text-disabled)',
-          fontStyle: 'italic',
-        }}
-      >
-        Director input arrives in T-16…
-      </div>
-    </div>
   )
 }
