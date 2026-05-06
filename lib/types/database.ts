@@ -489,6 +489,7 @@ export type Database = {
           tokens_output: number | null
           tool_calls: Json | null
           turn_state: string
+          workflow_id: string | null
         }
         Insert: {
           author_user_id?: string | null
@@ -505,6 +506,7 @@ export type Database = {
           tokens_output?: number | null
           tool_calls?: Json | null
           turn_state?: string
+          workflow_id?: string | null
         }
         Update: {
           author_user_id?: string | null
@@ -521,6 +523,7 @@ export type Database = {
           tokens_output?: number | null
           tool_calls?: Json | null
           turn_state?: string
+          workflow_id?: string | null
         }
         Relationships: [
           {
@@ -528,6 +531,13 @@ export type Database = {
             columns: ["conversation_id"]
             isOneToOne: false
             referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conversation_messages_workflow_id_fkey"
+            columns: ["workflow_id"]
+            isOneToOne: false
+            referencedRelation: "workflows"
             referencedColumns: ["id"]
           },
         ]
@@ -1698,6 +1708,7 @@ export type Database = {
           created_at: string
           description: string | null
           document_id: string
+          error_message: string | null
           estimated_total_minutes: number | null
           id: string
           impact_summary: string | null
@@ -1715,6 +1726,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           document_id: string
+          error_message?: string | null
           estimated_total_minutes?: number | null
           id?: string
           impact_summary?: string | null
@@ -1732,6 +1744,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           document_id?: string
+          error_message?: string | null
           estimated_total_minutes?: number | null
           id?: string
           impact_summary?: string | null

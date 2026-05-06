@@ -167,6 +167,17 @@ ALTER TABLE conversation_messages
   ADD COLUMN tokens_cache_write INTEGER,
   ADD COLUMN cost_usd DECIMAL(10,6);
 
+-- workflow_id link (T-18 fix to T-12 backend gap). Per API Contract
+-- §2.13: assistant messages whose end-of-turn produced a workflow have
+-- a workflow_id back-link; the UI uses it to mount PlanCard inline
+-- under the originating message. ON DELETE SET NULL so cancelled
+-- workflows leave the message intact.
+ALTER TABLE conversation_messages
+  ADD COLUMN workflow_id UUID REFERENCES workflows(id) ON DELETE SET NULL;
+CREATE INDEX idx_conversation_messages_workflow_id
+  ON conversation_messages(workflow_id)
+  WHERE workflow_id IS NOT NULL;
+
 ------------------------------------------------------------
 -- 4. supabase_realtime publication add (G-6)
 ------------------------------------------------------------
@@ -222,7 +233,12 @@ ALTER TABLE agent_jobs
   ADD COLUMN last_heartbeat_at TIMESTAMPTZ;
 
 ALTER TABLE workflows
-  ADD COLUMN last_heartbeat_at TIMESTAMPTZ;
+  ADD COLUMN last_heartbeat_at TIMESTAMPTZ,
+  ADD COLUMN error_message TEXT;
+-- error_message mirrors a paused workflow's failed-step error_message
+-- (API Contract §2.14: "added at the workflow level if the workflow
+-- paused due to a step failure"). Phase 5b T-12 selects this column;
+-- column add was missed in the original 031 draft.
 
 ------------------------------------------------------------
 -- 7. conversation_messages.turn_state (SU-41 — I-12)

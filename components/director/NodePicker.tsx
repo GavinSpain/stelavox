@@ -71,7 +71,7 @@ export function NodePicker({
     void (async () => {
       try {
         const res = await fetch(
-          `/api/documents/${documentId}/nodes?node_category=all`,
+          `/api/documents/${documentId}/nodes?category=all`,
           { cache: 'no-store' },
         )
         if (!res.ok) return
