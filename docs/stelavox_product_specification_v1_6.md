@@ -1,5 +1,5 @@
 # Stelavox — Product Specification
-## Version 1.5
+## Version 1.6
 
 ---
 
@@ -527,6 +527,8 @@ All open questions from v1.1 have been resolved. There are currently no open que
 ---
 
 ## 10. Changelog
+
+**v1.6 — 2026-05-07** Phase 5b close-out absorption (substrate-merged; verification-pending). Phase 5b ships the Director: an authoring collaborator that converses with the author, plans multi-step revisions across the document, and executes approved workflows step-by-step against the Phase 5 agent system. The user-facing description in §4 (Feature Inventory — "Director conversation" row) and the J5 user journey (§6.5) are unchanged from v1.5; this version's amendment is a phase-status update. **§4** Director conversation row's phase column stays at "5b"; ship status is "MET (substrate)" with verification deferred to a pre-launch follow-up: T-17.1 J5 walkthrough on Haiku 4.5, T-17.2 adversarial walk on Haiku, T-18.3 cloud smoke 4 cases on `stelavox-dev`. The phase-5b substrate is verified at the type-check / lint / build / regression level (270/271 PASS) and at 26/45 of the β-scope test plan; the 19 deferred cases are gated by user-supervised Haiku spend (~$2 budget). No feature added or removed; pricing, tier definitions (§3), and BYOK / Vault flow (§4.13) unchanged. Phase 5b's scope honours the J5 narrative end-to-end: Director Mode tab swap (G-12), conversation persists per document, plan-card approval gate (Inviolable: nothing executes until Approve), step-by-step ExecutionCard with heartbeat, locked-node respect.
 
 **v1.5 — 2026-05-05** Phase 5 close-out absorption. Phase 5 ships the single-node agent system: `expand` / `synthesise` / `refine` / `generate_context` operations + agent-job lifecycle UI + editorial comments. The Director (multi-step agentic workflow) is **not** part of Phase 5 — per Phase 5 SU-23, Director is now Phase 5b and synthesise streaming is Phase 5c. **§4 Feature Inventory** rows for "Agent operations" and "Director conversation" remain as written (the user-facing description doesn't change with the build-phase carve-out), but the phase column on the Director row is **5b** (was previously implicit 5). User Journey **J5 (Director: Document-Level Review and Planned Revisions)** in §6 is unaffected at the user-experience level — the journey describes the V1 product the user encounters; the build-phase split is internal scheduling. No feature added or removed; pricing, tier definitions (§3), and BYOK / Vault flow (§4.13) unchanged. The Phase 5 ship is β-scope per Phase 5 Test Plan v1.2 §10 (52 of 152 planned cases) — this is internal verdict-discipline, not a product-surface change.
 
