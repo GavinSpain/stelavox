@@ -12,6 +12,11 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Each Claude Code session gets its own worktree under
+    // .claude/worktrees/. Those worktrees contain a full project copy,
+    // and without this ignore eslint double-scans them from the main
+    // checkout, producing tens-of-thousands of duplicate problems.
+    ".claude/worktrees/**",
   ]),
 ]);
 
