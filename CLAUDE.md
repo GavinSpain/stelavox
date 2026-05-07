@@ -1,5 +1,5 @@
 # Stelavox — Claude Code Project Context
-## Version 1.10
+## Version 1.11
 
 > **Versioning note:** This file is versioned. The version lives here, not in the filename — the filename must remain `CLAUDE.md` for Claude Code to find it automatically. When this file changes, increment the version and add a changelog entry at the bottom. The source of record is `docs/CLAUDE_stelavox_project.md`; the deployed copy at the repository root must always match it. Commit both in the same commit.
 
@@ -13,7 +13,7 @@ Read these before writing any code in a new session:
 
 1. `docs/stelavox_wireframe_errata_v1_0.md` — corrections to wireframes (read before any wireframe HTML)
 2. The relevant spec section for today's task (see Spec Library Reference below)
-3. `docs/stelavox_technical_architecture_v1_9.md` §5 — Known Hazards H-01 to H-15, if today's task touches the database, agents, or Director
+3. `docs/stelavox_technical_architecture_v2_0.md` §5 — Known Hazards H-01 to H-15, if today's task touches the database, agents, or Director
 
 ---
 
@@ -23,15 +23,15 @@ All documents live in `/docs`. Before making any change, read the relevant docum
 
 | Change type | Read first |
 |---|---|
-| Any UI change | `stelavox_component_specification_v2_7.md` |
+| Any UI change | `stelavox_component_specification_v2_8.md` |
 | Layout, tokens, motion, accessibility | `stelavox_ui_design_specification_v1_0.md` |
 | Colour, typography, brand rules | `stelavox_brand_identity_v2_0.md` |
-| Database schema, RLS, migrations, agent system, Director, security | `stelavox_technical_architecture_v1_9.md` |
-| Product features, user journeys, pricing, data model | `stelavox_product_specification_v1_5.md` |
+| Database schema, RLS, migrations, agent system, Director, security | `stelavox_technical_architecture_v2_0.md` |
+| Product features, user journeys, pricing, data model | `stelavox_product_specification_v1_6.md` |
 | Agent system prompts | `stelavox_agent_profile_library_v1_0.md` (v1.1 changelog) |
 | Any wireframe | `stelavox_wireframe_errata_v1_0.md` first, then the wireframe HTML |
 | Environment setup, deployment | `stelavox_deployment_setup_v1_0.md` |
-| Current phase tasks | Phase 5 shipped 2026-05-05 — `stelavox_phase5_api_contract_v1_0.md` (v1.2), `stelavox_phase5_build_checklist_v1_0.md` (v1.2), `stelavox_phase5_test_plan_v1_0.md` (v1.2), `stelavox_phase5_test_report_v1_0.md` (v1.0). β-scope: 52/52 active local on Haiku 4.5 + 4/4 cloud smoke on Sonnet 4.6 (~$0.040). 100 cases deferred to Phase 8 (SU-33). Phase 5b (Director) is the next-up Tier-B authoring target. |
+| Current phase tasks | Phase 5b substrate shipped 2026-05-07 — `stelavox_phase5b_api_contract_v1_0.md` (v1.1), `stelavox_phase5b_build_checklist_v1_0.md` (v1.1), `stelavox_phase5b_test_plan_v1_0.md` (v1.1), `stelavox_phase5b_test_report_v1_0.md` (v1.0). β-scope: 26/45 active local; 19 deferred pending live-LLM iteration on Haiku 4.5 (T-17.1 J5 walkthrough + T-17.2 adversarial walk + T-18.3 cloud smoke 4 cases on `stelavox-dev`, ~$2 budget) and Vitest install (SU-44, ~5 unit-level cases). Phase 5 regression: 270/271 PASS (1 pre-existing Character `role` enum drift unrelated). The verification-complete checkpoint is the next Phase 5b session; no other phase is queued in front of it. |
 
 ---
 
@@ -202,7 +202,7 @@ Read Technical Architecture v1.9 §5 for the full entries (H-01 to H-15). The mo
 
 ## Critical Component Specifications
 
-Before implementing or modifying these components, read the exact spec in `docs/stelavox_component_specification_v2_7.md`:
+Before implementing or modifying these components, read the exact spec in `docs/stelavox_component_specification_v2_8.md`:
 
 | Component | Spec | Key constraint |
 |---|---|---|
@@ -215,8 +215,11 @@ Before implementing or modifying these components, read the exact spec in `docs/
 | `ProseEditorCursor` | §5.5 | 2px verdigris (`--color-accent`), no blink while typing |
 | `FocusMode` | §6.1 | 280ms expo-out (`--easing-default`), all elements simultaneous |
 | `FocusBreadcrumb` | §6.2 | `pointer-events: none` always. Max opacity 0.2 — never higher |
-| `AgentTab` | §5.9 | Active state: indeterminate sliding-stripe progress (no percentage); no token count during running. Complete state: `tokens: X in · Y out · Z total · cost $N · model M` summary. Accept button is verdigris use #7 (Component Spec v2.7) |
-| `PlanCard` | §7.6 | Always fully expanded. Approve button label updates live on checkbox changes |
+| `AgentTab` | §5.9 | Active state: indeterminate sliding-stripe progress (no percentage); no token count during running. Complete state: `tokens: X in · Y out · Z total · cost $N · model M` summary. Accept button is verdigris use #7 — broadened in v2.8 to include PlanCard Approve under the same use |
+| `DirectorPanel` | §7.1 | 580px preferred / 400px min. Mounts in right slot when ModeTabBar is on Director (G-12). ◆ icon is brand identity marker — explicitly NOT subject to nine-use rule |
+| `PlanCard` | §7.6 | Always fully expanded — every step visible. Approve button label updates live on checkbox changes ("Approve All" / "Approve N of M"). Approve button background is verdigris use #7 (Component Spec v2.8 §1.4) |
+| `ExecutionCard` | §7.7 | Per-step ◌/⟳/✓/✗ glyphs. Heartbeat indicator pulses `--color-agent-running` when fresh (<30s); muted-static when stalled (SU-42 — Component Spec v2.8) |
+| `DirectorInput` | §7.9 | Auto-expand 1–5 rows. Enter sends; Shift+Enter newline. `@` opens NodePicker. Disabled-while-streaming: opacity 0.5 + pointer-events:none, placeholder swaps to "Director is working…" |
 | `TabStrip` active indicator | §5.2 | `--color-text-primary` at 0.6 opacity — **not** `--color-accent` |
 | `PanelResizer` dragging | §2.4 | `--color-border-strong` — **not** `--color-accent` |
 
@@ -253,6 +256,8 @@ Version bumps: minor for additions and corrections, major for structural changes
 ---
 
 ## Changelog
+
+**v1.11 — 2026-05-07** Phase 5b close-out absorption (substrate-merged; verification-pending). Spec Library Reference re-pointed at the three cross-cutting specs that bumped: `stelavox_technical_architecture_v2_0.md` (was v1_9 — major bump because Phase 5b is a substantial new subsystem: Director multi-step agentic workflow, 14 new API routes, 8 new components, 13-tool registry, recovery cron, heartbeat protocol), `stelavox_product_specification_v1_6.md` (was v1_5), `stelavox_component_specification_v2_8.md` (was v2_7). Same versions reflected in the Session Start Checklist (TA v2.0 §5) and the Critical Component Specifications table header. Four new rows added to the Critical Component Specifications table: `DirectorPanel` (§7.1 — 580/400 width, G-12 mount), `ExecutionCard` (§7.7 — heartbeat indicator SU-42), `DirectorInput` (§7.9), and the `PlanCard` row updated to v2.8's broadened verdigris use #7 framing. AgentTab row's verdigris-use note updated to reflect v2.8's broadening. The "Current phase tasks" row now flags Phase 5b substrate shipped 2026-05-07 (26/45 active local; 19 deferred pending live-LLM iteration on Haiku 4.5 + Vitest install) with verification-complete as the next-up Phase 5b session. Migration count moved 30 → 31 (Phase 5b added 031). The Hazards summary in this file is unchanged — Phase 5b's SU items SU-37 (absorbed in TA v2.0 §8.3), SU-38 (absorbed in CS v2.8 §1.4), SU-42 (absorbed in CS v2.8 §7.7), SU-43 (migration schema-gap discipline — TA v2.0 changelog), SU-44 (Vitest install — TA v2.0 changelog) are architectural absorptions or process amendments, not invariant-violating hazards. SU-39/40/41 (Vercel Node.js runtime + heartbeats + mid-turn resume) were already absorbed in the Phase 5b v1.1 Tier-B docs. Five Inviolables unchanged (verdigris use #7 broadened, not duplicated; the count remains nine).
 
 **v1.10 — 2026-05-05** Phase 5 close-out absorption. Spec Library Reference re-pointed at the three cross-cutting specs that bumped: `stelavox_technical_architecture_v1_9.md` (was v1_8), `stelavox_product_specification_v1_5.md` (was v1_4), `stelavox_component_specification_v2_7.md` (was v2_6). Library doc reference added as a new row (it was previously implicit). Same versions reflected in the Session Start Checklist (TA v1.9 §5) and the Critical Component Specifications table header. New `AgentTab` row added to the Critical Component Specifications table — references §5.9 and pins the v2.7 active-state spec (indeterminate sliding-stripe progress; no token count during running; completion-only token + cost summary; Accept button is verdigris use #7). The "Current phase tasks" row now flags Phase 5 shipped 2026-05-05 (52/52 active local on Haiku 4.5 + 4/4 cloud smoke on Sonnet 4.6) with Phase 5b (Director) as the next-up Tier-B authoring target. Migration count moved 23 → 30 (Phase 5 added 025–030). The Hazards summary in this file is unchanged — Phase 5's SU items SU-30/31/32/35 are architectural absorptions or spec gaps, not invariant-violating hazards. Five Inviolables unchanged. SU-33 (~100 deferred Phase 5 Playwright cases), SU-24 (agent profile lifecycle V2), SU-25 (Short Story / Series profile coverage) remain queued — Phase 8 / V2 / V1.x candidates respectively. SU-23 (Phase 5b/5c slotting) absorbed in TA v1.9 §11. SU-36 (Test Plan §1.7 Haiku-everywhere alignment) is a follow-up amendment per `feedback_haiku_default.md` user-preference memory.
 

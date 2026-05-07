@@ -15,6 +15,7 @@
 /test-results
 /test-reports
 tests/.auth
+tests/.screenshots
 tests/results.json
 test-rpc.mjs
 

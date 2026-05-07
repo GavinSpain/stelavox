@@ -43,6 +43,7 @@ import { createContext, useCallback, useContext, useEffect, useState, type React
 import { Header } from './Header'
 import { Sidebar } from './Sidebar'
 import { PanelResizer } from './PanelResizer'
+import { ModeProvider } from './ModeContext'
 import { createClient } from '@/lib/supabase/client'
 import { useAgentJobsRealtime } from '@/lib/hooks/useAgentJobsRealtime'
 
@@ -51,9 +52,15 @@ import { useAgentJobsRealtime } from '@/lib/hooks/useAgentJobsRealtime'
 // with their own JSX (e.g. <NodeDetailPanel />). Returning to a route
 // without a detail panel: the consumer effect sets null on cleanup,
 // which restores the default placeholder.
+//
+// Phase 5b: setMinWidthOverride lets a consumer (DirectorPanel)
+// raise the slot's minimum width while it is mounted (Director needs
+// 400px minimum per Component Spec §7.1, vs. NodeDetailPanel's 320).
+// Pass `null` (or omit) to clear the override.
 const RightSlotContext = createContext<{
   setContent: (content: ReactNode | null) => void
-}>({ setContent: () => {} })
+  setMinWidthOverride: (px: number | null) => void
+}>({ setContent: () => {}, setMinWidthOverride: () => {} })
 
 export function useRightSlot() {
   return useContext(RightSlotContext)
@@ -100,7 +107,7 @@ const SIDEBAR_MAX     = 340
 
 const DETAIL_DEFAULT  = 380
 const DETAIL_MIN      = 320
-const DETAIL_MAX      = 540
+const DETAIL_MAX      = 580 // Phase 5b: covers DirectorPanel max (was 540)
 
 interface AppShellProps {
   userEmail: string
@@ -108,10 +115,21 @@ interface AppShellProps {
 }
 
 export function AppShell({ userEmail, children }: AppShellProps) {
+  return (
+    <ModeProvider>
+      <AppShellInner userEmail={userEmail}>{children}</AppShellInner>
+    </ModeProvider>
+  )
+}
+
+function AppShellInner({ userEmail, children }: AppShellProps) {
   const [sidebarWidth, setSidebarWidth] = useState(SIDEBAR_DEFAULT)
   const [detailWidth,  setDetailWidth]  = useState(DETAIL_DEFAULT)
   const [rightSlotContent, setRightSlotContent] = useState<ReactNode | null>(null)
+  const [minWidthOverride, setMinWidthOverride] = useState<number | null>(null)
   const [organisationId, setOrganisationId] = useState<string | null>(null)
+  const effectiveMin = Math.max(DETAIL_MIN, minWidthOverride ?? 0)
+  const effectiveDetailWidth = Math.max(effectiveMin, Math.min(DETAIL_MAX, detailWidth))
 
   // Resolve the user's organisation_id once on mount so the agent_jobs
   // real-time subscription (Phase 5) can be filtered to this org.
@@ -180,9 +198,13 @@ export function AppShell({ userEmail, children }: AppShellProps) {
     localStorage.setItem(DETAIL_KEY, String(w))
   }
 
+  const setMinWidthOverrideStable = useCallback((px: number | null) => {
+    setMinWidthOverride(px)
+  }, [])
+
   return (
     <SidebarProjectContext.Provider value={{ state: sidebarProjectState, setProject, bumpRefresh }}>
-    <RightSlotContext.Provider value={{ setContent: setRightSlotContent }}>
+    <RightSlotContext.Provider value={{ setContent: setRightSlotContent, setMinWidthOverride: setMinWidthOverrideStable }}>
       <div
         style={{
           display: 'flex',
@@ -223,9 +245,9 @@ export function AppShell({ userEmail, children }: AppShellProps) {
 
         <PanelResizer
           position="tree-detail"
-          value={detailWidth}
+          value={effectiveDetailWidth}
           onChange={updateDetail}
-          min={DETAIL_MIN}
+          min={effectiveMin}
           max={DETAIL_MAX}
         />
 
@@ -233,7 +255,7 @@ export function AppShell({ userEmail, children }: AppShellProps) {
           data-shell="detail"
           aria-label="Detail panel"
           style={{
-            width: `${detailWidth}px`,
+            width: `${effectiveDetailWidth}px`,
             flexShrink: 0,
             background: rightSlotContent
               ? 'var(--color-bg-surface)'

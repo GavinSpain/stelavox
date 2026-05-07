@@ -45,6 +45,7 @@ export type Database = {
           error_message: string | null
           id: string
           job_progress: Json | null
+          last_heartbeat_at: string | null
           model_id: string | null
           node_id: string | null
           operation_class: string
@@ -78,6 +79,7 @@ export type Database = {
           error_message?: string | null
           id?: string
           job_progress?: Json | null
+          last_heartbeat_at?: string | null
           model_id?: string | null
           node_id?: string | null
           operation_class?: string
@@ -111,6 +113,7 @@ export type Database = {
           error_message?: string | null
           id?: string
           job_progress?: Json | null
+          last_heartbeat_at?: string | null
           model_id?: string | null
           node_id?: string | null
           operation_class?: string
@@ -472,31 +475,55 @@ export type Database = {
       }
       conversation_messages: {
         Row: {
+          author_user_id: string | null
           content: string
           conversation_id: string
+          cost_usd: number | null
           created_at: string
           id: string
           role: string
           sequence: number
+          tokens_cache_read: number | null
+          tokens_cache_write: number | null
+          tokens_input: number | null
+          tokens_output: number | null
           tool_calls: Json | null
+          turn_state: string
+          workflow_id: string | null
         }
         Insert: {
+          author_user_id?: string | null
           content: string
           conversation_id: string
+          cost_usd?: number | null
           created_at?: string
           id?: string
           role: string
           sequence: number
+          tokens_cache_read?: number | null
+          tokens_cache_write?: number | null
+          tokens_input?: number | null
+          tokens_output?: number | null
           tool_calls?: Json | null
+          turn_state?: string
+          workflow_id?: string | null
         }
         Update: {
+          author_user_id?: string | null
           content?: string
           conversation_id?: string
+          cost_usd?: number | null
           created_at?: string
           id?: string
           role?: string
           sequence?: number
+          tokens_cache_read?: number | null
+          tokens_cache_write?: number | null
+          tokens_input?: number | null
+          tokens_output?: number | null
           tool_calls?: Json | null
+          turn_state?: string
+          workflow_id?: string | null
         }
         Relationships: [
           {
@@ -504,6 +531,13 @@ export type Database = {
             columns: ["conversation_id"]
             isOneToOne: false
             referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conversation_messages_workflow_id_fkey"
+            columns: ["workflow_id"]
+            isOneToOne: false
+            referencedRelation: "workflows"
             referencedColumns: ["id"]
           },
         ]
@@ -1674,9 +1708,11 @@ export type Database = {
           created_at: string
           description: string | null
           document_id: string
+          error_message: string | null
           estimated_total_minutes: number | null
           id: string
           impact_summary: string | null
+          last_heartbeat_at: string | null
           locked_nodes_requiring_unlock: string[] | null
           organisation_id: string
           status: string
@@ -1690,9 +1726,11 @@ export type Database = {
           created_at?: string
           description?: string | null
           document_id: string
+          error_message?: string | null
           estimated_total_minutes?: number | null
           id?: string
           impact_summary?: string | null
+          last_heartbeat_at?: string | null
           locked_nodes_requiring_unlock?: string[] | null
           organisation_id: string
           status?: string
@@ -1706,9 +1744,11 @@ export type Database = {
           created_at?: string
           description?: string | null
           document_id?: string
+          error_message?: string | null
           estimated_total_minutes?: number | null
           id?: string
           impact_summary?: string | null
+          last_heartbeat_at?: string | null
           locked_nodes_requiring_unlock?: string[] | null
           organisation_id?: string
           status?: string

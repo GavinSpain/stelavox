@@ -56,10 +56,25 @@ export interface LLMResponse {
 }
 
 export interface LLMStreamChunk {
-  type: 'text' | 'usage' | 'tool_use'
+  type:
+    | 'text'
+    | 'usage'
+    | 'tool_use_start'
+    | 'tool_use_delta'
+    | 'tool_use_complete'
+    | 'message_stop'
+  /** Text fragment for `text` chunks. */
   text?: string
+  /** Final usage figures for `usage` / `message_stop` chunks. */
   usage?: TokenUsage
+  /** For `tool_use_start`: the tool's id + name (arguments not yet known). */
+  toolStart?: { id: string; name: string }
+  /** For `tool_use_delta`: a partial JSON fragment of the tool's arguments. */
+  toolDelta?: { id: string; argumentsJsonDelta: string }
+  /** For `tool_use_complete`: fully-assembled tool call. */
   toolCall?: ToolCall
+  /** For `message_stop`: the model's stop_reason. */
+  stopReason?: 'end_turn' | 'tool_use' | 'max_tokens' | 'stop_sequence' | 'pause_turn' | 'refusal' | string
 }
 
 /** Tool definition for Director write/read tools (Phase 5b). */
@@ -78,10 +93,20 @@ export interface ToolCall {
 
 export interface LLMProvider {
   complete(prompt: AssembledPrompt): Promise<LLMResponse>
-  /** V2/Phase 5c. Throws NotImplementedError in V1. */
+  /** Phase 5c. Throws NotImplementedError in V1. */
   stream?(prompt: AssembledPrompt): AsyncIterable<LLMStreamChunk>
-  /** Phase 5b (Director). Throws NotImplementedError in Phase 5. */
+  /**
+   * Phase 5b (Director). Non-streaming tool-use — kept as an explicit
+   * stub; the Director path uses streamWithTools() instead. Reserved for
+   * admin tooling, replay tests, and V2 batch operations.
+   */
   completeWithTools?(prompt: AssembledPrompt): Promise<LLMResponse>
+  /**
+   * Phase 5b (Director). Streaming tool-use — the production Director
+   * agentic-loop path. Yields text deltas, tool-use start/delta/complete
+   * chunks, and a final usage chunk.
+   */
+  streamWithTools?(prompt: AssembledPrompt): AsyncIterable<LLMStreamChunk>
 }
 
 export class NotImplementedError extends Error {

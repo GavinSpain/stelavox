@@ -1,5 +1,5 @@
 # Stelavox — Component Specification
-## Version 2.7
+## Version 2.8
 
 ### Purpose
 
@@ -176,13 +176,13 @@ Applied via `[data-theme="light"]` on the `<html>` element. Set by user preferen
 | 4 | Agent-complete status badge | `<NodeStatusBadge>` | Completion |
 | 5 | Approved node status badge | `<NodeStatusBadge>` | Completion |
 | 6 | Word count at target | `<WordCount>` | Completion |
-| 7 | Accept button in Agent Tab | `<AgentTab>` (complete state) | Completion |
+| 7 | Author-affirmation buttons — Accept (AgentTab) + Approve (PlanCard) | `<AgentTab>` (complete state), `<PlanCard>` (footer Approve) | Completion |
 | 8 | Trial expiry primary plan CTA | `<TrialExpiryModal>` (primary button only) | Completion |
 | 9 | Active node left border in tree | `<NodeRow>` | Location |
 
 **Code verification:** Search the codebase for `--color-accent` and `#3d7858` (and `#254a38` in light mode) — every match must correspond to one of these nine locations. Any additional use is a violation of Brand Identity Inviolable #2.
 
-**Button note:** Two buttons use `--color-accent` as their background: the Accept button (#7) and the trial expiry primary CTA (#8). Both are Completion-category uses. No other button uses verdigris. Run, Synthesise, Expand, Refine, and all other agent operation buttons use `--color-agent-running` (blue). All billing and settings buttons use secondary or ghost button styles.
+**Button note:** Author-affirmation buttons (#7 — AgentTab Accept + PlanCard Approve) and the trial expiry primary CTA (#8) are the only buttons that use `--color-accent` as their background. All three are Completion-category uses (the author affirming work the system has produced). No other button uses verdigris. Run, Synthesise, Expand, Refine, and all other agent operation buttons use `--color-agent-running` (blue). All billing and settings buttons use secondary or ghost button styles.
 
 **Active tab underline:** 🔒 The active tab indicator in `TabStrip` uses `--color-text-primary` at 0.6 opacity — NOT `--color-accent`. A tab underline has no connection to the four verdigris categories (brand, inscription, completion, location) and was explicitly rejected as a tenth use.
 
@@ -1229,6 +1229,15 @@ Replaces PlanCard after approval. Shows live step progress.
 
 **Footer:** Progress text "Step 2 of 4" (left) + Pause + Stop buttons (right). Stop: `--color-error` text and border, Inter 400 10px.
 
+**Heartbeat indicator (SU-42 — Phase 5b absorbed).** A small liveness pulse adjacent to the card title, visible whenever `workflow.status === 'running'`. The dot reads from `workflows.last_heartbeat_at` (real-time-subscribed via the `workflow-steps-${workflowId}` channel) and the corresponding `agent_jobs.last_heartbeat_at` of the currently-running step.
+
+| Heartbeat state | Dot colour | Animation | Label |
+|---|---|---|---|
+| fresh — `last_heartbeat_at < 30s ago` | `--color-agent-running` | opacity `1 → 0.6 → 1`, scale `1 → 0.85 → 1`, 1.5s ease-in-out infinite ⚡ | `live` (Inter 300 10px `--color-text-muted`) |
+| stalled — `last_heartbeat_at >= 30s ago` | `--color-text-muted` | none | `stalled` |
+
+Reduced-motion preference collapses the pulse to a static dot. The transition fresh ↔ stalled is driven by a 1.5s client-side tick comparing the cached `last_heartbeat_at` to `Date.now()`; once stalled, the recovery cron at `/api/cron/director-recovery` (60s) is the backstop that marks orphaned `running` agent jobs as `failed` and the workflow as `paused`.
+
 After all steps resolve: ExecutionCard is replaced by a Director summary message. WorkflowStepIndicators in tree return to standard NodeStatusBadges.
 
 ---
@@ -1647,6 +1656,8 @@ All open questions from Component Spec v1.4 are resolved. There are currently no
 ---
 
 ## 17. Changelog
+
+**v2.8 — 2026-05-07** Phase 5b close-out absorption (substrate-merged; verification-pending). Two amendments. **§1.4** verdigris use #7 broadened from "Accept button in Agent Tab" to "Author-affirmation buttons — Accept (AgentTab) + Approve (PlanCard)" so PlanCard's Approve verdigris is folded into the existing Completion-category use rather than creating a tenth use (SU-38 — Phase 5b absorbed; the alternative — adding PlanCard Approve as use #10 — was rejected because the two buttons share a single UX function: author-affirmation of agent-produced work). The button-note paragraph below the table updated accordingly. **§7.7** ExecutionCard gains a "Heartbeat indicator" subsection covering the green-dot-pulse-while-running / muted-static-when-stalled liveness signal driven by `workflow.last_heartbeat_at` + `agent_jobs.last_heartbeat_at` (SU-42 — Phase 5b absorbed; the indicator was implemented in T-15 against the v1.1 SU-42 placeholder and is now formally specced). The dot uses `--color-agent-running` (blue), not verdigris — it is a system-state signal, not a completion signal. Reduced-motion preference collapses the pulse. Recovery cron at `/api/cron/director-recovery` (60s) is the backstop. Five Inviolables unchanged; the verdigris-use count remains nine (#7 broadened, not duplicated). All other sections (§2.5 ModeTabBar, §7.1–7.6 + 7.8–7.9, §8 Feedback, §9 Overlay, §15 Accessibility) carry forward unchanged.
 
 **v2.7 — 2026-05-05** Phase 5 close-out absorption — §5.9 AgentTab active-state spec. Two changes to the active-job-state block: (a) the progress bar is now an **indeterminate sliding-stripe** CSS animation (was a percentage-fill bar). The Anthropic SDK's non-streaming `messages.create` call doesn't expose mid-call token usage, so percentage progress would falsely imply progress measurement. The indeterminate stripe correctly conveys "in progress" without false precision. Discovered during T-15 manual UI testing (Phase 5 Test Report Iteration 5) when the user reported the progress bar appearing stuck at ~70%. (b) **No token count is shown during the running state** — `tokens_input` / `tokens_output` are populated only on completion. The complete state gains a one-line summary in Inter 300 10px `--color-text-muted`: `tokens: X in · Y out · Z total · cost $N · model M`. This summary is platform-internal (Product Spec §3.2 — billing surface uses allocation percentage, not dollars; the AgentTab summary is a developer/diagnostic display). No Inviolable changes — Accept button remains verdigris use #7. No other component changes; the §5.10 CommentThread + §5.13 Notes Editor + §5.4 ProseEditor specs are unchanged.
 

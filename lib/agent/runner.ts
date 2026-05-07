@@ -42,6 +42,36 @@ import { runExpand } from '@/lib/agent/operations/expand'
 import { runSynthesise } from '@/lib/agent/operations/synthesise'
 import { runRefine } from '@/lib/agent/operations/refine'
 import { runGenerateContext } from '@/lib/agent/operations/generate-context'
+import { startHeartbeat } from '@/lib/director/heartbeat'
+import { advanceWorkflow } from '@/lib/director/workflow-executor'
+import { getConfigInt } from '@/lib/config/platform-config'
+
+/**
+ * Phase 5b SU-40 hook — extract workflow_id from `triggered_by` if it
+ * encodes a workflow step (format: `workflow_step:<step_id>:<workflow_id>`).
+ * Used by every terminal-state write site to call advanceWorkflow().
+ */
+function workflowIdFromTriggeredBy(triggeredBy: string | null | undefined): string | null {
+  if (!triggeredBy) return null
+  if (!triggeredBy.startsWith('workflow_step:')) return null
+  const parts = triggeredBy.split(':')
+  // workflow_step:<step_id>:<workflow_id>
+  return parts.length >= 3 ? parts[2] : null
+}
+
+async function notifyWorkflowIfStep(triggeredBy: string | null | undefined): Promise<void> {
+  const workflowId = workflowIdFromTriggeredBy(triggeredBy)
+  if (workflowId) {
+    try {
+      await advanceWorkflow(workflowId)
+    } catch (err) {
+      console.error('[agent-runner] advanceWorkflow failed', {
+        workflowId,
+        error: err instanceof Error ? err.message : String(err),
+      })
+    }
+  }
+}
 
 export interface AgentJobRow {
   id: string
@@ -98,10 +128,14 @@ export async function runAgentJob(jobId: string): Promise<void> {
     return
   }
 
-  // 3. Set status='running'
+  // 3. Set status='running' + last_heartbeat_at (Phase 5b I-10)
   const { error: runErr } = await supabase
     .from('agent_jobs')
-    .update({ status: 'running', started_at: new Date().toISOString() })
+    .update({
+      status: 'running',
+      started_at: new Date().toISOString(),
+      last_heartbeat_at: new Date().toISOString(),
+    })
     .eq('id', jobId)
     .eq('status', 'pending')
 
@@ -109,6 +143,19 @@ export async function runAgentJob(jobId: string): Promise<void> {
     console.error('[agent-runner] failed to set running', { jobId, error: runErr.message })
     return
   }
+
+  // Start the heartbeat — runs every agent.heartbeat_interval_ms (default
+  // 5000ms) until stopHeartbeat() is called in the finally block. UPDATE
+  // is best-effort; failures don't crash the runner (the recovery sweep
+  // is the safety net).
+  const heartbeatIntervalMs = await getConfigInt('agent.heartbeat_interval_ms')
+  const stopHeartbeat = startHeartbeat(async () => {
+    await supabase
+      .from('agent_jobs')
+      .update({ last_heartbeat_at: new Date().toISOString() })
+      .eq('id', jobId)
+      .eq('status', 'running')
+  }, heartbeatIntervalMs)
 
   // 4. Dispatch to per-operation module
   try {
@@ -216,7 +263,16 @@ export async function runAgentJob(jobId: string): Promise<void> {
     } else {
       await markJobFailed(jobId, 'unknown_error')
     }
+  } finally {
+    // Always clear the heartbeat interval — leaving it running would
+    // leak a setInterval and continue UPDATE-ing the row after the job
+    // is terminal.
+    stopHeartbeat()
   }
+
+  // Phase 5b SU-40: if this job was dispatched as a workflow step, the
+  // continuation chain advances now (see lib/director/workflow-executor.ts).
+  await notifyWorkflowIfStep(job.triggered_by)
 }
 
 async function runOperation(
@@ -250,6 +306,14 @@ async function isJobCancelled(jobId: string): Promise<boolean> {
 
 async function markJobFailed(jobId: string, errorMessage: string): Promise<void> {
   const supabase = createServiceRoleClient()
+  // Read triggered_by before we overwrite the row — needed for workflow
+  // continuation chain notification (Phase 5b SU-40).
+  const { data: jobBefore } = await supabase
+    .from('agent_jobs')
+    .select('triggered_by')
+    .eq('id', jobId)
+    .maybeSingle()
+
   await supabase
     .from('agent_jobs')
     .update({
@@ -259,6 +323,9 @@ async function markJobFailed(jobId: string, errorMessage: string): Promise<void>
     })
     .eq('id', jobId)
     .neq('status', 'cancelled')
+
+  // Phase 5b SU-40 continuation chain notify.
+  await notifyWorkflowIfStep(jobBefore?.triggered_by)
 }
 
 async function recordTokensOnly(
