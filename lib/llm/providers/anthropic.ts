@@ -27,11 +27,60 @@ import Anthropic from '@anthropic-ai/sdk'
 import { injectCanary, scanForCanaryLeak } from '@/lib/security/canary'
 import {
   NotImplementedError,
+  type AssembledContentBlock,
+  type AssembledMessage,
   type AssembledPrompt,
   type LLMProvider,
   type LLMResponse,
   type LLMStreamChunk,
 } from '@/lib/llm/types'
+
+/**
+ * Convert provider-neutral AssembledMessage[] to the Anthropic SDK's
+ * MessageParam[] shape. Phase 5b SU-47.
+ */
+function toAnthropicMessages(messages: AssembledMessage[]): Anthropic.Messages.MessageParam[] {
+  return messages.map((m) => {
+    if (typeof m.content === 'string') {
+      return { role: m.role, content: m.content }
+    }
+    const blocks: Anthropic.Messages.ContentBlockParam[] = m.content.map((b: AssembledContentBlock) => {
+      switch (b.type) {
+        case 'text':
+          return { type: 'text', text: b.text }
+        case 'tool_use':
+          return { type: 'tool_use', id: b.id, name: b.name, input: b.input }
+        case 'tool_result':
+          return {
+            type: 'tool_result',
+            tool_use_id: b.tool_use_id,
+            content: b.content,
+            ...(b.is_error ? { is_error: true } : {}),
+          }
+      }
+    })
+    return { role: m.role, content: blocks }
+  })
+}
+
+/**
+ * Models that do NOT accept the `temperature` parameter at the API level.
+ *
+ * SU-46 (Phase 5b verification, 2026-05-08): cross-model T-17.1 testing
+ * revealed that Anthropic's extended-thinking-class models reject
+ * `temperature` outright with a 400 error
+ * (`temperature is deprecated for this model`). The Director's executor
+ * passes `temperature` unconditionally; this denylist lets the provider
+ * skip the parameter for affected models.
+ *
+ * Currently affects Opus 4.7 and any later 4.x Opus revisions. Other
+ * model families continue to accept temperature. Update this matcher
+ * when Anthropic publishes a broader deprecation.
+ */
+function modelAcceptsTemperature(model: string): boolean {
+  if (/^claude-opus-4-([7-9]|\d{2,})/.test(model)) return false
+  return true
+}
 
 export class AnthropicProvider implements LLMProvider {
   private client: Anthropic
@@ -63,7 +112,9 @@ export class AnthropicProvider implements LLMProvider {
     const response = await this.client.messages.create({
       model: prompt.config.model,
       max_tokens: prompt.config.maxTokens,
-      temperature: prompt.config.temperature,
+      ...(modelAcceptsTemperature(prompt.config.model) && prompt.config.temperature !== null
+        ? { temperature: prompt.config.temperature }
+        : {}),
       system: systemBlocks,
       messages: [
         {
@@ -165,18 +216,26 @@ export class AnthropicProvider implements LLMProvider {
       }),
     )
 
+    // SU-47 — Anthropic agentic-loop protocol. When the executor supplies
+    // a messages array (the proper multi-turn shape with assistant +
+    // tool_result content blocks), use it directly. Otherwise fall back to
+    // the legacy V1 wire format that flattens a single user message — kept
+    // for backward compatibility during migration; new callers should
+    // populate `dynamic.messages`.
+    const messagesArray: Anthropic.Messages.MessageParam[] =
+      prompt.dynamic.messages && prompt.dynamic.messages.length > 0
+        ? toAnthropicMessages(prompt.dynamic.messages)
+        : [{ role: 'user', content: prompt.dynamic.securityWrapped }]
+
     const stream = this.client.messages.stream({
       model: prompt.config.model,
       max_tokens: prompt.config.maxTokens,
-      temperature: prompt.config.temperature,
+      ...(modelAcceptsTemperature(prompt.config.model) && prompt.config.temperature !== null
+        ? { temperature: prompt.config.temperature }
+        : {}),
       system: systemBlocks,
       tools,
-      messages: [
-        {
-          role: 'user',
-          content: prompt.dynamic.securityWrapped,
-        },
-      ],
+      messages: messagesArray,
     })
 
     // Per-block accumulators. Indexed by content_block index from the SDK.
