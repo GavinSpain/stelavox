@@ -45,7 +45,6 @@ import { getConfigInt } from '@/lib/config/platform-config'
 import { wrapContextWithSecurityFrame } from '@/lib/security/security-frame'
 import {
   buildToolDefinitions,
-  getToolByName,
   getToolExecutor,
 } from '@/lib/director/tools'
 import { validateToolCall } from '@/lib/security/tool-validator'
@@ -59,6 +58,8 @@ import type {
   ToolResult,
 } from '@/lib/director/types'
 import type {
+  AssembledContentBlock,
+  AssembledMessage,
   AssembledPrompt,
   LLMProvider,
   TokenUsage,
@@ -158,13 +159,14 @@ export async function* runAgenticTurn(
     input_schema: t.input_schema,
   }))
 
-  // Anthropic-format messages array, mutated across iterations as the
-  // loop appends assistant tool_use blocks and user tool_result blocks.
-  // The first user message is the new author input; conversationContext
-  // is folded into the system block via assembled-prompt's stable half
-  // (Phase 5b — full fidelity wiring of conversation history to the
-  // provider messages array is in T-9 buildConversationContext output).
-  let dynamicForFirstCall = await buildInitialDynamic(
+  // SU-47 — proper Anthropic agentic-loop messages array. Mutated across
+  // iterations: each tool-use round appends the assistant message
+  // (text + tool_use content blocks) and a user message (tool_result
+  // content blocks). The model sees its own prior turns as actual
+  // assistant messages, which is the protocol the API expects and which
+  // dramatically improves convergence on Haiku/Sonnet (see SU-47 in the
+  // Phase 5b Test Report).
+  const messages: AssembledMessage[] = buildInitialMessages(
     conversationContext,
     userMessageContent,
   )
@@ -201,7 +203,11 @@ export async function* runAgenticTurn(
         currentNode: '',
         agentInstruction: '',
         editorialComments: '',
-        securityWrapped: dynamicForFirstCall,
+        // SU-47: legacy single-string body unused when `messages` is set;
+        // kept as empty string for backward compat with the AssembledPrompt
+        // shape. The provider reads `messages` first.
+        securityWrapped: '',
+        messages,
       },
       config: {
         model: config.model_id,
@@ -265,12 +271,10 @@ export async function* runAgenticTurn(
 
     stopReason = iterationStopReason
 
-    // Validate + execute every tool call.
-    const toolResultBlocks: Array<{
-      tool_use_id: string
-      content: string
-      is_error: boolean
-    }> = []
+    // Validate + execute every tool call. Tool result blocks are
+    // built directly as AssembledContentBlock for the messages-array
+    // append after this loop (SU-47).
+    const toolResultBlocks: AssembledContentBlock[] = []
     for (const call of turnToolCalls) {
       const validation = await validateToolCall({
         toolName: call.name,
@@ -296,6 +300,7 @@ export async function* runAgenticTurn(
           result_summary: `Denied: ${reason}`,
         }
         toolResultBlocks.push({
+          type: 'tool_result',
           tool_use_id: call.id,
           content: JSON.stringify({ error: reason }),
           is_error: true,
@@ -321,6 +326,7 @@ export async function* runAgenticTurn(
           result_summary: 'Unknown tool',
         }
         toolResultBlocks.push({
+          type: 'tool_result',
           tool_use_id: call.id,
           content: JSON.stringify({ error: 'unknown_tool' }),
           is_error: true,
@@ -353,6 +359,7 @@ export async function* runAgenticTurn(
         result_summary: summary,
       }
       toolResultBlocks.push({
+        type: 'tool_result',
         tool_use_id: call.id,
         content: JSON.stringify(result.ok ? (result as { data?: unknown; proposal?: unknown }).data ?? (result as { proposal?: unknown }).proposal : result),
         is_error: !result.ok,
@@ -369,19 +376,31 @@ export async function* runAgenticTurn(
       .eq('id', assistantMessageId)
 
     if (stopReason === 'tool_use') {
-      // Feed tool results back to the model.
-      // Re-issue the streamWithTools call with the appended messages.
-      // For Phase 5b V1 we keep the dynamic-half wire format simple: we
-      // pass the *original* user message as the first user content +
-      // the assistant's tool_use blocks as the assistant content +
-      // the tool_result blocks as the next user content. This matches
-      // the Anthropic API expectation for tool-use turn continuation.
-      dynamicForFirstCall = await buildToolUseContinuation(
-        userMessageContent,
-        iterationText,
-        turnToolCalls,
-        toolResultBlocks,
-      )
+      // SU-47 — append the assistant's response (text + tool_use blocks)
+      // as a real assistant message, then append the tool results as a
+      // user message with tool_result content blocks. The model sees its
+      // own prior turn intact on the next iteration, which is what
+      // Anthropic's tool-use protocol expects.
+      const assistantContent: AssembledContentBlock[] = []
+      if (iterationText.trim().length > 0) {
+        assistantContent.push({ type: 'text', text: iterationText })
+      }
+      for (const tc of turnToolCalls) {
+        assistantContent.push({
+          type: 'tool_use',
+          id: tc.id,
+          name: tc.name,
+          input: tc.arguments,
+        })
+      }
+      // Anthropic requires non-empty content arrays. If the model emitted
+      // no text and no tool calls in this iteration (shouldn't happen on
+      // stop_reason='tool_use' but defend anyway), fall through and break.
+      if (assistantContent.length === 0) {
+        break
+      }
+      messages.push({ role: 'assistant', content: assistantContent })
+      messages.push({ role: 'user', content: toolResultBlocks })
       continue
     }
 
@@ -435,39 +454,27 @@ async function buildStableBlock(
   }
 }
 
-async function buildInitialDynamic(
+/**
+ * Build the initial messages array for a Director turn (SU-47).
+ *
+ * Replaces the legacy `buildInitialDynamic` flattened-XML wire format.
+ * Each prior conversation turn becomes a real assistant or user message;
+ * the new author input becomes the final user message in the array.
+ *
+ * The agentic loop in runAgenticTurn() then appends assistant turns
+ * (text + tool_use content blocks) and user turns (tool_result content
+ * blocks) to this array on each iteration that stops with `tool_use`.
+ */
+function buildInitialMessages(
   conversationContext: Array<{ role: 'user' | 'assistant'; content: string }>,
   userMessageContent: string,
-): Promise<string> {
-  // V1 wire format: serialise the conversation history into a single
-  // user-message body that prefaces the new question. Anthropic's tools
-  // API accepts an array of messages; this V1 simplification avoids
-  // round-tripping the full Anthropic message-array shape through
-  // the AssembledPrompt's `dynamic.securityWrapped` field. T-9
-  // upgrades to the proper messages-array form when it lands.
-  const lines: string[] = []
+): AssembledMessage[] {
+  const messages: AssembledMessage[] = []
   for (const m of conversationContext) {
-    lines.push(`<${m.role}>${m.content}</${m.role}>`)
+    messages.push({ role: m.role, content: m.content })
   }
-  lines.push(`<user>${userMessageContent}</user>`)
-  return lines.join('\n\n')
-}
-
-async function buildToolUseContinuation(
-  originalUserMessage: string,
-  assistantTextSoFar: string,
-  toolCalls: ToolCall[],
-  toolResults: Array<{ tool_use_id: string; content: string; is_error: boolean }>,
-): Promise<string> {
-  // V1: same simplification — flatten the tool round-trip into a
-  // single dynamic body. T-9 finalises to the proper message-array form.
-  return [
-    `<user>${originalUserMessage}</user>`,
-    `<assistant_partial>${assistantTextSoFar}</assistant_partial>`,
-    `<assistant_tool_calls>${JSON.stringify(toolCalls)}</assistant_tool_calls>`,
-    `<tool_results>${JSON.stringify(toolResults)}</tool_results>`,
-    '<continue>The assistant should now react to the tool results above and either call more tools or produce its final response.</continue>',
-  ].join('\n\n')
+  messages.push({ role: 'user', content: userMessageContent })
+  return messages
 }
 
 function summariseToolResult(toolName: string, result: ToolResult): string {

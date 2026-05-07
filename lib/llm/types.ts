@@ -12,6 +12,26 @@
  *   - LLMProvider.completeWithTools → Director (Phase 5b), not in Phase 5
  */
 
+/**
+ * Provider-neutral content block for assembled messages. Phase 5b SU-47.
+ * Maps 1:1 to Anthropic's content-block shape but kept abstract so other
+ * providers (Vercel SDK, future BYOK) can implement their own translation.
+ */
+export type AssembledContentBlock =
+  | { type: 'text'; text: string }
+  | { type: 'tool_use'; id: string; name: string; input: Record<string, unknown> }
+  | { type: 'tool_result'; tool_use_id: string; content: string; is_error?: boolean }
+
+/**
+ * Provider-neutral message for the multi-turn agentic loop. Phase 5b SU-47.
+ *
+ * `content` may be a plain string (single-text-block shorthand) or an array
+ * of content blocks (when the message contains tool_use / tool_result blocks).
+ */
+export type AssembledMessage =
+  | { role: 'user' | 'assistant'; content: string }
+  | { role: 'user' | 'assistant'; content: AssembledContentBlock[] }
+
 export interface AssembledPrompt {
   stable: {
     systemPrompt: string
@@ -27,6 +47,18 @@ export interface AssembledPrompt {
     editorialComments: string
     /** The wrapped+escapeXml'd dynamic block, ready for the provider. */
     securityWrapped: string
+    /**
+     * Phase 5b SU-47 — multi-turn messages array for Anthropic's tool-use
+     * protocol. When set, streamWithTools sends this messages array directly
+     * to the API, preserving the model's view of its own assistant turns and
+     * tool_result blocks across iterations.
+     *
+     * When unset, streamWithTools falls back to a single-user-message wire
+     * format built from `securityWrapped` (legacy V1 path).
+     *
+     * The executor must include the new user message as the final entry.
+     */
+    messages?: AssembledMessage[]
   }
   config: {
     model: string

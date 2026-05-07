@@ -76,7 +76,10 @@ export async function streamDirectorMessage(
     },
     body: JSON.stringify({
       document_id: req.documentId,
-      conversation_id: req.conversationId,
+      // SU-45: API contract §3.1 specifies "uuid-or-omit" — null is not
+      // permitted. Omit the field entirely when no conversation exists
+      // yet (server then calls getOrCreateConversation).
+      ...(req.conversationId ? { conversation_id: req.conversationId } : {}),
       content: req.content,
       mentioned_node_ids: req.mentionedNodeIds,
     }),
