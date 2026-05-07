@@ -4,7 +4,7 @@
 
 ## Purpose
 
-The `j5-novel` scenario implements the §J5 user-journey from `stelavox_product_specification_v1_6.md` as a runnable test fixture. It is the V1 launch corpus for the Phase 5b Director and the reference scenario for the eval methodology described in `docs/stelavox_director_eval_methodology_v1_0.md`.
+The `j5-novel` scenario implements the §J5 user-journey from `stelavox_product_specification_v1_7.md` as a runnable test fixture. It is the V1 launch corpus for the Phase 5b Director and the reference scenario for the eval methodology described in `docs/stelavox_director_eval_methodology_v1_0.md`.
 
 The fixture is Act 1 of a hypothetical literary-noir thriller — *The November Set* — covering Detective Halsey Voss's investigation of a missing young woman from a halfway house. Six chapters, roughly seven thousand words of original prose, with fourteen catalogued issues distributed across the four subtlety levels.
 

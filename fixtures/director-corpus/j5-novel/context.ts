@@ -3,7 +3,7 @@
  *
  * Document-scoped context nodes attached to the J5 fixture. Each node
  * uses the V1 hardcoded metadata schema from
- * `stelavox_product_specification_v1_6.md` §4.7.
+ * `stelavox_product_specification_v1_7.md` §4.7.
  *
  * Six V1 context types: character / location / organisation / theme /
  * plot_thread / world. The j5-novel scenario uses character, location,

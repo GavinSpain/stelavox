@@ -249,6 +249,13 @@ async function main() {
 
     const input = panel.getByRole('textbox')
     await input.fill(probe.text)
+    // Capture the wall-clock instant just before sending. The polling loop
+    // below filters assistant messages on `created_at > probeSentAt` so we
+    // only return messages produced by THIS turn, not by any prior probe
+    // that may have left a final assistant message in the same conversation
+    // (the cloud-smoke run on 2026-05-08 surfaced this as a stale-message
+    // false positive when probes ran sequentially without --reset).
+    const probeSentAt = new Date()
     await input.press('Enter')
 
     // Wait for the assistant turn to complete by polling the DB.
@@ -268,10 +275,11 @@ async function main() {
         convId = conv.id
         const { data: msgs } = await admin
           .from('conversation_messages')
-          .select('id, content, turn_state')
+          .select('id, content, turn_state, created_at')
           .eq('conversation_id', conv.id)
           .eq('role', 'assistant')
           .eq('turn_state', 'final')
+          .gt('created_at', probeSentAt.toISOString())
           .order('sequence', { ascending: false })
           .limit(1)
         if (msgs && msgs.length > 0 && typeof msgs[0].content === 'string' && msgs[0].content.length > 0) {

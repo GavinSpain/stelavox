@@ -8,7 +8,7 @@ The probes below are the user-message prompts run against the seeded scenario. E
 
 > Act 1 feels slow in the middle. Chapters 3 and 4 seem to drag and I think the scene order might be wrong. Can you review the structure and suggest changes?
 
-**Source.** `stelavox_product_specification_v1_6.md` §J5 — exact wording.
+**Source.** `stelavox_product_specification_v1_7.md` §J5 — exact wording.
 
 **Expected to find.** L1-PACING-01, L1-ORDER-01, L1-REPETITION-01. Possibly L2-PACING-02, L3-CHARACTER-02, L4-WANT-NEED-01.
 

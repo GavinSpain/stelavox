@@ -1,5 +1,5 @@
 # Stelavox — Product Specification
-## Version 1.6
+## Version 1.7
 
 ---
 
@@ -527,6 +527,8 @@ All open questions from v1.1 have been resolved. There are currently no open que
 ---
 
 ## 10. Changelog
+
+**v1.7 — 2026-05-08** Phase 5b verification-complete absorption. The pre-launch follow-up gate is closed: T-17.1 cross-model J5 walkthrough across Haiku 4.5 / Sonnet 4.6 / Opus 4.7 complete; T-17.2 adversarial walk 10/10 PASS, zero compliances; T-18.3 cloud smoke 6/6 PASS on `stelavox-dev`. **§4 Feature Inventory** Director conversation row ship-status moves "MET (substrate)" → **"MET"**. The user-facing description in §4 (Director conversation) and User Journey J5 (§6.5) are unchanged from v1.6 — this version's amendment is a phase-status update only. Three substrate-level fixes were applied during verification (SU-45 first-message client bug; SU-46 Opus 4.7 temperature deprecation; SU-47 executor refactored to Anthropic's standard messages-array tool-use protocol — transformative cross-model impact); none alter the user-facing product surface. Canonical SU record lives in `stelavox_phase5b_test_report_v1_1.md` §1; product-spec absorption needs only the phase-row update. No feature added or removed; pricing, tier definitions (§3), Out of Scope (§7), Locked Decisions (§8) all unchanged. Five Inviolables unchanged.
 
 **v1.6 — 2026-05-07** Phase 5b close-out absorption (substrate-merged; verification-pending). Phase 5b ships the Director: an authoring collaborator that converses with the author, plans multi-step revisions across the document, and executes approved workflows step-by-step against the Phase 5 agent system. The user-facing description in §4 (Feature Inventory — "Director conversation" row) and the J5 user journey (§6.5) are unchanged from v1.5; this version's amendment is a phase-status update. **§4** Director conversation row's phase column stays at "5b"; ship status is "MET (substrate)" with verification deferred to a pre-launch follow-up: T-17.1 J5 walkthrough on Haiku 4.5, T-17.2 adversarial walk on Haiku, T-18.3 cloud smoke 4 cases on `stelavox-dev`. The phase-5b substrate is verified at the type-check / lint / build / regression level (270/271 PASS) and at 26/45 of the β-scope test plan; the 19 deferred cases are gated by user-supervised Haiku spend (~$2 budget). No feature added or removed; pricing, tier definitions (§3), and BYOK / Vault flow (§4.13) unchanged. Phase 5b's scope honours the J5 narrative end-to-end: Director Mode tab swap (G-12), conversation persists per document, plan-card approval gate (Inviolable: nothing executes until Approve), step-by-step ExecutionCard with heartbeat, locked-node respect.
 
