@@ -19,6 +19,10 @@ tests/.screenshots
 tests/results.json
 test-rpc.mjs
 
+# Director eval run artifacts (regenerable per-run JSON + comparison.md;
+# fixtures/director-corpus/j5-novel/baselines.md is the curated record)
+/results
+
 # Claude Code session-runtime files (per-session lock state)
 .claude/scheduled_tasks.lock
 
