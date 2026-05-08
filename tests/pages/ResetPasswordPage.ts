@@ -1,5 +1,4 @@
 import { Page, Locator, expect } from '@playwright/test'
-import { APP_URL } from '../helpers/auth'
 
 /**
  * Selector strategy: see LoginPage. Type-based selectors. Reset form has
