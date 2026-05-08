@@ -26,12 +26,15 @@
     },
     "app/api/director/conversation/[conversationId]/resume/route.ts": {
       "maxDuration": 300
+    },
+    "app/api/agent/synthesise/stream/route.ts": {
+      "maxDuration": 300
     }
   },
   "crons": [
     {
       "path": "/api/cron/director-recovery",
-      "schedule": "* * * * *"
+      "schedule": "0 * * * *"
     }
   ]
 }
