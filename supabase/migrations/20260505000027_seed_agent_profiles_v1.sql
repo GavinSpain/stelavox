@@ -18,16 +18,24 @@
 -- time (per §5.4 SEED_FROM_CONFIG pattern) so launch model selection follows
 -- the centralised config and admin model swaps don't require re-seeding.
 --
--- Self-contained dependency seed: the four model.* keys this migration reads
+-- Self-contained dependency seed: the model.* keys this migration reads
 -- are inserted here (ON CONFLICT DO NOTHING) so this migration runs cleanly
 -- under `supabase db reset` (which applies migrations before seed.sql). The
 -- seed.sql file's later INSERTs of the same keys no-op.
+--
+-- V1.x dev default: Haiku 4.5 across the board — cheap testing model. The
+-- launch model decision is captured at V1 release time by changing these
+-- values + the corresponding agent_profiles.model_id rows. Migration 032
+-- catches any already-deployed env that had earlier defaults.
 
 INSERT INTO platform_config (key, value, description, value_type) VALUES
-  ('model.synthesise',         '"claude-opus-4-6"',   'Model for prose synthesis operations', 'string'),
-  ('model.expand',             '"claude-sonnet-4-6"', 'Model for expand operations',          'string'),
-  ('model.refine',             '"claude-sonnet-4-6"', 'Model for refine operations',          'string'),
-  ('model.generate_context',   '"claude-sonnet-4-6"', 'Model for context generation',         'string')
+  ('model.synthesise',           '"claude-haiku-4-5-20251001"', 'Model for prose synthesis operations',     'string'),
+  ('model.expand',               '"claude-haiku-4-5-20251001"', 'Model for expand operations',              'string'),
+  ('model.refine',               '"claude-haiku-4-5-20251001"', 'Model for refine operations',              'string'),
+  ('model.generate_context',     '"claude-haiku-4-5-20251001"', 'Model for context generation',             'string'),
+  ('model.critique',             '"claude-haiku-4-5-20251001"', 'Model for critique operations',            'string'),
+  ('model.document_operation',   '"claude-haiku-4-5-20251001"', 'Model for document-level operations',      'string'),
+  ('model.byok_key_validation',  '"claude-haiku-4-5-20251001"', 'Model used to validate BYOK keys cheaply', 'string')
 ON CONFLICT (key) DO NOTHING;
 
 CREATE OR REPLACE FUNCTION seed_agent_profile(

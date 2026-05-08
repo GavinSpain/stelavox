@@ -106,7 +106,7 @@ CREATE TABLE agent_profiles (
   node_type TEXT,
   system_prompt TEXT NOT NULL,
   output_format_instructions TEXT,
-  model_id TEXT NOT NULL DEFAULT 'claude-sonnet-4-6',
+  model_id TEXT NOT NULL DEFAULT 'claude-haiku-4-5-20251001',
   temperature NUMERIC NOT NULL DEFAULT 0.7,
   max_tokens INTEGER NOT NULL DEFAULT 4096,
   context_rules JSONB DEFAULT '{}',

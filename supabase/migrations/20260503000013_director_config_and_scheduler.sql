@@ -9,7 +9,7 @@ CREATE TABLE director_configs (
     CHECK (status IN ('production','deprecated')),
   system_prompt TEXT NOT NULL,
   tool_suite JSONB NOT NULL DEFAULT '[]',
-  model_id TEXT NOT NULL DEFAULT 'claude-opus-4-6',
+  model_id TEXT NOT NULL DEFAULT 'claude-haiku-4-5-20251001',
   model_params JSONB NOT NULL DEFAULT '{}',
   capability_flags JSONB NOT NULL DEFAULT '{}',
   release_notes TEXT,
@@ -84,7 +84,7 @@ VALUES (
   'production',
   '-- loaded from supabase/seed/director-v1.0.txt --',
   '["get_document_state","get_node","get_nodes_by_layer","get_node_tree","assess_downstream_impact","get_conversation_history","get_workflow_history","create_expand_step","create_synthesise_step","create_refine_step","create_context_step","create_comment_step","create_document_operation_step"]'::jsonb,
-  'claude-opus-4-6',
+  'claude-haiku-4-5-20251001',
   '{"temperature": 0.7, "max_tokens": 8192, "extended_thinking": false}'::jsonb,
   '{"research_enabled": false, "multi_step_enabled": true, "proactive_observations_enabled": false, "batch_operations_enabled": false}'::jsonb
 );
