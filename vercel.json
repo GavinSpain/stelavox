@@ -34,7 +34,7 @@
   "crons": [
     {
       "path": "/api/cron/director-recovery",
-      "schedule": "0 * * * *"
+      "schedule": "0 0 * * *"
     }
   ]
 }
