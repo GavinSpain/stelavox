@@ -1,5 +1,5 @@
 # Stelavox — Agent Profile Library
-## Version 1.1
+## Version 1.2
 
 > **Versioning note:** This file is versioned. The version lives here, not in the filename — the filename pattern remains `stelavox_agent_profile_library_v[major]_[minor].md`. When this file changes, increment the version and add a changelog entry at the bottom (newest first). This document is the source of truth for every system prompt seeded into the `agent_profiles` table by Migration 027 (Phase 5) and any subsequent prompt-update migrations. **Production discipline:** every production edit to `agent_profiles.system_prompt` MUST be reflected by a corresponding commit bumping this document AND a follow-up migration that replicates the change to the database. The library doc + migrations together are the version-control mechanism while V1 is in market — see §6.
 
@@ -1141,22 +1141,104 @@ Return the revised content as plain text. No headers, no labels, no commentary o
 
 ## 2A. Document-Type Overlay Notes
 
+V1.x close-out (SU-25, 2026-05-08): the Short Story and Series gaps below are **resolved** by Migration 033, which adds four new system profiles dedicated to the layer-0 transitions of those templates rather than reusing Novel profiles with substituted node types. Catalog of the four new profiles is in §2.19–§2.22 below; full prompt bodies live in `supabase/migrations/20260508000033_short_story_series_profiles.sql`.
+
 ### Short Story
 
-The Short Story document type uses the layer stack `[story → scene → beat]` (a flatter version of the Novel template). The relevant V1 profiles for Short Story:
-- **Expand Story → Scenes:** authorise the `expand_chapter_into_scenes` profile (§2.3) for `node_type='story'` via a Migration 027 second seed row that copies §2.3's prompt with light substitution ("chapter" → "story") and `node_type='story'`. Phase 5 build does this in the seed file.
-- **Expand Scene → Beats:** §2.4 unchanged.
-- **Synthesise Beat:** §2.5 unchanged.
-- **Refine Story Summary:** seed the `refine_book_synopsis` profile (§2.6) with `node_type='story'` and the prompt's "novel" / "book" references substituted to "story". Migration 027 carries this as a duplicate row.
+The Short Story document type uses the layer stack `[story → scene → beat]` (a flatter version of the Novel template). V1 profile coverage:
+
+- **Expand Story → Scenes:** §2.19 `expand_story_into_scenes` (Migration 033). Dedicated short-fiction prompt — short stories are not small novels, the structural patterns and craft demands differ.
+- **Expand Scene → Beats:** §2.4 (unchanged from Novel).
+- **Synthesise Beat:** §2.5 (unchanged from Novel).
+- **Refine Story Summary:** §2.20 `refine_story_synopsis` (Migration 033). Compressed-form synopsis editing — different rhythm and length targets from a novel synopsis.
+- **Refine Scene/Beat Summary:** §2.9 / §2.10 (unchanged).
+- **Refine Beat Prose:** §2.11 (unchanged).
 - All context profiles (§2.12–§2.17) work unchanged.
 
 ### Series
 
-The Series document type uses the layer stack `[series → book → act → chapter → scene → beat]` (one level deeper). The relevant V1 profiles for Series:
-- **Expand Series → Books:** new profile in V1.x (or V2) — an `expand_series_into_books` system prompt. Not in Phase 5 scope.
-- All Novel profiles (§2.1–§2.11) apply unchanged at and below the Book level.
+The Series document type uses the layer stack `[series → book → act → chapter → scene → beat]` (one level deeper). V1 profile coverage:
 
-The Series document type's full agent-profile coverage is V1.x scope. Phase 5 ships only the `book → ... → beat` profiles; expanding Series → Books is the missing operation.
+- **Expand Series → Books:** §2.21 `expand_series_into_books` (Migration 033). Dedicated series-architecture prompt — multi-book arc planning, per-book complete arcs that contribute to the series-wide transformation.
+- **Refine Series Synopsis:** §2.22 `refine_series_synopsis` (Migration 033). Series-level vision document standards — master question, long-arc transformation, world evolution across volumes.
+- **Expand Book → Acts** through **Refine Beat Prose:** §2.1–§2.11 all apply unchanged at and below the Book level.
+- All context profiles (§2.12–§2.17) work unchanged.
+
+### 2.19 Expand Story into Scenes (Short Story)
+
+**Profile metadata:**
+
+| Field | Value |
+|---|---|
+| `name` | `expand_story_into_scenes` |
+| `description` | Generate 3–12 scene-level structural nodes from a short story synopsis. Short stories have compressed, acute structure — single dominant emotional question, single significant change. |
+| `operation_class` | `single_node` |
+| `operation_type` | `expand` |
+| `node_type` | `story` |
+| `model_id` | `SEED_FROM_CONFIG('model.expand')` |
+| `temperature` | `0.8` |
+| `max_tokens` | `4096` |
+| `is_system_profile` | `TRUE` |
+| `context_rules` | `{ "include_ancestors": false, "include_linked_contexts": true, "include_unresolved_comments": true, "target_default": 5 }` |
+
+**System prompt body:** see Migration 033 §1 (`supabase/migrations/20260508000033_short_story_series_profiles.sql`). Prompt covers short-fiction-specific craft principles: single dominant emotional question, every word load-bearing, four short-fiction structural patterns (linear arrival / inverted / vignette sequence / frame), 3–12 scene count, per-scene metadata schema (POV, location, scene_goal, scene_turn, structural_function), JSON output for `result_child_nodes`.
+
+### 2.20 Refine Story Synopsis (Short Story)
+
+**Profile metadata:**
+
+| Field | Value |
+|---|---|
+| `name` | `refine_story_synopsis` |
+| `description` | Improve the story-level summary against the standards of short-fiction synopsis writing — single dominant question, single significant change, compressed emotional engine. |
+| `operation_class` | `single_node` |
+| `operation_type` | `refine` |
+| `node_type` | `story` |
+| `model_id` | `SEED_FROM_CONFIG('model.refine')` |
+| `temperature` | `0.5` |
+| `max_tokens` | `2048` |
+| `is_system_profile` | `TRUE` |
+| `context_rules` | `{ "include_ancestors": false, "include_linked_contexts": true, "include_unresolved_comments": true }` |
+
+**System prompt body:** see Migration 033 §2. Editor persona of Chekhov / Munro / Carver / Diaz / Lahiri / Saunders short-fiction tradition. Four-thing test (precise protagonist truth / single dominant emotional question / sensory texture / unresolved central tension). 100–250-word target, plain-text output to `result_summary`.
+
+### 2.21 Expand Series into Books (Series)
+
+**Profile metadata:**
+
+| Field | Value |
+|---|---|
+| `name` | `expand_series_into_books` |
+| `description` | Generate 3–7 book-level structural nodes from a series-level vision. Series have a different architecture than single novels — each book tells a complete arc while contributing to a series-wide transformation. |
+| `operation_class` | `single_node` |
+| `operation_type` | `expand` |
+| `node_type` | `series` |
+| `model_id` | `SEED_FROM_CONFIG('model.expand')` |
+| `temperature` | `0.8` |
+| `max_tokens` | `4096` |
+| `is_system_profile` | `TRUE` |
+| `context_rules` | `{ "include_ancestors": false, "include_linked_contexts": true, "include_unresolved_comments": true, "target_default": 4 }` |
+
+**System prompt body:** see Migration 033 §3. Series-architect persona. Each book complete-on-its-own AND contributes to series-wide transformation. Four series shapes (episodic with arc / cumulative escalation / generational / symphonic). 3–7 books. Per-book metadata schema (dramatic_premise, series_arc_contribution, principal_antagonist, opening/closing situations). JSON output for `result_child_nodes`.
+
+### 2.22 Refine Series Synopsis (Series)
+
+**Profile metadata:**
+
+| Field | Value |
+|---|---|
+| `name` | `refine_series_synopsis` |
+| `description` | Improve the series-level summary against the standards of multi-book vision documents — series-wide transformation, the master question that unifies the books, character evolution across volumes. |
+| `operation_class` | `single_node` |
+| `operation_type` | `refine` |
+| `node_type` | `series` |
+| `model_id` | `SEED_FROM_CONFIG('model.refine')` |
+| `temperature` | `0.5` |
+| `max_tokens` | `2048` |
+| `is_system_profile` | `TRUE` |
+| `context_rules` | `{ "include_ancestors": false, "include_linked_contexts": true, "include_unresolved_comments": true }` |
+
+**System prompt body:** see Migration 033 §4. Five-thing test for series synopses (master dramatic question / long-arc transformation / world evolution / tonal commitment / thematic argument). Distinguishes from book synopsis — series synopsis is not "book 1 + summary of the rest". 250–500-word target, plain-text output to `result_summary`.
 
 ---
 
@@ -1184,9 +1266,9 @@ These profiles are also deferred for a second reason: the document operations ph
 
 - **Custom Operation** — v0.3 §5.3. Author-defined operation with a freeform system prompt override. Per Product Spec §4.8 this is V1 scope, but the Phase 5 API Contract did not include `POST /api/agent/custom`. Deferred to V1.x: a small Phase-5-shaped extension that adds the endpoint plus this profile. The substrate is fully in place — only the route, the system-prompt-merging logic, and the AgentTab "Custom Operation" entry are needed.
 
-### 3.4 V1.x — Series Expansion
+### 3.4 V1.x — Series Expansion ✅ RESOLVED (Migration 033, SU-25, 2026-05-08)
 
-- **Expand Series → Books** — not in v0.3. Phase 5 covers `book → act → chapter → scene → beat`; the `series → book` operation needs its own profile. Defer to V1.x.
+- **Expand Series → Books** — was deferred from Phase 5 because Migration 027 only covered `book → act → chapter → scene → beat`. Migration 033 adds `expand_series_into_books` (§2.21) plus `refine_series_synopsis` (§2.22) plus the parallel pair for Short Story (`expand_story_into_scenes` §2.19, `refine_story_synopsis` §2.20). System profile count moves 18 → 22 across all envs.
 
 ### 3.5 V1.x — Layer-Stack Variant: Novel Without Acts
 
@@ -1478,6 +1560,8 @@ Pattern (1) is the standard approach. The migration file ends up large (~3000 li
 ---
 
 ## 9. Changelog
+
+**v1.2 — 2026-05-08** SU-25 close-out — Short Story and Series profile coverage. Phase 5 shipped 18 system profiles dedicated to the Novel layer stack; the `story → ...` and `series → ...` top-level transitions had no dedicated profiles and §2A flagged this as V1.x scope. Migration 033 (`supabase/migrations/20260508000033_short_story_series_profiles.sql`) seeds four new system profiles: §2.19 `expand_story_into_scenes`, §2.20 `refine_story_synopsis`, §2.21 `expand_series_into_books`, §2.22 `refine_series_synopsis`. Each is a dedicated short-fiction or series-architecture prompt — not a Novel prompt with substituted node types — because the craft demands genuinely differ (short fiction is not a small novel; series architecture is not a long novel). System profile count moves 18 → 22 across all environments (local + cloud applied 2026-05-08). §2A rewritten to reference the new profiles by section number; §3.4 marked RESOLVED. The four new prompt bodies live in Migration 033's SQL — the library doc's §2.19–§2.22 carry the metadata tables + brief content summaries with cross-reference, rather than duplicating the prompt bodies. Future iterations of these prompts (T-15-style, after live-LLM testing on each) follow the same pattern as v1.1's §2.12 update — edit Migration 033 + library §2.19–§2.22 in lockstep per §6.1.
 
 **v1.1 — 2026-05-05** §2.12 `generate_context_character` prompt iteration during T-15 prompt review (Phase 5 Test Report Iteration 8). Two changes: (a) "USING THE STORY CONTEXT" rephrased — the previous wording ("If the character node has any existing character information, build on it...") was ambiguous when the node was empty; Haiku interpreted empty input as a refine task and refused to generate. New wording: "If the character node is empty, generate the full profile from scratch using the book synopsis as your primary source. If it has partial content, build on it." (b) CRITICAL output-format reminder appended to the prompt body: "Your response must be a single valid JSON object. Begin your response with `{` and end with `}`. Do not include any commentary, explanation, or acknowledgement of empty input before or after the JSON. If the character node is empty, that is normal — proceed to generate from scratch." Verified across Haiku/Sonnet/Opus in T-15 round 3 and Phase B cloud smoke (TC-A-19). Migration 027's seed text was updated alongside the doc — both must stay in sync per §6.1. No other §2.12-§2.17 prompts changed; the implicit "if empty, generate from synopsis" wording for the other five generate-context profiles tested clean on first round and was not iterated.
 

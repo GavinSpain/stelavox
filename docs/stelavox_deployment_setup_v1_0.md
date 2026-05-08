@@ -358,7 +358,7 @@ The project ref is the subdomain in your project URL: `https://abcdefghijkl.supa
 |---|---|---|
 | `platform_config` | 40+ rows | `SELECT count(*) FROM platform_config;` |
 | `director_configs` | 1 row, status='production' | `SELECT count(*) FROM director_configs WHERE status='production';` |
-| `agent_profiles` | **exactly 18 system profiles** | `SELECT count(*) FROM agent_profiles WHERE is_system_profile=true;` |
+| `agent_profiles` | **exactly 22 system profiles** | `SELECT count(*) FROM agent_profiles WHERE is_system_profile=true;` |
 | `agent_profiles[synthesise_beat].system_prompt` | matches local source-of-truth | length should be **4974** characters; spot-check below |
 
 ```sql
