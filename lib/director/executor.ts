@@ -71,6 +71,60 @@ import type {
 // TurnEvent — abstract event stream the route layer maps to SSE
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Workflow-proposal text suppression — keeps the literal
+// <workflow_proposal>...</workflow_proposal> XML block out of user-visible
+// text_delta events. Exported so the state machine is unit-testable
+// independent of the full agentic loop.
+// ---------------------------------------------------------------------------
+
+export interface WorkflowSuppressionState {
+  /** Once true, all subsequent text in this iteration is suppressed. */
+  suppressing: boolean
+  /** Tail buffer holding chars that might be the start of `<workflow_proposal>`. */
+  tail: string
+}
+
+const WORKFLOW_OPEN_TAG = '<workflow_proposal>'
+const WORKFLOW_TAIL_HOLD = WORKFLOW_OPEN_TAG.length - 1
+
+export function freshSuppressionState(): WorkflowSuppressionState {
+  return { suppressing: false, tail: '' }
+}
+
+/**
+ * Process one text chunk against the suppression state. Returns the visible
+ * portion (to yield as `text_delta`) and the new state.
+ *
+ *  - If already suppressing, the chunk is dropped from output.
+ *  - If the open tag appears in (tail + chunk), yield the prefix and
+ *    transition to suppressing.
+ *  - Otherwise, yield (tail + chunk) minus the trailing WORKFLOW_TAIL_HOLD
+ *    chars; hold those as the new tail so a tag split across chunk
+ *    boundaries is still detected.
+ */
+export function consumeTextForDelta(
+  chunk: string,
+  state: WorkflowSuppressionState,
+): { visible: string; state: WorkflowSuppressionState } {
+  if (state.suppressing) {
+    return { visible: '', state }
+  }
+  const combined = state.tail + chunk
+  const tagIndex = combined.indexOf(WORKFLOW_OPEN_TAG)
+  if (tagIndex !== -1) {
+    return {
+      visible: combined.slice(0, tagIndex),
+      state: { suppressing: true, tail: '' },
+    }
+  }
+  const safeLen = Math.max(0, combined.length - WORKFLOW_TAIL_HOLD)
+  return {
+    visible: combined.slice(0, safeLen),
+    state: { suppressing: false, tail: combined.slice(safeLen) },
+  }
+}
+
 export type TurnEvent =
   | { type: 'text_delta'; delta: string }
   | {
@@ -224,13 +278,28 @@ export async function* runAgenticTurn(
     let iterationStopReason = 'unknown'
     let iterationText = ''
 
+    // Suppress the `<workflow_proposal>...</workflow_proposal>` block from
+    // user-visible text_delta events. The full text still flows into
+    // accumulatedText so parseWorkflowProposal can extract the JSON after
+    // the loop. The block is rendered to the user as a structured PlanCard
+    // (driven by the workflow_proposal SSE event), not as raw XML markup.
+    //
+    // State machine in `consumeTextForDelta` (exported for unit testing).
+    // Reset per iteration — only the final iteration carries the workflow
+    // proposal; resetting is defensive against false positives.
+    let suppressionState: WorkflowSuppressionState = freshSuppressionState()
+
     for await (const chunk of provider.streamWithTools(prompt)) {
       switch (chunk.type) {
         case 'text': {
-          if (chunk.text) {
-            accumulatedText += chunk.text
-            iterationText += chunk.text
-            yield { type: 'text_delta', delta: chunk.text }
+          if (!chunk.text) break
+          accumulatedText += chunk.text
+          iterationText += chunk.text
+
+          const result = consumeTextForDelta(chunk.text, suppressionState)
+          suppressionState = result.state
+          if (result.visible) {
+            yield { type: 'text_delta', delta: result.visible }
           }
           break
         }
@@ -267,6 +336,15 @@ export async function* runAgenticTurn(
         default:
           break
       }
+    }
+
+    // Flush any remaining tail buffer if the iteration ended without
+    // entering suppression (no workflow_proposal block this iteration).
+    // If suppression engaged, drop the tail — it's part of the suppressed
+    // block.
+    if (!suppressionState.suppressing && suppressionState.tail) {
+      yield { type: 'text_delta', delta: suppressionState.tail }
+      suppressionState = { suppressing: false, tail: '' }
     }
 
     stopReason = iterationStopReason
