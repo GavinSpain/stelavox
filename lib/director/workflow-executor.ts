@@ -42,6 +42,7 @@ import 'server-only'
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 
+import { plainTextToTiptap } from '@/lib/agent/prose-to-tiptap'
 import { getConfigInt } from '@/lib/config/platform-config'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import type { Database } from '@/lib/types/database'
@@ -118,14 +119,53 @@ export async function advanceWorkflow(workflowId: string): Promise<void> {
       if (job.status === 'completed') {
         // Apply the agent's result to the target node atomically, then
         // mark the step completed.
+        //
+        // Convert plain-text result_* fields to stringified Tiptap JSON
+        // before calling accept_agent_job (G-9). The RPC's docstring at
+        // Migration 029 line 38 specifies p_target_summary expects
+        // "Pre-stringified Tiptap JSON"; the agent operations
+        // (lib/agent/operations/*) emit plain text. The user-Accept
+        // route at app/api/agent-jobs/[jobId]/accept/route.ts:62
+        // does the conversion; the workflow_executor catch-up MUST do
+        // the same — without it, accept_agent_job writes plain text
+        // straight to nodes.summary, the Tiptap-based SummaryEditor
+        // can't parse it, falls back to empty doc, and on autosave
+        // clobbers the field.
+        const summaryJson = job.result_summary
+          ? JSON.stringify(plainTextToTiptap(job.result_summary as string))
+          : null
+        const proseJson = job.result_prose
+          ? JSON.stringify(plainTextToTiptap(job.result_prose as string))
+          : null
+        const notesJson = job.result_notes
+          ? JSON.stringify(plainTextToTiptap(job.result_notes as string))
+          : null
+
+        // Expand: pre-convert each child node's summary to Tiptap JSON.
+        let childNodesForRpc: unknown[] | null = null
+        if (Array.isArray(job.result_child_nodes)) {
+          childNodesForRpc = (job.result_child_nodes as Array<Record<string, unknown>>).map(
+            (child) => ({
+              name: (child.name as string | null) ?? null,
+              short_description: (child.short_description as string | null) ?? '',
+              summary: child.summary
+                ? JSON.stringify(plainTextToTiptap(child.summary as string))
+                : null,
+              metadata: child.metadata ?? {},
+              word_count_target: child.word_count_target ?? null,
+              position: child.position,
+            }),
+          )
+        }
+
         const { error: acceptErr } = await supabase.rpc('accept_agent_job', {
           p_job_id: jobId,
           p_actor_id: 'workflow_executor',
-          p_target_summary: (job.result_summary as string | null) ?? null,
-          p_target_prose: (job.result_prose as string | null) ?? null,
-          p_target_notes: (job.result_notes as string | null) ?? null,
+          p_target_summary: summaryJson,
+          p_target_prose: proseJson,
+          p_target_notes: notesJson,
           p_target_metadata: job.result_metadata ?? null,
-          p_child_nodes: job.result_child_nodes ?? null,
+          p_child_nodes: childNodesForRpc,
         })
         if (acceptErr) {
           await supabase
