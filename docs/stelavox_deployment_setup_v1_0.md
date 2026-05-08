@@ -1,5 +1,5 @@
 # Stelavox — Deployment & Setup Guide
-## Version 1.0
+## Version 1.1
 
 ---
 
@@ -352,15 +352,85 @@ supabase db execute --file supabase/seed.sql
 
 The project ref is the subdomain in your project URL: `https://abcdefghijkl.supabase.co` → ref is `abcdefghijkl`
 
-Verify in the Supabase cloud dashboard that `platform_config` has 40+ rows and `director_configs` has one production record.
+**Mandatory verification — every cloud project, every time.** SU-49 (Phase 5c, 2026-05-08) discovered that `stelavox-dev` was missing 11 of 18 system agent_profiles after its initial cloud setup, and the 7 that did exist had stale system_prompt content. Migration 027's SECURITY DEFINER helper either didn't fully run on the cloud at first apply, or was the earlier version of the migration content. **Verify all four counts before considering the cloud DB ready:**
+
+| Table | Expected | How to query |
+|---|---|---|
+| `platform_config` | 40+ rows | `SELECT count(*) FROM platform_config;` |
+| `director_configs` | 1 row, status='production' | `SELECT count(*) FROM director_configs WHERE status='production';` |
+| `agent_profiles` | **exactly 18 system profiles** | `SELECT count(*) FROM agent_profiles WHERE is_system_profile=true;` |
+| `agent_profiles[synthesise_beat].system_prompt` | matches local source-of-truth | length should be **4974** characters; spot-check below |
+
+```sql
+-- Spot-check: synthesise_beat prompt should be 4974 chars verbatim
+SELECT length(system_prompt) AS prompt_len
+FROM agent_profiles
+WHERE name = 'synthesise_beat';
+```
+
+If `agent_profiles` count is < 18 OR the prompt length doesn't match, the migration content drifted. Apply the recovery procedure in §4.8.1 below.
+
+#### 4.8.1 Recovery — agent_profiles drift (only run if §4.8 verification fails)
+
+This procedure pulls all 18 system profiles from a known-good local DB and upserts onto cloud, keyed on `name`. Preserves cloud row IDs so any historical `agent_jobs.profile_id` references survive. Used to fix `stelavox-dev` post-Phase 5b.
+
+Prerequisite: a local Supabase running on the same migration set with all 18 profiles already seeded (verified by the same query above against `127.0.0.1:54331`).
+
+```typescript
+// Save as scripts/sync-cloud-agent-profiles.ts and run with:
+//   npx tsx scripts/sync-cloud-agent-profiles.ts
+import { createClient } from '@supabase/supabase-js'
+
+const local = createClient(
+  'http://127.0.0.1:54331',
+  process.env.LOCAL_SERVICE_ROLE_KEY!,
+)
+const cloud = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!,
+)
+
+const { data: lProfiles } = await local
+  .from('agent_profiles')
+  .select('*')
+  .eq('is_system_profile', true)
+const { data: cProfiles } = await cloud
+  .from('agent_profiles')
+  .select('id, name')
+  .eq('is_system_profile', true)
+const cByName = new Map((cProfiles ?? []).map((p) => [p.name, p.id]))
+
+for (const lp of lProfiles!) {
+  const { id, created_at, updated_at, ...payload } = lp
+  if (cByName.has(lp.name)) {
+    await cloud.from('agent_profiles').update(payload).eq('id', cByName.get(lp.name)!)
+  } else {
+    await cloud.from('agent_profiles').insert(payload)
+  }
+}
+```
+
+Also sync the Director config prompt body:
+
+```typescript
+const { data: lDc } = await local.from('director_configs').select('*').eq('status', 'production').single()
+const { data: cDc } = await cloud.from('director_configs').select('id').eq('status', 'production').single()
+await cloud.from('director_configs').update({ system_prompt: lDc!.system_prompt }).eq('id', cDc!.id)
+```
+
+After running, re-verify all four §4.8 counts.
 
 #### 4.9 Enable Real-Time (cloud dev project)
 
-1. Go to **Database → Replication**
-2. Toggle **on** the `nodes` table
-3. Toggle **on** the `agent_jobs` table
-4. Toggle **on** the `agent_reports` table
-5. Click **Save**
+Phase 5/5b/5c require five tables in the `supabase_realtime` publication. Migrations 030 + 031 add them automatically when applied to a fresh cloud project. **Verify** in **Database → Replication** that all five toggles are on:
+
+1. `nodes` (Phase 3)
+2. `agent_jobs` (Phase 5 — required by `useAgentJobsRealtime` for AgentTab + Jobs tab)
+3. `node_comments` (Phase 5 — required by CommentThread realtime)
+4. `workflows` (Phase 5b — required by Director ExecutionCard)
+5. `workflow_steps` (Phase 5b — required by Director ExecutionCard step progress)
+
+If any are missing, toggle on + click **Save**. If `agent_jobs` is off, the AgentTab's IDLE → COMPLETE transition won't fire on the deployed app (Phase 5c failure mode, also see §5.3.1 below for the CSP variant of the same symptom).
 
 #### 4.10 Verify Automated Backups
 
@@ -380,7 +450,7 @@ Repeat the cloud setup from §4.6–4.10:
 3. Region: **Southeast Asia (Singapore)**
 4. Plan: **Free**
 
-Apply migrations and seed data as in §4.8. Enable Realtime on `nodes`, `agent_jobs`, and `agent_reports` as in §4.9.
+Apply migrations and seed data as in §4.8 — and **run the verification block in §4.8 in full**, including the agent_profiles count check that catches the SU-49 drift pattern. Enable Realtime on the five tables listed in §4.9.
 
 ---
 
@@ -433,6 +503,20 @@ PROMPT_CANARY_TOKEN
 ```
 
 Note: `NEXT_PUBLIC_` variables are visible in the browser bundle. This is intentional and safe for the Supabase URL and anon key. All other variables are server-side only and must never have the `NEXT_PUBLIC_` prefix added.
+
+### 5.3.1 Verify the CSP allows `wss://` for Supabase Realtime
+
+`vercel.json` ships with a Content-Security-Policy that must explicitly list both `https://*.supabase.co` AND `wss://*.supabase.co` in `connect-src`. The `wss://` scheme is required for the realtime websocket — Chrome enforces strict scheme matching and silently blocks the WS handshake if only `https://` is listed.
+
+Verify the deployed CSP matches expectation after first deploy:
+
+```powershell
+curl -I https://your-deployment-url.vercel.app | grep -i content-security
+```
+
+The header value's `connect-src` should contain both `https://*.supabase.co` and `wss://*.supabase.co`. If it doesn't, the deploy is running an out-of-date `vercel.json` — confirm master is up to date and redeploy.
+
+**Failure signature when this is wrong:** synthesise streaming surface streams prose correctly, but on completion the AgentTab returns to IDLE without showing Accept/Dismiss. The agent_jobs row IS in `status='completed'` server-side, but the client never receives the realtime UPDATE event because the websocket can't open. Phase 5c diagnosed and fixed this — captured in `reference_vercel_csp_websocket.md` project memory.
 
 ### 5.4 Set the Deployment Region
 
@@ -1038,5 +1122,7 @@ BACKUP_SIGNING_SECRET=
 ---
 
 ## 12. Changelog
+
+**v1.1 — 2026-05-08** Phase 5c follow-up — SU-49 (cloud agent_profiles seed gap) absorbed. Three amendments. **§4.8 Apply Schema to Cloud Dev** — verification block expanded from "platform_config has 40+ rows + director_configs has one production record" to a four-row table that also covers `agent_profiles` count (must be exactly 18 system profiles) and a synthesise_beat prompt-length spot-check (must be 4974 chars). SU-49 surfaced when `stelavox-dev` was found to have only 7 of 18 system profiles, with the 7 having stale system_prompt content; the migration apply succeeded but the SECURITY DEFINER seed helper either ran partially or against earlier migration content. **§4.8.1 Recovery — agent_profiles drift** (new sub-section) — the imperative upsert procedure that was used to bring `stelavox-dev` back to parity with local; pulls all 18 profiles from a known-good local DB and upserts onto cloud keyed on `name`, preserving cloud row IDs. **§4.9 Enable Real-Time** — table list corrected from the v1.0 set (`nodes` / `agent_jobs` / `agent_reports`) to the V1 actual (`nodes` / `agent_jobs` / `node_comments` / `workflows` / `workflow_steps`); `agent_reports` was a v0.6 leftover for a V2 feature that doesn't ship in V1. **§4.11 Phase C** — pointer updated to reference the new §4.8 verification block. **§5.3.1 Verify the CSP allows wss://** (new sub-section) — Phase 5c diagnostic absorption: vercel.json must list `wss://*.supabase.co` separately from `https://*.supabase.co` in `connect-src`; Chrome enforces strict scheme matching and silently blocks the realtime websocket otherwise. Failure signature documented (synthesise streams correctly but Accept/Dismiss never appears post-completion) so future occurrences are diagnosed in seconds. Cross-references reference_vercel_csp_websocket.md project memory.
 
 **v1.0 — 2026-05-01** Initial standard-compliant version. Derived from `stelavox_deployment_setup_v0_6.md`. Changes from v0.6: (a) Added `PROMPT_CANARY_TOKEN` to all environment variable sections — this variable is a V1 security requirement per Technical Architecture v1.2 §4.4 and was absent from v0.6. (b) Added explicit `platform_config` seed verification step to §4.4, §4.8, §7 Steps 5, 10, and 15 — the `platform_config` table (Migration 012) is required at runtime from the first agent call; missing it causes application errors not visible until testing. (c) Expanded environment variables reference (§6) into three groups: V1 required, V2 billing, V2 backup — all variables documented in one place. (d) Added `NEXT_PUBLIC_APP_URL` to the V1 variable set. (e) Updated migration count references from 001–011 to 001–012 throughout. (f) Added `agent_reports` table to the Real-Time enable step (§4.9) — absent from v0.6. (g) Updated companion document references from Technical Architecture v0.11 / Product Specification v0.9 to Technical Architecture v1.2 / Product Specification v1.2. (h) Added §12 Changelog.
