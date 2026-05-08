@@ -383,7 +383,10 @@ test.describe('Phase 5b — TC-D Data integrity / Zod tests', () => {
 
   test.skip('TC-D-04 — mentioned_node_ids cross-org (needs cross-org node fixture)', async () => {})
   test.skip('TC-D-05 — operation_type whitelist (covered by TC-D-03 schema)', async () => {})
-  test.skip('TC-D-08 — summarisation summary_covers_through (needs live summariser)', async () => {})
+  // TC-D-08 is now covered by Vitest in
+  // tests/unit/director-summarisation.test.ts (TC-A-30 close-out, same
+  // session as SU-44). The live summariser flow is gated on
+  // ANTHROPIC_API_KEY being set; threshold-check cases run unconditionally.
 })
 
 test.describe('Phase 5b — TC-S Security tests (non-LLM)', () => {
