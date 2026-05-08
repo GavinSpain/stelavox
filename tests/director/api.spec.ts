@@ -334,15 +334,9 @@ test.describe('Phase 5b — TC-D Data integrity / Zod tests', () => {
     expect(res.status()).toBe(400)
   })
 
-  test.skip('TC-D-02 — parseWorkflowProposal rejects malformed JSON (Vitest pending)', async () => {
-    // Playwright runner cannot dynamic-import the project's ESM lib/
-    // modules. Vitest is not installed (Phase 5b SU at close-out). The
-    // schema is exercised at runtime via the streaming route.
-  })
-
-  test.skip('TC-D-03 — WorkflowStepProposalSchema rejects missing target_node_id (Vitest pending)', async () => {
-    // Same Vitest tooling gap as TC-D-02. Schema is exercised at runtime.
-  })
+  // TC-D-02 + TC-D-03 are now covered by Vitest in
+  // tests/unit/director-schemas.test.ts (Phase 5b SU-44 close-out).
+  // Run with `npm run test:unit`.
 
   test('TC-D-06 — conversations UNIQUE(document_id) enforced', async () => {
     const f = await setupDocument(orgA, 'TC-D-06')
@@ -413,11 +407,9 @@ test.describe('Phase 5b — TC-S Security tests (non-LLM)', () => {
     expect(prompt).not.toMatch(/\bClaude\b/)
   })
 
-  test.skip('TC-S-02 — validateToolCall blocks locked-node write (Vitest pending)', async () => {
-    // Direct import of server-only validator into Playwright fails on
-    // dynamic ESM. Same close-out SU as TC-D-02/03. The validator is
-    // exercised at runtime via the streaming route's tool-call cycle.
-  })
+  // TC-S-02 is now covered by Vitest in
+  // tests/unit/tool-validator.test.ts (Phase 5b SU-44 close-out).
+  // Run with `npm run test:unit`.
 
   test.skip('TC-S-01 — cross-org write (covered by TC-B-03)', async () => {})
   test.skip('TC-S-03 — injection in parameters (needs validator surface inspection)', async () => {})
