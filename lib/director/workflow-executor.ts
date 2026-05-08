@@ -84,11 +84,95 @@ export async function advanceWorkflow(workflowId: string): Promise<void> {
   }
 
   // Load all steps. Order by their `order` column.
-  const { data: steps } = await supabase
+  const { data: stepsRaw } = await supabase
     .from('workflow_steps')
     .select('id, "order", operation_type, target_node_id, parameters, depends_on_step_orders, status, agent_job_id, error_message')
     .eq('workflow_id', workflowId)
     .order('order')
+
+  // SU-48 — catch-up pass for async steps. The Phase 5b runner
+  // (lib/agent/runner.ts) calls back into advanceWorkflow when an
+  // agent_job reaches a terminal status, but does NOT transition the
+  // owning workflow_step or auto-apply the result. So before the
+  // dispatchable / completion logic runs, we reconcile stuck running
+  // steps here:
+  //   - completed agent_job → call accept_agent_job RPC to apply the
+  //     result to the node (bumps node.version), transition the step
+  //     to 'completed'.
+  //   - failed / cancelled / dismissed agent_job → mark the step
+  //     'failed' with the error_summary as the step's error_message.
+  // Idempotent: accept_agent_job RPC is idempotent on already-'accepted'
+  // jobs; the running→completed step transition is a one-shot UPDATE.
+  if (stepsRaw && stepsRaw.length > 0) {
+    const runningWithJob = stepsRaw.filter(
+      (s) => s.status === 'running' && typeof s.agent_job_id === 'string',
+    )
+    for (const step of runningWithJob) {
+      const jobId = step.agent_job_id as string
+      const { data: job } = await supabase
+        .from('agent_jobs')
+        .select('status, result_summary, result_prose, result_notes, result_metadata, result_child_nodes, result_summary_text, error_message')
+        .eq('id', jobId)
+        .maybeSingle()
+      if (!job) continue
+      if (job.status === 'completed') {
+        // Apply the agent's result to the target node atomically, then
+        // mark the step completed.
+        const { error: acceptErr } = await supabase.rpc('accept_agent_job', {
+          p_job_id: jobId,
+          p_actor_id: 'workflow_executor',
+          p_target_summary: (job.result_summary as string | null) ?? null,
+          p_target_prose: (job.result_prose as string | null) ?? null,
+          p_target_notes: (job.result_notes as string | null) ?? null,
+          p_target_metadata: job.result_metadata ?? null,
+          p_child_nodes: job.result_child_nodes ?? null,
+        })
+        if (acceptErr) {
+          await supabase
+            .from('workflow_steps')
+            .update({
+              status: 'failed',
+              error_message: `accept_agent_job_failed:${acceptErr.message}`,
+              completed_at: new Date().toISOString(),
+            })
+            .eq('id', step.id)
+          step.status = 'failed' as typeof step.status
+          continue
+        }
+        await supabase
+          .from('workflow_steps')
+          .update({
+            status: 'completed',
+            completed_at: new Date().toISOString(),
+            result_summary: (job.result_summary_text as string | null) ?? null,
+          })
+          .eq('id', step.id)
+        step.status = 'completed' as typeof step.status
+      } else if (job.status === 'accepted') {
+        // Already accepted — just mark the step completed.
+        await supabase
+          .from('workflow_steps')
+          .update({
+            status: 'completed',
+            completed_at: new Date().toISOString(),
+            result_summary: (job.result_summary_text as string | null) ?? null,
+          })
+          .eq('id', step.id)
+        step.status = 'completed' as typeof step.status
+      } else if (job.status === 'failed' || job.status === 'cancelled' || job.status === 'dismissed') {
+        await supabase
+          .from('workflow_steps')
+          .update({
+            status: 'failed',
+            error_message: (job.error_message as string | null) ?? `agent_job_${job.status}`,
+            completed_at: new Date().toISOString(),
+          })
+          .eq('id', step.id)
+        step.status = 'failed' as typeof step.status
+      }
+    }
+  }
+  const steps = stepsRaw
 
   if (!steps || steps.length === 0) {
     // No steps — mark completed.
