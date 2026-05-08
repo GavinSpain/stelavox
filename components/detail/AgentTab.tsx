@@ -3,26 +3,36 @@
 /**
  * AgentTab — the per-node agent operations panel.
  *
- * Source: stelavox_component_specification_v2_6.md §5.9
+ * Source: stelavox_component_specification_v2_9.md §5.9 (Phase 5c streaming
+ *         subsection), §5.9 base (Phase 5 active/complete states).
  *         stelavox_phase5_api_contract_v1_0.md v1.2 §3.1–§3.8
+ *         stelavox_phase5c_api_contract_v1_0.md §3.1 (synthesise streaming)
  *         stelavox_phase5_test_plan_v1_0.md TC-U-01..TC-U-14, TC-V-03
- * Build Checklist T-11.1, T-11.2.
+ *         stelavox_phase5c_test_plan_v1_0.md (TC-U cases for streaming UI)
+ * Build Checklist: T-11.1, T-11.2 (Phase 5), T-6 (Phase 5c).
  *
- * Five states cycling on a single node:
- *   IDLE      — no active job; show profile picker, instruction textarea,
- *               operation buttons.
- *   ACTIVE    — pending|running job; show progress bar + token count + Stop.
- *   COMPLETE  — completed job awaiting Accept/Dismiss; show preview +
- *               verdigris Accept (verdigris use #7) + Dismiss buttons.
- *   FAILED    — failed job; show error_message + Dismiss button.
- *   (no job)  — IDLE rendering.
+ * States cycling on a single node:
+ *   IDLE       — no active job; show profile picker, instruction textarea,
+ *                operation buttons.
+ *   STREAMING  — Phase 5c — synthesise SSE in progress; show typewriter
+ *                surface accumulating text + Cancel button (in place of
+ *                ActiveState's indeterminate progress).
+ *   ACTIVE     — pending|running job (non-streaming or workflow-dispatched);
+ *                show progress bar + token count + Stop.
+ *   COMPLETE   — completed job awaiting Accept/Dismiss; show preview +
+ *                verdigris Accept (verdigris use #7) + Dismiss buttons.
+ *   FAILED     — failed job; show error_message + Dismiss button.
+ *   (no job)   — IDLE rendering.
  *
- * The component reads job state from useActiveJobForNode (real-time).
- * Operation triggers POST to /api/agent/<op>; lifecycle actions POST to
- * /api/agent-jobs/[id]/{cancel,accept,dismiss}.
+ * The component reads job state from useActiveJobForNode (real-time) for
+ * the non-streaming path and ACTIVE/COMPLETE/FAILED rendering. Streaming
+ * synthesise additionally maintains local state during the SSE life:
+ * `streamingStatus` + `streamingText` are cleared on `agent_job_complete`
+ * so the CompleteState (driven by realtime) takes over the review surface.
  */
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
+import { streamSynthesise } from '@/lib/agent/streamSynthesise'
 import { useActiveJobForNode, type AgentJob } from '@/lib/hooks/useAgentJobsRealtime'
 
 interface AgentTabProps {
@@ -39,6 +49,8 @@ interface AgentProfile {
   node_type: string | null
 }
 
+type StreamingStatus = 'idle' | 'connecting' | 'streaming' | 'errored' | 'cancelled'
+
 export function AgentTab({ nodeId, nodeType, nodeCategory, isLeaf }: AgentTabProps) {
   const activeJob = useActiveJobForNode(nodeId)
   const [profiles, setProfiles] = useState<AgentProfile[]>([])
@@ -48,6 +60,20 @@ export function AgentTab({ nodeId, nodeType, nodeCategory, isLeaf }: AgentTabPro
   const [refinementInstruction, setRefinementInstruction] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+
+  // Phase 5c — streaming synthesise state. Active only between the user's
+  // click and the SSE `agent_job_complete` event. After completion, we
+  // clear streamingStatus and the existing CompleteState (driven by the
+  // realtime hook) takes over the review surface.
+  const [streamingStatus, setStreamingStatus] = useState<StreamingStatus>('idle')
+  const [streamingText, setStreamingText] = useState('')
+  const cancelControllerRef = useRef<AbortController | null>(null)
+
+  // Streaming state is naturally scoped to the AgentTab instance.
+  // NodeDetailPanel passes `key={nodeId}` so React unmounts + remounts
+  // this component on node change — that resets all local state cleanly
+  // without an effect or ref, the React-canonical pattern for
+  // "discard state when a prop changes."
 
   // Load profiles applicable to this node type
   useEffect(() => {
@@ -63,6 +89,15 @@ export function AgentTab({ nodeId, nodeType, nodeCategory, isLeaf }: AgentTabPro
 
   async function trigger(op: 'expand' | 'synthesise' | 'refine' | 'generate_context') {
     setError(null)
+
+    // Phase 5c — synthesise uses the foreground streaming endpoint
+    // (POST /api/agent/synthesise/stream). Other operations stay on the
+    // background path (POST /api/agent/<op>).
+    if (op === 'synthesise') {
+      await triggerSynthesiseStream()
+      return
+    }
+
     setBusy(true)
     try {
       const body: Record<string, unknown> = { node_id: nodeId }
@@ -88,6 +123,63 @@ export function AgentTab({ nodeId, nodeType, nodeCategory, isLeaf }: AgentTabPro
     }
   }
 
+  async function triggerSynthesiseStream() {
+    setStreamingText('')
+    setStreamingStatus('connecting')
+    const controller = new AbortController()
+    cancelControllerRef.current = controller
+
+    try {
+      await streamSynthesise(
+        {
+          nodeId,
+          ...(selectedProfileId ? { profileId: selectedProfileId } : {}),
+          ...(instruction.trim() ? { agentInstruction: instruction.trim() } : {}),
+          signal: controller.signal,
+        },
+        {
+          onJobCreated: () => setStreamingStatus('streaming'),
+          onTextDelta: (delta) => {
+            setStreamingText((prev) => prev + delta)
+          },
+          onJobComplete: () => {
+            // Realtime on agent_jobs has already (or is about to) update
+            // activeJob to status='completed'. Clearing streamingStatus
+            // hands the surface back to CompleteState for review.
+            setStreamingStatus('idle')
+            setStreamingText('')
+          },
+          onError: (data) => {
+            setError(data.message ?? data.error)
+            setStreamingStatus('errored')
+            setStreamingText('')
+          },
+          onDone: () => {
+            // SSE close after agent_job_complete or error; no-op for the UI.
+          },
+        },
+      )
+    } catch (e) {
+      // streamSynthesise's fetch can throw on AbortError when the user
+      // cancels — that's expected, not an error to surface.
+      if ((e as { name?: string }).name === 'AbortError') {
+        setStreamingStatus('cancelled')
+        setStreamingText('')
+        return
+      }
+      setError((e as Error).message)
+      setStreamingStatus('errored')
+      setStreamingText('')
+    } finally {
+      cancelControllerRef.current = null
+    }
+  }
+
+  function cancelStreamingSynthesise() {
+    cancelControllerRef.current?.abort()
+    setStreamingStatus('cancelled')
+  }
+
   async function lifecycleAction(jobId: string, action: 'cancel' | 'accept' | 'dismiss') {
     setError(null)
     setBusy(true)
@@ -110,6 +202,20 @@ export function AgentTab({ nodeId, nodeType, nodeCategory, isLeaf }: AgentTabPro
 
   // ── Render ──────────────────────────────────────────────────────────
   const padding = 'var(--space-5)'
+
+  // Phase 5c — streaming synthesise surface takes precedence over the
+  // generic ActiveState while the SSE is open. Once `agent_job_complete`
+  // fires, streamingStatus transitions back to 'idle' and the realtime
+  // hook's activeJob takes over rendering as CompleteState.
+  if (streamingStatus === 'connecting' || streamingStatus === 'streaming') {
+    return (
+      <StreamingState
+        text={streamingText}
+        status={streamingStatus}
+        onCancel={cancelStreamingSynthesise}
+      />
+    )
+  }
 
   if (activeJob && (activeJob.status === 'pending' || activeJob.status === 'running')) {
     return <ActiveState job={activeJob} onCancel={() => lifecycleAction(activeJob.id, 'cancel')} busy={busy} />
@@ -518,6 +624,98 @@ function CompleteState({
         >
           Dismiss
         </button>
+      </div>
+    </div>
+  )
+}
+
+/**
+ * Phase 5c streaming synthesise surface — typewriter view of the
+ * accumulating prose, with a small "streaming…" indicator and Cancel
+ * button. The typeface follows the ProseEditor's Lora to make the
+ * end-of-stream transition to Tiptap rendering visually seamless
+ * (Component Spec v2.9 §5.9 streaming subsection).
+ */
+function StreamingState({
+  text,
+  status,
+  onCancel,
+}: {
+  text: string
+  status: 'connecting' | 'streaming'
+  onCancel: () => void
+}) {
+  return (
+    <div
+      style={{
+        padding: 'var(--space-5)',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 'var(--space-3)',
+        height: '100%',
+      }}
+    >
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+        }}
+      >
+        <span
+          style={{
+            fontFamily: 'var(--font-inter), Inter, sans-serif',
+            fontSize: '10px',
+            fontWeight: 300,
+            color: 'var(--color-text-muted)',
+          }}
+        >
+          {status === 'connecting' ? 'connecting…' : 'streaming…'}
+        </span>
+        <button
+          onClick={onCancel}
+          style={{
+            background: 'none',
+            border: 'none',
+            color: 'var(--color-error)',
+            fontFamily: 'var(--font-inter), Inter, sans-serif',
+            fontSize: '11px',
+            cursor: 'pointer',
+          }}
+        >
+          Cancel
+        </button>
+      </div>
+
+      <div
+        data-testid="synthesise-streaming-surface"
+        style={{
+          flex: 1,
+          padding: 'var(--space-4)',
+          background: 'var(--color-bg-base)',
+          border: '1px solid var(--color-border-subtle)',
+          borderRadius: '4px',
+          fontFamily: 'var(--font-lora), Lora, serif',
+          fontSize: '15px',
+          fontWeight: 400,
+          lineHeight: 1.7,
+          color: 'var(--color-text-primary)',
+          whiteSpace: 'pre-wrap',
+          wordBreak: 'break-word',
+          overflowY: 'auto',
+          maxHeight: '60vh',
+        }}
+      >
+        {/*
+          No cursor element rendered — Inviolable #2 reserves verdigris for
+          the nine enumerated uses, and "prose cursor" specifically scopes
+          to ProseEditor and FocusMode. The streaming text arrival itself
+          provides the typewriter feel; a separate cursor would be either a
+          tenth verdigris use (forbidden) or a colour off-brand for a prose
+          surface. Component Spec v2.9 §5.9 streaming subsection records
+          this decision.
+        */}
+        {text}
       </div>
     </div>
   )
