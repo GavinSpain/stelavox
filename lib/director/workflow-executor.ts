@@ -400,26 +400,105 @@ async function dispatchAgentJobForStep(
   // for the runner's notifyWorkflowIfStep continuation hook.
   const triggeredBy = `workflow_step:${step.id}:${workflow.id}`
 
-  // Resolve a default profile for this operation_type. Phase 5b auto-Accept
-  // mode: the workflow doesn't pin a profile_id at proposal time; resolve
-  // the system default at dispatch time.
-  // (More sophisticated profile selection — e.g. matching node_type — is a
-  // V1.x SU; for now we pick any system profile for the operation_type.)
-  const { data: profile } = await supabase
+  // Resolve the system profile for this step:
+  //   1. Match by (operation_type, node_type) — needs target_node's node_type
+  //   2. For refine: if multiple candidates (only beat has 2 — _summary + _prose),
+  //      disambiguate by target_field via name-suffix match
+  //   3. For refine: fall back to refine_default (node_type IS NULL) if no
+  //      match — covers any node_type Phase 5 didn't ship a dedicated profile for
+  //   4. For other ops: error out — every (op, node_type) combo is supposed
+  //      to have a dedicated profile (per agent_profile_library v1.2)
+  //
+  // Earlier implementation picked profile by oldest-created_at-for-this-op,
+  // which always returned `refine_beat_prose` for ANY refine step regardless
+  // of target node type. Acts/Chapters/Scenes refines all corrupted because
+  // refine_beat_prose's prompt expects a `<prose>` field; the model wrote
+  // an "I need the prose" complaint into result_summary, which then got
+  // written to nodes.summary, corrupting the tree.
+  //
+  // The user-clicked refine route's `validateProfile` helper has a related
+  // weakness (no target_field disambiguation for beats); that's a separate
+  // SU. This fix is scoped to the workflow path.
+
+  const params = (step.parameters ?? {}) as Record<string, unknown>
+  const targetField =
+    typeof params.target_field === 'string' ? params.target_field : null
+
+  // Step's target_node_id should always be set for LLM-bearing steps.
+  if (!step.target_node_id) {
+    await supabase
+      .from('workflow_steps')
+      .update({
+        status: 'failed',
+        error_message: 'step_missing_target_node_id',
+        completed_at: new Date().toISOString(),
+      })
+      .eq('id', step.id)
+    return
+  }
+
+  const { data: targetNode } = await supabase
+    .from('nodes')
+    .select('node_type')
+    .eq('id', step.target_node_id)
+    .maybeSingle()
+
+  if (!targetNode) {
+    await supabase
+      .from('workflow_steps')
+      .update({
+        status: 'failed',
+        error_message: 'target_node_not_found',
+        completed_at: new Date().toISOString(),
+      })
+      .eq('id', step.id)
+    return
+  }
+
+  // Phase 1: candidates matching (operation_type, node_type).
+  const { data: candidates } = await supabase
     .from('agent_profiles')
-    .select('id')
+    .select('id, name, node_type')
     .eq('is_system_profile', true)
     .eq('operation_type', step.operation_type)
-    .order('created_at', { ascending: true })
-    .limit(1)
-    .maybeSingle()
+    .eq('node_type', targetNode.node_type)
+
+  let profile: { id: string; name: string } | null = null
+
+  if (candidates && candidates.length > 0) {
+    if (candidates.length === 1) {
+      profile = candidates[0]
+    } else if (targetField) {
+      // Disambiguate by target_field via name-suffix match. Profile naming
+      // convention: refine_<node_type>_<field> (e.g. refine_beat_prose,
+      // refine_beat_summary). Fall back to first candidate if no exact
+      // suffix match.
+      profile =
+        candidates.find((c) => c.name.endsWith(`_${targetField}`)) ??
+        candidates[0]
+    } else {
+      profile = candidates[0]
+    }
+  }
+
+  // Phase 2: refine fallback to cross-type default.
+  if (!profile && step.operation_type === 'refine') {
+    const { data: fallback } = await supabase
+      .from('agent_profiles')
+      .select('id, name')
+      .eq('is_system_profile', true)
+      .eq('operation_type', 'refine')
+      .is('node_type', null)
+      .maybeSingle()
+    profile = fallback
+  }
 
   if (!profile) {
     await supabase
       .from('workflow_steps')
       .update({
         status: 'failed',
-        error_message: `no_system_profile_for_${step.operation_type}`,
+        error_message: `no_system_profile_for_${step.operation_type}_${targetNode.node_type}`,
         completed_at: new Date().toISOString(),
       })
       .eq('id', step.id)
@@ -428,13 +507,12 @@ async function dispatchAgentJobForStep(
 
   // Build dynamic context block from step.parameters (operation-specific).
   const dynamicCtx: Record<string, unknown> = {}
-  const params = (step.parameters ?? {}) as Record<string, unknown>
   if (typeof params.instruction === 'string') {
     dynamicCtx.refinement_instruction = params.instruction
     dynamicCtx.agent_instruction = params.instruction
   }
-  if (typeof params.target_field === 'string') {
-    dynamicCtx.target_field = params.target_field
+  if (targetField) {
+    dynamicCtx.target_field = targetField
   }
 
   const { data: jobRow, error: jobErr } = await supabase
