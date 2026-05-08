@@ -120,3 +120,57 @@ export function getProbe(id: string): Probe {
   }
   return p
 }
+
+// ─── Phase 5c — Synthesise streaming probes ─────────────────────────────
+//
+// These probes target the synthesise streaming endpoint
+// (POST /api/agent/synthesise/stream) directly with a beat-node node_id
+// and a per-job agent_instruction. They exercise the wire shape of the
+// SSE stream end-to-end on Act 1 unlocked beats. Cross-model verification
+// (T-11) runs them on Haiku 4.5 / Sonnet 4.6 / Opus 4.7.
+//
+// Detection isn't scored — the goal is "the SSE stream produces clean
+// in-voice prose end-to-end on all three models without protocol drift."
+
+export interface SynthesiseProbe {
+  id: string
+  /** Beat slug from structure.ts — resolved to a node_id at runtime. */
+  targetSlug: string
+  /** Per-job agent_instruction (prepended to the synthesise system prompt). */
+  instruction: string
+  summary: string
+}
+
+export const SYNTHESISE_PROBES: readonly SynthesiseProbe[] = [
+  {
+    id: 'P-SYNTH-CH3-SC1-BT1',
+    targetSlug: 'ch-3-sc-1-bt-1',
+    instruction:
+      'Write the prose for this beat. Keep Voss\'s third-person-close voice and the literary-noir register. Around 250 words.',
+    summary: 'Synthesise prose for an unlocked beat in Chapter 3 Scene 1 (Reuben at the diner — booth at the back).',
+  },
+  {
+    id: 'P-SYNTH-CH4-SC1-BT1',
+    targetSlug: 'ch-4-sc-1-bt-1',
+    instruction:
+      'Write the prose for this beat. Stay in Voss\'s POV. The mood is pre-dawn alertness, low surveillance, the open house ahead. Around 220 words.',
+    summary: 'Synthesise prose for an unlocked beat in Chapter 4 Scene 1 (Dawn on Calder Street — in the car).',
+  },
+  {
+    id: 'P-SYNTH-CH5-SC1-BT1',
+    targetSlug: 'ch-5-sc-1-bt-1',
+    instruction:
+      'Write the prose for this beat. Voss is at the city clerk\'s office, looking at a public ledger of grants — the bracket family name should appear without comment. Around 240 words.',
+    summary: 'Synthesise prose for an unlocked beat in Chapter 5 Scene 1 (City clerk\'s office — the grants ledger).',
+  },
+] as const
+
+export function getSynthesiseProbe(id: string): SynthesiseProbe {
+  const p = SYNTHESISE_PROBES.find((p) => p.id === id)
+  if (!p) {
+    throw new Error(
+      `Unknown synthesise probe ID "${id}". Available: ${SYNTHESISE_PROBES.map((p) => p.id).join(', ')}`,
+    )
+  }
+  return p
+}

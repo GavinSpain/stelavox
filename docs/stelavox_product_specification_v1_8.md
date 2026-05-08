@@ -1,5 +1,5 @@
 # Stelavox — Product Specification
-## Version 1.7
+## Version 1.8
 
 ---
 
@@ -527,6 +527,8 @@ All open questions from v1.1 have been resolved. There are currently no open que
 ---
 
 ## 10. Changelog
+
+**v1.8 — 2026-05-08** Phase 5c close-out absorption. Synthesise streaming via SSE shipped end-to-end (Test Report v1.0 verdict PASS). **§4 Feature Inventory** Agent operations row gains a streaming note for the synthesise operation: when the user clicks Synthesise on a leaf node, prose appears progressively in the AgentTab during generation rather than only at completion. Workflow-dispatched synthesise (steps inside a Director-approved workflow) continues to run as a Phase 5 background job — those don't stream. The user-facing description is otherwise unchanged from v1.7 — the streaming surface is a UX refinement of the existing Synthesise operation, not a new product feature. No feature added or removed; pricing, tier definitions (§3), Out of Scope (§7), Locked Decisions (§8) all unchanged. Five Inviolables unchanged. Two SU items raised during Phase 5c verification (SU-49 cloud agent_profiles seed gap, SU-50 TC-A-30 test isolation) — both queued, neither launch-blocking; canonical record in `stelavox_phase5c_test_report_v1_0.md` §3.
 
 **v1.7 — 2026-05-08** Phase 5b verification-complete absorption. The pre-launch follow-up gate is closed: T-17.1 cross-model J5 walkthrough across Haiku 4.5 / Sonnet 4.6 / Opus 4.7 complete; T-17.2 adversarial walk 10/10 PASS, zero compliances; T-18.3 cloud smoke 6/6 PASS on `stelavox-dev`. **§4 Feature Inventory** Director conversation row ship-status moves "MET (substrate)" → **"MET"**. The user-facing description in §4 (Director conversation) and User Journey J5 (§6.5) are unchanged from v1.6 — this version's amendment is a phase-status update only. Three substrate-level fixes were applied during verification (SU-45 first-message client bug; SU-46 Opus 4.7 temperature deprecation; SU-47 executor refactored to Anthropic's standard messages-array tool-use protocol — transformative cross-model impact); none alter the user-facing product surface. Canonical SU record lives in `stelavox_phase5b_test_report_v1_1.md` §1; product-spec absorption needs only the phase-row update. No feature added or removed; pricing, tier definitions (§3), Out of Scope (§7), Locked Decisions (§8) all unchanged. Five Inviolables unchanged.
 
