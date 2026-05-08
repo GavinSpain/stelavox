@@ -1,10 +1,11 @@
 /**
  * Anthropic native provider.
  *
- * Source: stelavox_technical_architecture_v1_9.md §7.3. Build Checklist T-2.
+ * Source: stelavox_technical_architecture_v2_1.md §7.3.
  *
  * Wraps the Anthropic SDK. Implements:
  *   - complete()         — Phase 5 (single-node ops). Non-streaming, no tools.
+ *   - stream()           — Phase 5c (synthesise streaming). Streaming, no tools.
  *   - streamWithTools()  — Phase 5b (Director). Streaming, with tool use.
  *
  * All methods:
@@ -13,11 +14,9 @@
  *     cost saving on sequential calls in a session).
  *   - Scan model output for canary leakage before yielding to the caller.
  *
- * Phase 5b adds streamWithTools() but keeps the completeWithTools() stub —
- * the Director path uses streaming exclusively; completeWithTools() remains
- * available for admin tooling, replay tests, and V2 batch operations.
- *
- * Phase 5c will implement stream() for synthesise prose generation.
+ * completeWithTools() remains a stub — the Director path uses streaming
+ * exclusively; completeWithTools() is reserved for admin tooling, replay
+ * tests, and V2 batch operations.
  */
 
 import 'server-only'
@@ -148,10 +147,114 @@ export class AnthropicProvider implements LLMProvider {
     }
   }
 
-  // V1 placeholder — Phase 5c implements streaming for synthesise.
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars, require-yield
-  async *stream(_prompt: AssembledPrompt): AsyncIterable<LLMStreamChunk> {
-    throw new NotImplementedError('AnthropicProvider.stream()', 'Phase 5c')
+  /**
+   * Streaming completion without tools — the production synthesise path
+   * (Phase 5c). Yields text deltas as they arrive from the model and a
+   * final `message_stop` chunk carrying usage + stop_reason.
+   *
+   * Mirrors streamWithTools structurally minus the tool-use branch. The
+   * security frame (canary injection + per-delta canary scan + cache_control
+   * on the stable system block) and the SU-46 temperature denylist apply
+   * identically to both methods.
+   *
+   * Cancellation: when the consumer breaks out of the iteration (or Node
+   * closes the underlying SSE connection), the SDK's stream object is
+   * automatically aborted by the runtime — no explicit teardown required.
+   */
+  async *stream(prompt: AssembledPrompt): AsyncIterable<LLMStreamChunk> {
+    const systemPromptWithCanary = injectCanary(prompt.stable.systemPrompt)
+
+    const systemBlocks: Anthropic.Messages.TextBlockParam[] = [
+      {
+        type: 'text',
+        text: systemPromptWithCanary,
+        cache_control: { type: 'ephemeral' },
+      },
+      {
+        type: 'text',
+        text: prompt.stable.securityWrapped,
+        cache_control: { type: 'ephemeral' },
+      },
+    ]
+
+    // Phase 5c uses single-user-message wire shape — no agentic loop, so
+    // no `dynamic.messages` array. The synthesise prompt-assembler emits
+    // its full instruction in `dynamic.securityWrapped`.
+    const messagesArray: Anthropic.Messages.MessageParam[] = [
+      { role: 'user', content: prompt.dynamic.securityWrapped },
+    ]
+
+    const stream = this.client.messages.stream({
+      model: prompt.config.model,
+      max_tokens: prompt.config.maxTokens,
+      ...(modelAcceptsTemperature(prompt.config.model) && prompt.config.temperature !== null
+        ? { temperature: prompt.config.temperature }
+        : {}),
+      system: systemBlocks,
+      messages: messagesArray,
+    })
+
+    let accumulatedText = ''
+    let inputTokens = 0
+    let outputTokens = 0
+    let cacheReadTokens = 0
+    let cacheWriteTokens = 0
+    let stopReason: string | undefined
+
+    for await (const event of stream) {
+      switch (event.type) {
+        case 'message_start': {
+          const u = event.message.usage
+          inputTokens = u.input_tokens
+          outputTokens = u.output_tokens ?? 0
+          cacheReadTokens = u.cache_read_input_tokens ?? 0
+          cacheWriteTokens = u.cache_creation_input_tokens ?? 0
+          break
+        }
+
+        case 'content_block_delta': {
+          const d = event.delta
+          if (d.type === 'text_delta') {
+            accumulatedText += d.text
+            // Canary scan on the accumulated buffer — catches tokens split
+            // across deltas. Throws SecurityViolationError on hit.
+            scanForCanaryLeak(accumulatedText)
+            yield { type: 'text', text: d.text }
+          }
+          break
+        }
+
+        case 'message_delta': {
+          if (event.delta.stop_reason) {
+            stopReason = event.delta.stop_reason
+          }
+          if (event.usage?.output_tokens != null) {
+            outputTokens = event.usage.output_tokens
+          }
+          break
+        }
+
+        case 'message_stop': {
+          yield {
+            type: 'message_stop',
+            usage: {
+              tokens_input: inputTokens,
+              tokens_output: outputTokens,
+              tokens_cache_read: cacheReadTokens,
+              tokens_cache_write: cacheWriteTokens,
+            },
+            stopReason,
+          }
+          break
+        }
+
+        // 'content_block_start', 'content_block_stop', 'ping', and any other
+        // event types are ignored — synthesise has no tool-use blocks and
+        // text blocks need no per-block bookkeeping.
+        default:
+          break
+      }
+    }
   }
 
   /**
