@@ -29,8 +29,8 @@ export default function ResetPasswordPage() {
         Set new password
       </h1>
       <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
-          <label style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-secondary)' }}>New password</label>
+        <label style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
+          <span style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-secondary)' }}>New password</span>
           <input
             type="password"
             value={password}
@@ -40,9 +40,9 @@ export default function ResetPasswordPage() {
             autoComplete="new-password"
             style={inputStyle}
           />
-        </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
-          <label style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-secondary)' }}>Confirm new password</label>
+        </label>
+        <label style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
+          <span style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-secondary)' }}>Confirm new password</span>
           <input
             type="password"
             value={confirm}
@@ -51,7 +51,7 @@ export default function ResetPasswordPage() {
             autoComplete="new-password"
             style={inputStyle}
           />
-        </div>
+        </label>
         {error && (
           <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-error)' }}>{error}</p>
         )}

@@ -111,11 +111,14 @@ export default function SignupPage() {
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  // Nesting the input inside the <label> establishes the implicit
+  // label/input association, satisfying screen readers + Playwright's
+  // getByLabel resolver (SU-J1-2).
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
-      <label style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-secondary)' }}>{label}</label>
+    <label style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
+      <span style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-secondary)' }}>{label}</span>
       {children}
-    </div>
+    </label>
   )
 }
 

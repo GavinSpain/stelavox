@@ -1,9 +1,7 @@
 import { test, expect, request as playwrightRequest } from '@playwright/test'
 import { DashboardPage } from '../pages/DashboardPage'
 import { ProjectPage } from '../pages/ProjectPage'
-// NodeTreePage import elided — its use in tree-mutation cases is deferred
-// to J2.B per docs/stelavox_phase5d_j2_test_report_v1_0.md §3 SU-J2-3.
-// import { NodeTreePage } from '../pages/NodeTreePage'
+import { NodeTreePage } from '../pages/NodeTreePage'
 import { adminClient } from '../helpers/db'
 import { createIsolatedDoc, getOrganisationIdForUser, deleteUserByEmail, findUserByEmail } from '../helpers/isolation'
 import { APP_URL, USERS } from '../helpers/auth'
@@ -129,14 +127,9 @@ test('TC-J2-04: cross-org project insert via direct API is blocked by RLS', asyn
   const fetched = await playwrightRequest.newContext(browserContextOptions)
   const res = await fetched.get(`${APP_URL}/api/projects/${project!.id}`)
 
-  // Security contract: User B must NOT receive User A's project data.
-  // The Phase 5d-discovered impl gap (SU-J2-1): the route currently
-  // returns 500 instead of 404 when RLS hides the row. The security
-  // contract holds (no data leak) but the status code is wrong. Test
-  // asserts the security contract directly + records the impl gap.
-  expect(res.status()).toBeGreaterThanOrEqual(400)
+  // SU-J2-1 (resolved): cross-org access returns 404 (RLS hides row).
+  expect([403, 404]).toContain(res.status())
   const body = await res.text()
-  // The response must NOT include the project's id or name.
   expect(body).not.toContain(project!.id)
 })
 
@@ -211,12 +204,8 @@ test('TC-J2-07: document with malformed type via direct API is rejected', async 
     data: { name: 'Bad Type Doc', document_type: 'not-a-real-template' },
   })
 
-  // Validation contract: malformed document_type must NOT create a document.
-  // The Phase 5d-discovered impl gap (SU-J2-2): the route currently returns
-  // 500 instead of 400/422 when validation fails. Validation contract holds
-  // (no row created) but the status code is wrong. Test asserts validation
-  // contract directly + records the impl gap.
-  expect(res.status()).toBeGreaterThanOrEqual(400)
+  // SU-J2-2 (resolved): malformed document_type returns 400 (zod-validated).
+  expect([400, 422]).toContain(res.status())
   const { data: docs } = await admin
     .from('documents')
     .select('id')
@@ -226,15 +215,16 @@ test('TC-J2-07: document with malformed type via direct API is rejected', async 
 
 // ─── Document open + visibility (TC-J2-08..10) ──────────────────────────────
 
-test('TC-J2-08: opening a Novel doc renders NodeTree with seed structure', async () => {
-  test.skip(true,
-    'NodeTree render-readiness polling deferred to J2.B. The document ' +
-    'editor page mounts a complex client tree (DocumentClient + AppShell ' +
-    'slots + NodeTree + Realtime subscriptions) whose ready signal is not ' +
-    'a simple role="tree" presence — the tree mounts only after the ' +
-    'sidebar setup + document fetch resolves. The Phase 2 prior-art at ' +
-    'tests/ui/tree_*.spec.ts works around this with networkidle + label ' +
-    'lookups. Phase 5d J2.B will fold the equivalent into NodeTreePage.')
+test('TC-J2-08: opening a Novel doc renders NodeTree with seed structure', async ({ page }) => {
+  const orgId = await getOrgId()
+  const seeded = await createIsolatedDoc({ organisationId: orgId, ownerName: 'TC-J2-08' })
+  createdProjectIds.push(seeded.projectId)
+
+  const tree = new NodeTreePage(page, seeded.projectId, seeded.docId)
+  await tree.goto()
+
+  const rootName = await tree.getRootRowLabel(adminClient() as never)
+  await tree.expectRowVisible(rootName)
 })
 
 test('TC-J2-09: visiting a non-existent document URL surfaces 404 page', async ({ page }) => {
@@ -271,36 +261,207 @@ test('TC-J2-10: cross-org document URL returns 404 (no existence leak)', async (
 
 // ─── Tree mutation (TC-J2-11..21) ───────────────────────────────────────────
 
-test('TC-J2-11: add child via more-menu / + button creates a new child node', async () => {
-  test.skip(true, 'See TC-J2-08 — NodeTreePage tree-render polling deferred to J2.B.')
+test('TC-J2-11: add child via more-menu / + button creates a new child node', async ({ page }) => {
+  const orgId = await getOrgId()
+  const seeded = await createIsolatedDoc({ organisationId: orgId, ownerName: 'TC-J2-11' })
+  createdProjectIds.push(seeded.projectId)
+
+  const tree = new NodeTreePage(page, seeded.projectId, seeded.docId)
+  await tree.goto()
+  const rootName = await tree.getRootRowLabel(adminClient() as never)
+
+  // Add child via the legacy window.prompt flow (SU-22).
+  const childName = uniqueName('11-child')
+  page.on('dialog', dialog => dialog.accept(childName))
+
+  await tree.clickAddChild(rootName)
+  await tree.expectRowVisible(childName)
+
+  // DB-side: row exists under the doc.
+  const admin = adminClient()
+  const { data: nodes } = await admin
+    .from('nodes')
+    .select('id, name')
+    .eq('document_id', seeded.docId)
+    .eq('name', childName)
+  expect(nodes?.length).toBe(1)
 })
 
-test('TC-J2-12: add-child button is hidden on a leaf node', async () => {
-  test.skip(true,
-    'Deep tree-mutation case requires building Act→Chapter→Scene→Beat ' +
-    'fixture and asserting hover-action visibility per is_leaf flag. ' +
-    'Existing Phase 2 prior-art at tests/ui/leaf-gating.spec.ts covers ' +
-    'the equivalent contract. Folding into Phase 5d shape is a J2.B follow-up.')
+test('TC-J2-12: add-child button is hidden on a leaf node', async ({ page }) => {
+  const orgId = await getOrgId()
+  const seeded = await createIsolatedDoc({ organisationId: orgId, ownerName: 'TC-J2-12' })
+  createdProjectIds.push(seeded.projectId)
+
+  // Build down to a leaf: Act → Chapter → Scene → Beat. The Beat
+  // is the leaf in the Novel template (layer_index = 4).
+  const admin = adminClient()
+  const rootId = (await admin.from('nodes').select('id').eq('document_id', seeded.docId).is('parent_id', null).single()).data!.id
+
+  async function insert(parentId: string, type: string, depth: number, layerIndex: number, name: string): Promise<string> {
+    const { data } = await admin.from('nodes').insert({
+      organisation_id: orgId,
+      project_id: seeded.projectId,
+      document_id: seeded.docId,
+      parent_id: parentId,
+      node_category: 'structural',
+      node_type: type,
+      order: 1,
+      depth,
+      layer_index: layerIndex,
+      name,
+      status: 'draft',
+      version: 1,
+    }).select('id').single()
+    return data!.id
+  }
+
+  const actId = await insert(rootId, 'act', 1, 1, uniqueName('12-act'))
+  const chapId = await insert(actId, 'chapter', 2, 2, uniqueName('12-chap'))
+  const sceneId = await insert(chapId, 'scene', 3, 3, uniqueName('12-scene'))
+  const beatName = uniqueName('12-beat')
+  await insert(sceneId, 'beat', 4, 4, beatName)
+
+  const tree = new NodeTreePage(page, seeded.projectId, seeded.docId)
+  await tree.goto()
+
+  // Beat is leaf — its row exists, but hovering should NOT reveal an
+  // Add-child button (per H-15 leaf-only mounting; UI hides the action).
+  await tree.expectRowVisible(beatName)
+  const beatRow = tree.row(beatName)
+  await beatRow.hover()
+  await expect(beatRow.getByRole('button', { name: 'Add child' })).toHaveCount(0)
 })
 
-test('TC-J2-13: inline-rename via more-menu Rename persists', async () => {
-  test.skip(true, 'See TC-J2-08 — NodeTreePage tree-render polling deferred to J2.B.')
+test('TC-J2-13: inline-rename via more-menu Rename persists', async ({ page }) => {
+  const orgId = await getOrgId()
+  const seeded = await createIsolatedDoc({ organisationId: orgId, ownerName: 'TC-J2-13' })
+  createdProjectIds.push(seeded.projectId)
+
+  const admin = adminClient()
+  const rootId = (await admin.from('nodes').select('id').eq('document_id', seeded.docId).is('parent_id', null).single()).data!.id
+  const childOriginalName = uniqueName('13-orig')
+  const { data: child } = await admin.from('nodes').insert({
+    organisation_id: orgId, project_id: seeded.projectId, document_id: seeded.docId,
+    parent_id: rootId, node_category: 'structural', node_type: 'act',
+    order: 1, depth: 1, layer_index: 1, name: childOriginalName,
+    status: 'draft', version: 1,
+  }).select('id').single()
+
+  const tree = new NodeTreePage(page, seeded.projectId, seeded.docId)
+  await tree.goto()
+  await tree.expectRowVisible(childOriginalName)
+
+  const newName = uniqueName('13-new')
+  page.on('dialog', dialog => dialog.accept(newName))
+
+  await tree.openMoreMenu(childOriginalName)
+  await tree.menuItem(/Rename/i).click()
+  await tree.expectRowVisible(newName)
+
+  const { data: after } = await admin.from('nodes').select('name').eq('id', child!.id).single()
+  expect(after?.name).toBe(newName)
 })
 
-test('TC-J2-14: inline-rename to empty string is rejected; original name preserved', async () => {
-  test.skip(true, 'See TC-J2-08 — NodeTreePage tree-render polling deferred to J2.B.')
+test('TC-J2-14: inline-rename to empty string is rejected; original name preserved', async ({ page }) => {
+  const orgId = await getOrgId()
+  const seeded = await createIsolatedDoc({ organisationId: orgId, ownerName: 'TC-J2-14' })
+  createdProjectIds.push(seeded.projectId)
+
+  const admin = adminClient()
+  const rootId = (await admin.from('nodes').select('id').eq('document_id', seeded.docId).is('parent_id', null).single()).data!.id
+  const childOriginalName = uniqueName('14-orig')
+  const { data: child } = await admin.from('nodes').insert({
+    organisation_id: orgId, project_id: seeded.projectId, document_id: seeded.docId,
+    parent_id: rootId, node_category: 'structural', node_type: 'act',
+    order: 1, depth: 1, layer_index: 1, name: childOriginalName,
+    status: 'draft', version: 1,
+  }).select('id').single()
+
+  const tree = new NodeTreePage(page, seeded.projectId, seeded.docId)
+  await tree.goto()
+  await tree.expectRowVisible(childOriginalName)
+
+  // Dismiss the prompt — original name should persist.
+  page.on('dialog', dialog => dialog.dismiss())
+  await tree.openMoreMenu(childOriginalName)
+  await tree.menuItem(/Rename/i).click()
+  await page.waitForTimeout(800)
+
+  await tree.expectRowVisible(childOriginalName)
+  const { data: after } = await admin.from('nodes').select('name').eq('id', child!.id).single()
+  expect(after?.name).toBe(childOriginalName)
 })
 
-test('TC-J2-15: delete leaf node via more-menu Delete + confirm', async () => {
-  test.skip(true, 'See TC-J2-08 — NodeTreePage tree-render polling deferred to J2.B.')
+test('TC-J2-15: delete leaf node via more-menu Delete + confirm', async ({ page }) => {
+  const orgId = await getOrgId()
+  const seeded = await createIsolatedDoc({ organisationId: orgId, ownerName: 'TC-J2-15' })
+  createdProjectIds.push(seeded.projectId)
+
+  const admin = adminClient()
+  const rootId = (await admin.from('nodes').select('id').eq('document_id', seeded.docId).is('parent_id', null).single()).data!.id
+  const childName = uniqueName('15-child')
+  const { data: child } = await admin.from('nodes').insert({
+    organisation_id: orgId, project_id: seeded.projectId, document_id: seeded.docId,
+    parent_id: rootId, node_category: 'structural', node_type: 'act',
+    order: 1, depth: 1, layer_index: 1, name: childName,
+    status: 'draft', version: 1,
+  }).select('id').single()
+
+  const tree = new NodeTreePage(page, seeded.projectId, seeded.docId)
+  await tree.goto()
+  await tree.expectRowVisible(childName)
+
+  page.on('dialog', dialog => dialog.accept())
+  await tree.openMoreMenu(childName)
+  await tree.menuItem(/Delete/i).click()
+  await page.waitForTimeout(800)
+
+  await tree.expectRowMissing(childName)
+  const { data: deleted } = await admin.from('nodes').select('id').eq('id', child!.id).maybeSingle()
+  expect(deleted).toBeNull()
 })
 
-test('TC-J2-16: delete parent cascades to children', async () => {
-  test.skip(true,
-    'Cascade-delete fixture requires a multi-level tree (Act + Chapter ' +
-    'children) and a confirmation flow. Existing Phase 2 prior-art at ' +
-    'tests/ui/tree_more_menu.spec.ts covers cascade-confirm semantics. ' +
-    'Folding into Phase 5d shape is a J2.B follow-up.')
+test('TC-J2-16: delete parent cascades to children', async ({ page }) => {
+  const orgId = await getOrgId()
+  const seeded = await createIsolatedDoc({ organisationId: orgId, ownerName: 'TC-J2-16' })
+  createdProjectIds.push(seeded.projectId)
+
+  const admin = adminClient()
+  const rootId = (await admin.from('nodes').select('id').eq('document_id', seeded.docId).is('parent_id', null).single()).data!.id
+
+  // Insert Act with a Chapter child.
+  const actName = uniqueName('16-act')
+  const { data: act } = await admin.from('nodes').insert({
+    organisation_id: orgId, project_id: seeded.projectId, document_id: seeded.docId,
+    parent_id: rootId, node_category: 'structural', node_type: 'act',
+    order: 1, depth: 1, layer_index: 1, name: actName,
+    status: 'draft', version: 1,
+  }).select('id').single()
+
+  const chapterName = uniqueName('16-chapter')
+  const { data: chapter } = await admin.from('nodes').insert({
+    organisation_id: orgId, project_id: seeded.projectId, document_id: seeded.docId,
+    parent_id: act!.id, node_category: 'structural', node_type: 'chapter',
+    order: 1, depth: 2, layer_index: 2, name: chapterName,
+    status: 'draft', version: 1,
+  }).select('id').single()
+
+  const tree = new NodeTreePage(page, seeded.projectId, seeded.docId)
+  await tree.goto()
+  await tree.expectRowVisible(actName)
+
+  page.on('dialog', dialog => dialog.accept())
+  await tree.openMoreMenu(actName)
+  await tree.menuItem(/Delete/i).click()
+  await page.waitForTimeout(1_500)
+
+  // Both Act and Chapter rows are gone; DB rows cascade-deleted.
+  await tree.expectRowMissing(actName)
+  await tree.expectRowMissing(chapterName)
+  const { data: actAfter } = await admin.from('nodes').select('id').eq('id', act!.id).maybeSingle()
+  const { data: chapAfter } = await admin.from('nodes').select('id').eq('id', chapter!.id).maybeSingle()
+  expect(actAfter).toBeNull()
+  expect(chapAfter).toBeNull()
 })
 
 test('TC-J2-17: delete cross-org node via direct API is blocked by RLS', async () => {
