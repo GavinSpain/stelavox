@@ -45,8 +45,8 @@ export default function ForgotPasswordPage() {
         Enter your email and we&apos;ll send a reset link.
       </p>
       <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
-          <label style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-secondary)' }}>Email</label>
+        <label style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
+          <span style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-secondary)' }}>Email</span>
           <input
             type="email"
             value={email}
@@ -55,7 +55,7 @@ export default function ForgotPasswordPage() {
             autoComplete="email"
             style={inputStyle}
           />
-        </div>
+        </label>
         {error && (
           <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-error)' }}>{error}</p>
         )}
