@@ -6,10 +6,11 @@
  * Types only. No implementation. Imported by lib/llm/factory.ts and the
  * provider modules in lib/llm/providers/.
  *
- * Phase 5 ships:
- *   - LLMProvider.complete()       → AnthropicProvider implements
- *   - LLMProvider.stream()         → V2/Phase 5c, not in Phase 5
- *   - LLMProvider.completeWithTools → Director (Phase 5b), not in Phase 5
+ * Implementation status:
+ *   - LLMProvider.complete()        → AnthropicProvider (Phase 5)
+ *   - LLMProvider.stream()          → AnthropicProvider (Phase 5c)
+ *   - LLMProvider.streamWithTools() → AnthropicProvider (Phase 5b — Director)
+ *   - LLMProvider.completeWithTools → stub (V2 batch / replay tooling)
  */
 
 /**
@@ -125,7 +126,10 @@ export interface ToolCall {
 
 export interface LLMProvider {
   complete(prompt: AssembledPrompt): Promise<LLMResponse>
-  /** Phase 5c. Throws NotImplementedError in V1. */
+  /**
+   * Phase 5c — synthesise streaming. Yields text chunks and a final
+   * message_stop chunk carrying usage + stop_reason.
+   */
   stream?(prompt: AssembledPrompt): AsyncIterable<LLMStreamChunk>
   /**
    * Phase 5b (Director). Non-streaming tool-use — kept as an explicit

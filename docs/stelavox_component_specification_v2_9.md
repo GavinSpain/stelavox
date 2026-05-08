@@ -1,5 +1,5 @@
 # Stelavox — Component Specification
-## Version 2.8
+## Version 2.9
 
 ### Purpose
 
@@ -851,6 +851,24 @@ tokens: 1,124 in · 577 out · 1,701 total · cost $0.0086 · model claude-haiku
 ```
 The summary shows on completion only (Anthropic non-streaming SDK doesn't expose mid-call usage). `cost_usd` is computed at completion via `lib/llm/cost.ts → computeCostUsd()` against `platform_config` price keys (Migration 028). Per Product Spec §3.2 the dollar amount is platform-internal and never surfaces in the V1 user-facing UI for billing — this summary line is the AgentTab developer/diagnostic display, not a billing surface.
 
+**Streaming state — synthesise via SSE (Phase 5c):**
+
+When the user clicks Synthesise on a leaf node, the AgentTab branches to the foreground streaming endpoint (`POST /api/agent/synthesise/stream`) instead of the background-job path. The Active state's indeterminate sliding stripe is replaced for this single operation by a typewriter prose surface. Other operations (expand, refine, generate-context) keep the indeterminate-stripe Active state.
+
+| Property | Value |
+|---|---|
+| Surface container | Full Tab height, padding `var(--space-5)`, flex column with `gap: var(--space-3)`. |
+| Status row (top) | Inter 300 10px `--color-text-muted` "connecting…" or "streaming…" on the left; Cancel button (no border, `--color-error` text, Inter 11px) on the right. |
+| Prose surface | `font-family: var(--font-lora), Lora, serif`; `font-size: 15px`; `font-weight: 400`; `line-height: 1.7`; `color: var(--color-text-primary)`; `white-space: pre-wrap`; `word-break: break-word`; `padding: var(--space-4)`; `border: 1px solid --color-border-subtle`; `border-radius: 4px`; `background: --color-bg-base`; `max-height: 60vh`; `overflow-y: auto`. The typeface deliberately matches ProseEditor so the end-of-stream transition to the Tiptap-rendered CompleteState is visually seamless. |
+| Cursor | **No cursor element rendered.** Inviolable #2 reserves verdigris (`--color-accent`) for nine enumerated places; "prose cursor" use #3 specifically scopes to ProseEditor and FocusMode. The streaming surface does not extend that use. The arrival of streamed text is itself the typewriter feel; no separate cursor needed. |
+| Cancel handling | Cancel button calls `AbortController.abort()` on the in-flight `fetch`. The route handler propagates the abort to the upstream Anthropic SDK stream and `runAgentJobInline`'s finally block flips the agent_jobs row to `status='cancelled'`, `error_message='client_disconnect'`. |
+| State transition on completion | On the SSE `agent_job_complete` event, the local `streamingStatus` clears to `'idle'`. The realtime hook's `activeJob` (subscribed to the agent_jobs row) takes over rendering as the existing CompleteState (Accept/Dismiss). |
+| State transition on cancel/error | The streaming surface unmounts; the AgentTab returns to IDLE (which now shows an error banner if applicable). |
+| Workflow-dispatched synthesise | Unaffected — runs through the existing background path and surfaces in the workflow's ExecutionCard (not the AgentTab). The streaming surface is exclusively for user-clicked synthesise on a leaf node. |
+| State reset on node change | `NodeDetailPanel` passes `key={nodeId}` to AgentTab so React unmounts + remounts on node change. Streaming accumulator + `AbortController` are part of the component's local state and are cleared automatically. |
+
+**Test data hooks:** the prose surface carries `data-testid="synthesise-streaming-surface"` for the Phase 5c functional smoke (`tests/agent/synthesise-stream-smoke.spec.ts`).
+
 ---
 
 ### 5.10 CommentThread
@@ -1656,6 +1674,8 @@ All open questions from Component Spec v1.4 are resolved. There are currently no
 ---
 
 ## 17. Changelog
+
+**v2.9 — 2026-05-08** Phase 5c close-out absorption — synthesise streaming surface in `§5.9 AgentTab`. New "Streaming state — synthesise via SSE (Phase 5c)" subsection added between the existing "Complete state — token + cost summary" subsection and the §5.10 divider. Specifies the typewriter prose surface that replaces the indeterminate sliding stripe for synthesise specifically (other operations keep the existing Active state). Lora 15px / 1.7 line-height matches ProseEditor for seamless end-of-stream transition. **Verdigris discipline:** the streaming surface introduces no new verdigris use — Inviolable #2 reserves verdigris for nine enumerated places, "prose cursor" use #3 specifically scopes to ProseEditor / FocusMode, and the streaming surface deliberately does not extend that use (no cursor element rendered; the arrival of streamed text is itself the typewriter feel). Cancel button calls `AbortController.abort()` which propagates to the route handler, the upstream Anthropic SDK stream, and `runAgentJobInline`'s finally block (flips agent_jobs to `cancelled` / `client_disconnect`). On `agent_job_complete`, the streaming surface yields to the existing CompleteState (Accept/Dismiss) via the realtime hook's `activeJob`. State reset on node change is via `key={nodeId}` on AgentTab from `NodeDetailPanel` (React-canonical pattern; avoids React 19 strict-mode lint rules against ref-access-during-render). Test data hook: `data-testid="synthesise-streaming-surface"` on the prose container. No other section changes; §5.10 onwards carry forward from v2.8 unchanged. Verdigris-use count remains nine.
 
 **v2.8 — 2026-05-07** Phase 5b close-out absorption (substrate-merged; verification-pending). Two amendments. **§1.4** verdigris use #7 broadened from "Accept button in Agent Tab" to "Author-affirmation buttons — Accept (AgentTab) + Approve (PlanCard)" so PlanCard's Approve verdigris is folded into the existing Completion-category use rather than creating a tenth use (SU-38 — Phase 5b absorbed; the alternative — adding PlanCard Approve as use #10 — was rejected because the two buttons share a single UX function: author-affirmation of agent-produced work). The button-note paragraph below the table updated accordingly. **§7.7** ExecutionCard gains a "Heartbeat indicator" subsection covering the green-dot-pulse-while-running / muted-static-when-stalled liveness signal driven by `workflow.last_heartbeat_at` + `agent_jobs.last_heartbeat_at` (SU-42 — Phase 5b absorbed; the indicator was implemented in T-15 against the v1.1 SU-42 placeholder and is now formally specced). The dot uses `--color-agent-running` (blue), not verdigris — it is a system-state signal, not a completion signal. Reduced-motion preference collapses the pulse. Recovery cron at `/api/cron/director-recovery` (60s) is the backstop. Five Inviolables unchanged; the verdigris-use count remains nine (#7 broadened, not duplicated). All other sections (§2.5 ModeTabBar, §7.1–7.6 + 7.8–7.9, §8 Feedback, §9 Overlay, §15 Accessibility) carry forward unchanged.
 

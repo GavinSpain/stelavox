@@ -1,5 +1,5 @@
 # Stelavox — Claude Code Project Context
-## Version 1.13
+## Version 1.14
 
 > **Versioning note:** This file is versioned. The version lives here, not in the filename — the filename must remain `CLAUDE.md` for Claude Code to find it automatically. When this file changes, increment the version and add a changelog entry at the bottom. The source of record is `docs/CLAUDE_stelavox_project.md`; the deployed copy at the repository root must always match it. Commit both in the same commit.
 
@@ -13,7 +13,7 @@ Read these before writing any code in a new session:
 
 1. `docs/stelavox_wireframe_errata_v1_0.md` — corrections to wireframes (read before any wireframe HTML)
 2. The relevant spec section for today's task (see Spec Library Reference below)
-3. `docs/stelavox_technical_architecture_v2_1.md` §5 — Known Hazards H-01 to H-15, if today's task touches the database, agents, or Director
+3. `docs/stelavox_technical_architecture_v2_2.md` §5 — Known Hazards H-01 to H-15, if today's task touches the database, agents, or Director
 
 ---
 
@@ -23,15 +23,15 @@ All documents live in `/docs`. Before making any change, read the relevant docum
 
 | Change type | Read first |
 |---|---|
-| Any UI change | `stelavox_component_specification_v2_8.md` |
+| Any UI change | `stelavox_component_specification_v2_9.md` |
 | Layout, tokens, motion, accessibility | `stelavox_ui_design_specification_v1_0.md` |
 | Colour, typography, brand rules | `stelavox_brand_identity_v2_0.md` |
-| Database schema, RLS, migrations, agent system, Director, security | `stelavox_technical_architecture_v2_1.md` |
-| Product features, user journeys, pricing, data model | `stelavox_product_specification_v1_7.md` |
+| Database schema, RLS, migrations, agent system, Director, security | `stelavox_technical_architecture_v2_2.md` |
+| Product features, user journeys, pricing, data model | `stelavox_product_specification_v1_8.md` |
 | Agent system prompts | `stelavox_agent_profile_library_v1_0.md` (v1.1 changelog) |
 | Any wireframe | `stelavox_wireframe_errata_v1_0.md` first, then the wireframe HTML |
 | Environment setup, deployment | `stelavox_deployment_setup_v1_0.md` |
-| Current phase tasks | Phase 5b verification-complete on local AND cloud as of 2026-05-08 — V1-launch-ready at substrate level. Test Report v1.1 (`stelavox_phase5b_test_report_v1_1.md`, with v1.1.1 cloud-smoke amendment) supersedes v1.0. T-17.1 cross-model J5 walkthrough complete (Haiku 4.5 / Sonnet 4.6 / Opus 4.7 — all three produce workflow proposals on V1 prompt + SU-47); T-17.2 adversarial walk on Haiku 10/10 PASS, zero compliances; T-17.3 prompt locked; T-18.3 cloud smoke 6/6 PASS on `stelavox-dev` (Migration 031 + Opus 4.7 prices applied to cloud; cloud `director_configs.model_id` restored to `claude-opus-4-6` after). Three substrate fixes shipped during verification: SU-45 (`streamMessage` `conversation_id: null` → omit), SU-46 (Opus 4.7 temperature deprecation handled), SU-47 (executor refactored to Anthropic's standard messages-array tool-use protocol — transformative cross-model improvement). New deliverables: Director eval methodology v1.0, j5-novel scenario corpus (~7,400-word literary-noir Act 1 with 14 catalogued issues), automation pipeline (probe runner + comparison wrapper), functional + Director-turn smokes. Probe-runner polling-bug fix (sequential probes against shared conversation now filter by `created_at > probeSentAt`). Director architecture deep review queued post-V1. Phase 1–5 broader regression: 429/430 PASS (1 pre-existing Character `role` enum drift unrelated). Next phase candidate: Phase 5c (synthesise streaming) or Phase 6 (lock + status state machine). |
+| Current phase tasks | **Phase 5c shipped 2026-05-08 — synthesise streaming via SSE end-to-end.** Test Report v1.0 (`stelavox_phase5c_test_report_v1_0.md`) verdict PASS, all 13 phase-checkpoint criteria green. New code: `lib/llm/providers/anthropic.ts:stream()` (replaces V1 NotImplementedError stub), `lib/agent/job-lifecycle.ts` (factored helpers shared by background + foreground runners), `runAgentJobInline` async generator in `lib/agent/runner.ts`, `POST /api/agent/synthesise/stream` route, `lib/agent/streamSynthesise.ts` client, AgentTab streaming surface. No DB migration. Workflow-dispatched synthesise stays on the existing background path (TC-A-15 PASS). Cross-model wire-shape PASS on Haiku 4.5 / Sonnet 4.6 / Opus 4.7 (Opus 4.7 specifically validates SU-46 carry-forward). Cloud smoke PASS on `stelavox-dev` via env-swap. Two SU items raised: SU-49 (cloud agent_profiles seed gap — `synthesise_beat` row inserted manually), SU-50 (TC-A-30 test isolation — cleaned manually); both queued, neither launch-blocking. Total spend ~$0.029. Director architecture deep review remains queued post-V1. Next phase candidate: Phase 6 (lock + status state machine). |
 
 ---
 
@@ -202,7 +202,7 @@ Read Technical Architecture v1.9 §5 for the full entries (H-01 to H-15). The mo
 
 ## Critical Component Specifications
 
-Before implementing or modifying these components, read the exact spec in `docs/stelavox_component_specification_v2_8.md`:
+Before implementing or modifying these components, read the exact spec in `docs/stelavox_component_specification_v2_9.md`:
 
 | Component | Spec | Key constraint |
 |---|---|---|
@@ -256,6 +256,8 @@ Version bumps: minor for additions and corrections, major for structural changes
 ---
 
 ## Changelog
+
+**v1.14 — 2026-05-08** Phase 5c close-out absorption. Spec Library Reference re-pointed at the three Tier-A docs that bumped: `stelavox_technical_architecture_v2_2.md` (was v2_1), `stelavox_product_specification_v1_8.md` (was v1_7), `stelavox_component_specification_v2_9.md` (was v2_8). Same versions reflected in the Session Start Checklist (TA v2.2 §5 — H-01 to H-15 unchanged). The "Current phase tasks" row now flags Phase 5c shipped — synthesise streaming via SSE end-to-end. Test Report v1.0 (`stelavox_phase5c_test_report_v1_0.md`) verdict PASS, all 13 CKs green. Two SU items raised in Phase 5c (SU-49 cloud agent_profiles seed gap, SU-50 TC-A-30 test isolation flaw) — both queued, neither launch-blocking. **Component Spec v2.9 §5.9 streaming subsection** documents the typewriter prose surface (Lora 15px / 1.7 line-height matching ProseEditor for seamless transition; no cursor element rendered to honour Inviolable #2 verdigris discipline; AbortController-driven Cancel; state reset via `key={nodeId}` from NodeDetailPanel). Verdigris-use count remains nine. No new H-NN hazards. Five Inviolables unchanged. Director architecture deep review remains queued post-V1.
 
 **v1.13 — 2026-05-08** Tier-A close-out absorption (post-cloud-smoke). Spec Library Reference re-pointed at the two cross-cutting Tier-A docs that bumped: `stelavox_technical_architecture_v2_1.md` (was v2_0) and `stelavox_product_specification_v1_7.md` (was v1_6). Component Spec v2_8 not bumped this round — SU-45/46/47 were all backend (no UI component changes). Same versions reflected in the Session Start Checklist (TA v2.1 §5 — H-01 to H-15 unchanged). The "Current phase tasks" row now flags Phase 5b verification-complete on local AND cloud (T-18.3 cloud smoke 6/6 PASS) — V1-launch-ready at substrate level. Probe-runner polling-bug fixed alongside this absorption. No Hazards added; SU-45/46/47 are bug fixes, not invariant-violating hazards. Five Inviolables unchanged. Critical Component Specifications table unchanged.
 

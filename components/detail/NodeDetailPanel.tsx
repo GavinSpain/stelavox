@@ -500,6 +500,7 @@ export function NodeDetailPanel({ nodeId, refreshKey, onMutated, onClose }: Node
 
         {activeTab === 'agent' && (
           <AgentTab
+            key={nodeId}
             nodeId={nodeId}
             nodeType={node.node_type}
             nodeCategory={node.node_category}
