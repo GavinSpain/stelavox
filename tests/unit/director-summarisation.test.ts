@@ -95,6 +95,38 @@ beforeAll(async () => {
     .update({ value: TEST_THRESHOLD })
     .eq('key', CONFIG_KEY)
 
+  // Cross-suite isolation: conversations.document_id is UNIQUE, so any
+  // residual conversation under this document blocks the INSERT. Residue
+  // typically comes from the Phase 5b TC-A-15 Playwright test
+  // (j5-workflow-approve.spec.ts) which seeds a conversation + workflow +
+  // step + agent_job and isn't currently configured to delete-cascade
+  // those rows on cleanup. Sweep the full chain in reverse-FK order
+  // before our INSERT so this test re-runs cleanly regardless of which
+  // suite ran before it.
+  const { data: residualConvs } = await a
+    .from('conversations')
+    .select('id')
+    .eq('document_id', doc.id)
+  for (const rc of residualConvs ?? []) {
+    const { data: residualWfs } = await a
+      .from('workflows')
+      .select('id')
+      .eq('conversation_id', rc.id)
+    for (const rwf of residualWfs ?? []) {
+      const { data: residualSteps } = await a
+        .from('workflow_steps')
+        .select('id, agent_job_id')
+        .eq('workflow_id', rwf.id)
+      for (const rs of residualSteps ?? []) {
+        await a.from('workflow_steps').delete().eq('id', rs.id)
+        if (rs.agent_job_id) await a.from('agent_jobs').delete().eq('id', rs.agent_job_id)
+      }
+      await a.from('workflows').delete().eq('id', rwf.id)
+    }
+    await a.from('conversation_messages').delete().eq('conversation_id', rc.id)
+    await a.from('conversations').delete().eq('id', rc.id)
+  }
+
   // Create a fresh conversation isolated from any other test data.
   const { data: conv, error: convErr } = await a
     .from('conversations')
