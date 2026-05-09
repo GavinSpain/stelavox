@@ -25,12 +25,20 @@
  *       short_description: string (1–500 chars),
  *       summary: string (1+ chars),
  *       metadata?: object,
- *       word_count_target?: integer (1–100000),
+ *       word_count_target?: integer (1–250000),
  *       position: integer (≥ 0)
  *     },
  *     ...
  *   ]
  * Min items: 1. Max items: 20.
+ *
+ * Note on cap: word_count_target is capped at 250,000 to accommodate the
+ * full V1 expand profile range. The series-into-books prompt explicitly
+ * targets 70,000–120,000 per book with allowance for high-fantasy at
+ * 150,000+; capping at 100,000 caused real production rejections (cloud
+ * failure 2026-05-08, doc 9503c6ea Mars series). 250,000 is comfortably
+ * above the longest realistic single-book target (~200k for Brandon-
+ * Sanderson-scale fantasy) without admitting absurd values.
  */
 
 import { z } from 'zod'
@@ -40,7 +48,7 @@ const ExpandOutputItemSchema = z.object({
   short_description: z.string().min(1).max(500),
   summary: z.string().min(1),
   metadata: z.record(z.string(), z.unknown()).optional(),
-  word_count_target: z.number().int().min(1).max(100_000).optional(),
+  word_count_target: z.number().int().min(1).max(250_000).optional(),
   position: z.number().int().min(0),
 })
 
