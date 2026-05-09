@@ -6,6 +6,7 @@ import { NextRequest } from 'next/server'
 
 import {
   checkConcurrency,
+  checkSummaryNonEmpty,
   createJobAndDispatch,
   validateAgentInstruction,
   validateProfile,
@@ -50,6 +51,10 @@ export async function POST(request: NextRequest) {
   const maxLayer = await getDocumentMaxLayerIndex(supabase, node.document_id ?? '')
   const decorated = decorateWithLeaf(node, maxLayer)
   if (!decorated.is_leaf) return err.notALeafNode()
+
+  // SU-J14-6: pre-flight summary check.
+  const summaryGate = checkSummaryNonEmpty(node.summary)
+  if (summaryGate) return summaryGate
 
   if (data.expected_version !== undefined && node.version !== data.expected_version) {
     return err.versionConflict(node, data.expected_version, node.version)

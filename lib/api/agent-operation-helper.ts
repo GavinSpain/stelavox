@@ -40,6 +40,64 @@ interface Profile {
 }
 
 /**
+ * SU-J14-6 (round-3 drive 2026-05-09): pre-flight summary check for
+ * content-modifying agent operations.
+ *
+ * Synthesise / refine / generate_context all assemble a prompt that
+ * reads the target node's summary as the LLM's anchor. When summary is
+ * empty, the LLM has nothing to base its work on and commonly produces
+ * conversational refusals ("I need the context material to write this
+ * beat. Could you provide...") that get persisted as prose if the
+ * author clicks Accept.
+ *
+ * Refuse the dispatch with 422 + a friendly error code so the AgentTab
+ * surfaces a "add a summary first" message and no LLM call is made.
+ *
+ * Returns null when the summary check passes; a NextResponse error
+ * when the summary is empty / Tiptap-stub-only.
+ *
+ * Tiptap stub shape: `{"type":"doc","content":[{"type":"paragraph"}]}`
+ * (an empty paragraph) is treated as empty. So is JSON containing
+ * paragraphs whose only content is whitespace text nodes.
+ */
+export function checkSummaryNonEmpty(summary: string | null): NextResponse | null {
+  if (summary === null) return err.summaryRequired()
+  const trimmed = summary.trim()
+  if (trimmed === '') return err.summaryRequired()
+
+  // Try to parse as Tiptap JSON; if it parses, walk the tree for any
+  // text node with non-whitespace content. If parse fails, treat the
+  // raw string as plain text and apply the same whitespace rule.
+  let json: unknown
+  try {
+    json = JSON.parse(trimmed)
+  } catch {
+    // Plain text path — already stripped above. Non-empty, accept.
+    return null
+  }
+
+  const hasMeaningfulText = walkForText(json)
+  if (!hasMeaningfulText) return err.summaryRequired()
+  return null
+}
+
+function walkForText(node: unknown): boolean {
+  if (node === null || node === undefined) return false
+  if (typeof node === 'string') return node.trim().length > 0
+  if (Array.isArray(node)) return node.some(walkForText)
+  if (typeof node === 'object') {
+    const obj = node as Record<string, unknown>
+    if (obj.type === 'text' && typeof obj.text === 'string') {
+      return obj.text.trim().length > 0
+    }
+    if (Array.isArray(obj.content)) {
+      return obj.content.some(walkForText)
+    }
+  }
+  return false
+}
+
+/**
  * Resolve the agent_profiles row for an operation.
  * - If profile_id given: load and verify operation_type matches.
  * - If absent: load the system profile matching (operation_type, node_type).

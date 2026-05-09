@@ -58,6 +58,18 @@ export const err = {
   invalidExpectedVersion:    () => apiError(400, 'invalid_expected_version'),
   // SU-J14-1: autosave-side concurrency token error
   invalidExpectedContentRevision: () => apiError(400, 'invalid_expected_content_revision'),
+  // SU-J14-6: pre-flight check for content-modifying agent operations.
+  // 422 (Unprocessable Entity) — semantically valid request shape, but
+  // the target node is not in a state where the operation can succeed.
+  summaryRequired:           () =>
+    NextResponse.json(
+      {
+        error: 'summary_required',
+        message:
+          'This operation needs a non-empty summary on the target node to anchor the LLM. Add a summary describing what should happen here, then try again.',
+      },
+      { status: 422 },
+    ),
   versionConflict:           (current: unknown, expected: number, found: number) =>
     NextResponse.json(
       {

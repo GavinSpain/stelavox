@@ -25,6 +25,7 @@ import type { NextRequest } from 'next/server'
 import { runAgentJobInline, type InlineRunnerEvent } from '@/lib/agent/runner'
 import {
   checkConcurrency,
+  checkSummaryNonEmpty,
   validateAgentInstruction,
   validateProfile,
 } from '@/lib/api/agent-operation-helper'
@@ -76,6 +77,12 @@ export async function POST(request: NextRequest): Promise<Response> {
   const maxLayer = await getDocumentMaxLayerIndex(supabase, node.document_id ?? '')
   const decorated = decorateWithLeaf(node, maxLayer)
   if (!decorated.is_leaf) return err.notALeafNode()
+
+  // ---- 4b. Pre-flight summary check (SU-J14-6) ------------------------
+  // Synthesise without an anchoring summary commonly produces meta-
+  // conversation refusals that the user could mistake for prose.
+  const summaryGate = checkSummaryNonEmpty(node.summary)
+  if (summaryGate) return summaryGate
 
   // ---- 5. Lock check ---------------------------------------------------
   if (node.locked) return apiError(423, 'node_locked', 'Target node is locked.')

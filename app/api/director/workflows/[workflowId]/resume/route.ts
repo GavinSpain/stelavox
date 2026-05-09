@@ -55,6 +55,29 @@ export async function POST(
     if (denial) return denial
   }
 
+  // SU-J14-5 (round-3 drive 2026-05-09): Resume previously left failed
+  // workflow_steps in their failed state, then called advanceWorkflow.
+  // advanceWorkflow's first check is "any failed step → re-pause" (line
+  // ~226 of workflow-executor.ts), so Resume was a visible no-op for the
+  // common case of a paused-because-step-failed workflow. The author saw
+  // the button do nothing.
+  //
+  // Reset every failed step to 'pending' (clearing its error_message and
+  // agent_job_id) before re-invoking advanceWorkflow. The executor then
+  // re-dispatches the step. This matches the user's mental model of
+  // "Resume retries what failed."
+  await service
+    .from('workflow_steps')
+    .update({
+      status: 'pending',
+      error_message: null,
+      agent_job_id: null,
+      started_at: null,
+      completed_at: null,
+    })
+    .eq('workflow_id', workflow.id)
+    .eq('status', 'failed')
+
   await service
     .from('workflows')
     .update({
