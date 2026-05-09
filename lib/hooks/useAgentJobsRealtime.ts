@@ -136,7 +136,12 @@ export function useAgentJobsRealtime(organisationId: string | null): void {
 // ─── Selectors ────────────────────────────────────────────────────────────
 
 const ACTIVE_STATUSES = new Set(['pending', 'running'])
-const ACTIONABLE_STATUSES = new Set(['pending', 'running', 'completed'])
+// SU-J13-2 (Mars-drive 2026-05-09): 'failed' must be ACTIONABLE so the
+// AgentTab's FailedState branch (SU-J12-3) can render — the user needs
+// to see the error and Dismiss before the surface is usable again.
+// Without this, useActiveJobForNode returned null on a failed job and
+// the AgentTab fell through to IDLE, hiding the error from the author.
+const ACTIONABLE_STATUSES = new Set(['pending', 'running', 'completed', 'failed'])
 
 export function useAgentJobsForNode(nodeId: string | null): AgentJob[] {
   const jobs = useStore((s) => s.jobs)
