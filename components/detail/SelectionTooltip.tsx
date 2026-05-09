@@ -68,6 +68,7 @@ export function SelectionTooltip({ editor }: SelectionTooltipProps) {
   return (
     <div
       ref={ref}
+      data-testid="selection-tooltip"
       role="toolbar"
       aria-label="Text formatting"
       style={{

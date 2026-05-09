@@ -41,6 +41,8 @@ export default defineConfig({
     { name: 'j8', testMatch: /tests[\\/]phase5d[\\/]j8-.*\.spec\.ts/, use: { ...devices['Desktop Chrome'] } },
     { name: 'j9', testMatch: /tests[\\/]phase5d[\\/]j9-.*\.spec\.ts/, use: { ...devices['Desktop Chrome'] } },
     { name: 'j10', testMatch: /tests[\\/]phase5d[\\/]j10-.*\.spec\.ts/, use: { ...devices['Desktop Chrome'] } },
+    // jb — UI sweep unlocked by SU-J3-5 data-testid additions; cross-Journey.
+    { name: 'jb', testMatch: /tests[\\/]phase5d[\\/]jb-.*\.spec\.ts/, use: { ...devices['Desktop Chrome'] } },
     // Cloud-smoke project — runs only spec files tagged with @cloud, against
     // PLAYWRIGHT_APP_URL (set externally to https://stelavox.vercel.app).
     { name: 'cloud-smoke', grep: /@cloud/, use: { ...devices['Desktop Chrome'] } },

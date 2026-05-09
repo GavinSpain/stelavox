@@ -137,7 +137,7 @@ export function CommentThread({ nodeId, currentUserId }: Props) {
   const hiddenResolvedCount = topLevel.filter((c) => c.resolved).length
 
   return (
-    <div style={{ padding: 'var(--space-5)', display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+    <div data-testid="comment-thread" style={{ padding: 'var(--space-5)', display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
       {error && (
         <div style={{ padding: 'var(--space-2)', color: 'var(--color-error)', fontSize: '12px' }}>
           {error}

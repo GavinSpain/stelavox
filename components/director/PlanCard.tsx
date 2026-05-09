@@ -171,6 +171,7 @@ export function PlanCard({ workflow, onApproved, onCancelled }: PlanCardProps) {
 
   return (
     <div
+      data-testid="plan-card"
       role="group"
       aria-label="Workflow plan"
       style={{
@@ -442,6 +443,7 @@ function Checkbox({
   return (
     <button
       type="button"
+      data-testid="plan-card-step-checkbox"
       role="checkbox"
       aria-checked={checked}
       aria-label={ariaLabel}
@@ -529,6 +531,7 @@ function Footer({
     >
       <button
         type="button"
+        data-testid="plan-card-approve-btn"
         onClick={onApprove}
         disabled={approveDisabled}
         style={{
