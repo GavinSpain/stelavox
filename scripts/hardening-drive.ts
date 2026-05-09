@@ -882,6 +882,37 @@ async function tier5(api: Api): Promise<void> {
   }
 }
 
+// ── TIER 7 — i18n surface (round-trip non-ASCII content end-to-end) ───
+// (a11y is intrinsically UI-driven and lives in Playwright; i18n is
+// data-shape and we cover it here.)
+
+async function tier7(api: Api): Promise<void> {
+  console.log('\n=== TIER 7 — i18n / non-ASCII / RTL ===')
+
+  const cases: Array<{ id: string; name: string; summary: string }> = [
+    { id: 'T7-I18N-CHINESE', name: '中文标题', summary: '一个测试中文摘要。包含简体和繁体: 测试 / 測試。' },
+    { id: 'T7-I18N-ARABIC',  name: 'عنوان عربي', summary: 'هذا اختبار للنص العربي. يكتب من اليمين إلى اليسار.' },
+    { id: 'T7-I18N-HINDI',   name: 'हिन्दी शीर्षक', summary: 'देवनागरी लिपि में हिंदी पाठ का परीक्षण।' },
+    { id: 'T7-I18N-EMOJI',   name: '🚢 Tariff War 🚀💥', summary: 'Plot turns on 🌋 and 🌊 — emoji should round-trip.' },
+    { id: 'T7-I18N-COMBINING', name: 'café (combining acute)', summary: 'café with combining acute should equal café.' },
+    { id: 'T7-I18N-MIXED',   name: '中文 / English / العربية / 🚢', summary: 'Mixed scripts: 你好 hello مرحبا 🌍.' },
+  ]
+
+  for (const c of cases) {
+    const ctx = await bootstrap(api)
+    try {
+      const r1 = await api.req('PATCH', `/api/nodes/${ctx.bookId}`, { name: c.name })
+      check(`${c.id}-name`, `accepted name "${c.name.slice(0, 30)}"`, r1.status >= 200 && r1.status < 300, `${r1.status}`)
+      const r2 = await api.req('PATCH', `/api/nodes/${ctx.bookId}`, { summary: c.summary })
+      check(`${c.id}-summary`, `accepted summary`, r2.status >= 200 && r2.status < 300, `${r2.status}`)
+      // Round-trip via DB read
+      const { data } = await admin.from('nodes').select('name, summary').eq('id', ctx.bookId).single()
+      check(`${c.id}-roundtrip-name`, 'name round-trips byte-identical', data!.name === c.name, `expected="${c.name}" got="${data!.name}"`)
+      check(`${c.id}-roundtrip-summary`, 'summary round-trips byte-identical', data!.summary === c.summary, `mismatch`)
+    } finally { await teardown(ctx.projectId) }
+  }
+}
+
 // ── TIER 8 monkey via direct API calls (no Playwright) ─────────────────
 
 async function tier8(api: Api): Promise<void> {
@@ -1002,6 +1033,7 @@ async function main() {
   if (which === 'tier4' || which === 'all') await tier4(api)
   if (which === 'tier5' || which === 'all') await tier5(api)
   if (which === 'tier6' || which === 'all') await tier6(api)
+  if (which === 'tier7' || which === 'all') await tier7(api)
   if (which === 'tier8' || which === 'all') await tier8(api)
 
   // Summary
