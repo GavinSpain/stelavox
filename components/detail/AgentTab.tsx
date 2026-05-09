@@ -351,8 +351,10 @@ export function AgentTab({ nodeId, nodeType, nodeCategory, isLeaf, onMutated }: 
             testId="agent-synthesise-btn"
           />
         )}
-        {/* Critique button — V1.x; rendered disabled per Component Spec §5.9 layout */}
-        <OpButton op="expand" label="Critique" icon="🔍" disabled tooltip="Critique is V1.x — coming soon" onClick={() => {}} testId="agent-critique-btn" />
+        {/* Critique button removed 2026-05-09 — was a disabled stub for a V1.x
+            operation that confused authors during the Mars-drive (looked like
+            a broken feature). Will return alongside the Critique operation
+            implementation. */}
       </div>
 
       {refineCapable && (
@@ -701,6 +703,66 @@ function CompleteState({
  * Dismiss button that transitions the job to status='dismissed' so the
  * IDLE panel returns and the next attempt can be made.
  */
+/**
+ * Translate a raw error_message into a friendly, actionable explanation
+ * when the failure mode has a known recovery path. Returns null for
+ * unrecognised errors so we render the verbatim message.
+ *
+ * SU-J11-1: injection_blocked surfaced as an opaque code in the Mars-drive.
+ * Authors writing about AI safety / prompt injection in fiction hit this
+ * scanner trip with no clear remediation path.
+ *
+ * SU-J12-1: model_output_truncated already names cause + remediation in
+ * the message itself, so no friendly override needed.
+ */
+function friendlyError(rawMessage: string): { title: string; explanation: string; technical: string } | null {
+  if (rawMessage.startsWith('injection_blocked:')) {
+    const field = rawMessage.split(':')[1] ?? 'unknown field'
+    return {
+      title: 'Content blocked by prompt-injection scanner',
+      explanation:
+        `The ${field.replace('current_node.', '')} on this node contains a passage that pattern-matches a prompt-injection attempt — for example "[SYSTEM] Ignore all prior instructions" or similar imperative-to-the-LLM phrasing.\n\n` +
+        `If this is fiction (a character writes a fake instruction; a scene about AI safety) the scanner cannot tell it apart from a real attack and blocks the whole operation defensively.\n\n` +
+        `Workarounds:\n` +
+        `  1. Rephrase to indirect quotation ("she finds an instruction telling the system to ignore the prompt").\n` +
+        `  2. Wrap the suspicious passage in unmistakable narrative framing the LLM treats as story material.\n` +
+        `  3. Move the literal pattern to a different node not used as agent context.\n` +
+        `(A per-node "I am writing about prompt injection on purpose" override is on the V1.x roadmap.)`,
+      technical: rawMessage,
+    }
+  }
+  if (rawMessage.startsWith('target_version_mismatch:')) {
+    const parts = rawMessage.split(':')
+    const current = parts[1] ?? '?'
+    const captured = parts[2] ?? '?'
+    return {
+      title: 'Node was edited while this proposal was being generated',
+      explanation:
+        `The target node moved from version ${captured} (when this proposal started) to version ${current} (now). To preserve your edits the system refused to apply the stale proposal.\n\n` +
+        `Dismiss this proposal and run the operation again — it will incorporate your latest content.`,
+      technical: rawMessage,
+    }
+  }
+  if (rawMessage.startsWith('content_revision_conflict')) {
+    return {
+      title: 'Another tab or device saved a change at the same time',
+      explanation:
+        `The autosave detected a concurrent edit. Reload the page to pull the latest content, then continue editing.`,
+      technical: rawMessage,
+    }
+  }
+  if (rawMessage.startsWith('model_output_truncated')) {
+    return {
+      title: 'The model ran out of output tokens before finishing',
+      explanation:
+        `The LLM started a JSON response but hit its output-token limit before closing it. ` +
+        `Lower the requested item count or raise the model's max_tokens, then try again.`,
+      technical: rawMessage,
+    }
+  }
+  return null
+}
+
 function FailedState({
   job,
   onDismiss,
@@ -710,7 +772,8 @@ function FailedState({
   onDismiss: () => void
   busy: boolean
 }) {
-  const message = job.error_message?.trim() || 'The agent operation failed without a specific error message.'
+  const rawMessage = job.error_message?.trim() || 'The agent operation failed without a specific error message.'
+  const friendly = friendlyError(rawMessage)
   return (
     <div
       data-testid="agent-failed-state"
@@ -725,7 +788,7 @@ function FailedState({
           fontFamily: 'var(--font-inter), Inter, sans-serif',
           fontSize: '12px',
           color: 'var(--color-text-secondary)',
-          maxHeight: '300px',
+          maxHeight: '420px',
           overflow: 'auto',
         }}
       >
@@ -736,7 +799,7 @@ function FailedState({
             color: 'var(--color-error)',
           }}
         >
-          {job.operation_type} failed
+          {friendly?.title ?? `${job.operation_type} failed`}
         </div>
         <div
           style={{
@@ -748,18 +811,51 @@ function FailedState({
         >
           {job.model_id ?? ''}
         </div>
-        <pre
-          data-testid="agent-failed-message"
-          style={{
-            fontFamily: 'var(--font-mono), Geist Mono, monospace',
-            fontSize: '11px',
-            whiteSpace: 'pre-wrap',
-            wordBreak: 'break-word',
-            margin: 0,
-          }}
-        >
-          {message}
-        </pre>
+        {friendly ? (
+          <>
+            <div
+              data-testid="agent-failed-explanation"
+              style={{
+                marginBottom: 'var(--space-3)',
+                whiteSpace: 'pre-wrap',
+                lineHeight: 1.5,
+              }}
+            >
+              {friendly.explanation}
+            </div>
+            <details
+              style={{ fontSize: '10px', color: 'var(--color-text-muted)' }}
+            >
+              <summary style={{ cursor: 'pointer' }}>Technical detail</summary>
+              <pre
+                data-testid="agent-failed-message"
+                style={{
+                  fontFamily: 'var(--font-mono), Geist Mono, monospace',
+                  fontSize: '10px',
+                  whiteSpace: 'pre-wrap',
+                  wordBreak: 'break-word',
+                  margin: 0,
+                  marginTop: 'var(--space-2)',
+                }}
+              >
+                {friendly.technical}
+              </pre>
+            </details>
+          </>
+        ) : (
+          <pre
+            data-testid="agent-failed-message"
+            style={{
+              fontFamily: 'var(--font-mono), Geist Mono, monospace',
+              fontSize: '11px',
+              whiteSpace: 'pre-wrap',
+              wordBreak: 'break-word',
+              margin: 0,
+            }}
+          >
+            {rawMessage}
+          </pre>
+        )}
       </div>
       <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
         <button
