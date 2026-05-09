@@ -232,28 +232,49 @@ export function AgentTab({ nodeId, nodeType, nodeCategory, isLeaf, onMutated }: 
     )
   }
 
+  // SU-J13-4 (Mars-drive 2026-05-09): the ErrorBanner used to live only
+  // in the IDLE branch's render, so a failed Accept/Dismiss/Cancel call
+  // from CompleteState or ActiveState (e.g. 409 target_version_mismatch
+  // when the target node was edited between proposal and Accept) set the
+  // `error` state but rendered no banner — the click looked silent and
+  // the user could not see why the action did nothing. Hoisting the
+  // banner above the early returns makes lifecycle errors visible in
+  // every state.
+  const errorBanner = <ErrorBanner error={error} onDismiss={() => setError(null)} />
+
   if (activeJob && (activeJob.status === 'pending' || activeJob.status === 'running')) {
-    return <ActiveState job={activeJob} onCancel={() => lifecycleAction(activeJob.id, 'cancel')} busy={busy} />
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column' }}>
+        {errorBanner}
+        <ActiveState job={activeJob} onCancel={() => lifecycleAction(activeJob.id, 'cancel')} busy={busy} />
+      </div>
+    )
   }
 
   if (activeJob && activeJob.status === 'completed') {
     return (
-      <CompleteState
-        job={activeJob}
-        busy={busy}
-        onAccept={() => lifecycleAction(activeJob.id, 'accept')}
-        onDismiss={() => lifecycleAction(activeJob.id, 'dismiss')}
-      />
+      <div style={{ display: 'flex', flexDirection: 'column' }}>
+        {errorBanner}
+        <CompleteState
+          job={activeJob}
+          busy={busy}
+          onAccept={() => lifecycleAction(activeJob.id, 'accept')}
+          onDismiss={() => lifecycleAction(activeJob.id, 'dismiss')}
+        />
+      </div>
     )
   }
 
   if (activeJob && activeJob.status === 'failed') {
     return (
-      <FailedState
-        job={activeJob}
-        busy={busy}
-        onDismiss={() => lifecycleAction(activeJob.id, 'dismiss')}
-      />
+      <div style={{ display: 'flex', flexDirection: 'column' }}>
+        {errorBanner}
+        <FailedState
+          job={activeJob}
+          busy={busy}
+          onDismiss={() => lifecycleAction(activeJob.id, 'dismiss')}
+        />
+      </div>
     )
   }
 
@@ -265,7 +286,7 @@ export function AgentTab({ nodeId, nodeType, nodeCategory, isLeaf, onMutated }: 
 
   return (
     <div data-testid="agent-tab" style={{ padding, display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
-      <ErrorBanner error={error} onDismiss={() => setError(null)} />
+      {errorBanner}
 
       <div>
         <Label>Profile</Label>
