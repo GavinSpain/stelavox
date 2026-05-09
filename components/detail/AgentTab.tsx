@@ -751,6 +751,15 @@ function friendlyError(rawMessage: string): { title: string; explanation: string
       technical: rawMessage,
     }
   }
+  if (rawMessage.startsWith('summary_required')) {
+    return {
+      title: 'Add a summary first',
+      explanation:
+        `Synthesise needs a non-empty summary on this node to anchor the LLM. Without one the model has nothing to base the prose on and commonly returns a conversational refusal that would be persisted as your prose if you Accept.\n\n` +
+        `Open the Content tab, write a short summary describing what should happen in this beat, then come back and try Synthesise again.`,
+      technical: rawMessage,
+    }
+  }
   if (rawMessage.startsWith('model_output_truncated')) {
     return {
       title: 'The model ran out of output tokens before finishing',

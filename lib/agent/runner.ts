@@ -124,39 +124,84 @@ export async function runAgentJob(jobId: string): Promise<void> {
 
     // Compute cost (frozen at this moment) + result columns.
     const costUsd = await computeCostUsd(llmResponse.usage, llmResponse.model)
-    const resultColumns = await runOperation(
-      profile.operation_type,
-      llmResponse.content,
-      dynamicCtx.target_field,
-    )
+    let resultColumns: Record<string, unknown>
+    let totalUsage = { ...llmResponse.usage }
+    let totalCost = costUsd
+    let finalContent = llmResponse.content
+    let finalProvider = llmResponse.provider
+    let finalModel = llmResponse.model
+    try {
+      resultColumns = await runOperation(
+        profile.operation_type,
+        llmResponse.content,
+        dynamicCtx.target_field,
+      )
+    } catch (parseErr) {
+      // SU-J14-3 (round-3 drive 2026-05-09): the LLM occasionally emits
+      // a response shape the parser can't accept (no JSON array, malformed
+      // mid-object, etc.). Before round 3 this failed the job hard. Now
+      // we retry the LLM call ONCE before giving up. The model is
+      // non-deterministic; one extra call resolves the common case.
+      // Only retry on output_schema_invalid (parser/validator failures);
+      // injection_blocked, canary_leak, network errors all fail straight.
+      const msg = parseErr instanceof Error ? parseErr.message : String(parseErr)
+      if (!msg.includes('output_schema_invalid') && !msg.includes('model_output_truncated')) {
+        throw parseErr
+      }
+      console.warn('[agent-runner] retrying once after parse failure:', msg)
+      const retry = await provider.complete({
+        ...assembled,
+        config: { ...assembled.config, model: modelId },
+      })
+      const retryCost = await computeCostUsd(retry.usage, retry.model)
+      // Track BOTH calls' usage and cost so the author sees the true spend.
+      totalUsage = {
+        tokens_input: llmResponse.usage.tokens_input + retry.usage.tokens_input,
+        tokens_output: llmResponse.usage.tokens_output + retry.usage.tokens_output,
+        tokens_cache_write:
+          llmResponse.usage.tokens_cache_write + retry.usage.tokens_cache_write,
+        tokens_cache_read:
+          llmResponse.usage.tokens_cache_read + retry.usage.tokens_cache_read,
+      }
+      totalCost = costUsd + retryCost
+      finalContent = retry.content
+      finalProvider = retry.provider
+      finalModel = retry.model
+      resultColumns = await runOperation(
+        profile.operation_type,
+        retry.content,
+        dynamicCtx.target_field,
+      )
+    }
 
     // Cancellation check #2 — before final write.
     if (await isJobCancelled(supabase, jobId)) {
       await recordTokensOnly(
         supabase,
         jobId,
-        llmResponse.usage,
-        llmResponse.model,
-        llmResponse.provider,
+        totalUsage,
+        finalModel,
+        finalProvider,
       )
       return
     }
 
     // Final write: result_* + tokens + cost + status='completed'.
+    void finalContent  // referenced in retry-aware logging only
     await persistFinalResult(supabase, jobId, {
       resultColumns,
-      usage: llmResponse.usage,
-      modelId: llmResponse.model,
-      provider: llmResponse.provider,
-      costUsd,
+      usage: totalUsage,
+      modelId: finalModel,
+      provider: finalProvider,
+      costUsd: totalCost,
     })
 
     // Update usage_records.
     await updateUsageRecords(
       job.organisation_id,
       profile.operation_type,
-      llmResponse.provider,
-      llmResponse.usage,
+      finalProvider,
+      totalUsage,
     )
   } catch (err) {
     if (err instanceof InjectionDetectedError) {

@@ -74,13 +74,25 @@ export function ExecutionCard({
   // Heartbeat freshness — re-evaluated on a tick.
   const [now, setNow] = useState(() => Date.now())
   useEffect(() => {
-    if (!lastHeartbeatAt) return
+    // Always tick — even without a heartbeat, the grace-window calc
+    // depends on `now` advancing past workflow.created_at.
     const id = setInterval(() => setNow(Date.now()), 1500)
     return () => clearInterval(id)
-  }, [lastHeartbeatAt])
+  }, [])
+  // SU-J14-4 (round-3 drive 2026-05-09): the indicator used to read as
+  // "stalled" the instant the workflow was approved, before the
+  // executor had a chance to write its first heartbeat. Authors saw
+  // "stalled" on a workflow that was just-dispatched and assumed the
+  // system was broken. Apply a HEARTBEAT_FRESH_MS grace window from
+  // workflow.created_at — within that window, the indicator reads as
+  // fresh regardless of whether last_heartbeat_at has been set yet.
+  const ageMs = workflow.created_at
+    ? now - new Date(workflow.created_at).getTime()
+    : Infinity
+  const inGraceWindow = ageMs >= 0 && ageMs < HEARTBEAT_FRESH_MS
   const heartbeatFresh = lastHeartbeatAt
     ? now - new Date(lastHeartbeatAt).getTime() < HEARTBEAT_FRESH_MS
-    : false
+    : inGraceWindow
 
   async function callTransition(verb: 'pause' | 'resume' | 'stop') {
     if (submitting) return
