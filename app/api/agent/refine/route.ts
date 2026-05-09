@@ -52,6 +52,9 @@ export async function POST(request: NextRequest) {
   const { data: node } = await getNode(supabase, data.node_id)
   if (!node) return err.notFound()
 
+  // SU-J14-7 (2026-05-09): refuse dispatch on locked node.
+  if (node.locked) return err.nodeLocked()
+
   // target_field validation against node category/leaf-ness
   if (data.target_field === 'prose') {
     if (node.node_category !== 'structural') return err.invalidOperationForNodeType()

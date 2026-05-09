@@ -46,6 +46,9 @@ export async function POST(request: NextRequest) {
   const { data: node } = await getNode(supabase, data.node_id)
   if (!node) return err.notFound()
 
+  // SU-J14-7 (2026-05-09): refuse dispatch on locked node.
+  if (node.locked) return err.nodeLocked()
+
   // Synthesise: structural AND leaf only (H-15)
   if (node.node_category !== 'structural') return err.invalidOperationForNodeType()
   const maxLayer = await getDocumentMaxLayerIndex(supabase, node.document_id ?? '')

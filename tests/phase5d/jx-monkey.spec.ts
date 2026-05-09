@@ -180,12 +180,11 @@ test.describe('Phase 5d — JX monkey runner', () => {
   test('50 random valid operations, no 5xx, no console errors, no orphans', async ({ page, request }) => {
     test.setTimeout(180_000)
 
-    // Auth check (fail fast if storage state stale).
-    const login = new LoginPage(page)
-    if (!(await login.isLoggedIn(APP_URL))) {
-      await login.goto(APP_URL)
-      await login.login(USERS.A.email, USERS.A.password)
-    }
+    // Auth via storageState (set in test.use above); page just needs to
+    // exist for the console / response listeners.
+    void LoginPage // referenced to keep import; removed inline reauth
+    void APP_URL
+    void USERS
 
     // Track console errors for the page session.
     const consoleErrors: string[] = []
