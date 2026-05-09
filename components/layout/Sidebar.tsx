@@ -91,16 +91,25 @@ export function Sidebar({ projectName, documentName, width = 220 }: SidebarProps
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Fetch context-nodes whenever projectId, documentId, or refreshKey
-  // changes. SU-J12-5 (Mars-drive 2026-05-09): clear the cached list
-  // BEFORE the new fetch resolves so the sidebar never shows the
-  // previous document's context nodes during the transition. The flash
-  // was visible navigating between two documents in the same project
-  // (Mars ← The November Set).
+  // Clear cached context-nodes only on project/document SWITCH (not on
+  // refresh-key bumps). SU-J14-2 (Techno-thriller drive 2026-05-09): the
+  // earlier fix (SU-J12-5) cleared the array on every effect run including
+  // refresh-key bumps. After the user created a sibling-category context
+  // node, the refresh-key bump fired this effect → the list cleared →
+  // the freshly-just-created row vanished from the sidebar until the
+  // next reload. Splitting the clear into its own project/doc-switch-only
+  // effect keeps the cross-document leak fix without dropping in-flight
+  // create results.
   useEffect(() => {
     /* eslint-disable react-hooks/set-state-in-effect */
     setContextNodes([])
     /* eslint-enable react-hooks/set-state-in-effect */
+  }, [projectId, documentId])
+
+  // Fetch context-nodes whenever projectId, documentId, or refreshKey
+  // changes. The fetch's response replaces `contextNodes` atomically;
+  // there is no intermediate empty state on a refresh-key bump alone.
+  useEffect(() => {
     if (!projectId) return
     const controller = new AbortController()
     const url = documentId
