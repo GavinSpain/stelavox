@@ -31,7 +31,11 @@ export async function POST(_request: NextRequest, { params }: Context) {
     return NextResponse.json(data)
   }
 
-  if (job.status !== 'completed') {
+  // SU-J12-3 (Mars-drive 2026-05-09): the AgentTab's new FailedState
+  // surface needs a Dismiss action so authors can clear the failed-job
+  // banner and try again. Accept the FAILED → DISMISSED transition in
+  // addition to the canonical COMPLETED → DISMISSED (proposal review).
+  if (job.status !== 'completed' && job.status !== 'failed') {
     return err.agentJobAlreadyTerminal(job.status)
   }
 

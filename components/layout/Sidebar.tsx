@@ -91,13 +91,17 @@ export function Sidebar({ projectName, documentName, width = 220 }: SidebarProps
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Fetch context-nodes whenever projectId or refreshKey changes.
+  // Fetch context-nodes whenever projectId, documentId, or refreshKey
+  // changes. SU-J12-5 (Mars-drive 2026-05-09): clear the cached list
+  // BEFORE the new fetch resolves so the sidebar never shows the
+  // previous document's context nodes during the transition. The flash
+  // was visible navigating between two documents in the same project
+  // (Mars ← The November Set).
   useEffect(() => {
-    if (!projectId) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setContextNodes([])
-      return
-    }
+    /* eslint-disable react-hooks/set-state-in-effect */
+    setContextNodes([])
+    /* eslint-enable react-hooks/set-state-in-effect */
+    if (!projectId) return
     const controller = new AbortController()
     const url = documentId
       ? `/api/projects/${projectId}/context-nodes?limit=200&document_id=${documentId}`

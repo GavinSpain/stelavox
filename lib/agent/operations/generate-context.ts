@@ -44,7 +44,14 @@ function extractJsonObject(content: string): string {
       if (depth === 0) return s.slice(start, i + 1)
     }
   }
-  throw new Error('unterminated JSON object')
+  // SU-J12-1 — match expand-operation error shape so authors see a
+  // remediation hint (model truncated; lower count or raise max_tokens)
+  // rather than a bare "unterminated" message.
+  throw new Error(
+    `model_output_truncated:object:span=${s.length - start}chars — ` +
+    `the model started a JSON object but did not finish it before its output ` +
+    `token limit. Lower the requested item count or raise the model's max_tokens.`,
+  )
 }
 
 export async function runGenerateContext(

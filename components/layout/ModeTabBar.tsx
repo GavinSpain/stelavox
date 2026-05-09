@@ -24,6 +24,12 @@ const TABS: ReadonlyArray<{ id: AppMode | 'focus'; label: string; selectable: bo
 export function ModeTabBar() {
   const { mode, setMode, enabled } = useMode()
 
+  // SU-J12-6 (Mars-drive 2026-05-09): on non-document routes
+  // (dashboard, project list, settings) the tab bar previously
+  // rendered as disabled-grey but still visible, presenting a dead
+  // affordance. Hide entirely when no document client is mounted.
+  if (!enabled) return null
+
   return (
     <div
       role="tablist"

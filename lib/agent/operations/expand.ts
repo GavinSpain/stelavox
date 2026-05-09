@@ -48,13 +48,13 @@ function extractJsonArray(content: string): string {
   if (arrStart !== -1 && (objStart === -1 || arrStart <= objStart)) {
     const arr = sliceBalanced(s, arrStart, '[', ']')
     if (arr !== null) return arr
-    throw new Error('unterminated JSON array')
+    throw new Error(truncatedMessage('array', s.length - arrStart))
   }
 
   // Fallback: extract a top-level object and look for an array property.
   if (objStart !== -1) {
     const obj = sliceBalanced(s, objStart, '{', '}')
-    if (obj === null) throw new Error('unterminated JSON object')
+    if (obj === null) throw new Error(truncatedMessage('object', s.length - objStart))
     let parsedObj: unknown
     try { parsedObj = JSON.parse(obj) } catch { throw new Error('no JSON array found in output (object parse failed)') }
     if (parsedObj && typeof parsedObj === 'object' && !Array.isArray(parsedObj)) {
@@ -66,6 +66,21 @@ function extractJsonArray(content: string): string {
   }
 
   throw new Error('no JSON array found in output')
+}
+
+/**
+ * SU-J12-1 (Mars-drive 2026-05-09): authors hit "unterminated JSON array"
+ * when the LLM hit its output-token cap mid-array and the trailing `]`
+ * never arrived. The original message described WHAT (parse failed) but
+ * not WHY (model truncated) or WHAT TO DO (reduce count or raise cap).
+ * This message names the cause and the two remediation paths.
+ */
+function truncatedMessage(kind: 'array' | 'object', spanLength: number): string {
+  return (
+    `model_output_truncated:${kind}:span=${spanLength}chars — ` +
+    `the model started a JSON ${kind} but did not finish it before its output ` +
+    `token limit. Lower the requested item count or raise the model's max_tokens.`
+  )
 }
 
 function sliceBalanced(s: string, start: number, open: string, close: string): string | null {
@@ -105,5 +120,25 @@ export async function runExpand(content: string): Promise<{ result_child_nodes: 
     throw new Error(`output_schema_invalid:positions:${positionsErr}`)
   }
 
-  return { result_child_nodes: result.data }
+  // SU-J12-7 (Mars-drive 2026-05-09): models commonly return names with
+  // ordinal prefixes ("1. Red Genesis", "2) Inheritance", "Chapter 3: …").
+  // The display layer adds its own "${i+1}. " prefix in the proposal
+  // preview, producing "1. 1. Red Genesis"; once Accepted, the persisted
+  // node names also carry the redundant prefix into the tree. Strip
+  // canonical leading-ordinal patterns at the operation boundary so both
+  // the preview and the persisted tree see clean names.
+  const cleaned = result.data.map((item) => ({
+    ...item,
+    name: item.name ? stripLeadingOrdinal(item.name) : item.name,
+  }))
+
+  return { result_child_nodes: cleaned }
+}
+
+function stripLeadingOrdinal(name: string): string {
+  // Match "1. ", "2) ", "3 - ", "4: ", optionally with leading whitespace.
+  // Non-greedy so we don't strip from names that genuinely start with a
+  // number (e.g., "1984" — no separator follows the digits).
+  const stripped = name.replace(/^\s*\d+\s*[.)\-:]\s+/, '').trim()
+  return stripped || name
 }
