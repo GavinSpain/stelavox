@@ -112,6 +112,38 @@ test('TC-J5-11: POST /api/agent/refine on empty target field → 400 refine_empt
   } finally { await disposeAgentFixture(fix) }
 })
 
+// ─── Cloud-failure regression guards (Mars-series 2026-05-08) ──────────────
+
+test('TC-J5-CLOUD-1: expand_series_into_books profile exists (Migration 033, SU-25)', async () => {
+  // Cloud production failure 2026-05-08 doc 9503c6ea-961c-4d3d-bc08-a8cd4abb8e28
+  // ("Mars" series). User attempted to expand series-into-books and got
+  // schema rejection on word_count_target > 100,000. SU-25 added the
+  // `expand_series_into_books` profile in Migration 033; verify the row
+  // exists with correct (operation_type, node_type) tuple.
+  const admin = adminClient()
+  const { data } = await admin
+    .from('agent_profiles')
+    .select('name, operation_type, node_type, system_prompt')
+    .eq('name', 'expand_series_into_books')
+    .single()
+  expect(data).toBeTruthy()
+  expect(data?.operation_type).toBe('expand')
+  expect(data?.node_type).toBe('series')
+  // The prompt explicitly targets 70k–120k+ word counts; assert the prompt
+  // still says so (regression guard against accidental tightening).
+  expect(data?.system_prompt).toMatch(/70000.{0,5}120000|70,000.{0,5}120,000/)
+})
+
+test('TC-J5-CLOUD-2: ExpandOutputSchema cap + Bug-2 parser fallback covered by Vitest unit suite', async () => {
+  test.skip(true,
+    'Direct import of lib/llm/schemas/expand and lib/agent/operations/expand ' +
+    'requires the Vitest project (not Playwright) — Playwright cannot ESM-' +
+    'import the @/lib/* aliased modules. Coverage is comprehensive in ' +
+    'tests/unit/expand-parser.test.ts (21 cases including the schema cap ' +
+    'lift to 250,000 and the object-wrapped-array fallback that resolves ' +
+    'cloud failures 42717888 + f107537c).')
+})
+
 // ─── Profile / target_field validation (TC-J5-08-validation) ────────────────
 
 test('TC-J5-08v: refine_beat_prose profile exists and is bound to (refine, beat)', async () => {
