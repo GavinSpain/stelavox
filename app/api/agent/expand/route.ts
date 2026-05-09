@@ -49,6 +49,12 @@ export async function POST(request: NextRequest) {
   const { data: node } = await getNode(supabase, data.node_id)
   if (!node) return err.notFound()
 
+  // SU-J14-7 (round-3 hardening 2026-05-09): expand/synthesise/refine/
+  // generate-context were silently accepting dispatch on locked nodes.
+  // The Accept path would later 423, but the LLM call had already run
+  // and the author saw an apparent success. Refuse at dispatch.
+  if (node.locked) return err.nodeLocked()
+
   // Structural + non-leaf check
   if (node.node_category !== 'structural') return err.invalidOperationForNodeType()
   const maxLayer = await getDocumentMaxLayerIndex(supabase, node.document_id ?? '')

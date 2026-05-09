@@ -223,7 +223,18 @@ export async function PATCH(request: NextRequest, { params }: Context) {
     if (!node) return err.notFound()
 
     // Step 10: lock check beats step 11's version check (§2.4 + TC-A-30).
-    if (node.locked) return err.nodeLocked()
+    // SU-J14-9 (round-3 hardening 2026-05-09): once locked, PATCH was
+    // refusing every change INCLUDING unlocking — the author had no way
+    // to open a node back up from the API. The unlock-and-only-unlock
+    // PATCH is the supported recovery path. Allow PATCHes whose only
+    // settable mutation is locked=false (and optionally lock_reason).
+    if (node.locked) {
+      const settableKeys = Object.keys(updateFields)
+      const isUnlockOnly =
+        settableKeys.every((k) => k === 'locked' || k === 'lock_reason') &&
+        (updateFields as { locked?: boolean }).locked === false
+      if (!isUnlockOnly) return err.nodeLocked()
+    }
     if (await ancestorChainLocked(supabase, node.parent_id)) return err.parentLocked()
 
     // Step 11–12: atomic optimistic UPDATE. With `expected_version` set,
