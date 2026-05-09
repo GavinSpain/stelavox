@@ -40,6 +40,16 @@ interface AgentTabProps {
   nodeType: string
   nodeCategory: 'structural' | 'context'
   isLeaf: boolean
+  /**
+   * Optional belt-and-braces tree-refresh callback. SU-J12-2 fix:
+   * Realtime nodes-table broadcasts are the primary refresh path
+   * (lib/hooks/useNodesRealtime), but in production they don't always
+   * fire promptly after Accept on the deployed Vercel app (Mars-drive
+   * 2026-05-09 reproduced 3x). Calling onMutated() on Accept
+   * guarantees the tree refetches even when Realtime is delayed, at
+   * the cost of one redundant fetch when Realtime works as expected.
+   */
+  onMutated?: () => void
 }
 
 interface AgentProfile {
@@ -51,7 +61,7 @@ interface AgentProfile {
 
 type StreamingStatus = 'idle' | 'connecting' | 'streaming' | 'errored' | 'cancelled'
 
-export function AgentTab({ nodeId, nodeType, nodeCategory, isLeaf }: AgentTabProps) {
+export function AgentTab({ nodeId, nodeType, nodeCategory, isLeaf, onMutated }: AgentTabProps) {
   const activeJob = useActiveJobForNode(nodeId)
   const [profiles, setProfiles] = useState<AgentProfile[]>([])
   const [selectedProfileId, setSelectedProfileId] = useState<string>('')
@@ -190,9 +200,14 @@ export function AgentTab({ nodeId, nodeType, nodeCategory, isLeaf }: AgentTabPro
         setError(json.error ?? `HTTP ${res.status}`)
         return
       }
-      // No tree-refresh trigger needed here — NodeTree subscribes to the
-      // nodes realtime channel via useNodesRealtime and refetches itself
-      // when Accept's INSERTs land in the database. (SU-31 proper fix.)
+      // SU-J12-2: Trigger explicit tree refresh on Accept. The
+      // NodeTree's useNodesRealtime subscription is the primary refresh
+      // path, but Mars-drive 2026-05-09 reproduced a delay where the
+      // nodes broadcast doesn't reach the client promptly (cause TBD).
+      // Calling onMutated() guarantees the tree refetches regardless.
+      if (action === 'accept') {
+        onMutated?.()
+      }
     } catch (e) {
       setError((e as Error).message)
     } finally {
@@ -227,6 +242,16 @@ export function AgentTab({ nodeId, nodeType, nodeCategory, isLeaf }: AgentTabPro
         job={activeJob}
         busy={busy}
         onAccept={() => lifecycleAction(activeJob.id, 'accept')}
+        onDismiss={() => lifecycleAction(activeJob.id, 'dismiss')}
+      />
+    )
+  }
+
+  if (activeJob && activeJob.status === 'failed') {
+    return (
+      <FailedState
+        job={activeJob}
+        busy={busy}
         onDismiss={() => lifecycleAction(activeJob.id, 'dismiss')}
       />
     )
@@ -519,7 +544,9 @@ function ActiveState({ job, onCancel, busy }: { job: AgentJob; onCancel: () => v
             color: 'var(--color-text-muted)',
           }}
         >
-          {job.operation_type} · {job.status} · {job.model_id ?? ''}
+          {/* SU-J12-8: drop the trailing " · " separator when model_id
+              is null (job hasn't reached the LLM yet). */}
+          {[job.operation_type, job.status, job.model_id].filter(Boolean).join(' · ')}
         </div>
       </div>
       <button
@@ -644,6 +671,100 @@ function CompleteState({
 }
 
 /**
+ * FailedState — surface error_message from a failed agent_job.
+ *
+ * SU-J12-3 (Mars-drive 2026-05-09): without an explicit failed branch the
+ * component fell through to IDLE, hiding the error from the author.
+ * Authors then re-ran the same operation, hit the same failure, and lost
+ * faith in the surface. Now we render the error_message verbatim with a
+ * Dismiss button that transitions the job to status='dismissed' so the
+ * IDLE panel returns and the next attempt can be made.
+ */
+function FailedState({
+  job,
+  onDismiss,
+  busy,
+}: {
+  job: AgentJob
+  onDismiss: () => void
+  busy: boolean
+}) {
+  const message = job.error_message?.trim() || 'The agent operation failed without a specific error message.'
+  return (
+    <div
+      data-testid="agent-failed-state"
+      style={{ padding: 'var(--space-5)', display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}
+    >
+      <div
+        style={{
+          padding: 'var(--space-3)',
+          border: '1px solid var(--color-error)',
+          borderRadius: '4px',
+          background: 'var(--color-bg-base)',
+          fontFamily: 'var(--font-inter), Inter, sans-serif',
+          fontSize: '12px',
+          color: 'var(--color-text-secondary)',
+          maxHeight: '300px',
+          overflow: 'auto',
+        }}
+      >
+        <div
+          style={{
+            fontWeight: 500,
+            marginBottom: 'var(--space-2)',
+            color: 'var(--color-error)',
+          }}
+        >
+          {job.operation_type} failed
+        </div>
+        <div
+          style={{
+            marginBottom: 'var(--space-2)',
+            fontSize: '10px',
+            fontWeight: 300,
+            color: 'var(--color-text-muted)',
+          }}
+        >
+          {job.model_id ?? ''}
+        </div>
+        <pre
+          data-testid="agent-failed-message"
+          style={{
+            fontFamily: 'var(--font-mono), Geist Mono, monospace',
+            fontSize: '11px',
+            whiteSpace: 'pre-wrap',
+            wordBreak: 'break-word',
+            margin: 0,
+          }}
+        >
+          {message}
+        </pre>
+      </div>
+      <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
+        <button
+          data-testid="agent-dismiss-btn"
+          onClick={onDismiss}
+          disabled={busy}
+          style={{
+            background: 'transparent',
+            color: 'var(--color-text-muted)',
+            border: '1px solid var(--color-border-subtle)',
+            borderRadius: '4px',
+            padding: '8px 16px',
+            fontFamily: 'var(--font-inter), Inter, sans-serif',
+            fontSize: '11px',
+            fontWeight: 500,
+            cursor: busy ? 'not-allowed' : 'pointer',
+          }}
+        >
+          Dismiss
+        </button>
+      </div>
+    </div>
+  )
+}
+
+/**
  * Phase 5c streaming synthesise surface — typewriter view of the
  * accumulating prose, with a small "streaming…" indicator and Cancel
  * button. The typeface follows the ProseEditor's Lora to make the
@@ -736,11 +857,23 @@ function StreamingState({
   )
 }
 
+/**
+ * SU-J12-7 (Mars-drive 2026-05-09): models commonly return names with
+ * their own ordinal prefix (e.g. "1. Red Genesis", "2) Inheritance",
+ * "Chapter 3: The Bracket"). describeResult adds its own "${i+1}. "
+ * before the name, producing visible doubles like "1. 1. Red Genesis".
+ * Strip any leading ordinal prefix from the model-provided name before
+ * the display layer adds its own.
+ */
+function stripOrdinalPrefix(name: string): string {
+  return name.replace(/^\s*\d+\s*[.)\-:]\s*/, '').trim()
+}
+
 function describeResult(job: AgentJob): string {
   if (job.result_child_nodes && Array.isArray(job.result_child_nodes)) {
     const items = job.result_child_nodes as Array<{ name?: string; short_description?: string }>
     return items
-      .map((c, i) => `${i + 1}. ${c.name ?? '(unnamed)'}\n   ${c.short_description ?? ''}`)
+      .map((c, i) => `${i + 1}. ${stripOrdinalPrefix(c.name ?? '(unnamed)') || '(unnamed)'}\n   ${c.short_description ?? ''}`)
       .join('\n\n')
   }
   if (job.result_prose) return job.result_prose.slice(0, 600) + (job.result_prose.length > 600 ? '…' : '')

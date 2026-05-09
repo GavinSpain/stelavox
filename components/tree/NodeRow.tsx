@@ -77,7 +77,15 @@ export function NodeRow({ node, style, dragHandle }: NodeRendererProps<ArboristN
   const [hovered, setHovered] = useState(false)
 
   const data    = node.data.data
-  const isLeaf  = node.isLeaf
+  // SU-J12-4 (Mars-drive 2026-05-09): the chevron must reflect the
+  // server-derived layer-stack leaf-ness (`data.is_leaf`), not react-
+  // arborist's structural `node.isLeaf` which is purely a function of
+  // currently-loaded children. A Book with zero Acts is still a parent
+  // layer, and authors must see the chevron to know they can expand.
+  // H-15: leaf-ness is a layer-stack property, never inferred from
+  // child count. Falls back to node.isLeaf for backwards compat with
+  // any data path that hasn't supplied is_leaf yet.
+  const isLeaf  = data.is_leaf ?? node.isLeaf
   const isOpen  = node.isOpen
   const active  = node.isSelected
   const focused = node.isFocused

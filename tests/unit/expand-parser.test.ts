@@ -126,12 +126,16 @@ describe('expand parser — object-wrapped array fallback (Bug 2 resolution)', (
     await expect(runExpand('not json at all')).rejects.toThrow(/no JSON array found in output/)
   })
 
-  it('rejects unterminated array', async () => {
-    await expect(runExpand('[{"name": "incomplete"')).rejects.toThrow(/unterminated JSON array/)
+  it('rejects unterminated array with truncation guidance (SU-J12-1)', async () => {
+    // The error must name the cause (model truncation) and the remediation
+    // paths (lower count / raise max_tokens) — not just say "unterminated".
+    await expect(runExpand('[{"name": "incomplete"')).rejects.toThrow(/model_output_truncated:array/)
+    await expect(runExpand('[{"name": "incomplete"')).rejects.toThrow(/output token limit/)
   })
 
-  it('rejects unterminated object', async () => {
-    await expect(runExpand('{"books": [{"name": "incomplete"')).rejects.toThrow(/unterminated JSON object/)
+  it('rejects unterminated object with truncation guidance (SU-J12-1)', async () => {
+    await expect(runExpand('{"books": [{"name": "incomplete"')).rejects.toThrow(/model_output_truncated:object/)
+    await expect(runExpand('{"books": [{"name": "incomplete"')).rejects.toThrow(/output token limit/)
   })
 
   it('prefers a top-level array even when an object appears later', async () => {
@@ -162,5 +166,44 @@ describe('expand parser — schema validation pass-through', () => {
   it('rejects when array exceeds 20 items', async () => {
     const arr = Array.from({ length: 25 }, (_, i) => validBookItem(i, `B${i}`))
     await expect(runExpand(JSON.stringify(arr))).rejects.toThrow(/output_schema_invalid/)
+  })
+})
+
+describe('expand parser — SU-J12-7 ordinal-prefix stripping', () => {
+  // The display layer adds its own "${i+1}. " before the name. If the
+  // model also emitted "1. Red Genesis" the user sees "1. 1. Red Genesis"
+  // and the persisted node name carries the redundant prefix into the
+  // tree. Strip canonical ordinal patterns at the operation boundary.
+  const cases: Array<[string, string]> = [
+    ['1. Red Genesis',     'Red Genesis'],
+    ['2) Inheritance',     'Inheritance'],
+    ['3 - Red Soil',       'Red Soil'],
+    ['4: The Bracket',     'The Bracket'],
+    ['  5. With leading whitespace', 'With leading whitespace'],
+    ['10. Two-digit prefix', 'Two-digit prefix'],
+  ]
+
+  for (const [input, expected] of cases) {
+    it(`strips "${input}" → "${expected}"`, async () => {
+      const arr = [{ ...validBookItem(0, input) }]
+      const result = await runExpand(JSON.stringify(arr))
+      const items = result.result_child_nodes as Array<{ name?: string }>
+      expect(items[0].name).toBe(expected)
+    })
+  }
+
+  it('preserves "1984" — number with no separator is part of the name', async () => {
+    const arr = [{ ...validBookItem(0, '1984') }]
+    const result = await runExpand(JSON.stringify(arr))
+    const items = result.result_child_nodes as Array<{ name?: string }>
+    expect(items[0].name).toBe('1984')
+  })
+
+  it('preserves a name that is purely the prefix (falls back to original)', async () => {
+    // "1." alone would strip to "" — fallback returns the original.
+    const arr = [{ ...validBookItem(0, '1.') }]
+    const result = await runExpand(JSON.stringify(arr))
+    const items = result.result_child_nodes as Array<{ name?: string }>
+    expect(items[0].name).toBe('1.')
   })
 })

@@ -505,6 +505,7 @@ export function NodeDetailPanel({ nodeId, refreshKey, onMutated, onClose }: Node
             nodeType={node.node_type}
             nodeCategory={node.node_category}
             isLeaf={node.is_leaf}
+            onMutated={onMutated}
           />
         )}
 
