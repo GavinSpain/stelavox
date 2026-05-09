@@ -179,6 +179,25 @@ export async function updateNodeOptimistic(
     .maybeSingle() as unknown as PostgrestMaybeSingleResponse<NodeRow>
 }
 
+// SU-J14-1: autosave concurrency uses content_revision (the always-current
+// durability anchor) instead of version. The conflict semantics are the
+// same — 0-row return = mismatch — but the field reflects every content
+// change, including ones that don't bump version.
+export async function updateNodeOptimisticByContentRevision(
+  supabase: Client,
+  nodeId: string,
+  fields: NodeUpdate,
+  expectedContentRevision: number,
+): Promise<PostgrestMaybeSingleResponse<NodeRow>> {
+  return supabase
+    .from('nodes')
+    .update({ ...fields, updated_at: new Date().toISOString() })
+    .eq('id', nodeId)
+    .eq('content_revision', expectedContentRevision)
+    .select(NODE_SELECT)
+    .maybeSingle() as unknown as PostgrestMaybeSingleResponse<NodeRow>
+}
+
 export async function deleteNode(supabase: Client, nodeId: string) {
   return supabase
     .from('nodes')

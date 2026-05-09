@@ -56,11 +56,24 @@ export const err = {
 
   // Phase 3 nodes — PATCH optimistic concurrency (T-4.4)
   invalidExpectedVersion:    () => apiError(400, 'invalid_expected_version'),
+  // SU-J14-1: autosave-side concurrency token error
+  invalidExpectedContentRevision: () => apiError(400, 'invalid_expected_content_revision'),
   versionConflict:           (current: unknown, expected: number, found: number) =>
     NextResponse.json(
       {
         error: 'version_conflict',
         message: `Node was modified by another writer; expected version ${expected}, found ${found}.`,
+        current,
+      },
+      { status: 409 },
+    ),
+  // SU-J14-1: autosave-side conflict — same 409 contract, distinct error
+  // code so the client routes to the autosave conflict UI specifically.
+  contentRevisionConflict:   (current: unknown, expected: number, found: number) =>
+    NextResponse.json(
+      {
+        error: 'content_revision_conflict',
+        message: `Node was modified by another writer; expected content_revision ${expected}, found ${found}.`,
         current,
       },
       { status: 409 },

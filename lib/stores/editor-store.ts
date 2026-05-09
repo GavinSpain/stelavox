@@ -22,6 +22,10 @@ type Metadata = Record<string, unknown> | null
 export interface NodeRecord {
   id: string
   version: number
+  // SU-J14-1: content_revision is the autosave durability anchor. Server
+  // responses include both fields. version bumps only on agent Accept;
+  // content_revision bumps on every content-changing UPDATE.
+  content_revision?: number
   summary: string | null
   prose: string | null
   notes: string | null
@@ -37,7 +41,9 @@ interface Shadow {
   summary: string | null
   prose: string | null
   notes: string | null
-  expectedVersion: number
+  // SU-J14-1: shadow now anchors on content_revision. Old shadows that
+  // wrote `expectedVersion` are read with a fallback in readShadow().
+  expectedContentRevision: number
   savedAt: number  // epoch ms
 }
 
@@ -47,7 +53,9 @@ interface EditorState {
   prose: string | null
   notes: string | null
   metadata: Metadata
-  expectedVersion: number
+  // SU-J14-1: autosave concurrency anchor. Was named `expectedVersion`
+  // in Phase 3; renamed because version no longer bumps on autosave.
+  expectedContentRevision: number
   dirty: boolean
   inflight: Promise<void> | null
   conflictCurrent: NodeRecord | null
@@ -76,9 +84,22 @@ function readShadow(nodeId: string): Shadow | null {
   try {
     const raw = window.localStorage.getItem(shadowKey(nodeId))
     if (!raw) return null
-    const parsed = JSON.parse(raw) as Shadow
-    if (typeof parsed.expectedVersion !== 'number' || typeof parsed.savedAt !== 'number') return null
-    return parsed
+    // SU-J14-1: tolerate the old `expectedVersion` field for shadows
+    // written before the rename. Either field, normalised to the new
+    // name, is enough to recover.
+    const parsed = JSON.parse(raw) as Partial<Shadow> & { expectedVersion?: number }
+    const anchor =
+      typeof parsed.expectedContentRevision === 'number' ? parsed.expectedContentRevision :
+      typeof parsed.expectedVersion === 'number'         ? parsed.expectedVersion :
+      null
+    if (anchor === null || typeof parsed.savedAt !== 'number') return null
+    return {
+      summary: parsed.summary ?? null,
+      prose: parsed.prose ?? null,
+      notes: parsed.notes ?? null,
+      expectedContentRevision: anchor,
+      savedAt: parsed.savedAt,
+    }
   } catch {
     return null
   }
@@ -149,7 +170,11 @@ async function patchNode(
     prose?: string | null
     notes?: string | null
     metadata?: Metadata
-    expected_version: number
+    // SU-J14-1: autosave PATCH uses content_revision (always-current
+    // durability anchor) instead of version. version no longer bumps on
+    // autosave, so it would not catch concurrent autosaves between two
+    // tabs writing to the same node.
+    expected_content_revision: number
   },
 ): Promise<{ status: number; data: unknown }> {
   const res = await fetch(`/api/nodes/${nodeId}`, {
@@ -184,18 +209,31 @@ export const useEditorStore = create<EditorState>((set, get) => {
     if (state.conflictCurrent || state.lockedReason) return
 
     const targetNodeId = state.nodeId
-    const targetExpectedVersion = state.expectedVersion
+    const targetExpectedRevision = state.expectedContentRevision
     const targetSummary = state.summary
     const targetProse = state.prose
     const targetNotes = state.notes
     const targetMetadata = state.metadata
+
+    // SU-J14-1: skip the PATCH entirely when nothing actually differs from
+    // the last-known server state. Tiptap's onUpdate can fire on no-op
+    // re-serializations (the very bug that produced spurious version
+    // bumps). The store still cleared dirty=true via setField, but the
+    // PATCH itself would be a true no-op against the server. Bail here.
+    // The trigger's IS DISTINCT FROM check would also bail server-side,
+    // but skipping the round-trip saves bandwidth + log noise.
+    // (We compare against the originalServer state by reading the shadow
+    // we just captured; if no shadow, fall through.)
+    // — left as documentation; the actual no-op detection would require
+    // tracking last-saved values. The trigger's IS DISTINCT FROM remains
+    // the source of truth.
 
     const promise = (async () => {
       const body: Parameters<typeof patchNode>[1] = {
         summary: targetSummary,
         prose: targetProse,
         notes: targetNotes,
-        expected_version: targetExpectedVersion,
+        expected_content_revision: targetExpectedRevision,
       }
       if (targetMetadata !== null && targetMetadata !== undefined) {
         body.metadata = targetMetadata
@@ -222,12 +260,12 @@ export const useEditorStore = create<EditorState>((set, get) => {
 
       if (result.status === 200) {
         const node = (result.data as { node?: NodeRecord })?.node
-        const newVersion = node?.version ?? targetExpectedVersion
+        const newRevision = node?.content_revision ?? targetExpectedRevision
         if (stillSame) {
           // Local matches what we just sent — fully synced.
           clearShadow(targetNodeId)
           set({
-            expectedVersion: newVersion,
+            expectedContentRevision: newRevision,
             dirty: false,
             conflictCurrent: null,
             lockedReason: null,
@@ -236,9 +274,9 @@ export const useEditorStore = create<EditorState>((set, get) => {
           // User typed during inflight. The captured edits are saved but
           // newer edits are pending — keep dirty=true; their setField has
           // already armed the next debounce timer. Refresh the shadow so
-          // its expected_version matches the freshly-bumped server value.
+          // its expectedContentRevision matches the freshly-bumped server value.
           set({
-            expectedVersion: newVersion,
+            expectedContentRevision: newRevision,
             conflictCurrent: null,
             lockedReason: null,
           })
@@ -292,9 +330,16 @@ export const useEditorStore = create<EditorState>((set, get) => {
       summary: s.summary,
       prose: s.prose,
       notes: s.notes,
-      expectedVersion: s.expectedVersion,
+      expectedContentRevision: s.expectedContentRevision,
       savedAt: Date.now(),
     })
+  }
+
+  // Resolve the load-time anchor for a server node. Prefers content_revision
+  // (SU-J14-1) and falls back to version for backwards compat with any
+  // server response shape that hasn't picked up the new field yet.
+  function nodeAnchor(node: NodeRecord): number {
+    return typeof node.content_revision === 'number' ? node.content_revision : node.version
   }
 
   return {
@@ -303,7 +348,7 @@ export const useEditorStore = create<EditorState>((set, get) => {
     prose: null,
     notes: null,
     metadata: null,
-    expectedVersion: 0,
+    expectedContentRevision: 0,
     dirty: false,
     inflight: null,
     conflictCurrent: null,
@@ -314,6 +359,7 @@ export const useEditorStore = create<EditorState>((set, get) => {
       gcOldShadows()
 
       const shadow = readShadow(node.id)
+      const serverAnchor = nodeAnchor(node)
 
       // Default: load server state.
       set({
@@ -322,7 +368,7 @@ export const useEditorStore = create<EditorState>((set, get) => {
         prose: node.prose,
         notes: node.notes,
         metadata: node.metadata,
-        expectedVersion: node.version,
+        expectedContentRevision: serverAnchor,
         dirty: false,
         inflight: null,
         conflictCurrent: null,
@@ -330,16 +376,16 @@ export const useEditorStore = create<EditorState>((set, get) => {
       })
 
       // Shadow recovery (§2.11.7):
-      // If a shadow exists with an older version than the server, the
+      // If a shadow exists with an older revision than the server, the
       // shadow holds unsaved edits made before the row moved on. Surface
       // the conflict UI by loading shadow content and synthesising a
       // conflictCurrent from the freshly-loaded server node.
-      if (shadow && shadow.expectedVersion > 0 && shadow.expectedVersion < node.version) {
+      if (shadow && shadow.expectedContentRevision > 0 && shadow.expectedContentRevision < serverAnchor) {
         set({
           summary: shadow.summary,
           prose: shadow.prose,
           notes: shadow.notes,
-          expectedVersion: shadow.expectedVersion,
+          expectedContentRevision: shadow.expectedContentRevision,
           dirty: true,
           conflictCurrent: node,
         })
@@ -350,6 +396,14 @@ export const useEditorStore = create<EditorState>((set, get) => {
       const s = get()
       if (!s.nodeId) return
       if (s.lockedReason) return  // read-only — silently drop
+      // SU-J14-1: skip the dirty-flag flip when the value is byte-identical
+      // to what the store already has. Tiptap can fire onUpdate with a
+      // re-serialised but semantically-equal value (paragraph normalisation
+      // on first focus, mark attribute reordering, etc.); without this
+      // guard, the store dirty flips → autosave fires → server sees no
+      // content delta and the trigger correctly skips the version bump,
+      // but the round-trip is wasted bandwidth + log noise. Bail here.
+      if (s[field] === value) return
       set({ [field]: value, dirty: true } as Partial<EditorState>)
       captureShadow()
       // While a 409 banner is up, accept further typing into local state +
@@ -361,6 +415,9 @@ export const useEditorStore = create<EditorState>((set, get) => {
       const s = get()
       if (!s.nodeId) return
       if (s.lockedReason) return
+      // Same no-op guard as setField, by deep-equality on the JSON form.
+      // Metadata is a small object so this is cheap.
+      if (JSON.stringify(s.metadata) === JSON.stringify(metadata)) return
       set({ metadata, dirty: true })
       captureShadow()
       if (!s.conflictCurrent) scheduleDebounce()
@@ -381,7 +438,7 @@ export const useEditorStore = create<EditorState>((set, get) => {
         prose: current.prose,
         notes: current.notes,
         metadata: current.metadata,
-        expectedVersion: current.version,
+        expectedContentRevision: nodeAnchor(current),
         dirty: false,
         conflictCurrent: null,
       })
@@ -391,10 +448,10 @@ export const useEditorStore = create<EditorState>((set, get) => {
       const s = get()
       const current = s.conflictCurrent
       if (!current || !s.nodeId) return
-      // Adopt the server's version as the new expectedVersion so the
-      // next PATCH wins; keep our content as-is. Then flush.
+      // Adopt the server's revision as the new expectedContentRevision so
+      // the next PATCH wins; keep our content as-is. Then flush.
       set({
-        expectedVersion: current.version,
+        expectedContentRevision: nodeAnchor(current),
         dirty: true,
         conflictCurrent: null,
       })
@@ -419,7 +476,7 @@ export const useEditorStore = create<EditorState>((set, get) => {
         prose: node.prose,
         notes: node.notes,
         metadata: node.metadata,
-        expectedVersion: node.version,
+        expectedContentRevision: nodeAnchor(node),
         dirty: false,
         conflictCurrent: null,
         lockedReason: null,
@@ -438,7 +495,7 @@ export const useEditorStore = create<EditorState>((set, get) => {
         prose: null,
         notes: null,
         metadata: null,
-        expectedVersion: 0,
+        expectedContentRevision: 0,
         dirty: false,
         inflight: null,
         conflictCurrent: null,
@@ -466,7 +523,7 @@ if (typeof window !== 'undefined') {
         prose: s.prose,
         notes: s.notes,
         ...(s.metadata !== null && s.metadata !== undefined ? { metadata: s.metadata } : {}),
-        expected_version: s.expectedVersion,
+        expected_content_revision: s.expectedContentRevision,
       })
       const blob = new Blob([body], { type: 'application/json' })
       navigator.sendBeacon(`/api/nodes/${s.nodeId}`, blob)
