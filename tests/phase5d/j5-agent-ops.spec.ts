@@ -144,6 +144,35 @@ test('TC-J5-CLOUD-2: ExpandOutputSchema cap + Bug-2 parser fallback covered by V
     'cloud failures 42717888 + f107537c).')
 })
 
+test('TC-J5-CLOUD-3: generate_context system profiles cover all 6 V1 context types (Bug 4 regression guard)', async () => {
+  // Cloud failure 2026-05-08 doc 9503c6ea (Mars series): Director planned
+  // generate_context steps with context_type=theme + context_type=world.
+  // Workflow executor failed to resolve profiles because it looked up by
+  // the structural parent's node_type. SU-J11-2 documents the fix +
+  // architectural gap. The profiles themselves must exist for the fix
+  // to land any results.
+  const admin = adminClient()
+  const expected = [
+    'generate_context_character',
+    'generate_context_location',
+    'generate_context_organisation',
+    'generate_context_theme',
+    'generate_context_plot_thread',
+    'generate_context_world',
+  ]
+  const { data: profiles } = await admin
+    .from('agent_profiles')
+    .select('name, operation_type, node_type')
+    .in('name', expected)
+  expect(profiles?.length).toBe(expected.length)
+  for (const p of profiles ?? []) {
+    expect(p.operation_type).toBe('generate_context')
+    // node_type matches the context type encoded in the profile name
+    // (generate_context_theme → node_type=theme).
+    expect(p.name).toBe(`generate_context_${p.node_type}`)
+  }
+})
+
 // ─── Profile / target_field validation (TC-J5-08-validation) ────────────────
 
 test('TC-J5-08v: refine_beat_prose profile exists and is bound to (refine, beat)', async () => {
