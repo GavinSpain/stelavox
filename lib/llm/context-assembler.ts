@@ -301,19 +301,88 @@ async function fetchLinkedContextNodes(
 ): Promise<NodeForAssembly[]> {
   if (profile.context_rules?.['include_linked_contexts'] === false) return []
 
-  // Direct links from this node, plus ancestor-inherited links.
-  // For V1, fetch via direct query; cleaner than relying on the Phase 4
-  // route's complex inherited-link computation. The Edge Function is
-  // service-role so RLS isn't filtering here; trust the link targets.
-  const { data: directLinks, error: directErr } = await supabase
+  // SU-J14-11 (Step 1 LLM drive 2026-05-09): the comment below claimed
+  // "Direct links from this node, plus ancestor-inherited links" but the
+  // implementation only fetched direct links. As a result, when an
+  // author linked a character/world/theme to the BOOK or ACT level, the
+  // synthesise/refine prompt at scene/beat level got NONE of those
+  // context nodes. The model was then writing prose with no anchor to
+  // the cast or world the author had explicitly attached. This is the
+  // root cause of the weak-output anomaly observed across prior drives.
+  //
+  // Fix: walk the parent chain from nodeId up to the document root,
+  // collect every source_node_id along the way, fetch all context links
+  // whose source is any node in the chain. The chain is bounded by
+  // MAX_ANCESTOR_DEPTH so this stays cheap.
+
+  // Step 1 — collect ancestor IDs (including the target itself).
+  const chainIds: string[] = []
+  let currentId: string | null = nodeId
+  for (let i = 0; i < MAX_ANCESTOR_DEPTH; i++) {
+    if (!currentId) break
+    chainIds.push(currentId)
+    const result: { data: { parent_id: string | null } | null } = await supabase
+      .from('nodes')
+      .select('parent_id')
+      .eq('id', currentId)
+      .maybeSingle()
+    if (!result.data) break
+    currentId = result.data.parent_id
+  }
+
+  // Step 2 — fetch all context links from any node in the chain.
+  const { data: links, error: linkErr } = await supabase
     .from('node_context_links')
     .select('target_node_id')
-    .eq('source_node_id', nodeId)
-  if (directErr) throw new Error(`fetchLinkedContextNodes failed: ${directErr.message}`)
+    .in('source_node_id', chainIds)
+  if (linkErr) throw new Error(`fetchLinkedContextNodes failed: ${linkErr.message}`)
 
-  const targetIds = (directLinks ?? []).map((row) => row.target_node_id)
+  // Dedupe target IDs (a context could be linked at multiple levels).
+  let targetIds = Array.from(new Set((links ?? []).map((row) => row.target_node_id)))
+
+  // SU-J14-12 (Step 1 LLM drive 2026-05-09): when the target itself is a
+  // context node (generate_context operation), the structural-ancestor
+  // chain is empty (context nodes have parent_id=NULL) so the previous
+  // logic delivered ZERO context. The user's expectation: when enriching
+  // a character, the agent should see other characters, the world, the
+  // themes — i.e., the full cast deployed in the project.
+  //
+  // For context-target operations, also include every other project-
+  // scope context node in the same project that has at least one
+  // back-link (i.e. is "live" in the document tree). Cap at 25 so a
+  // project with 100 context nodes doesn't blow the prompt.
+  const { data: targetNode } = await supabase
+    .from('nodes')
+    .select('id, node_category, project_id')
+    .eq('id', nodeId)
+    .maybeSingle()
+  if (targetNode?.node_category === 'context' && targetNode.project_id) {
+    // Two-step: fetch all project-scope context node IDs, then for each,
+    // check if there's at least one back-link. Avoids the typed-join
+    // inference issues with the embedded select.
+    const { data: candidateSiblings } = await supabase
+      .from('nodes')
+      .select('id')
+      .eq('project_id', targetNode.project_id)
+      .eq('node_category', 'context')
+      .neq('id', nodeId)
+      .limit(50)
+    const candidateIds = (candidateSiblings ?? []).map((s) => s.id)
+    let siblingIds: string[] = []
+    if (candidateIds.length > 0) {
+      const { data: liveLinks } = await supabase
+        .from('node_context_links')
+        .select('target_node_id')
+        .in('target_node_id', candidateIds)
+      const liveSet = new Set((liveLinks ?? []).map((r) => r.target_node_id))
+      siblingIds = candidateIds.filter((id) => liveSet.has(id)).slice(0, 25)
+    }
+    targetIds = Array.from(new Set([...targetIds, ...siblingIds]))
+  }
+
   if (targetIds.length === 0) return []
 
+  // Step 3 — fetch the context node bodies.
   const { data: contextNodes, error: ctxErr } = await supabase
     .from('nodes')
     .select('id, name, node_type, node_category, depth, parent_id, summary, prose, notes, metadata')
