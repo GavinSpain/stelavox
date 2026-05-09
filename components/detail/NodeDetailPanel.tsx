@@ -158,6 +158,12 @@ export function NodeDetailPanel({ nodeId, refreshKey, onMutated, onClose }: Node
       loadNode({
         id: fetched.id,
         version: fetched.version,
+        // SU-J14-15 (Step 2 multi-tab drive 2026-05-10): the editor-store
+        // anchors autosave concurrency on content_revision (J14-1).
+        // Forgetting to pass it here meant the store fell back to
+        // version, which only bumps on agent Accept — every autosave then
+        // sent a stale expected_content_revision and 409'd.
+        content_revision: (fetched as { content_revision?: number }).content_revision,
         summary: fetched.summary,
         prose: fetched.prose,
         notes: fetched.notes,

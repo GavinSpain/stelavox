@@ -97,7 +97,7 @@ const NODE_SELECT = [
   'summary', 'prose', 'notes', 'metadata',
   'status', 'locked', 'lock_reason',
   'agent_instruction', 'word_count_target', 'word_count_actual',
-  'version', 'created_at', 'updated_at',
+  'version', 'content_revision', 'created_at', 'updated_at',
 ].join(', ')
 
 export async function createNode(
