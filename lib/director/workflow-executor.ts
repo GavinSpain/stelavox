@@ -439,7 +439,7 @@ async function dispatchAgentJobForStep(
 
   const { data: targetNode } = await supabase
     .from('nodes')
-    .select('node_type')
+    .select('node_type, node_category')
     .eq('id', step.target_node_id)
     .maybeSingle()
 
@@ -455,13 +455,49 @@ async function dispatchAgentJobForStep(
     return
   }
 
-  // Phase 1: candidates matching (operation_type, node_type).
+  // Bug 4 (Mars series 2026-05-08): generate_context steps planned by the
+  // Director against a structural parent (e.g. series root) cannot be
+  // dispatched as-is. The user-clicked /api/agent/generate-context route
+  // requires `node.node_category === 'context'` because Accept writes the
+  // result to the target node's summary+metadata — running generate_context
+  // against a structural node would corrupt that node. The workflow
+  // executor must enforce the same constraint.
+  //
+  // The right product behaviour (SU-J11-2) is for workflow_executor to
+  // auto-create the context node before dispatching, OR for the Director
+  // to plan create-node + generate_context as two steps. Until that
+  // architecture decision lands, fail the step with a clear, actionable
+  // error message instead of letting the dispatch proceed and corrupt
+  // the parent.
+  if (step.operation_type === 'generate_context' && targetNode.node_category !== 'context') {
+    await supabase
+      .from('workflow_steps')
+      .update({
+        status: 'failed',
+        error_message: 'generate_context_requires_context_target',
+        completed_at: new Date().toISOString(),
+      })
+      .eq('id', step.id)
+    return
+  }
+
+  // For generate_context, the profile node_type is the CONTEXT node's type
+  // (theme/world/character/etc.). When the target IS a context node (the
+  // user-clicked flow), targetNode.node_type already matches the context
+  // type. The Director may also pass step.parameters.context_type as a
+  // hint per GenerateContextStepProposalSchema; prefer that when present.
+  const profileNodeType: string =
+    step.operation_type === 'generate_context' && typeof params.context_type === 'string'
+      ? params.context_type
+      : targetNode.node_type
+
+  // Phase 1: candidates matching (operation_type, profileNodeType).
   const { data: candidates } = await supabase
     .from('agent_profiles')
     .select('id, name, node_type')
     .eq('is_system_profile', true)
     .eq('operation_type', step.operation_type)
-    .eq('node_type', targetNode.node_type)
+    .eq('node_type', profileNodeType)
 
   let profile: { id: string; name: string } | null = null
 
@@ -498,7 +534,7 @@ async function dispatchAgentJobForStep(
       .from('workflow_steps')
       .update({
         status: 'failed',
-        error_message: `no_system_profile_for_${step.operation_type}_${targetNode.node_type}`,
+        error_message: `no_system_profile_for_${step.operation_type}_${profileNodeType}`,
         completed_at: new Date().toISOString(),
       })
       .eq('id', step.id)
