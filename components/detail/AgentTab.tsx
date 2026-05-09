@@ -887,7 +887,16 @@ function StreamingState({
  * the display layer adds its own.
  */
 function stripOrdinalPrefix(name: string): string {
-  return name.replace(/^\s*\d+\s*[.)\-:]\s*/, '').trim()
+  // Mirror lib/agent/operations/expand.ts:stripLeadingOrdinal so the
+  // proposal preview shows the same clean form that will be persisted
+  // on Accept. SU-J13-3: word-ordinal prefixes ("Chapter N:") in
+  // addition to digit ordinals ("1. ").
+  const wordOrdinal = /^\s*(?:Chapter|Scene|Act|Beat|Book|Part|Section)\s+\d+\s*[.)\-:]\s*/i
+  const digitOrdinal = /^\s*\d+\s*[.)\-:]\s*/
+  let s = name
+  s = s.replace(wordOrdinal, '').trim()
+  s = s.replace(digitOrdinal, '').trim()
+  return s || name
 }
 
 function describeResult(job: AgentJob): string {

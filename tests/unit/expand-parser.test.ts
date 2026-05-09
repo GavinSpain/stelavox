@@ -207,3 +207,51 @@ describe('expand parser — SU-J12-7 ordinal-prefix stripping', () => {
     expect(items[0].name).toBe('1.')
   })
 })
+
+describe('expand parser — SU-J13-3 word-ordinal stripping', () => {
+  // The LLM commonly emits "Chapter N: Title" / "Scene N: Title" /
+  // "Beat N: Title" / "Act N: Title" / "Book N: Title" / "Part N: Title"
+  // / "Section N: Title" prefixes. The display layer adds its own
+  // "${i+1}. " before the name, producing visible doubles like
+  // "1. Chapter 1: The Handover" in the proposal preview AND persisting
+  // the redundant prefix into the tree.
+  const cases: Array<[string, string]> = [
+    ['Chapter 1: The Handover', 'The Handover'],
+    ['Scene 2: The Ceremony',   'The Ceremony'],
+    ['Beat 3 - The Quiet After', 'The Quiet After'],
+    ['Act 4. The Final Inspection', 'The Final Inspection'],
+    ['Book 5: Inheritance', 'Inheritance'],
+    ['Part 6: The Choice',  'The Choice'],
+    ['Section 7: The Archive', 'The Archive'],
+    // Case-insensitive
+    ['chapter 8: lower-case', 'lower-case'],
+    ['CHAPTER 9: UPPER-CASE', 'UPPER-CASE'],
+  ]
+
+  for (const [input, expected] of cases) {
+    it(`strips "${input}" → "${expected}"`, async () => {
+      const arr = [{ ...validBookItem(0, input) }]
+      const result = await runExpand(JSON.stringify(arr))
+      const items = result.result_child_nodes as Array<{ name?: string }>
+      expect(items[0].name).toBe(expected)
+    })
+  }
+
+  it('strips both digit-prefix and word-ordinal in sequence', async () => {
+    // Belt-and-braces: if the LLM somehow emitted "1. Chapter 1: Title"
+    // (saw this once), both layers should strip.
+    const arr = [{ ...validBookItem(0, '1. Chapter 1: The Handover') }]
+    const result = await runExpand(JSON.stringify(arr))
+    const items = result.result_child_nodes as Array<{ name?: string }>
+    expect(items[0].name).toBe('The Handover')
+  })
+
+  it('preserves "Chapter House" (word but no digit)', async () => {
+    // Frank Herbert's Chapter House — "Chapter" alone (no digit) is part
+    // of the name and must not be stripped.
+    const arr = [{ ...validBookItem(0, 'Chapter House') }]
+    const result = await runExpand(JSON.stringify(arr))
+    const items = result.result_child_nodes as Array<{ name?: string }>
+    expect(items[0].name).toBe('Chapter House')
+  })
+})
