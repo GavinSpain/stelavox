@@ -274,7 +274,20 @@ function NodeTreeInner({ documentId, documentType, onSelect, refreshKey }: NodeT
             ))}
           </div>
         )}
+        {/*
+          SU-J13-1 (Mars-drive 2026-05-09): react-arborist tracks
+          per-node open state internally and only consults
+          `openByDefault` on first mount. After Accept causes new
+          children to appear under an existing node, the parent stays
+          collapsed and the user can't see the new content without a
+          page reload. Keying the Tree on (refreshKey + refreshTick)
+          forces a remount on each mutation-driven refetch so
+          openByDefault re-applies. Trade-off: scroll position resets,
+          which is acceptable given the alternative is invisible
+          children.
+         */}
         <Tree<ArboristNode>
+          key={`${refreshKey ?? 0}-${refreshTick}`}
           data={data}
           rowHeight={36}
           width="100%"

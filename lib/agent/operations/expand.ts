@@ -136,9 +136,24 @@ export async function runExpand(content: string): Promise<{ result_child_nodes: 
 }
 
 function stripLeadingOrdinal(name: string): string {
-  // Match "1. ", "2) ", "3 - ", "4: ", optionally with leading whitespace.
-  // Non-greedy so we don't strip from names that genuinely start with a
-  // number (e.g., "1984" — no separator follows the digits).
-  const stripped = name.replace(/^\s*\d+\s*[.)\-:]\s+/, '').trim()
-  return stripped || name
+  // SU-J12-7 base: digit-only ordinals — "1. ", "2) ", "3 - ", "4: ".
+  // SU-J13-3 (Mars-drive 2026-05-09): the LLM also commonly emits
+  // word-ordinal prefixes — "Chapter 1: …", "Scene 2: …", "Beat 3 - …",
+  // "Act 4. …" — that compound with the display layer's auto-numbering
+  // and produce "1. Chapter 1: The Handover" in the proposal preview.
+  // Strip both shapes at the operation boundary so the persisted name
+  // is clean and the display preview is single-prefixed.
+  const wordOrdinal = /^\s*(?:Chapter|Scene|Act|Beat|Book|Part|Section)\s+\d+\s*[.)\-:]\s+/i
+  const digitOrdinal = /^\s*\d+\s*[.)\-:]\s+/
+  let s = name
+  // Apply both patterns in sequence — handles "1. Chapter 1:" too.
+  // Loop until neither pattern matches: digit-first then word-first
+  // covers both "1. Chapter 1:" and "Chapter 1:" inputs.
+  for (let i = 0; i < 4; i++) {
+    const before = s
+    s = s.replace(digitOrdinal, '').trim()
+    s = s.replace(wordOrdinal, '').trim()
+    if (s === before) break
+  }
+  return s || name
 }
