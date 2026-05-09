@@ -376,6 +376,48 @@ export async function persistDraftWorkflow(args: {
  * agent runner's notifyWorkflowIfStep parses this on terminal status
  * to call advanceWorkflow().
  */
+
+/**
+ * Derive a human-readable name for an auto-created context node from
+ * the Director's seed_content. Falls back to the capitalized context
+ * type if seed_content is empty.
+ *
+ * Examples:
+ *   ('theme', 'CORE THEMES\n\n1. Ambition...')   → 'Core Themes'
+ *   ('theme', 'Ambition and hubris drive ...')   → 'Ambition and hubris'
+ *   ('world', 'Hard physics: gravity wells...')  → 'Hard physics'
+ *   ('character', '')                            → 'Character'
+ *
+ * Used by SU-J11-2 auto-create-context-node logic.
+ */
+export function deriveContextName(contextType: string, seedContent: string): string {
+  const trimmed = seedContent.trim()
+  if (!trimmed) {
+    return contextType.charAt(0).toUpperCase() + contextType.slice(1)
+  }
+  // First non-empty line, stripped of leading numbering / markdown headers.
+  const firstLine = trimmed.split(/\r?\n/).find((l) => l.trim().length > 0) ?? ''
+  let cleaned = firstLine
+    .replace(/^#+\s*/, '')        // markdown headers
+    .replace(/^\d+\.\s*/, '')     // numeric list prefixes
+    .replace(/^[-*]\s*/, '')      // bullet list prefixes
+    .trim()
+  // Trim a trailing colon if the line was a heading.
+  cleaned = cleaned.replace(/:\s*$/, '')
+  // Truncate to a reasonable name length (200 chars max per nodes.name).
+  if (cleaned.length > 80) cleaned = cleaned.slice(0, 77).trim() + '…'
+  if (!cleaned) {
+    return contextType.charAt(0).toUpperCase() + contextType.slice(1)
+  }
+  // Title-case if the line is ALL CAPS (typical of "CORE THEMES" headings).
+  if (cleaned === cleaned.toUpperCase() && cleaned.length > 3) {
+    cleaned = cleaned
+      .toLowerCase()
+      .replace(/\b\w/g, (c) => c.toUpperCase())
+  }
+  return cleaned
+}
+
 async function dispatchAgentJobForStep(
   supabase: Client,
   workflow: { id: string; organisation_id: string; document_id: string },
@@ -437,9 +479,9 @@ async function dispatchAgentJobForStep(
     return
   }
 
-  const { data: targetNode } = await supabase
+  let { data: targetNode } = await supabase
     .from('nodes')
-    .select('node_type, node_category')
+    .select('id, node_type, node_category, project_id')
     .eq('id', step.target_node_id)
     .maybeSingle()
 
@@ -455,37 +497,105 @@ async function dispatchAgentJobForStep(
     return
   }
 
-  // Bug 4 (Mars series 2026-05-08): generate_context steps planned by the
-  // Director against a structural parent (e.g. series root) cannot be
-  // dispatched as-is. The user-clicked /api/agent/generate-context route
-  // requires `node.node_category === 'context'` because Accept writes the
-  // result to the target node's summary+metadata — running generate_context
-  // against a structural node would corrupt that node. The workflow
-  // executor must enforce the same constraint.
+  // SU-J11-2 / Bug 4 (Mars series 2026-05-08): when Director plans
+  // generate_context against a structural parent (e.g. series root), the
+  // workflow_executor auto-creates the requested context node, links it
+  // to the structural target, re-targets the step, and dispatches the
+  // agent_job against the new context node. This bridges the gap
+  // between the Director's "create-and-fill" planning model and the
+  // system's "fill an existing context node" operation semantics.
   //
-  // The right product behaviour (SU-J11-2) is for workflow_executor to
-  // auto-create the context node before dispatching, OR for the Director
-  // to plan create-node + generate_context as two steps. Until that
-  // architecture decision lands, fail the step with a clear, actionable
-  // error message instead of letting the dispatch proceed and corrupt
-  // the parent.
+  // The user-clicked /api/agent/generate-context route requires
+  // node.node_category === 'context' — running generate_context against
+  // a structural node would corrupt it on Accept. Auto-creating ensures
+  // the target IS a context node before dispatch.
   if (step.operation_type === 'generate_context' && targetNode.node_category !== 'context') {
+    const contextType = typeof params.context_type === 'string' ? params.context_type : null
+    if (!contextType) {
+      await supabase
+        .from('workflow_steps')
+        .update({
+          status: 'failed',
+          error_message: 'generate_context_missing_context_type',
+          completed_at: new Date().toISOString(),
+        })
+        .eq('id', step.id)
+      return
+    }
+
+    const seedContent = typeof params.seed_content === 'string' ? params.seed_content : ''
+    const derivedName = deriveContextName(contextType, seedContent)
+    const initialSummaryJson = seedContent
+      ? JSON.stringify({
+          type: 'doc',
+          content: seedContent
+            .split(/\n\n+/)
+            .map((para) => ({
+              type: 'paragraph',
+              content: [{ type: 'text', text: para }],
+            })),
+        })
+      : null
+
+    const { data: newContextNode, error: createErr } = await supabase
+      .from('nodes')
+      .insert({
+        organisation_id: workflow.organisation_id,
+        project_id: targetNode.project_id,
+        document_id: workflow.document_id,
+        node_category: 'context',
+        node_type: contextType,
+        scope: 'document',
+        parent_id: null,
+        name: derivedName,
+        summary: initialSummaryJson,
+        metadata: {} as never,
+        tags: [],
+        status: 'draft',
+        version: 1,
+      })
+      .select('id, node_type, node_category, project_id')
+      .single()
+
+    if (createErr || !newContextNode) {
+      await supabase
+        .from('workflow_steps')
+        .update({
+          status: 'failed',
+          error_message: `auto_create_context_node_failed:${createErr?.message ?? 'unknown'}`,
+          completed_at: new Date().toISOString(),
+        })
+        .eq('id', step.id)
+      return
+    }
+
+    // Link the new context node back to the structural target so the
+    // tree view shows the relationship (Theme of Series).
+    await supabase
+      .from('node_context_links')
+      .insert({
+        organisation_id: workflow.organisation_id,
+        source_node_id: step.target_node_id,
+        target_node_id: newContextNode.id,
+        link_type: 'structural_to_context',
+      })
+
+    // Persistently re-target the step at the new context node so retries
+    // dispatch against the same context (idempotent).
     await supabase
       .from('workflow_steps')
-      .update({
-        status: 'failed',
-        error_message: 'generate_context_requires_context_target',
-        completed_at: new Date().toISOString(),
-      })
+      .update({ target_node_id: newContextNode.id })
       .eq('id', step.id)
-    return
+
+    step.target_node_id = newContextNode.id
+    targetNode = newContextNode
   }
 
   // For generate_context, the profile node_type is the CONTEXT node's type
-  // (theme/world/character/etc.). When the target IS a context node (the
-  // user-clicked flow), targetNode.node_type already matches the context
-  // type. The Director may also pass step.parameters.context_type as a
-  // hint per GenerateContextStepProposalSchema; prefer that when present.
+  // (theme/world/character/etc.). After the auto-create branch above, the
+  // target IS a context node; targetNode.node_type matches params.context_type
+  // (and the original case where Director plans against an existing context
+  // node also satisfies this).
   const profileNodeType: string =
     step.operation_type === 'generate_context' && typeof params.context_type === 'string'
       ? params.context_type
