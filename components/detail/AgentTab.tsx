@@ -239,12 +239,13 @@ export function AgentTab({ nodeId, nodeType, nodeCategory, isLeaf }: AgentTabPro
   const generateContextCapable = nodeCategory === 'context'
 
   return (
-    <div style={{ padding, display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+    <div data-testid="agent-tab" style={{ padding, display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
       <ErrorBanner error={error} onDismiss={() => setError(null)} />
 
       <div>
         <Label>Profile</Label>
         <select
+          data-testid="agent-profile-select"
           value={selectedProfileId}
           onChange={(e) => setSelectedProfileId(e.target.value)}
           disabled={busy}
@@ -262,6 +263,7 @@ export function AgentTab({ nodeId, nodeType, nodeCategory, isLeaf }: AgentTabPro
       <div>
         <Label>Instruction (optional)</Label>
         <textarea
+          data-testid="agent-instruction-input"
           value={instruction}
           onChange={(e) => setInstruction(e.target.value)}
           placeholder="e.g. focus on character interiority"
@@ -279,6 +281,7 @@ export function AgentTab({ nodeId, nodeType, nodeCategory, isLeaf }: AgentTabPro
             icon="⚡"
             disabled={busy}
             onClick={() => trigger('expand')}
+            testId="agent-expand-btn"
           />
         )}
         {generateContextCapable && (
@@ -288,6 +291,7 @@ export function AgentTab({ nodeId, nodeType, nodeCategory, isLeaf }: AgentTabPro
             icon="◆"
             disabled={busy}
             onClick={() => trigger('generate_context')}
+            testId="agent-generate-context-btn"
           />
         )}
         {synthesiseCapable && (
@@ -298,10 +302,11 @@ export function AgentTab({ nodeId, nodeType, nodeCategory, isLeaf }: AgentTabPro
             fullWidth
             disabled={busy}
             onClick={() => trigger('synthesise')}
+            testId="agent-synthesise-btn"
           />
         )}
         {/* Critique button — V1.x; rendered disabled per Component Spec §5.9 layout */}
-        <OpButton op="expand" label="Critique" icon="🔍" disabled tooltip="Critique is V1.x — coming soon" onClick={() => {}} />
+        <OpButton op="expand" label="Critique" icon="🔍" disabled tooltip="Critique is V1.x — coming soon" onClick={() => {}} testId="agent-critique-btn" />
       </div>
 
       {refineCapable && (
@@ -323,6 +328,7 @@ export function AgentTab({ nodeId, nodeType, nodeCategory, isLeaf }: AgentTabPro
               Target field:
             </span>
             <select
+              data-testid="agent-refine-field-select"
               value={refineField}
               onChange={(e) => setRefineField(e.target.value as 'summary' | 'prose' | 'notes')}
               disabled={busy}
@@ -334,6 +340,7 @@ export function AgentTab({ nodeId, nodeType, nodeCategory, isLeaf }: AgentTabPro
             </select>
           </div>
           <textarea
+            data-testid="agent-refine-instruction-input"
             value={refinementInstruction}
             onChange={(e) => setRefinementInstruction(e.target.value)}
             placeholder="What should the refine change?"
@@ -347,6 +354,7 @@ export function AgentTab({ nodeId, nodeType, nodeCategory, isLeaf }: AgentTabPro
             icon="✏"
             disabled={busy || !refinementInstruction.trim()}
             onClick={() => trigger('refine')}
+            testId="agent-refine-btn"
           />
         </div>
       )}
@@ -432,6 +440,7 @@ function OpButton({
   fullWidth,
   tooltip,
   onClick,
+  testId,
 }: {
   op: string
   label: string
@@ -440,10 +449,12 @@ function OpButton({
   fullWidth?: boolean
   tooltip?: string
   onClick: () => void
+  testId?: string
 }) {
   return (
     <button
       type="button"
+      data-testid={testId}
       onClick={onClick}
       disabled={disabled}
       title={tooltip}
@@ -512,6 +523,7 @@ function ActiveState({ job, onCancel, busy }: { job: AgentJob; onCancel: () => v
         </div>
       </div>
       <button
+        data-testid="agent-stop-btn"
         onClick={onCancel}
         disabled={busy}
         style={{
@@ -588,6 +600,7 @@ function CompleteState({
       </div>
       <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
         <button
+          data-testid="agent-accept-btn"
           onClick={onAccept}
           disabled={busy}
           style={{
@@ -608,6 +621,7 @@ function CompleteState({
           Accept
         </button>
         <button
+          data-testid="agent-dismiss-btn"
           onClick={onDismiss}
           disabled={busy}
           style={{
@@ -673,6 +687,7 @@ function StreamingState({
           {status === 'connecting' ? 'connecting…' : 'streaming…'}
         </span>
         <button
+          data-testid="agent-cancel-btn"
           onClick={onCancel}
           style={{
             background: 'none',

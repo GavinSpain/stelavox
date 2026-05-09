@@ -197,6 +197,7 @@ export function FocusMode({ node, onExit }: FocusModeProps) {
   // the AppShell's transformed subtree.
   return createPortal(
     <div
+      data-testid="focus-mode"
       data-focus-mode="active"
       data-sentence-focus={sentenceFocusEnabled ? '' : undefined}
       style={{

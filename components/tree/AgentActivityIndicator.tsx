@@ -31,6 +31,7 @@ export function AgentActivityIndicator({ nodeId }: Props) {
   if (!hasRunningJob) return null
   return (
     <span
+      data-testid="agent-activity-indicator"
       aria-hidden="true"
       className="agent-activity-pulse"
       style={{

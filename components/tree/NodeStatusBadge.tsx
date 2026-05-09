@@ -26,6 +26,8 @@ export function NodeStatusBadge({ status }: NodeStatusBadgeProps) {
   const colour = STATUS_COLOURS[status] ?? 'var(--color-status-draft)'
   return (
     <span
+      data-testid="node-status-badge"
+      data-status={status}
       aria-hidden="true"
       style={{
         display: 'inline-block',

@@ -108,6 +108,7 @@ export function ExecutionCard({
 
   return (
     <div
+      data-testid="execution-card"
       role="group"
       aria-label="Workflow execution"
       style={{
@@ -218,6 +219,8 @@ function Header({
 function Heartbeat({ fresh }: { fresh: boolean }) {
   return (
     <span
+      data-testid="execution-card-heartbeat"
+      data-heartbeat-fresh={fresh ? 'true' : 'false'}
       role="status"
       aria-live="polite"
       aria-label={fresh ? 'Director heartbeat — connected' : 'Director heartbeat — stalled'}

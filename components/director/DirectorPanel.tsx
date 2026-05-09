@@ -208,6 +208,7 @@ export function DirectorPanel({
 
   return (
     <section
+      data-testid="director-panel"
       role="complementary"
       aria-label="Director"
       style={{
