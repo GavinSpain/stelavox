@@ -221,7 +221,7 @@ export function NodePicker({
                             <span
                               style={{
                                 fontSize: 'var(--text-xs)',
-                                color: 'var(--color-text-disabled)',
+                                color: 'var(--color-text-muted)',
                                 letterSpacing: '0.04em',
                                 textTransform: 'uppercase',
                               }}

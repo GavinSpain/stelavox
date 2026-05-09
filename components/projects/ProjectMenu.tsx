@@ -110,7 +110,7 @@ const menuTriggerStyle: React.CSSProperties = {
   background: 'none',
   border: 'none',
   cursor: 'pointer',
-  color: 'var(--color-text-muted)',
+  color: 'var(--color-text-secondary)',
   fontSize: 'var(--text-base)',
   padding: 'var(--space-1) var(--space-2)',
   borderRadius: '4px',

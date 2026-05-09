@@ -94,10 +94,10 @@ export default function NewDocumentDialog({ projectId }: Props) {
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
-      <label style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-secondary)' }}>{label}</label>
+    <label style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
+      <span style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-secondary)' }}>{label}</span>
       {children}
-    </div>
+    </label>
   )
 }
 

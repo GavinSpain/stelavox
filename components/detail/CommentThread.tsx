@@ -213,6 +213,7 @@ export function CommentThread({ nodeId, currentUserId }: Props) {
           </div>
         )}
         <select
+          aria-label="Comment type"
           value={newType}
           onChange={(e) => setNewType(e.target.value as Comment['comment_type'])}
           disabled={busy}

@@ -359,6 +359,7 @@ export function NodeDetailPanel({ nodeId, refreshKey, onMutated, onClose }: Node
             <NodeStatusBadge status={node.status} />
             <select
               data-testid="status-select"
+              aria-label="Status"
               value={node.status}
               onChange={(e) => changeStatus(e.target.value)}
               style={{

@@ -61,10 +61,11 @@ export function WordCount({ editor, target }: WordCountProps) {
     }
   }, [editor])
 
-  // Opacity state machine per §5.7
-  let opacity = 0.4
-  if (isTyping || recentlyTyped) opacity = 0
-  if (hovered) opacity = 0.9
+  // Opacity state machine per §5.7 — 0 while typing/recent so it stays out of
+  // the way; 1.0 at rest so the count meets WCAG AA contrast (axe flagged the
+  // legacy 0.4 idle opacity in Step 4 a11y sweep). Hover redundant once idle = 1.
+  const opacity = (isTyping || recentlyTyped) ? 0 : 1
+  void hovered
 
   const atOrAboveTarget = target !== null && words >= target
   const countColour = atOrAboveTarget

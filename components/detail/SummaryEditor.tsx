@@ -70,6 +70,9 @@ export function SummaryEditor({ value, onChange, readOnly = false }: SummaryEdit
     // Tiptap v3 SSR safety: required for Next.js hydration. Without this,
     // Tiptap renders server-side and hydration throws an SSR-detected error.
     immediatelyRender: false,
+    editorProps: {
+      attributes: { role: 'textbox', 'aria-multiline': 'true', 'aria-label': 'Summary' },
+    },
     onUpdate: ({ editor: e }) => {
       onChange(toStorage(e))
     },

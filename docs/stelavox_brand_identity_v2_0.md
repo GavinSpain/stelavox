@@ -220,8 +220,8 @@ All colours are defined as CSS custom properties. Changing a token value changes
 |---|---|---|
 | `--color-text-primary` | `#ecf0f5` | Main text, node names, panel content (~14.8:1 on base). |
 | `--color-text-secondary` | `#8aa0b8` | Labels, metadata, helper text. |
-| `--color-text-muted` | `#4a6080` | Placeholder text, very secondary. |
-| `--color-text-disabled` | `#2a3850` | Disabled states — present but not actionable. |
+| `--color-text-muted` | `#6884a4` | Placeholder text, very secondary. WCAG AA on bg-base/surface (~5.2:1). |
+| `--color-text-disabled` | `#2a3850` | Disabled controls only — never use for visible text content. |
 
 #### Accent (nine sanctioned uses — see §5)
 
@@ -270,7 +270,7 @@ The light palette uses a warm parchment base, not pure white. The same halation 
 | `--color-bg-selected` | `#e0dbd0` | Selected state. |
 | `--color-text-primary` | `#1e1a12` | Warm dark ink. Not `#000000`. |
 | `--color-text-secondary` | `#6a6050` | Secondary text. |
-| `--color-text-muted` | `#9a9080` | Muted text. |
+| `--color-text-muted` | `#6e6856` | Muted text. WCAG AA on bg-base/surface (~4.7:1). |
 | `--color-accent` | `#254a38` | Deep verdigris. |
 | `--color-accent-hover` | `#3d7858` | Brighter on hover. |
 
@@ -776,6 +776,8 @@ The prose editor produces running text. It is not a structured-document editor. 
 ---
 
 ## 13. Changelog
+
+**v2.1 — 2026-05-10** Step 4 a11y sweep (Phase 5d round-3 hardening) flagged `--color-text-muted` as failing WCAG AA at every visible-text use site (~3.0:1 dark, ~2.7:1 light — well below the 4.5:1 normal-text threshold). UI Design Spec v1.0 §3.10 had already disclosed muted as "AA large text only — use at 14px+ only," but the actual codebase used muted at 11–13px regular throughout the sidebar, agent surfaces, and word-count footer. Per the V1 launch standard ("no further deferrals") the contract was tightened, not the use sites: muted is now WCAG-AA-compliant at all sizes. Dark `#4a6080` → `#6884a4` (~5.2:1 on bg-base / bg-surface). Light `#9a9080` → `#6e6856` (~4.7:1). `--color-text-disabled` is unchanged in value but its scope narrowed in the table notes — disabled-controls only, never visible text. Five Inviolables, the nine verdigris uses, and Cinzel/Inter/Lora boundaries all unchanged.
 
 **v2.0 — 2026-05-01** Restructured to comply with the AI-Native Project Specification Standard v1.1. Major changes from v1.3: (a) extracted the nine sanctioned uses of verdigris into a new §5 with a flat enumerated list at §5.1, separate category definitions at §5.2, and an explicit three-test gate for any proposed tenth use at §5.3 — replacing the previous prose-with-headings format embedded in §4.4; (b) expanded The Inviolables section (now §12) from three rules to five — added Inviolable 4 (the typeface boundary is absolute, previously stated only in §5.4 of v1.3) and Inviolable 5 (the prose editor has no visible toolbar, previously stated only in §6.8); (c) resolved all six previously-pending design questions: locked `--easing-prose` to `cubic-bezier(0.25, 0.1, 0.25, 1)` (a standard symmetric ease-in-out, replacing the earlier asymmetric value); locked the agent-running breathing animation at 100%/60% with rationale; locked the Director plan card to always-expanded steps with per-step removal but no reordering in V1; locked the tablet prose column at 560px (≤1024px); added opt-in automatic dark/light switching via sunrise/sunset with a 2-minute fade transition (default off); locked sentence focus opacity values at 100% / 85% / 55%. (d) Reformatted colour and typography tables for cleaner agent reference. All brand decisions, philosophy, and reasoning from v1.3 are preserved verbatim or substantively unchanged.
 

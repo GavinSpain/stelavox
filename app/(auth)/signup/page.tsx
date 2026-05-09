@@ -104,7 +104,7 @@ export default function SignupPage() {
       </form>
       <p style={{ marginTop: 'var(--space-5)', fontSize: 'var(--text-sm)', color: 'var(--color-text-secondary)', textAlign: 'center' }}>
         Already have an account?{' '}
-        <Link href="/login" style={{ color: 'var(--color-text-primary)' }}>Sign in</Link>
+        <Link href="/login" style={{ color: 'var(--color-text-primary)', textDecoration: 'underline' }}>Sign in</Link>
       </p>
     </>
   )

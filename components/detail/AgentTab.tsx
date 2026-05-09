@@ -292,6 +292,7 @@ export function AgentTab({ nodeId, nodeType, nodeCategory, isLeaf, onMutated }: 
         <Label>Profile</Label>
         <select
           data-testid="agent-profile-select"
+          aria-label="Agent profile"
           value={selectedProfileId}
           onChange={(e) => setSelectedProfileId(e.target.value)}
           disabled={busy}
@@ -377,6 +378,7 @@ export function AgentTab({ nodeId, nodeType, nodeCategory, isLeaf, onMutated }: 
             </span>
             <select
               data-testid="agent-refine-field-select"
+              aria-label="Refine target field"
               value={refineField}
               onChange={(e) => setRefineField(e.target.value as 'summary' | 'prose' | 'notes')}
               disabled={busy}

@@ -11,7 +11,7 @@
  *      correct end state in the DB and in both tabs.
  */
 
-import { chromium, type BrowserContext, type Page } from 'playwright'
+import { chromium, type Page } from 'playwright'
 import { createClient } from '@supabase/supabase-js'
 import type { Database } from '../lib/types/database'
 

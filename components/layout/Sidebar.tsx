@@ -246,7 +246,7 @@ export function Sidebar({ projectName, documentName, width = 220 }: SidebarProps
               <div
                 style={{
                   fontSize: 'var(--text-xs)',
-                  color: 'var(--color-text-disabled)',
+                  color: 'var(--color-text-muted)',
                   padding: '4px var(--space-2)',
                   fontStyle: 'italic',
                 }}
