@@ -52,6 +52,10 @@ const metadataField         = z.record(z.string(), z.unknown()).optional()
 const lockReasonField       = z.string().max(1000).nullable().optional()
 // Phase 3: optional optimistic-concurrency token. Strict integer ≥ 1.
 const expectedVersionField  = z.number().int().min(1).optional()
+// SU-J14-1: autosave concurrency anchor. Bumps on every content change;
+// distinct from `version` which only bumps on agent Accept (or future
+// explicit "Save as version"). Editor-store autosave PATCHes use this.
+const expectedContentRevisionField = z.number().int().min(1).optional()
 
 export const nodePostSchema = z.object({
   parent_id:         z.string().uuid(),
@@ -112,6 +116,10 @@ export const nodePatchSchema = z.object({
   // Phase 3: optimistic-concurrency check; not a settable column. The route
   // strips it before the UPDATE.
   expected_version:  expectedVersionField,
+  // SU-J14-1: stronger autosave concurrency. The PATCH route prefers this
+  // when present, falling back to expected_version for callers that
+  // haven't migrated.
+  expected_content_revision: expectedContentRevisionField,
 }).strict()
 
 // PATCH /api/nodes/[id]/move body — both fields required.

@@ -1052,6 +1052,7 @@ export type Database = {
         Row: {
           change_reason: string | null
           changed_by: string
+          content_revision: number | null
           created_at: string
           id: string
           metadata: Json | null
@@ -1065,6 +1066,7 @@ export type Database = {
         Insert: {
           change_reason?: string | null
           changed_by: string
+          content_revision?: number | null
           created_at?: string
           id?: string
           metadata?: Json | null
@@ -1078,6 +1080,7 @@ export type Database = {
         Update: {
           change_reason?: string | null
           changed_by?: string
+          content_revision?: number | null
           created_at?: string
           id?: string
           metadata?: Json | null
@@ -1109,6 +1112,7 @@ export type Database = {
         Row: {
           agent_instruction: string | null
           attachment_count: number
+          content_revision: number
           created_at: string
           created_by: string
           depth: number
@@ -1148,6 +1152,7 @@ export type Database = {
         Insert: {
           agent_instruction?: string | null
           attachment_count?: number
+          content_revision?: number
           created_at?: string
           created_by?: string
           depth?: number
@@ -1187,6 +1192,7 @@ export type Database = {
         Update: {
           agent_instruction?: string | null
           attachment_count?: number
+          content_revision?: number
           created_at?: string
           created_by?: string
           depth?: number

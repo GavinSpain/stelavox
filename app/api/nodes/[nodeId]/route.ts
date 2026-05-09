@@ -19,7 +19,7 @@ import { err } from '@/lib/api/errors'
 import { isValidUuid } from '@/lib/validation/uuid'
 import { nodePatchSchema } from '@/lib/validation/nodes'
 import {
-  getNode, updateNode, updateNodeOptimistic, deleteNode,
+  getNode, updateNode, updateNodeOptimistic, updateNodeOptimisticByContentRevision, deleteNode,
   getDocumentMaxLayerIndex, decorateWithLeaf,
 } from '@/lib/data/nodes'
 import { countBackLinks } from '@/lib/data/context-links'
@@ -75,6 +75,7 @@ function mapPatchZodIssue(parsed: ReturnType<typeof nodePatchSchema.safeParse>) 
   if (path0 === 'locked')            return err.invalidLocked()
   if (path0 === 'lock_reason')       return err.invalidLockReason()
   if (path0 === 'expected_version')  return err.invalidExpectedVersion()
+  if (path0 === 'expected_content_revision') return err.invalidExpectedContentRevision()
   return err.invalidName()
 }
 
@@ -195,19 +196,28 @@ export async function PATCH(request: NextRequest, { params }: Context) {
     if (!parsed.success) return err.internal()  // unreachable; satisfies TS narrowing
 
     // Phase 3 (T-4.4): split the no-settable-fields response.
-    //   {}                           → 400 empty_update      (Phase 2 backward compat)
-    //   { expected_version: N }      → 400 missing_body      (Phase 3 TC-A-14)
-    //   anything with content/meta   → proceed
+    //   {}                                        → 400 empty_update
+    //   { expected_version: N } only              → 400 missing_body
+    //   { expected_content_revision: N } only     → 400 missing_body (J14-1)
+    //   anything with content/meta                → proceed
     const parsedKeys = Object.keys(parsed.data)
-    const settableKeys = parsedKeys.filter(k => k !== 'expected_version')
+    const ORTHOGONAL_KEYS = new Set(['expected_version', 'expected_content_revision'])
+    const settableKeys = parsedKeys.filter(k => !ORTHOGONAL_KEYS.has(k))
     if (settableKeys.length === 0) {
-      if ('expected_version' in parsed.data) return err.missingBody()
+      if ('expected_version' in parsed.data || 'expected_content_revision' in parsed.data) {
+        return err.missingBody()
+      }
       return err.emptyUpdate()
     }
 
-    // Strip the orthogonal token before the UPDATE. The trigger handles
-    // version bumping; clients cannot send `version` (rejected by .strict()).
-    const { expected_version: expectedVersion, ...updateFields } = parsed.data
+    // Strip the orthogonal tokens before the UPDATE. The trigger handles
+    // version + content_revision bumping; clients cannot send those fields
+    // (rejected by .strict()).
+    const {
+      expected_version: expectedVersion,
+      expected_content_revision: expectedContentRevision,
+      ...updateFields
+    } = parsed.data
 
     const { data: node } = await getNode(supabase, nodeId)
     if (!node) return err.notFound()
@@ -228,6 +238,30 @@ export async function PATCH(request: NextRequest, { params }: Context) {
     const maxIdx = docId
       ? await getDocumentMaxLayerIndex(supabase, docId)
       : null
+
+    // SU-J14-1: autosave-driven PATCH uses expected_content_revision.
+    // Prefer this over expected_version when both are present — content
+    // revision is the stronger anchor (bumps on every save) so it always
+    // catches the more recent conflict.
+    if (expectedContentRevision !== undefined) {
+      const { data: updated, error: updateError } = await updateNodeOptimisticByContentRevision(
+        supabase,
+        nodeId,
+        updateFields as never,
+        expectedContentRevision,
+      )
+      if (updateError) return err.internal()
+      if (!updated) {
+        const { data: current } = await getNode(supabase, nodeId)
+        if (!current) return err.notFound()
+        return err.contentRevisionConflict(
+          decorateWithLeaf(current, maxIdx),
+          expectedContentRevision,
+          (current as { content_revision: number }).content_revision,
+        )
+      }
+      return NextResponse.json({ node: decorateWithLeaf(updated, maxIdx) })
+    }
 
     if (expectedVersion !== undefined) {
       const { data: updated, error: updateError } = await updateNodeOptimistic(
