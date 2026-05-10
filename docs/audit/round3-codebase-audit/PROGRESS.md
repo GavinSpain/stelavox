@@ -421,8 +421,14 @@ This section is a one-line-per-finding ledger. Updated when a finding's status c
 | F-167 | lib/env.ts (new) + lib/supabase/{service,server,middleware,client}.ts | resolved | B7.3 (partial) | requireEnv helper replaces `process.env.X!` non-null assertions; clear missing-var error message |
 | F-179 | lib/api/agent-operation-helper.ts | resolved | sweep | validateProfile now requires is_system_profile=true on profile-by-id load |
 | F-81 | lib/director/tool-schema.ts (new) + tools/index.ts | resolved | B6.1 | input_schema generated from Zod via z.toJSONSchema; single source of truth |
+| F-87 | lib/director/heartbeat.ts | resolved | sweep | console.warn on heartbeat update failure (was silent catch) |
+| F-156 | lib/data/nodes.ts | resolved | sweep | UUID-format assertion before .or() string-interpolated PostgREST filter |
+| F-196 | app/api/cron/director-recovery/route.ts | resolved | sweep | comment fix — clarifies that the filter is created_at (no updated_at column on conversation_messages) |
+| F-204 | lib/hooks/useDirectorConversation.ts | resolved | sweep | 200ms debounced refresh shared across both real-time subscriptions |
+| F-242 | lib/director/schemas.ts | resolved | sweep | create_comment_step admits all 5 UI types (DB CHECK already in place from prior migration) |
+| F-253 | scripts/smoke-agent-runner.ts | resolved | sweep | RPC param names + return-shape extraction matched to actual signature |
 
-(Remaining 216 findings to be added as their batches start.)
+(Remaining 209 findings to be added as their batches start.)
 
 ---
 

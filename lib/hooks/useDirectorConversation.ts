@@ -184,6 +184,20 @@ export function useDirectorConversation(
     void refresh()
   }, [documentId, refresh])
 
+  // F-204 (round-3 audit): debounce real-time-driven refreshes. A
+  // 30-step workflow firing 30 step transitions + 2 status updates
+  // pre-fix produced ~32 full GETs to the conversation endpoint. The
+  // 200ms debounce coalesces bursts into a single refresh while
+  // staying snappy enough that single events feel instant.
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const debouncedRefresh = useCallback(() => {
+    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current)
+    debounceTimerRef.current = setTimeout(() => {
+      debounceTimerRef.current = null
+      void refresh()
+    }, 200)
+  }, [refresh])
+
   // Real-time on workflows for this document — fire a refresh when any
   // row changes. Cheap because the GET endpoint resolves the right
   // current workflow for us.
@@ -200,19 +214,18 @@ export function useDirectorConversation(
           table: 'workflows',
           filter: `document_id=eq.${documentId}`,
         },
-        () => {
-          void refresh()
-        },
+        () => debouncedRefresh(),
       )
       .subscribe()
     return () => {
       void supabase.removeChannel(channel)
     }
-  }, [documentId, refresh])
+  }, [documentId, debouncedRefresh])
 
   // Real-time on workflow_steps for the current workflow — same
   // refresh-on-event pattern. Re-subscribes when the active workflow
-  // changes.
+  // changes. Shares the debounced refresher with the workflows
+  // subscription above so a burst hitting both channels coalesces.
   useEffect(() => {
     if (!currentWorkflow?.id) return
     const supabase = createClient()
@@ -227,15 +240,23 @@ export function useDirectorConversation(
           table: 'workflow_steps',
           filter: `workflow_id=eq.${wfId}`,
         },
-        () => {
-          void refresh()
-        },
+        () => debouncedRefresh(),
       )
       .subscribe()
     return () => {
       void supabase.removeChannel(channel)
     }
-  }, [currentWorkflow?.id, refresh])
+  }, [currentWorkflow?.id, debouncedRefresh])
+
+  // Clean up any pending debounce timer on unmount.
+  useEffect(() => {
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current)
+        debounceTimerRef.current = null
+      }
+    }
+  }, [])
 
   const appendMessage = useCallback((msg: ConversationMessageDto) => {
     setMessages((prev) => [...prev, msg])

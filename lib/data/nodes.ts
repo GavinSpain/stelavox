@@ -347,6 +347,16 @@ export async function listContextNodesByProject(
   } else if (f.documentId !== undefined) {
     // No scope filter; document_id supplied → return project-scoped + this
     // document's document-scoped (the inheritance-aware default per G-3).
+    //
+    // F-156 (round-3 audit): assert UUID format before the string-
+    // interpolated PostgREST .or() filter. Today the route layer's
+    // isValidUuid() is the only guard; defence-in-depth at the wrapper
+    // ensures a non-UUID documentId can never reach the .or()
+    // expression where it could break the filter parser or alter
+    // matching semantics.
+    if (!/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(f.documentId)) {
+      throw new Error(`listContextNodesByProject: documentId is not a valid UUID: ${f.documentId}`)
+    }
     query = query.or(`scope.eq.project,and(scope.eq.document,document_id.eq.${f.documentId})`)
   }
 
