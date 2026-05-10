@@ -427,8 +427,11 @@ This section is a one-line-per-finding ledger. Updated when a finding's status c
 | F-204 | lib/hooks/useDirectorConversation.ts | resolved | sweep | 200ms debounced refresh shared across both real-time subscriptions |
 | F-242 | lib/director/schemas.ts | resolved | sweep | create_comment_step admits all 5 UI types (DB CHECK already in place from prior migration) |
 | F-253 | scripts/smoke-agent-runner.ts | resolved | sweep | RPC param names + return-shape extraction matched to actual signature |
+| F-213 | CLAUDE.md + docs/CLAUDE_stelavox_project.md (Inviolable #2 broadening) | resolved | B-Inviol | Use #7 reframed as "Affirmative-action triggers" admitting DirectorInput Send under the existing slot — no UI revert |
+| F-214 | CLAUDE.md + docs/CLAUDE_stelavox_project.md | resolved | B-Inviol | Same use-#7 broadening admits PlanCard step checkbox |
+| F-251 | app/globals.css | resolved | B-Inviol | --sidebar-primary + --chart-1 remapped from --color-accent to --color-text-primary; verdigris backdoor closed |
 
-(Remaining 209 findings to be added as their batches start.)
+(Remaining 206 findings to be added as their batches start.)
 
 ---
 

@@ -1,5 +1,5 @@
 # Stelavox — Claude Code Project Context
-## Version 1.17
+## Version 1.18
 
 > **Versioning note:** This file is versioned. The version lives here, not in the filename — the filename must remain `CLAUDE.md` for Claude Code to find it automatically. When this file changes, increment the version and add a changelog entry at the bottom. The source of record is `docs/CLAUDE_stelavox_project.md`; the deployed copy at the repository root must always match it. Commit both in the same commit.
 
@@ -152,10 +152,15 @@ These cannot be overridden by any design decision. A violation is always wrong.
 4. Agent-complete status badge (`<NodeStatusBadge>`)
 5. Approved status badge (`<NodeStatusBadge>`)
 6. Word count at target (`<WordCount>`)
-7. Accept button background in Agent Tab
+7. **Affirmative-action triggers** — buttons and toggles that commit user-driven action against an agent or workflow proposal. Specifically:
+   - Accept button background in Agent Tab (`<AgentTab>`)
+   - Approve button background in PlanCard (`<PlanCard>`) — Component Spec v2.8 §1.4
+   - Send button background in DirectorInput (`<DirectorInput>`) when the input has content — round-3 audit B-Inviol broadening 2026-05-10
+   - Per-step approval checkbox border + background in PlanCard when checked (`<PlanCard>`) — round-3 audit B-Inviol broadening 2026-05-10
 8. Primary plan CTA on trial expiry modal (`<TrialExpiryModal>`)
 9. Active node left border in tree (`<NodeRow>`) — 2px left border
-Search for `--color-accent`, `#3d7858`, and `#254a38` before any new use. Every match must be one of these nine.
+
+Search for `--color-accent`, `#3d7858`, and `#254a38` before any new use. Every match must be one of these nine *categories*. Use #7 is the only category that admits more than one element — it covers the family of "user-driven affirmative-action triggers" against agent/workflow proposals (Accept, Approve, Send, step toggle). New uses outside that family require an explicit Inviolable amendment.
 
 **3. Cinzel appears only in the wordmark.**
 Only in `components/brand/Wordmark.tsx` and the S in `components/brand/AppIcon.tsx`. Never elsewhere.
@@ -256,6 +261,8 @@ Version bumps: minor for additions and corrections, major for structural changes
 ---
 
 ## Changelog
+
+**v1.18 — 2026-05-10** Inviolable #2 broadened — round-3 audit close-out (B-Inviol). Use #7 reframed from "Accept button background in Agent Tab" to **"Affirmative-action triggers"** — the user-driven family of buttons/toggles that commit action against an agent or workflow proposal. The category now covers four surfaces: Accept (Agent Tab) + Approve (PlanCard, originally absorbed in Component Spec v2.8 §1.4) + Send (DirectorInput, when input has content) + per-step approval checkbox (PlanCard, when checked). The audit's F-213 (DirectorInput Send) and F-214 (PlanCard step checkbox) are closed via this broadening rather than via UI revert; design intent — verdigris signals user-driven affirmative action — is preserved on all four surfaces. **Verdigris-use count remains nine** (the count is by category; use #7 has always been a category, but it now explicitly admits the four-element family). New uses outside this family still require an explicit Inviolable amendment. F-251 (the `--sidebar-primary` / `--chart-1` shadcn-token aliasing in app/globals.css that silently picked up verdigris for any shadcn component using those tokens) is fixed in the same commit by remapping those tokens to neutral `--color-text-primary` — closes the "verdigris backdoor". Brand Identity spec + Component Spec to be re-aligned in a follow-up doc-only commit.
 
 **v1.17 — 2026-05-09** Bug 4 (workflow-executor generate_context profile resolution) absorption — Mars-series investigation continued. Director's well-formed 3-step workflow (`db0874ed-a053-44d4-9dfc-bd8a3a0a3aec`) included two `generate_context` steps with `parameters.context_type: 'theme' / 'world'` against the series root. Workflow_executor's profile resolution looked up `(generate_context, targetNode.node_type='series')` which doesn't exist → workflow stalled with `no_system_profile_for_generate_context_series`. Two-part fix in `lib/director/workflow-executor.ts`: (1) profile resolution now reads `step.parameters.context_type` for generate_context ops, mapping `(generate_context, theme)` → `generate_context_theme`; (2) safety check refuses dispatch when target node is structural (mirrors user-clicked `/api/agent/generate-context` route's `node_category === 'context'` requirement) — prevents Accept from corrupting parent's summary with theme content. Architectural gap documented as **SU-J11-2** in `docs/stelavox_phase5d_su_j11_2_director_generate_context_gap.md` — Director plans generate_context as create-and-fill in one step; system's actual model is fill-existing-context-node. Three resolution paths (Director two-step planning / executor auto-create context node / Accept-time deferred creation); Option B recommended for V1.x. Per-V1, the safety check + clear error is the conservative correct behavior. **SU-J11-3** raised (low priority): consider validating non-empty target summary before expand dispatch — Mars Series root had empty summary, providing nothing for the LLM to base books on. Tests: TC-J5-CLOUD-3 added (regression guard for all 6 V1 generate_context system profiles). Final cumulative state: 107 active Phase 5d PASS / 75 skipped / 0 failed. 64 Vitest unit tests. Master HEAD `3356b1c`. The user's stuck Mars workflow can now partially recover — Step 1 (expand) succeeds after redeploy, Steps 2+3 fail with clearer `generate_context_requires_context_target` until SU-J11-2's architectural fix lands or the user manually creates context nodes first. Five Inviolables unchanged. Verdigris-use count remains nine.
 
