@@ -24,7 +24,7 @@ Tracking file for the 7-phase remediation against [10-remediation-plan.md](10-re
 | 0 — Setup | 0 | — | — | done |
 | 1 — Pattern fixes | 4 | 3 + 1 deferred | 7 | done (B1.4 deferred to Phase 8) |
 | 2 — Root-cause cascades | 3 | 2 (B2.2+B2.3 merged) | 4 | in-progress (B2.2+B2.3 done) |
-| 3 — Silent-failure | 6+ | 3 (B3.1+B3.2+B3.3) | 5 | in-progress (B3.3 done — half-way) |
+| 3 — Silent-failure | 6+ | 4 (B3.1+B3.2+B3.3+B3.4) | 8 | in-progress (B3.4 done) |
 | 4 — DB constraints | 5 | 0 | 0 | open |
 | 5 — Security + audit_log | 7 | 0 | 0 | open |
 | 6 — Two-source-of-truth | 4–5 | 0 | 0 | open |
@@ -34,6 +34,20 @@ Tracking file for the 7-phase remediation against [10-remediation-plan.md](10-re
 ---
 
 ## Batch log
+
+### Batch B3.4 — Editor-store autosave saveError surface (F-170 + F-171 + F-172)
+
+- **Phase:** 3
+- **Findings closed:** F-170 (HIGH), F-171 (HIGH), F-172 (MEDIUM)
+- **Test-feasibility:** observable-via-mock (vi.stubGlobal `fetch` to inject network errors / status codes; assert state.saveError changes accordingly).
+- **Test added:** `tests/unit/editor-store-save-error.test.ts` — 7 cases. F-170 covers network error + clear-on-next-success; F-171 covers 422/500/503 (table-driven) + 409/423 negative cases (those have their own state surfaces — conflictCurrent, lockedReason).
+- **Failing-test-first proof:** all 7 red pre-fix because the `saveError` field didn't exist on state. After adding the field and setting it on each failure path, all 7 green.
+- **Field added:** `saveError: string | null` on EditorState. Set by (a) network error caught in autosave; (b) non-200/409/423 status responses; (c) reloadFromServer fetch failure or non-OK response. Cleared on the next successful 200 PATCH. The UI banner that consumes this field is a Phase 7 polish item — Phase 3's job is to stop the silence at the data layer.
+- **Console.error added on each failure path** so the developer console surfaces the failure immediately, complementing the state-level signal.
+- **Side benefit:** running the Playwright editor + nodes-patch + version-trigger suites surfaced **28/28 passing** — the previously-flaky 7 nodes-patch tests noted at Phase 1 boundary now all pass. Likely transient test-DB state earlier; not investigating further since they're now green.
+- **Completed:** 2026-05-10
+- **Status:** resolved
+- **Verification gates:** type-check ✓ • lint ✓ • vitest 143/143 ✓ • build ✓ • Playwright editor+version-trigger 28/28 ✓
 
 ### Batch B3.3 — Stream-client Promise rejection on transport failure (F-92 + F-94 + F-139)
 
@@ -174,8 +188,11 @@ This section is a one-line-per-finding ledger. Updated when a finding's status c
 | F-92 | lib/director/streamMessage.ts | resolved | B3.3 | Promise rejects on transport failure (was silent resolve after onError) |
 | F-94 | lib/director/streamMessage.ts | resolved | B3.3 | Promise rejects when stream closes without `done`/`error` (mid-stream crash) |
 | F-139 | lib/agent/streamSynthesise.ts | resolved | B3.3 | Promise rejects on transport failure (mirror of F-92) |
+| F-170 | lib/stores/editor-store.ts | resolved | B3.4 | network failure now sets saveError (was bare `return`) |
+| F-171 | lib/stores/editor-store.ts | resolved | B3.4 | non-200/409/423 responses set saveError (was silent-on-other-errors policy) |
+| F-172 | lib/stores/editor-store.ts | resolved | B3.4 | reloadFromServer surfaces network/non-OK failures via saveError |
 
-(Remaining 242 findings to be added as their batches start.)
+(Remaining 239 findings to be added as their batches start.)
 
 ---
 
