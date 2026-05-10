@@ -234,11 +234,17 @@ async function checkToolCallRateLimit(
   session: DirectorSession,
 ): Promise<ValidationResult | null> {
   const limit = await getConfigInt('agent.director_tool_call_rate_limit_per_60s')
+  // B5.6a (round-3 audit): window length config-ified per H-12. The
+  // F-74 finding flagged the 60_000ms hardcode; the broader F-74 fix
+  // (rate-limit subsystem redesign — fail-open vs throttle, per-user
+  // and global layers, workflow-pacing) is deferred to the Director
+  // architecture deep review (project_director_architecture_review.md).
+  const windowMs = await getConfigInt('agent.director_tool_call_rate_limit_window_ms')
 
-  // Count tool_calls in conversation_messages in the last 60s.
+  // Count tool_calls in conversation_messages in the configured window.
   // Tool calls are stored as JSONB array on assistant messages with their
   // own executed_at timestamps. We sum array lengths over recent messages.
-  const cutoff = new Date(Date.now() - 60_000).toISOString()
+  const cutoff = new Date(Date.now() - windowMs).toISOString()
   const { data, error } = await supabase
     .from('conversation_messages')
     .select('tool_calls')

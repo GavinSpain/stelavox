@@ -26,7 +26,7 @@ Tracking file for the 7-phase remediation against [10-remediation-plan.md](10-re
 | 2 — Root-cause cascades | 3 | 2 (B2.2+B2.3 merged) | 4 | in-progress (B2.2+B2.3 done) |
 | 3 — Silent-failure | 6+ | 6 (B3.1-B3.6) | 17 | done |
 | 4 — DB constraints | 5 | 5 | 5 | done |
-| 5 — Security + audit_log | 7 | 0 | 0 | open |
+| 5 — Security + audit_log | 7 | 1 (B5.6a hygiene) + 1 deferred (F-74 to deep dive) | 0 | in-progress |
 | 6 — Two-source-of-truth | 4–5 | 0 | 0 | open |
 | 7 — Inviolables + UI + spec | 5 | 0 | 0 | open |
 | 8+ — Long tail | rolling | 0 | 0 | open |
@@ -34,6 +34,15 @@ Tracking file for the 7-phase remediation against [10-remediation-plan.md](10-re
 ---
 
 ## Batch log
+
+### Batch B5.6a — Director rate-limit window config-ified; F-74 + B5.7 deferred to Director deep dive
+
+- **Phase:** 5
+- **Status:** B5.6a hygiene done; F-74 (the broader rate-limit subsystem redesign) and B5.7 (`assertConversationAuthor` exemption) deferred to the Director architecture deep review per user decision 2026-05-10.
+- **What landed (B5.6a):** the hardcoded 60_000ms window in `lib/security/tool-validator.ts:241` is now read from `platform_config` via `agent.director_tool_call_rate_limit_window_ms`. Migration 043 seeds the key. H-12 hygiene only.
+- **What deferred (F-74):** the user's broader requirements (don't cap user-approved plan size; throttle-and-pace, not deny; per-user + global tiers; workflow execution pacing; Anthropic-throttle observability) need a redesigned throttling subsystem rather than a fail-open-vs-closed point fix. Coupled to the Director architecture deep review since both are about the same operational model. Documented in `project_director_architecture_review.md` (memory) under the "Throttling architecture" subsection.
+- **What deferred (B5.7):** `assertConversationAuthor` exemption decision (F-89) lives in the same Director security surface; bundling with the deep-dive scope.
+- **Phase 5 continues** with B5.1 (audit_log table) and B5.2-B5.5 (the remaining security findings independent of throttling architecture).
 
 ### Batch B4.5 — `summary` / `prose` / `notes` TEXT → JSONB (F-269)
 
