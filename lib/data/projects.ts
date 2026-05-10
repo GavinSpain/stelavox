@@ -39,6 +39,9 @@ export async function getProject(supabase: Client, projectId: string) {
     .maybeSingle()
 }
 
+// H-01 (round-3 audit F-144): .maybeSingle() — zero rows is a valid
+// outcome here (concurrent delete between the route's pre-check and
+// this UPDATE). Caller MUST treat data === null as not_found.
 export async function updateProject(
   supabase: Client,
   projectId: string,
@@ -49,7 +52,7 @@ export async function updateProject(
     .update({ ...fields, updated_at: new Date().toISOString() })
     .eq('id', projectId)
     .select('id, organisation_id, name, description, default_document_type, metadata, created_at, updated_at')
-    .single()
+    .maybeSingle()
 }
 
 export async function deleteProject(supabase: Client, projectId: string) {

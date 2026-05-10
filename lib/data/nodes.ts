@@ -144,17 +144,23 @@ export async function getNode(
     .maybeSingle() as unknown as PostgrestMaybeSingleResponse<NodeRow>
 }
 
+// H-01 (round-3 audit F-155): .maybeSingle() — zero rows is a valid
+// outcome here (concurrent delete between the route's pre-check and
+// this UPDATE). Caller MUST treat data === null as not_found. The
+// `updateNodeOptimistic` and `updateNodeOptimisticByContentRevision`
+// variants below already use `.maybeSingle()` for the same reason —
+// this aligns the non-optimistic path with the rest of the file.
 export async function updateNode(
   supabase: Client,
   nodeId: string,
   fields: NodeUpdate,
-): Promise<PostgrestSingleResponse<NodeRow>> {
+): Promise<PostgrestMaybeSingleResponse<NodeRow>> {
   return supabase
     .from('nodes')
     .update({ ...fields, updated_at: new Date().toISOString() })
     .eq('id', nodeId)
     .select(NODE_SELECT)
-    .single() as unknown as PostgrestSingleResponse<NodeRow>
+    .maybeSingle() as unknown as PostgrestMaybeSingleResponse<NodeRow>
 }
 
 // Phase 3 (T-4.3): atomic optimistic-concurrency UPDATE.

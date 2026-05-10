@@ -56,6 +56,9 @@ export async function PATCH(request: NextRequest, { params }: Context) {
 
     const { data, error } = await updateProject(supabase, projectId, parsed.data)
     if (error) return err.internal()
+    // H-01 (F-144): wrapper returns null when the row was concurrently
+    // deleted between the existence pre-check above and this UPDATE.
+    if (!data) return err.notFound()
 
     return NextResponse.json({ project: data })
   } catch {
