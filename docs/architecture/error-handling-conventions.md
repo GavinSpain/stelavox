@@ -13,7 +13,7 @@
 | Layer | Failure mode | Surface |
 |---|---|---|
 | `lib/data/*` wrapper | Supabase error | Return `{ data, error }` with `error` populated. Never swallow. |
-| `lib/llm/*` provider | Stream chunk error / SDK throw | Yield an `{ kind: 'error', message }` chunk into the stream. Never quietly stop. |
+| `lib/llm/*` provider | Stream chunk error / SDK throw | **Throw** with a message naming the SDK error type. Already-yielded chunks remain valid; consumer's try/catch sees the throw. (B3.2 chose throw over a structured error chunk so the LLMStreamChunk surface stays minimal.) |
 | `lib/director/*` server-side helper | DB error / SDK error | Throw with a message naming the operation. The route's try/catch turns it into 500. |
 | API route (`app/api/*`) | Validation / lookup failure | Return a structured error response (`err.notFound()`, `err.internal()`). Never 200 with null body. |
 | Client `lib/*` (e.g. `streamMessage`, `streamSynthesise`) | `fetch` non-OK / parse error | **Reject the Promise.** Don't resolve quietly. The caller decides toast / retry. |
@@ -73,8 +73,10 @@ if (!res.ok) {
   return  // caller keeps existing state
 }
 
-// ✓ stream error chunk
-yield { kind: 'error', message: anthropicError.message }
+// ✓ stream provider throws on error event (B3.2)
+case 'error': {
+  throw new Error(`Anthropic stream error (${type}): ${message}`)
+}
 
 // ✓ silent-on-purpose
 // silent-on-purpose: best-effort log dispatch; loss is acceptable

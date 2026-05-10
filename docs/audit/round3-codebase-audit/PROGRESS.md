@@ -24,7 +24,7 @@ Tracking file for the 7-phase remediation against [10-remediation-plan.md](10-re
 | 0 — Setup | 0 | — | — | done |
 | 1 — Pattern fixes | 4 | 3 + 1 deferred | 7 | done (B1.4 deferred to Phase 8) |
 | 2 — Root-cause cascades | 3 | 2 (B2.2+B2.3 merged) | 4 | in-progress (B2.2+B2.3 done) |
-| 3 — Silent-failure | 6+ | 0 | 0 | open |
+| 3 — Silent-failure | 6+ | 2 (B3.1+B3.2) | 2 | in-progress (B3.2 done) |
 | 4 — DB constraints | 5 | 0 | 0 | open |
 | 5 — Security + audit_log | 7 | 0 | 0 | open |
 | 6 — Two-source-of-truth | 4–5 | 0 | 0 | open |
@@ -34,6 +34,26 @@ Tracking file for the 7-phase remediation against [10-remediation-plan.md](10-re
 ---
 
 ## Batch log
+
+### Batch B3.2 — Anthropic stream error events must throw (F-34 + F-37)
+
+- **Phase:** 3
+- **Findings closed:** F-34 (HIGH), F-37 (HIGH)
+- **Test-feasibility:** observable-via-mock (vi.mock the SDK to inject an `error` event into the stream's async iterable; verify the for-await throws).
+- **Test added:** `tests/unit/anthropic-stream-error.test.ts` — 3 cases. F-34 covers `stream()`; F-37 covers `streamWithTools()`; one regression-guard case verifies happy-path streams still complete normally.
+- **Failing-test-first proof:** F-34 + F-37 cases red pre-fix (the for-await iterated to completion silently, no message_stop chunk, no error). All 3 green post-fix.
+- **Type-system surprise:** the SDK's `RawMessageStreamEvent` discriminated union doesn't include the `error` event type, so `case 'error':` inside the typed switch was unreachable per types and broke the production build. Restructured to a runtime `(event as { type: string }).type === 'error'` check *before* the switch — type-safe and emits the same throw.
+- **Conventions doc updated to reflect throw-not-yield decision** for stream provider errors. Originally drafted as "yield error chunk", changed to "throw" because it's the smaller change and the LLMStreamChunk surface stays minimal.
+- **Completed:** 2026-05-10
+- **Status:** resolved
+- **Verification gates:** type-check ✓ • lint ✓ (baseline 9 warnings) • vitest 129/129 ✓ • build ✓
+
+### Batch B3.1 — Error-handling conventions doc
+
+- **Phase:** 3 (anchor for the silent-failure remediation)
+- **Output:** `docs/architecture/error-handling-conventions.md` — short reference doc codifying the per-layer surface for each failure mode (lib/data → return error in result; lib/llm provider → throw; lib/director → throw; API route → structured error response; client streaming helpers → reject promise; React component → toast + console.error; real-time hook → console.error + re-subscribe). Includes anti-patterns from the audit's findings and correct patterns drawn from existing code.
+- **Test-feasibility:** structural (a doc has no runtime test).
+- **Status:** resolved
 
 ### Batch B2.2 + B2.3 (merged) — `decorateWithLeaf` + `getDocumentMaxLayerIndex` data-integrity fix (F-152 + F-160)
 
@@ -134,8 +154,10 @@ This section is a one-line-per-finding ledger. Updated when a finding's status c
 | F-20 | lib/llm/token-budget.ts | resolved | B2.1 | cascade closure — F-07 fix surfaces the budget config's type error instead of silently misbehaving |
 | F-152 | lib/data/nodes.ts | resolved | B2.2+B2.3 | data-integrity violations now throw at the data layer (missing layer_stacks, empty layers); decorateWithLeaf null path preserved for context nodes |
 | F-160 | lib/data/nodes.ts | resolved | B2.2+B2.3 | malformed layer rows (missing/non-numeric index) throw clear errors instead of silently returning 0 (which made non-root nodes appear non-leaf) |
+| F-34 | lib/llm/providers/anthropic.ts | resolved | B3.2 | `stream()` throws on Anthropic SDK error events instead of silently truncating |
+| F-37 | lib/llm/providers/anthropic.ts | resolved | B3.2 | `streamWithTools()` throws on error events (mirror of F-34) |
 
-(Remaining 247 findings to be added as their batches start.)
+(Remaining 245 findings to be added as their batches start.)
 
 ---
 

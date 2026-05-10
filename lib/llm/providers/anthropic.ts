@@ -202,6 +202,22 @@ export class AnthropicProvider implements LLMProvider {
     let stopReason: string | undefined
 
     for await (const event of stream) {
+      // F-34 (round-3 audit): Anthropic streams may emit an `error`
+      // event (rate-limit, content-policy, transient overload). The SDK's
+      // RawMessageStreamEvent discriminated union doesn't list this type,
+      // so we widen via runtime check before the typed switch. Pre-fix,
+      // the default case silently dropped error events; the consumer saw
+      // a clean termination without the message_stop it expected. Throw
+      // here to surface clearly. See
+      // docs/architecture/error-handling-conventions.md.
+      const rawType = (event as { type: string }).type
+      if (rawType === 'error') {
+        const ev = event as { error?: { type?: string; message?: string } }
+        const errType = ev.error?.type ?? 'unknown'
+        const errMsg = ev.error?.message ?? 'no message'
+        throw new Error(`Anthropic stream error (${errType}): ${errMsg}`)
+      }
+
       switch (event.type) {
         case 'message_start': {
           const u = event.message.usage
@@ -250,7 +266,8 @@ export class AnthropicProvider implements LLMProvider {
 
         // 'content_block_start', 'content_block_stop', 'ping', and any other
         // event types are ignored — synthesise has no tool-use blocks and
-        // text blocks need no per-block bookkeeping.
+        // text blocks need no per-block bookkeeping. (Error events are
+        // intercepted above the switch — see F-34 comment.)
         default:
           break
       }
@@ -359,6 +376,17 @@ export class AnthropicProvider implements LLMProvider {
     let stopReason: string | undefined
 
     for await (const event of stream) {
+      // F-37 (round-3 audit): mirror of F-34 in streamWithTools. SDK
+      // type union doesn't include `error`, so widen via runtime check
+      // before the typed switch.
+      const rawType = (event as { type: string }).type
+      if (rawType === 'error') {
+        const ev = event as { error?: { type?: string; message?: string } }
+        const errType = ev.error?.type ?? 'unknown'
+        const errMsg = ev.error?.message ?? 'no message'
+        throw new Error(`Anthropic stream error (${errType}): ${errMsg}`)
+      }
+
       switch (event.type) {
         case 'message_start': {
           const u = event.message.usage
@@ -476,7 +504,8 @@ export class AnthropicProvider implements LLMProvider {
         }
 
         // 'ping' and any other event types are ignored — they don't carry
-        // application-level data.
+        // application-level data. (Error events are intercepted above the
+        // switch — see F-37 comment.)
         default:
           break
       }
