@@ -24,7 +24,7 @@ Tracking file for the 7-phase remediation against [10-remediation-plan.md](10-re
 | 0 — Setup | 0 | — | — | done |
 | 1 — Pattern fixes | 4 | 3 + 1 deferred | 7 | done (B1.4 deferred to Phase 8) |
 | 2 — Root-cause cascades | 3 | 2 (B2.2+B2.3 merged) | 4 | in-progress (B2.2+B2.3 done) |
-| 3 — Silent-failure | 6+ | 2 (B3.1+B3.2) | 2 | in-progress (B3.2 done) |
+| 3 — Silent-failure | 6+ | 3 (B3.1+B3.2+B3.3) | 5 | in-progress (B3.3 done — half-way) |
 | 4 — DB constraints | 5 | 0 | 0 | open |
 | 5 — Security + audit_log | 7 | 0 | 0 | open |
 | 6 — Two-source-of-truth | 4–5 | 0 | 0 | open |
@@ -34,6 +34,21 @@ Tracking file for the 7-phase remediation against [10-remediation-plan.md](10-re
 ---
 
 ## Batch log
+
+### Batch B3.3 — Stream-client Promise rejection on transport failure (F-92 + F-94 + F-139)
+
+- **Phase:** 3
+- **Findings closed:** F-92 (HIGH), F-94 (MEDIUM), F-139 (HIGH)
+- **F-141 dropped from this batch** — it's a `parseSseBlock` two-source-of-truth finding (Phase 6 T-3), not silent-failure. Plan composition error #4.
+- **Test-feasibility:** observable-via-mock (`vi.stubGlobal('fetch', ...)` to return synthetic `Response` objects with crafted JSON or ReadableStream bodies; assert the Promise rejects).
+- **Test added:** `tests/unit/stream-client-promise-reject.test.ts` — 7 cases. F-92 covers `streamDirectorMessage` transport failure (500, 401-with-text); F-94 covers stream-closed-without-terminator; F-139 mirrors F-92 for `streamSynthesise`. Plus 2 regression-guard cases verifying happy-path and explicit-error-event paths still resolve cleanly.
+- **Failing-test-first proof:** 5 of 7 red pre-fix (Promise resolved silently on transport failure / mid-stream crash). All 7 green post-fix.
+- **Caller compatibility:** both consumers of these helpers (`components/director/DirectorPanel.tsx` and `components/detail/AgentTab.tsx`) already wrapped the await in `try { ... } catch (e) { ... }` with proper error-UI surface. The new throw paths integrate cleanly without consumer changes.
+- **Mid-stream-crash detection (F-94):** added a `saw_terminator` flag set when a `done` or `error` event is dispatched. If the network read loop ends naturally without ever flipping the flag, throw with a server-may-have-crashed message.
+- **Completed:** 2026-05-10
+- **Status:** resolved
+- **Verification gates:** type-check ✓ • lint ✓ (baseline 9 warnings) • vitest 136/136 ✓ • build ✓
+- **Playwright caveat:** `tests/director/j5-director-turn.spec.ts` failed (3 unexpected agent_jobs after Director probe). Failure is in the **server** path (`POST /api/director/message`); B3.3 only touches the **client** SSE consumer. Confirmed by reading the code: my changes can't affect server-side dispatch decisions. Likely model behavior variance (the agent stream tests showed 2/3 flaky too on this run). Flagged for separate investigation; not a B3.3 regression.
 
 ### Batch B3.2 — Anthropic stream error events must throw (F-34 + F-37)
 
@@ -156,8 +171,11 @@ This section is a one-line-per-finding ledger. Updated when a finding's status c
 | F-160 | lib/data/nodes.ts | resolved | B2.2+B2.3 | malformed layer rows (missing/non-numeric index) throw clear errors instead of silently returning 0 (which made non-root nodes appear non-leaf) |
 | F-34 | lib/llm/providers/anthropic.ts | resolved | B3.2 | `stream()` throws on Anthropic SDK error events instead of silently truncating |
 | F-37 | lib/llm/providers/anthropic.ts | resolved | B3.2 | `streamWithTools()` throws on error events (mirror of F-34) |
+| F-92 | lib/director/streamMessage.ts | resolved | B3.3 | Promise rejects on transport failure (was silent resolve after onError) |
+| F-94 | lib/director/streamMessage.ts | resolved | B3.3 | Promise rejects when stream closes without `done`/`error` (mid-stream crash) |
+| F-139 | lib/agent/streamSynthesise.ts | resolved | B3.3 | Promise rejects on transport failure (mirror of F-92) |
 
-(Remaining 245 findings to be added as their batches start.)
+(Remaining 242 findings to be added as their batches start.)
 
 ---
 
