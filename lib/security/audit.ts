@@ -21,9 +21,14 @@
 // failure is bad, but blocking a Director conversation on audit failure
 // is worse — Vercel logs remain a fallback channel until DB recovers.
 
-import 'server-only'
-
-import { createServiceRoleClient } from '@/lib/supabase/service'
+// NOTE: createServiceRoleClient is dynamically imported inside the
+// helper rather than statically because lib/supabase/service.ts uses
+// `import 'server-only'`. injection-scanner.ts imports this module
+// for its scanContent function, and injection-scanner is imported by
+// Playwright integrity tests that don't have a server context. The
+// dynamic import defers the server-only barrier until the moment of
+// the audit write — which is always in a server context (API routes,
+// Edge Functions, server actions).
 
 export type AuditSeverity = 'critical' | 'high' | 'medium' | 'low' | 'info'
 
@@ -44,6 +49,7 @@ export interface AuditLogEntry {
 }
 
 export async function writeAuditLogEntry(entry: AuditLogEntry): Promise<void> {
+  const { createServiceRoleClient } = await import('@/lib/supabase/service')
   const supabase = createServiceRoleClient()
   const row = {
     event_type:      entry.event_type,

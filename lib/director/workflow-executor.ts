@@ -44,6 +44,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 
 import { plainTextToTiptap } from '@/lib/agent/prose-to-tiptap'
 import { getConfigInt } from '@/lib/config/platform-config'
+import { checkTokenBudget } from '@/lib/llm/token-budget'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import type { Database } from '@/lib/types/database'
 import type { WorkflowProposalParsed } from '@/lib/director/schemas'
@@ -602,14 +603,17 @@ async function dispatchAgentJobForStep(
       : targetNode.node_type
 
   // Phase 1: candidates matching (operation_type, profileNodeType).
+  // B5.5 (round-3 audit F-124): expand the SELECT to include max_tokens
+  // so the budget gate below can size its estimate per-operation rather
+  // than using a single global default.
   const { data: candidates } = await supabase
     .from('agent_profiles')
-    .select('id, name, node_type')
+    .select('id, name, node_type, max_tokens')
     .eq('is_system_profile', true)
     .eq('operation_type', step.operation_type)
     .eq('node_type', profileNodeType)
 
-  let profile: { id: string; name: string } | null = null
+  let profile: { id: string; name: string; max_tokens?: number } | null = null
 
   if (candidates && candidates.length > 0) {
     if (candidates.length === 1) {
@@ -631,7 +635,7 @@ async function dispatchAgentJobForStep(
   if (!profile && step.operation_type === 'refine') {
     const { data: fallback } = await supabase
       .from('agent_profiles')
-      .select('id, name')
+      .select('id, name, max_tokens')
       .eq('is_system_profile', true)
       .eq('operation_type', 'refine')
       .is('node_type', null)
@@ -659,6 +663,53 @@ async function dispatchAgentJobForStep(
   }
   if (targetField) {
     dynamicCtx.target_field = targetField
+  }
+
+  // B5.5 (round-3 audit F-124): H-07 token budget gate. Pre-fix the
+  // workflow path bypassed the budget — only the user-clicked agent
+  // routes called checkTokenBudget. Combined with F-187 (Director
+  // message route bypass, fixed in this batch) the budget had three
+  // holes total. The check runs BEFORE the agent_jobs INSERT so an
+  // over-budget step never produces an orphaned pending job (matches
+  // H-07's invariant). On exceeded budget, mark the workflow_step
+  // failed and pause the workflow per the audit's recommended shape.
+  const { data: org } = await supabase
+    .from('organisations')
+    .select('id, plan, current_period_start')
+    .eq('id', workflow.organisation_id)
+    .maybeSingle()
+  if (!org) {
+    await supabase
+      .from('workflow_steps')
+      .update({
+        status: 'failed',
+        error_message: 'organisation_not_found',
+        completed_at: new Date().toISOString(),
+      })
+      .eq('id', step.id)
+    return
+  }
+  const stepEstimate = (profile.max_tokens ?? 16384) + 4096
+  const budgetOk = await checkTokenBudget(
+    { id: org.id, plan: org.plan ?? 'trial', current_period_start: org.current_period_start },
+    stepEstimate,
+  )
+  if (!budgetOk) {
+    await supabase
+      .from('workflow_steps')
+      .update({
+        status: 'failed',
+        error_message: 'token_budget_exceeded',
+        completed_at: new Date().toISOString(),
+      })
+      .eq('id', step.id)
+    // Pause the workflow so subsequent batches don't fire while the
+    // org is over budget.
+    await supabase
+      .from('workflows')
+      .update({ status: 'paused' })
+      .eq('id', workflow.id)
+    return
   }
 
   const { data: jobRow, error: jobErr } = await supabase

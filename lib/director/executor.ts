@@ -48,9 +48,11 @@ import {
   getToolExecutor,
 } from '@/lib/director/tools'
 import { validateToolCall } from '@/lib/security/tool-validator'
+import { writeAuditLogEntry } from '@/lib/security/audit'
 import {
   WorkflowProposalSchema,
   type WorkflowProposalParsed,
+  isWriteTool,
 } from '@/lib/director/schemas'
 import type {
   DirectorConfig,
@@ -418,6 +420,39 @@ export async function* runAgenticTurn(
       } catch (err) {
         const msg = err instanceof Error ? err.message : 'tool_execution_error'
         result = { ok: false, error: 'tool_execution_error', reason: msg }
+      }
+
+      // B5.4 (round-3 audit F-100): runtime enforcement of H-08
+      // ("Director write tools must never execute inside the agentic
+      // loop"). Write-tool implementations are required to return a
+      // WriteToolResult (carries `proposal`, no DB-side `data`); a
+      // future write tool that accidentally writes to the DB and
+      // returns a ReadToolResult-shaped object (with `data`) would
+      // breach H-08 silently. Type-check at this boundary catches it:
+      // if a write tool returned `data` instead of (or alongside)
+      // `proposal`, abort the call as an internal invariant violation
+      // and surface it via audit_log.
+      if (result.ok && isWriteTool(call.name)) {
+        const r = result as { proposal?: unknown; data?: unknown }
+        if (r.data !== undefined || r.proposal === undefined) {
+          await writeAuditLogEntry({
+            event_type: 'h08_violation_write_tool_returned_data',
+            severity: 'critical',
+            organisation_id: session.organisation_id,
+            document_id: session.document_id,
+            conversation_id: session.conversation_id,
+            metadata: {
+              tool: call.name,
+              has_data: r.data !== undefined,
+              has_proposal: r.proposal !== undefined,
+            },
+          })
+          result = {
+            ok: false,
+            error: 'h08_invariant_violation',
+            reason: `Write tool ${call.name} returned a result shape that breaches H-08 (write tools never execute in the agentic loop). The executor aborted the call.`,
+          }
+        }
       }
 
       const summary = summariseToolResult(call.name, result)

@@ -26,7 +26,7 @@ Tracking file for the 7-phase remediation against [10-remediation-plan.md](10-re
 | 2 — Root-cause cascades | 3 | 2 (B2.2+B2.3 merged) | 4 | in-progress (B2.2+B2.3 done) |
 | 3 — Silent-failure | 6+ | 6 (B3.1-B3.6) | 17 | done |
 | 4 — DB constraints | 5 | 5 | 5 | done |
-| 5 — Security + audit_log | 7 | 3 (B5.1+B5.2+B5.6a) + 2 deferred (F-74 + B5.7 to deep dive) | 1 (F-56) | in-progress |
+| 5 — Security + audit_log | 7 | 5 (B5.1+B5.2+B5.3+B5.4+B5.5+B5.6a) + 2 deferred (F-74 + B5.7 to deep dive) | 6 (F-56, F-95, F-100, F-124, F-187) | done |
 | 6 — Two-source-of-truth | 4–5 | 0 | 0 | open |
 | 7 — Inviolables + UI + spec | 5 | 0 | 0 | open |
 | 8+ — Long tail | rolling | 0 | 0 | open |
@@ -34,6 +34,36 @@ Tracking file for the 7-phase remediation against [10-remediation-plan.md](10-re
 ---
 
 ## Batch log
+
+### Batch B5.5 — Director routes + workflow steps call `checkTokenBudget` (F-187, F-124)
+
+- **Phase:** 5
+- **Findings closed:** F-187 (HIGH), F-124 (HIGH)
+- **Migration:** `supabase/migrations/20260510000045_director_token_estimate_config.sql` seeds `agent.director_estimated_tokens_per_turn` (default 30000).
+- **F-187 fix:** `app/api/director/message/route.ts` now calls `checkTokenBudget` after rate limit and before single-flight check (matches the docstring's stated validation order — pre-fix the order was documented but the gate itself was missing). On exceeded budget returns 402 token_budget_exceeded.
+- **F-124 fix:** `lib/director/workflow-executor.ts:dispatchAgentJobForStep` now checks the budget BEFORE the agent_jobs INSERT. The profile SELECTs gained `max_tokens` so the per-step estimate is `profile.max_tokens + 4096` (matches the user-clicked synthesise route's pattern). On exceeded budget the workflow_step is marked failed with `error_message='token_budget_exceeded'` and the workflow is paused.
+- **Test feasibility:** structural — the budget gate's behavior on exceeded budget is verified via the existing token-budget Vitest tests (B2.1 cascade) plus the synthesise route's existing 402 path. The added gates use the same `checkTokenBudget` primitive.
+- **Verification gates:** type-check ✓ • lint ✓ • vitest 167/167 ✓ • build ✓
+
+### Batch B5.4 — H-08 runtime check on Director write tools (F-100)
+
+- **Phase:** 5
+- **Findings closed:** F-100 (HIGH)
+- **Site:** `lib/director/executor.ts` agentic-loop body. After each tool execution, if the tool is a write tool (`isWriteTool(call.name)`) and the result is `ok: true`, the executor verifies the result shape: must have `proposal`, must NOT have `data`. Violation aborts the call (`ok: false, error: 'h08_invariant_violation'`) AND writes a `critical` audit_log entry naming the offending tool and its result shape.
+- **Pre-fix:** H-08 was enforced by convention only — write tool *implementations* are compliant per F-P1, but a future write tool that accidentally wrote to the DB and returned a ReadToolResult-shaped result would breach H-08 silently.
+- **Test added:** `tests/unit/h08-runtime-check.test.ts` — 6 cases. `isWriteTool` discriminator + 4 shape-detection scenarios (data-only-no-proposal = violation; proposal-only = valid; both = violation; neither = violation).
+- **Failing-test-first proof:** structural per the protocol's structural-finding honesty exception — the runtime-check logic is verified in isolation; the executor wiring is exercised by Playwright Director suite (J5 fixtures continue to pass with no spurious h08 violations).
+- **Verification gates:** type-check ✓ • lint ✓ • vitest 167/167 ✓ • build ✓
+
+### Batch B5.3 — `summariseConversation` security frame (F-95)
+
+- **Phase:** 5
+- **Findings closed:** F-95 (HIGH)
+- **Site:** `lib/director/conversation-context.ts:summariseConversation`. Pre-fix the function built `promptBody` from raw user content with no `escapeXml`, no `<user_data>` wrap, no security frame — and the resulting summary persisted in `conversation_summary` for re-inclusion in every future Director turn (a long-term injection vector).
+- **Fix:** every message field is `escapeXml`'d before joining, the body is wrapped in `<user_data>...</user_data>`, and both stable + dynamic blocks are run through `wrapContextWithSecurityFrame`. Same pipeline the agent assembler uses.
+- **Test added:** `tests/unit/summariser-security-frame.test.ts` — 1 case. Mocks `provider.complete` to capture the prompt; injects an XML-shaped payload (`<prior>` + `&`); asserts the captured `dynamic.securityWrapped` (a) is wrapped in `<user_data>`, (b) escapes `<` to `&lt;` and `&` to `&amp;`, (c) preserves the visible text, and that the stable block carries the security header.
+- **Failing-test-first proof:** pre-fix none of the 4 assertions held (raw text passed through verbatim). All green post-fix.
+- **Verification gates:** type-check ✓ • lint ✓ • vitest 167/167 ✓ • build ✓
 
 ### Batch B5.1 + B5.2 — `audit_log` table extended + `writeAuditLogEntry` wired into 3 security sites (F-56)
 
@@ -341,8 +371,12 @@ This section is a one-line-per-finding ledger. Updated when a finding's status c
 | F-268 | supabase/migrations/041_audit_user_fk.sql | resolved | B4.4 | nodes.{created_by,last_modified_by} TEXT → UUID FK auth.users(id) ON DELETE SET NULL |
 | F-269 | supabase/migrations/042_nodes_content_jsonb.sql | resolved | B4.5 | nodes + node_versions summary/prose/notes TEXT → JSONB; server-side normalizeContent in API routes; legacy plain-text wrapped as Tiptap docs |
 | F-56 | lib/security/{canary,injection-scanner,tool-validator}.ts + Migration 044 + lib/security/audit.ts | resolved | B5.1+B5.2 | audit_log table extended + writeAuditLogEntry helper wired into the 3 [SECURITY] console.error sites |
+| F-95 | lib/director/conversation-context.ts | resolved | B5.3 | summariser routed through escapeXml + <user_data> wrap + wrapContextWithSecurityFrame |
+| F-100 | lib/director/executor.ts | resolved | B5.4 | runtime check: write tools must return WriteToolResult shape; abort + audit on violation |
+| F-124 | lib/director/workflow-executor.ts | resolved | B5.5 | workflow step dispatch calls checkTokenBudget before agent_jobs.insert; pause workflow on exceeded |
+| F-187 | app/api/director/message/route.ts | resolved | B5.5 | Director message route calls checkTokenBudget; 402 on exceeded |
 
-(Remaining 224 findings to be added as their batches start.)
+(Remaining 220 findings to be added as their batches start.)
 
 ---
 
@@ -381,6 +415,7 @@ Captured at the end of each pilot/early-phase batch. Goal: identify protocol fri
 | End-of-Phase-3 | 2026-05-10 | PASS | type-check ✓ • lint ✓ • vitest 147/147 ✓ • build ✓ • **Playwright tests/api/ + tests/integrity/ 359/359 ✓** (the previously-flaky 7 nodes-patch + version-trigger tests are all green now). **LLM smoke:** Step 1 mini-novel — 27/27 + 5/5 + 1, 0 SUs, $0.1566. Phase 3's six batches close 17 silent-failure findings (F-34/37/92/94/139/170/171/172/201/220/238/239/240/243/247/248/250) plus the conventions doc that anchors Phase 3 and going-forward error-handling discipline. |
 | End-of-Phase-4 (initial) | 2026-05-10 | PASS | type-check ✓ • lint ✓ • vitest 157/157 ✓ • build ✓ • **Playwright tests/api/ + tests/integrity/ 359/359 ✓**. **LLM smoke:** Step 1 mini-novel — 27/27 + 5/5 + 1, 0 SUs, $0.1603. Four schema migrations (038-041) compatible end-to-end. Closes F-265, F-266, F-267, F-268. F-269 deferred to V1.x. |
 | End-of-Phase-4 (re-smoke after B4.5 reinstated) | 2026-05-10 | PASS | type-check ✓ • lint ✓ • vitest 157/157 ✓ • build ✓ • Playwright tests/api/ 261/261 ✓. **LLM smoke:** Step 1 mini-novel — 27/27 + 5/5 + 1, 0 SUs, $0.1593, with post-smoke `jsonb_typeof = object` confirmation across all written content. Five schema migrations (038-042) compatible end-to-end. Closes F-265, F-266, F-267, F-268, F-269. |
+| End-of-Phase-5 | 2026-05-10 | PASS | type-check ✓ • lint ✓ • vitest 167/167 ✓ • build ✓ • Playwright tests/api/ 261/261 ✓ • Playwright tests/integrity/ 98/98 ✓. **LLM smoke:** Step 1 mini-novel — 27/27 + 5/5 + 1, 0 SUs, $0.1575. Two new migrations (044 audit_log extension, 045 director-token-estimate config). Closes F-56, F-95, F-100, F-124, F-187. F-74 + B5.7 deferred to Director architecture deep dive (memory `project_director_architecture_review.md`). One side-fix during smoke: lib/security/audit.ts dropped its static `import 'server-only'` because injection-scanner.ts (which now imports it) flows into Playwright integrity test bundles; switched to dynamic import inside writeAuditLogEntry so the server-only barrier is deferred to call-time. |
 
 ### Pre-existing test failures discovered at Phase 1 boundary
 
