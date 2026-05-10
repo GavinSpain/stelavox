@@ -1057,10 +1057,10 @@ export type Database = {
           id: string
           metadata: Json | null
           node_id: string
-          notes: string | null
+          notes: Json | null
           organisation_id: string
-          prose: string | null
-          summary: string | null
+          prose: Json | null
+          summary: Json | null
           version: number
         }
         Insert: {
@@ -1071,10 +1071,10 @@ export type Database = {
           id?: string
           metadata?: Json | null
           node_id: string
-          notes?: string | null
+          notes?: Json | null
           organisation_id: string
-          prose?: string | null
-          summary?: string | null
+          prose?: Json | null
+          summary?: Json | null
           version: number
         }
         Update: {
@@ -1085,10 +1085,10 @@ export type Database = {
           id?: string
           metadata?: Json | null
           node_id?: string
-          notes?: string | null
+          notes?: Json | null
           organisation_id?: string
-          prose?: string | null
-          summary?: string | null
+          prose?: Json | null
+          summary?: Json | null
           version?: number
         }
         Relationships: [
@@ -1133,16 +1133,16 @@ export type Database = {
           name: string | null
           node_category: string
           node_type: string
-          notes: string | null
+          notes: Json | null
           order: number
           organisation_id: string
           parent_id: string | null
           project_id: string
-          prose: string | null
+          prose: Json | null
           scope: string | null
           short_description: string | null
           status: string
-          summary: string | null
+          summary: Json | null
           tags: string[] | null
           updated_at: string
           version: number
@@ -1173,16 +1173,16 @@ export type Database = {
           name?: string | null
           node_category: string
           node_type: string
-          notes?: string | null
+          notes?: Json | null
           order?: number
           organisation_id: string
           parent_id?: string | null
           project_id: string
-          prose?: string | null
+          prose?: Json | null
           scope?: string | null
           short_description?: string | null
           status?: string
-          summary?: string | null
+          summary?: Json | null
           tags?: string[] | null
           updated_at?: string
           version?: number
@@ -1213,16 +1213,16 @@ export type Database = {
           name?: string | null
           node_category?: string
           node_type?: string
-          notes?: string | null
+          notes?: Json | null
           order?: number
           organisation_id?: string
           parent_id?: string | null
           project_id?: string
-          prose?: string | null
+          prose?: Json | null
           scope?: string | null
           short_description?: string | null
           status?: string
-          summary?: string | null
+          summary?: Json | null
           tags?: string[] | null
           updated_at?: string
           version?: number

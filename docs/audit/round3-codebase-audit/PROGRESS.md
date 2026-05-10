@@ -25,7 +25,7 @@ Tracking file for the 7-phase remediation against [10-remediation-plan.md](10-re
 | 1 — Pattern fixes | 4 | 3 + 1 deferred | 7 | done (B1.4 deferred to Phase 8) |
 | 2 — Root-cause cascades | 3 | 2 (B2.2+B2.3 merged) | 4 | in-progress (B2.2+B2.3 done) |
 | 3 — Silent-failure | 6+ | 6 (B3.1-B3.6) | 17 | done |
-| 4 — DB constraints | 5 | 4 + 1 deferred | 4 | done (B4.5 deferred to V1.x) |
+| 4 — DB constraints | 5 | 5 | 5 | done |
 | 5 — Security + audit_log | 7 | 0 | 0 | open |
 | 6 — Two-source-of-truth | 4–5 | 0 | 0 | open |
 | 7 — Inviolables + UI + spec | 5 | 0 | 0 | open |
@@ -38,14 +38,21 @@ Tracking file for the 7-phase remediation against [10-remediation-plan.md](10-re
 ### Batch B4.5 — `summary` / `prose` / `notes` TEXT → JSONB (F-269)
 
 - **Phase:** 4
-- **Status:** **deferred to V1.x** (decision dated 2026-05-10)
-- **Findings deferred:** F-269 (LOW)
-- **Rationale:**
-  - F-269 is LOW severity. The audit's reasoning was "JSONB would catch malformed payloads at INSERT time." The corruption case requires DB-level disk corruption, which is exceedingly rare on PostgreSQL, AND there's no meaningful corruption path through the application (toStorage uses `JSON.stringify` which always emits valid JSON).
-  - **Pre-flight check found 693 rows with content that doesn't parse as JSON** — these are legacy plain-text rows that the codebase **intentionally supports** per F-17's "legacy passthrough" docstring. Adding a JSON-validity CHECK constraint would break that path; converting them to wrapped Tiptap docs would lose deliberate plain-text test cases.
-  - The full TEXT→JSONB type conversion would require 5+ file refactor (toStorage / fromStorage / editor-store / API Zod schemas / workflow-executor) plus a data-rewrite of the legacy plain-text rows. Bounded but substantial.
-  - For pre-launch with disposable test data: the cost of the refactor + the risk of breaking the legacy path outweighs the LOW-severity benefit.
-- **No migration. Phase 4 closes on B4.1 + B4.2 + B4.3 + B4.4.**
+- **Findings closed:** F-269 (LOW)
+- **Migration:** `supabase/migrations/20260510000042_nodes_content_jsonb.sql` (initially deferred; reinstated after the user's 2026-05-10 directive: "data in the DB at this point in time can be deleted and doesnt need to be fixed. Do not defer fixing issues because of old data in the database.")
+- **Conversion strategy for the 693 legacy plain-text rows:**
+  - Valid JSON → `::jsonb` (round-trips cleanly)
+  - NULL / empty → NULL
+  - Plain-text content → wrapped in a Tiptap doc with a single paragraph containing the text. Preserves the content; gives it valid Tiptap structure. Local-only helper function created and dropped within the migration.
+- **node_versions table also converted** for consistency — same pattern. The accept_agent_job RPC's snapshot INSERT is now a direct copy (both source and destination columns are JSONB).
+- **accept_agent_job RPC body updated** to cast TEXT parameters with `::jsonb` before assignment to the now-JSONB columns. Parameter types kept as TEXT (the route handler still passes `JSON.stringify`-ed Tiptap docs from the agent job's TEXT result fields). Child INSERTs use `v_child->'summary'` (`->` not `->>`) to preserve JSONB.
+- **Server-side normalisation (`lib/editor/serialise.ts:normalizeContent`)** added. Called from PATCH `/api/nodes/[id]` and the two create routes (`POST /api/documents/[id]/nodes` and `POST /api/projects/[id]/context-nodes`). Coerces incoming wire-format strings into JSONB objects so PostgREST stores actual objects, not JSONB primitive strings. Pre-fix: my first-pass smoke confirmed `summary` was stored as `jsonb_typeof = string` (a JSONB-wrapped JSON string — wrong); post-fix, both `prose` and `summary` are `jsonb_typeof = object` (correct shape).
+- **Client-side wire format unchanged** — `toStorage` still returns string, editor components still pass strings via `onChange`, editor-store still stores strings. The string→object coercion is purely server-side. This kept the editor-prop surface stable and avoided a fan-out across 3 editor components + NodeDetailPanel + editor-store.
+- **`extractPlainText` and `checkSummaryNonEmpty` widened** to accept the full Json union (string / number / boolean / object / array / null). Handles both legacy string and post-042 object shapes.
+- **3 reader sites updated** (`scripts/step2-multi-tab-conflict.ts`, `tests/api/agent_accept.spec.ts`, `tests/phase5d/j9-edge-cases.spec.ts`) to handle the new object shape on read.
+- **Completed:** 2026-05-10
+- **Status:** resolved
+- **Verification gates:** type-check ✓ • lint ✓ • vitest 157/157 ✓ • build ✓ • Playwright tests/api/ 261/261 ✓ • LLM smoke 27/27 + 5/5 + 1, 0 SUs, $0.1593 — and post-smoke check confirms all written content stored as `jsonb_typeof = object`.
 
 ### Batch B4.4 — `nodes.created_by` / `last_modified_by` → UUID FK to auth.users (F-268)
 
@@ -306,8 +313,9 @@ This section is a one-line-per-finding ledger. Updated when a finding's status c
 | F-266 | supabase/migrations/039_conversation_messages_sequence_unique.sql | resolved | B4.2 | UNIQUE(conversation_id, sequence); F-96 nextSequence race now guarded at DB |
 | F-267 | supabase/migrations/040_nodes_node_type_check.sql | resolved | B4.3 | CHECK enforcing 13-type V1 whitelist + type/category coupling |
 | F-268 | supabase/migrations/041_audit_user_fk.sql | resolved | B4.4 | nodes.{created_by,last_modified_by} TEXT → UUID FK auth.users(id) ON DELETE SET NULL |
+| F-269 | supabase/migrations/042_nodes_content_jsonb.sql | resolved | B4.5 | nodes + node_versions summary/prose/notes TEXT → JSONB; server-side normalizeContent in API routes; legacy plain-text wrapped as Tiptap docs |
 
-(Remaining 226 findings to be added as their batches start.)
+(Remaining 225 findings to be added as their batches start.)
 
 ---
 
@@ -344,7 +352,8 @@ Captured at the end of each pilot/early-phase batch. Goal: identify protocol fri
 | End-of-Phase-2 | 2026-05-10 | PASS | type-check ✓ • lint ✓ • vitest 126/126 ✓ • build ✓ • Playwright projects+documents+nodes+nodes-leaf 122/122 ✓. **LLM smoke:** Step 1 mini-novel (27 beats, 12 context nodes, 12 links). 27/27 synthesise + 5/5 refine + generate-context all succeeded. 0 SUs. Cost $0.1551. Confirms Phase 2's data-integrity throws (F-07 typed-alias validation, F-152/F-160 leaf-ness) don't fire on healthy data — happy-path behavior preserved. Substituted Step 1 mini-novel ($0.15) for the planned full novel write ($0.90) because Phase 2's changes only fire on corrupt/malformed input; full novel saves for pre-merge. |
 | Mid-Phase-3 (after B3.3) | 2026-05-10 | PASS | type-check ✓ • lint ✓ • vitest 136/136 ✓ • build ✓. **LLM smoke:** Step 1 mini-novel — 27/27 synthesise + 5/5 refine + generate-context, 0 SUs, $0.1607. Phase 3's silent-failure fixes only fire on actual failures; happy path unchanged. |
 | End-of-Phase-3 | 2026-05-10 | PASS | type-check ✓ • lint ✓ • vitest 147/147 ✓ • build ✓ • **Playwright tests/api/ + tests/integrity/ 359/359 ✓** (the previously-flaky 7 nodes-patch + version-trigger tests are all green now). **LLM smoke:** Step 1 mini-novel — 27/27 + 5/5 + 1, 0 SUs, $0.1566. Phase 3's six batches close 17 silent-failure findings (F-34/37/92/94/139/170/171/172/201/220/238/239/240/243/247/248/250) plus the conventions doc that anchors Phase 3 and going-forward error-handling discipline. |
-| End-of-Phase-4 | 2026-05-10 | PASS | type-check ✓ • lint ✓ • vitest 157/157 ✓ • build ✓ • **Playwright tests/api/ + tests/integrity/ 359/359 ✓**. **LLM smoke:** Step 1 mini-novel — 27/27 + 5/5 + 1, 0 SUs, $0.1603. Four schema migrations (038-041) compatible end-to-end with happy-path agent operations (synthesise / refine / generate-context / move_node multi-row UPDATEs). Closes F-265, F-266, F-267, F-268. F-269 deferred to V1.x with rationale. |
+| End-of-Phase-4 (initial) | 2026-05-10 | PASS | type-check ✓ • lint ✓ • vitest 157/157 ✓ • build ✓ • **Playwright tests/api/ + tests/integrity/ 359/359 ✓**. **LLM smoke:** Step 1 mini-novel — 27/27 + 5/5 + 1, 0 SUs, $0.1603. Four schema migrations (038-041) compatible end-to-end. Closes F-265, F-266, F-267, F-268. F-269 deferred to V1.x. |
+| End-of-Phase-4 (re-smoke after B4.5 reinstated) | 2026-05-10 | PASS | type-check ✓ • lint ✓ • vitest 157/157 ✓ • build ✓ • Playwright tests/api/ 261/261 ✓. **LLM smoke:** Step 1 mini-novel — 27/27 + 5/5 + 1, 0 SUs, $0.1593, with post-smoke `jsonb_typeof = object` confirmation across all written content. Five schema migrations (038-042) compatible end-to-end. Closes F-265, F-266, F-267, F-268, F-269. |
 
 ### Pre-existing test failures discovered at Phase 1 boundary
 

@@ -74,7 +74,11 @@ test('TC-J9-08: large prose body (>200KB) accepted by API + persists', async () 
 
   const admin = adminClient()
   const { data } = await admin.from('nodes').select('prose').eq('id', f.beatId).single()
-  expect(data?.prose?.length).toBeGreaterThan(150_000)
+  // B4.5: nodes.prose is now JSONB; check the JSON-stringified size.
+  const proseStr = data?.prose === null || data?.prose === undefined
+    ? ''
+    : typeof data.prose === 'string' ? data.prose : JSON.stringify(data.prose)
+  expect(proseStr.length).toBeGreaterThan(150_000)
 })
 
 test('TC-J9-09: optimistic concurrency — PATCH with stale expected_version returns 409', async () => {

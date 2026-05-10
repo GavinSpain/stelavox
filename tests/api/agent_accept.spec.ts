@@ -90,11 +90,12 @@ test.describe('Phase 5 — TC-A Accept transactional', () => {
       const res = await ctx.post(`${BASE}/api/agent-jobs/${jobId}/accept`)
       expect(res.status()).toBe(200)
 
-      // Read the beat back; prose should now be Tiptap-shaped JSON string
+      // B4.5: nodes.prose is now JSONB — supabase-js returns the parsed
+      // object directly (no JSON.parse needed).
       const { data: beat } = await adminClient()
         .from('nodes').select('prose').eq('id', fix.beatId).single()
       expect(beat?.prose).toBeTruthy()
-      const parsed = JSON.parse(beat!.prose!) as {
+      const parsed = beat!.prose as unknown as {
         type: string; content: { type: string; content?: { type: string; text?: string }[] }[]
       }
       expect(parsed.type).toBe('doc')

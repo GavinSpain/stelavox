@@ -60,25 +60,31 @@ interface Profile {
  * (an empty paragraph) is treated as empty. So is JSON containing
  * paragraphs whose only content is whitespace text nodes.
  */
-export function checkSummaryNonEmpty(summary: string | null): NextResponse | null {
-  if (summary === null) return err.summaryRequired()
-  const trimmed = summary.trim()
-  if (trimmed === '') return err.summaryRequired()
+export function checkSummaryNonEmpty(
+  summary: string | number | boolean | Record<string, unknown> | unknown[] | null,
+): NextResponse | null {
+  if (summary === null || summary === undefined) return err.summaryRequired()
 
-  // Try to parse as Tiptap JSON; if it parses, walk the tree for any
-  // text node with non-whitespace content. If parse fails, treat the
-  // raw string as plain text and apply the same whitespace rule.
-  let json: unknown
-  try {
-    json = JSON.parse(trimmed)
-  } catch {
-    // Plain text path — already stripped above. Non-empty, accept.
-    return null
+  // B4.5 (round-3 audit F-269): Migration 042 converted nodes.summary
+  // from TEXT to JSONB. supabase-js returns JSONB columns as parsed JS
+  // values, so this function now sees objects directly. The string
+  // branch is kept for legacy callers that pass already-stringified
+  // JSON (e.g. test fixtures predating Migration 042).
+  if (typeof summary === 'string') {
+    const trimmed = summary.trim()
+    if (trimmed === '') return err.summaryRequired()
+    let json: unknown
+    try {
+      json = JSON.parse(trimmed)
+    } catch {
+      // Plain text path — already non-empty above. Accept.
+      return null
+    }
+    return walkForText(json) ? null : err.summaryRequired()
   }
 
-  const hasMeaningfulText = walkForText(json)
-  if (!hasMeaningfulText) return err.summaryRequired()
-  return null
+  // Object / array — walk directly (post-Migration-042 path).
+  return walkForText(summary) ? null : err.summaryRequired()
 }
 
 function walkForText(node: unknown): boolean {

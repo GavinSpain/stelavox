@@ -25,6 +25,7 @@ import {
   decorateWithLeaf,
 } from '@/lib/data/nodes'
 import { CONTEXT_NODE_TYPES_V1, type ContextNodeType } from '@/lib/context/types'
+import { normalizeContent } from '@/lib/editor/serialise'
 
 interface Context { params: Promise<{ projectId: string }> }
 
@@ -95,8 +96,10 @@ export async function POST(request: NextRequest, { params }: Context) {
       node_type:         data.node_type,
       name:              data.name,
       short_description: data.short_description ?? null,
-      summary:           data.summary ?? null,
-      notes:             data.notes ?? null,
+      // B4.5 (round-3 audit F-269): normalise string-encoded Tiptap docs
+      // to JSONB objects before INSERT.
+      summary:           normalizeContent(data.summary) as never,
+      notes:             normalizeContent(data.notes) as never,
       metadata:          data.metadata ?? {},
       tags:              data.tags ?? [],
     })
