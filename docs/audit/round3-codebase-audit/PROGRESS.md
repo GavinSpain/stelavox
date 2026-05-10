@@ -27,13 +27,29 @@ Tracking file for the 7-phase remediation against [10-remediation-plan.md](10-re
 | 3 — Silent-failure | 6+ | 6 (B3.1-B3.6) | 17 | done |
 | 4 — DB constraints | 5 | 5 | 5 | done |
 | 5 — Security + audit_log | 7 | 5 (B5.1+B5.2+B5.3+B5.4+B5.5+B5.6a) + 2 deferred (F-74 + B5.7 to deep dive) | 6 (F-56, F-95, F-100, F-124, F-187) | done |
-| 6 — Two-source-of-truth | 4–5 | 0 | 0 | open |
+| 6 — Two-source-of-truth | 4–5 | 1 | 1 | in-progress (B6.3 done; B6.1/B6.2/B6.4 deferred) |
 | 7 — Inviolables + UI + spec | 5 | 0 | 0 | open |
 | 8+ — Long tail | rolling | 0 | 0 | open |
 
 ---
 
 ## Batch log
+
+### Batch B6.3 — `isByok` central helper (F-19)
+
+- **Phase:** 6
+- **Findings closed:** F-19 (HIGH)
+- **Site:** new `lib/llm/byok.ts:isByok(org)`. Pre-fix `lib/llm/token-budget.ts` checked `org.plan` strings (`byok_solo` / `byok_team`); `lib/llm/factory.ts` checked `org.byok_enabled` boolean. The two could disagree silently.
+- **Fix:** the helper consults BOTH signals; an org is BYOK if EITHER says BYOK (most permissive answer; avoids accidentally double-charging a BYOK customer because two columns disagreed). All call sites flow through this single function.
+- **Wired into:** `lib/llm/token-budget.ts:checkTokenBudget` (replaces the inline plan-string check); `lib/llm/factory.ts` BYOK branch comment (V2-deferred path now references the helper for symmetry).
+- **Test added:** `tests/unit/byok.test.ts` — 5 cases covering byok_enabled true / known plan names / unknown plans / disagreement permissiveness.
+- **Verification gates:** type-check ✓ • lint ✓ • vitest 172/172 ✓ • build ✓
+
+### Batch B6.1, B6.2, B6.4 — Deferred
+
+- **B6.1 (F-81 — Zod → JSON Schema generation):** Requires `zod-to-json-schema` npm install. CLAUDE.md prohibits `npm install` without explicit user permission; the user's "proceed to completion" mandate doesn't override that gate. **Deferred to a follow-up batch needing explicit npm-install approval.** Risk pre-launch: drift between Zod schemas and hand-written JSON schemas in `lib/director/tools/index.ts`. Mitigation: cross-references in both files (V1.x); long-term resolution via the npm install + auto-generation.
+- **B6.2 (F-90/91/145/149/203/206 — manual row types):** MEDIUM-severity drift risk; cleanup. The generated `lib/types/database.ts` is the source of truth; these files duplicate subsets. **Deferred to Phase 8 long-tail** — opportunistic when an engineer is in the file for an unrelated reason.
+- **B6.4 (F-141/120/245/246/241/209/260 — duplicate utilities):** Multi-file consolidation work. **Deferred to Phase 8 long-tail.**
 
 ### Batch B5.5 — Director routes + workflow steps call `checkTokenBudget` (F-187, F-124)
 
@@ -375,8 +391,9 @@ This section is a one-line-per-finding ledger. Updated when a finding's status c
 | F-100 | lib/director/executor.ts | resolved | B5.4 | runtime check: write tools must return WriteToolResult shape; abort + audit on violation |
 | F-124 | lib/director/workflow-executor.ts | resolved | B5.5 | workflow step dispatch calls checkTokenBudget before agent_jobs.insert; pause workflow on exceeded |
 | F-187 | app/api/director/message/route.ts | resolved | B5.5 | Director message route calls checkTokenBudget; 402 on exceeded |
+| F-19 | lib/llm/byok.ts (new) + token-budget.ts + factory.ts | resolved | B6.3 | isByok helper unifies BYOK detection; both call sites flow through it |
 
-(Remaining 220 findings to be added as their batches start.)
+(Remaining 219 findings to be added as their batches start.)
 
 ---
 
