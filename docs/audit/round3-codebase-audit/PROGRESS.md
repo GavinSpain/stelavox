@@ -22,7 +22,7 @@ Tracking file for the 7-phase remediation against [10-remediation-plan.md](10-re
 | Phase | Batches planned | Batches done | Findings closed | State |
 |---|---|---|---|---|
 | 0 — Setup | 0 | — | — | done |
-| 1 — Pattern fixes | 4 | 1 | 4 | in-progress (B1.1 pilot done) |
+| 1 — Pattern fixes | 4 | 2 | 6 | in-progress (B1.2 done) |
 | 2 — Root-cause cascades | 3 | 0 | 0 | open |
 | 3 — Silent-failure | 6+ | 0 | 0 | open |
 | 4 — DB constraints | 5 | 0 | 0 | open |
@@ -34,6 +34,19 @@ Tracking file for the 7-phase remediation against [10-remediation-plan.md](10-re
 ---
 
 ## Batch log
+
+### Batch B1.2 — `.single()` → `.maybeSingle()` in tests/helpers
+
+- **Phase:** 1
+- **Findings closed:** F-258, F-259
+- **Plan said 3 sites; actual is 2.** Per audit's F-261 ("No additional anti-patterns surfaced beyond F-257/F-258/F-259") and re-review of all 28 `.single()` sites in tests/helpers, only F-258 and F-259 are H-01 violations. The other 26 are legitimate (INSERT-then-`.select('id').single()` validation; fixture-precondition lookups where zero rows IS the bug).
+- **Test-feasibility:** observable-via-mock (extended `tests/unit/h01-maybesingle.test.ts` with 2 cases, mocking `@supabase/supabase-js.createClient` so the helper's `adminClient()` factory routes through our chain spy)
+- **Failing-test-first proof:** F-258 red on terminal-method assertion (`'single'` not `'maybeSingle'`); F-259 red with `"Cannot read properties of null (reading 'organisation_id')"` instead of the post-fix informative error. Both green after the fix.
+- **F-259 also drops a `data!` non-null assertion** that would have produced a confusing crash — replaced with explicit `if (!data) throw new Error(...)`. Audit categorised this as silent-failure adjacent; the H-01 fix and the silent-failure fix landed together because the same line touched both.
+- **Completed:** 2026-05-10
+- **Status:** resolved
+- **Verification gates:** type-check ✓ • lint ✓ • vitest 110/110 ✓ • build ✓
+- **Process observations:** plan-list verification continues to be required (plan said 3, audit text says 2 for H-01 specifically — F-257 was a different finding). The strategy from B1.1's observation #1 is paying off.
 
 ### Batch B1.1 — `.single()` → `.maybeSingle()` in production lib/data (pilot)
 
@@ -62,8 +75,10 @@ This section is a one-line-per-finding ledger. Updated when a finding's status c
 | F-155 | lib/data/nodes.ts | resolved | B1.1 | `.single()` → `.maybeSingle()`; route already had null guard |
 | F-163 | lib/data/context-links.ts | resolved | B1.1 | comment fix only — code was correct, prior comment described non-existent semantics |
 | F-179 | lib/agent/* | open | (mis-targeted by plan) | not a `.single()` finding — `validateProfile` security finding; defer to its own future batch |
+| F-258 | tests/helpers/db.ts | resolved | B1.2 | `.single()` → `.maybeSingle()`; user with no org now returns clean null |
+| F-259 | tests/helpers/agent-fixtures.ts | resolved | B1.2 | `.single()` → `.maybeSingle()`; informative error replaces `data!` crash |
 
-(Remaining 253 findings to be added as their batches start.)
+(Remaining 251 findings to be added as their batches start.)
 
 ---
 
