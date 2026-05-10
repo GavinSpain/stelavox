@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "type-check": "tsc --noEmit",
+    "script": "tsc --noEmit && tsx",
     "test:unit": "vitest run",
     "test:unit:watch": "vitest",
     "db:types": "supabase gen types typescript --linked 2>/dev/null > lib/types/database.ts",
