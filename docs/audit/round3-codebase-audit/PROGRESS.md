@@ -169,6 +169,7 @@ Captured at the end of each pilot/early-phase batch. Goal: identify protocol fri
 | Boundary | Date | Smoke result | Notes |
 |---|---|---|---|
 | End-of-Phase-1 | 2026-05-10 | PASS (with caveat) | type-check ✓ • lint ✓ (0 errors, 9 pre-existing warnings) • vitest 112/112 ✓ • build ✓ • Playwright `tests/api/projects/documents/nodes.spec.ts` 119/119 ✓. **Caveat:** 7 pre-existing failures in `tests/api/nodes-patch.spec.ts` (version-trigger expectations not met). Diagnosed by reverting `lib/data/nodes.ts` to pre-B1.1 state — failures persist, so they pre-date Phase 1. Not caused by B1.1; flagged as a separate finding for investigation outside this remediation. |
+| End-of-Phase-2 | 2026-05-10 | PASS | type-check ✓ • lint ✓ • vitest 126/126 ✓ • build ✓ • Playwright projects+documents+nodes+nodes-leaf 122/122 ✓. **LLM smoke:** Step 1 mini-novel (27 beats, 12 context nodes, 12 links). 27/27 synthesise + 5/5 refine + generate-context all succeeded. 0 SUs. Cost $0.1551. Confirms Phase 2's data-integrity throws (F-07 typed-alias validation, F-152/F-160 leaf-ness) don't fire on healthy data — happy-path behavior preserved. Substituted Step 1 mini-novel ($0.15) for the planned full novel write ($0.90) because Phase 2's changes only fire on corrupt/malformed input; full novel saves for pre-merge. |
 
 ### Pre-existing test failures discovered at Phase 1 boundary
 
