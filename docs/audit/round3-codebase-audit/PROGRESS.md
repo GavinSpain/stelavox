@@ -22,7 +22,7 @@ Tracking file for the 7-phase remediation against [10-remediation-plan.md](10-re
 | Phase | Batches planned | Batches done | Findings closed | State |
 |---|---|---|---|---|
 | 0 — Setup | 0 | — | — | done |
-| 1 — Pattern fixes | 4 | 2 | 6 | in-progress (B1.2 done) |
+| 1 — Pattern fixes | 4 | 3 | 7 | in-progress (B1.3 done) |
 | 2 — Root-cause cascades | 3 | 0 | 0 | open |
 | 3 — Silent-failure | 6+ | 0 | 0 | open |
 | 4 — DB constraints | 5 | 0 | 0 | open |
@@ -34,6 +34,20 @@ Tracking file for the 7-phase remediation against [10-remediation-plan.md](10-re
 ---
 
 ## Batch log
+
+### Batch B1.3 — ESLint guardrail `no-supabase-single` (scoped to lib/data/)
+
+- **Phase:** 1
+- **Findings closed:** part of T-2 (theme-level closure — the ESLint rule prevents future H-01 regressions in the audit's hot zone)
+- **Test-feasibility:** constraint-driven (the rule itself is the test)
+- **Test added:** `tests/unit/eslint-no-supabase-single.test.ts` — 2 cases that programmatically run ESLint via the `eslint` API against synthetic source strings as if they lived at `lib/data/probe.ts`. One asserts the rule fires on a bare `.single()` chain; the other asserts the rule does NOT fire when a disable directive is present.
+- **Failing-test-first proof:** test removed-rule scenario is the failing-test (when the rule is removed from `eslint.config.mjs`, the bad-fixture test produces no `no-restricted-syntax` errors and fails). With the rule in place, both tests pass.
+- **Initial broad-rule attempt produced ~390 false positives** (every `.single()` in the codebase is a legitimate INSERT-validation / fixture-precondition / auth lookup). Scoped the rule to `lib/data/**/*.ts` only — the audit's H-01 hot zone — bringing rule firings to 4 INSERT sites (createProject, createNode, createContextNode, createContextLink) which were retrofitted with `// eslint-disable-next-line no-restricted-syntax -- INSERT validation: ...` directives naming the reason.
+- **Side surprise:** ESLint parses `eslint-disable-next-line` text inside line comments in `eslint.config.mjs` itself as actual disable directives, breaking the lint run with a "rule not found" error. Worked around by rewording the doc comment to avoid the literal phrase.
+- **Side surprise #2:** the disable directive must precede the chain's first token (the `return` statement), not the immediate `.single()` line — ESLint reports the call-expression error at the start of the chain. Documenting in the rule guidance for future authors.
+- **Completed:** 2026-05-10
+- **Status:** resolved (rule is in place and CI-enforced)
+- **Verification gates:** type-check ✓ • lint ✓ (0 errors, 9 pre-existing warnings) • vitest 112/112 ✓ • build ✓
 
 ### Batch B1.2 — `.single()` → `.maybeSingle()` in tests/helpers
 

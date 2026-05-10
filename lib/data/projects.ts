@@ -17,6 +17,7 @@ export async function createProject(
   orgId: string,
   fields: { name: string; description?: string | null; default_document_type?: string | null }
 ) {
+  // eslint-disable-next-line no-restricted-syntax -- INSERT validation: 0 rows is genuinely an error here (RLS denial / FK violation).
   return supabase
     .from('projects')
     .insert({ organisation_id: orgId, ...fields })

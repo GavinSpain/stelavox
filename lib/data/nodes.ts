@@ -104,6 +104,7 @@ export async function createNode(
   supabase: Client,
   fields: NodeInsert,
 ): Promise<PostgrestSingleResponse<NodeRow>> {
+  // eslint-disable-next-line no-restricted-syntax -- INSERT validation: 0 rows is genuinely an error here (RLS denial / FK violation).
   return supabase
     .from('nodes')
     .insert(fields)
@@ -259,6 +260,7 @@ export async function createContextNode(
     status:            'draft',
     version:           1,
   }
+  // eslint-disable-next-line no-restricted-syntax -- INSERT validation: 0 rows is genuinely an error here (RLS denial / FK violation / scope-document_id consistency).
   return supabase
     .from('nodes')
     .insert(insert)

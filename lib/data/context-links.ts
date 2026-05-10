@@ -57,6 +57,7 @@ export async function createContextLink(
     organisation_id: organisationId,
     link_type:       'structural_to_context',
   }
+  // eslint-disable-next-line no-restricted-syntax -- INSERT validation: 0 rows is genuinely an error here. UNIQUE-violation surfaces via the 23505 error path (route catches and issues findExistingLink).
   return supabase
     .from('node_context_links')
     .insert(insert)
