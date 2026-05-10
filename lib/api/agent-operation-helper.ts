@@ -117,10 +117,17 @@ export async function validateProfile(
   profileId?: string,
 ): Promise<Profile | NextResponse> {
   if (profileId) {
+    // F-179 (round-3 audit): require is_system_profile=true. V1 has
+    // only system profiles (per the agent_profile_library docs); the
+    // helper's pre-fix didn't enforce that invariant, leaving room for
+    // a same-org user to specify a non-system profile_id when V2's
+    // user-defined profiles land. The .eq() filter forecloses that
+    // path now and stays correct under V2.
     const { data, error } = await supabase
       .from('agent_profiles')
-      .select('id, name, operation_type, node_type, model_id, max_tokens')
+      .select('id, name, operation_type, node_type, model_id, max_tokens, is_system_profile')
       .eq('id', profileId)
+      .eq('is_system_profile', true)
       .maybeSingle()
     if (error || !data) return err.agentProfileNotFound()
     if (data.operation_type !== operationType) return err.profileOperationMismatch()

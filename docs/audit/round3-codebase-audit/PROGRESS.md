@@ -28,12 +28,26 @@ Tracking file for the 7-phase remediation against [10-remediation-plan.md](10-re
 | 4 — DB constraints | 5 | 5 | 5 | done |
 | 5 — Security + audit_log | 7 | 5 (B5.1+B5.2+B5.3+B5.4+B5.5+B5.6a) + 2 deferred (F-74 + B5.7 to deep dive) | 6 (F-56, F-95, F-100, F-124, F-187) | done |
 | 6 — Two-source-of-truth | 4–5 | 1 | 1 | in-progress (B6.3 done; B6.1/B6.2/B6.4 deferred) |
-| 7 — Inviolables + UI + spec | 5 | 0 | 0 | open |
+| 7 — Inviolables + UI + spec | 5 | 1 partial (B7.3 F-167) + 1 from B6.3 sweep (F-179) | 2 | partial — B7.1/B7.2/B7.4/B7.5 deferred to dedicated batches |
 | 8+ — Long tail | rolling | 0 | 0 | open |
 
 ---
 
 ## Batch log
+
+### Batch B7.3 (partial) — central `requireEnv` helper, env-var assertions removed (F-167)
+
+- **Phase:** 7
+- **Findings closed:** F-167 (HIGH)
+- **Site:** new `lib/env.ts:requireEnv(name)`. Replaces `process.env.X!` non-null assertions in all four Supabase factories (`lib/supabase/{service,server,middleware,client}.ts`).
+- **Pre-fix:** missing env vars produced `TypeError: Cannot read properties of undefined` deep in Supabase init. Post-fix: throws with a clear message naming the missing variable + a pointer to the deployment-setup doc.
+- **B7.3 partial:** the audit's plan listed F-39, F-67, F-97, F-103, F-128, F-167, F-193, F-199 in scope; F-167 was the HIGH-severity item. The remaining 7 MEDIUM items (hardcoded operational values that should be platform_config keys) are individually small but each requires a config seed migration plus call-site updates — bundled as Phase 8 long-tail work.
+- **Verification gates:** type-check ✓ • lint ✓ • vitest 172/172 ✓ • build ✓
+
+### Sweep finding — F-179 closed alongside Phase 7
+
+- **F-179** — `lib/api/agent-operation-helper.ts:validateProfile` (HIGH spec-divergence). Pre-fix the helper accepted any caller-supplied `profile_id` provided RLS allowed access; didn't verify `is_system_profile=true`. V1 has only system profiles per the agent_profile_library; V2 user-defined profiles must not bypass the system-profile invariant. Fix: added `.eq('is_system_profile', true)` to the load-by-id branch.
+- **Test feasibility:** structural — the change is a `.eq()` filter; future regression would surface as test-env profile-not-found. Verified by existing agent_*.spec.ts suites passing post-fix.
 
 ### Batch B6.3 — `isByok` central helper (F-19)
 
@@ -392,8 +406,10 @@ This section is a one-line-per-finding ledger. Updated when a finding's status c
 | F-124 | lib/director/workflow-executor.ts | resolved | B5.5 | workflow step dispatch calls checkTokenBudget before agent_jobs.insert; pause workflow on exceeded |
 | F-187 | app/api/director/message/route.ts | resolved | B5.5 | Director message route calls checkTokenBudget; 402 on exceeded |
 | F-19 | lib/llm/byok.ts (new) + token-budget.ts + factory.ts | resolved | B6.3 | isByok helper unifies BYOK detection; both call sites flow through it |
+| F-167 | lib/env.ts (new) + lib/supabase/{service,server,middleware,client}.ts | resolved | B7.3 (partial) | requireEnv helper replaces `process.env.X!` non-null assertions; clear missing-var error message |
+| F-179 | lib/api/agent-operation-helper.ts | resolved | sweep | validateProfile now requires is_system_profile=true on profile-by-id load |
 
-(Remaining 219 findings to be added as their batches start.)
+(Remaining 217 findings to be added as their batches start.)
 
 ---
 
@@ -433,6 +449,7 @@ Captured at the end of each pilot/early-phase batch. Goal: identify protocol fri
 | End-of-Phase-4 (initial) | 2026-05-10 | PASS | type-check ✓ • lint ✓ • vitest 157/157 ✓ • build ✓ • **Playwright tests/api/ + tests/integrity/ 359/359 ✓**. **LLM smoke:** Step 1 mini-novel — 27/27 + 5/5 + 1, 0 SUs, $0.1603. Four schema migrations (038-041) compatible end-to-end. Closes F-265, F-266, F-267, F-268. F-269 deferred to V1.x. |
 | End-of-Phase-4 (re-smoke after B4.5 reinstated) | 2026-05-10 | PASS | type-check ✓ • lint ✓ • vitest 157/157 ✓ • build ✓ • Playwright tests/api/ 261/261 ✓. **LLM smoke:** Step 1 mini-novel — 27/27 + 5/5 + 1, 0 SUs, $0.1593, with post-smoke `jsonb_typeof = object` confirmation across all written content. Five schema migrations (038-042) compatible end-to-end. Closes F-265, F-266, F-267, F-268, F-269. |
 | End-of-Phase-5 | 2026-05-10 | PASS | type-check ✓ • lint ✓ • vitest 167/167 ✓ • build ✓ • Playwright tests/api/ 261/261 ✓ • Playwright tests/integrity/ 98/98 ✓. **LLM smoke:** Step 1 mini-novel — 27/27 + 5/5 + 1, 0 SUs, $0.1575. Two new migrations (044 audit_log extension, 045 director-token-estimate config). Closes F-56, F-95, F-100, F-124, F-187. F-74 + B5.7 deferred to Director architecture deep dive (memory `project_director_architecture_review.md`). One side-fix during smoke: lib/security/audit.ts dropped its static `import 'server-only'` because injection-scanner.ts (which now imports it) flows into Playwright integrity test bundles; switched to dynamic import inside writeAuditLogEntry so the server-only barrier is deferred to call-time. |
+| End-of-session (Phases 6+7 partial) | 2026-05-10 | PASS | type-check ✓ • lint ✓ • vitest 172/172 ✓ • build ✓. **LLM smoke:** Step 1 mini-novel — 27/27 + 5/5 + 1, 0 SUs, $0.1519. Closes F-19 (B6.3), F-167 (B7.3 partial), F-179 (sweep). 41 of 258 findings closed. Remaining work captured in close-out notes. |
 
 ### Pre-existing test failures discovered at Phase 1 boundary
 
