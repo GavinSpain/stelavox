@@ -23,7 +23,7 @@ Tracking file for the 7-phase remediation against [10-remediation-plan.md](10-re
 |---|---|---|---|---|
 | 0 — Setup | 0 | — | — | done |
 | 1 — Pattern fixes | 4 | 3 + 1 deferred | 7 | done (B1.4 deferred to Phase 8) |
-| 2 — Root-cause cascades | 3 | 0 | 0 | open |
+| 2 — Root-cause cascades | 3 | 1 | 2 | in-progress (B2.1 done) |
 | 3 — Silent-failure | 6+ | 0 | 0 | open |
 | 4 — DB constraints | 5 | 0 | 0 | open |
 | 5 — Security + audit_log | 7 | 0 | 0 | open |
@@ -34,6 +34,20 @@ Tracking file for the 7-phase remediation against [10-remediation-plan.md](10-re
 ---
 
 ## Batch log
+
+### Batch B2.1 — `getConfig<T>` runtime validation (F-07 root + F-20 cascade)
+
+- **Phase:** 2
+- **Findings closed:** F-07 (HIGH), F-20 (HIGH cascade)
+- **Plan listed F-21, F-32, F-50, F-138 as F-07 cascades — they aren't.** F-21 / F-138 are formatYearMonth NaN-trap bugs (silent-failure family); F-32 is an Anthropic SDK null-check; F-50 is a missing ORDER BY. None of those depend on `getConfig`'s typing. Plan composition error confirmed for the third time. Process amendment from B1.1 stands: verify each F-NN against the audit's actual finding text before including it in a batch.
+- **Test-feasibility:** observable-via-mock + integration (mock `@/lib/supabase/service`, store wrong-typed values, assert typed alias throws naming the key)
+- **Test added:** `tests/unit/platform-config-validation.test.ts` — 6 cases covering all four typed aliases plus the F-20 cascade (checkTokenBudget surfaces the type error rather than silently misbehaving with a string-typed budget).
+- **Failing-test-first proof:** all 5 wrong-type cases red pre-fix (silent return of mistyped value); F-20 cascade returned `true` (silent-budget-bypass with stored `"500000"` string). All green post-fix.
+- **Bug introduced and caught by integration tests, not unit tests.** When I added an `eslint-disable-next-line` comment between `.select('value')` and `.single()` on the platform_config chain, I accidentally **dropped the `.eq('key', key)` filter** — the query was returning ALL platform_config rows, then `.single()` errored, breaking `tests/unit/tool-validator.test.ts` and `tests/unit/director-summarisation.test.ts` which both depend on real config reads. Caught by the full Vitest suite run, not by my new unit test (which mocked the chain entirely). Process observation: when refactoring/annotating production code, the suite-wide run is non-skippable.
+- **Spurious eslint-disable removed.** The H-01 ESLint rule from B1.3 only applies to `lib/data/**`; `lib/config/platform-config.ts` is outside scope, so the eslint-disable directive was unnecessary. Replaced with a regular comment explaining why `.single()` is correct here (key is PK; zero rows IS an error).
+- **Completed:** 2026-05-10
+- **Status:** resolved
+- **Verification gates:** type-check ✓ • lint ✓ • vitest 118/118 ✓ • build ✓ • Playwright projects+documents+nodes 119/119 ✓
 
 ### Batch B1.4 — Spec-version citation cleanup (T-13)
 
@@ -102,8 +116,10 @@ This section is a one-line-per-finding ledger. Updated when a finding's status c
 | F-179 | lib/agent/* | open | (mis-targeted by plan) | not a `.single()` finding — `validateProfile` security finding; defer to its own future batch |
 | F-258 | tests/helpers/db.ts | resolved | B1.2 | `.single()` → `.maybeSingle()`; user with no org now returns clean null |
 | F-259 | tests/helpers/agent-fixtures.ts | resolved | B1.2 | `.single()` → `.maybeSingle()`; informative error replaces `data!` crash |
+| F-07 | lib/config/platform-config.ts | resolved | B2.1 | typed aliases now runtime-validate; throw clear key-naming error on type mismatch |
+| F-20 | lib/llm/token-budget.ts | resolved | B2.1 | cascade closure — F-07 fix surfaces the budget config's type error instead of silently misbehaving |
 
-(Remaining 251 findings to be added as their batches start.)
+(Remaining 249 findings to be added as their batches start.)
 
 ---
 
