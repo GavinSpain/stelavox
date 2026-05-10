@@ -79,7 +79,7 @@ beforeAll(async () => {
       order: 1,
       depth: 0,
       layer_index: 0,
-      node_type: 'novel',
+      node_type: 'book',
       node_category: 'structural',
       name: 'test-parent',
     })
@@ -229,5 +229,85 @@ describe.skipIf(!hasLocalDb)('Phase 4 B4.2 — conversation_messages UNIQUE(conv
         content: 'distinct-seq',
       })
     expect(error).toBeNull()
+  })
+})
+
+// ─── B4.3 — nodes.node_type CHECK constraint ────────────────────────────
+
+describe.skipIf(!hasLocalDb)('Phase 4 B4.3 — nodes.node_type CHECK constraint (F-267)', () => {
+  it('rejects an invalid node_type ("invalid_type") via DB CHECK', async () => {
+    const { error } = await admin
+      .from('nodes')
+      .insert({
+        organisation_id: testOrgId,
+        project_id: testProjectId,
+        document_id: testDocumentId,
+        parent_id: testParentId,
+        order: 200,
+        depth: 1,
+        layer_index: 1,
+        node_type: 'invalid_type',
+        node_category: 'structural',
+        name: 'should-fail',
+      } as never)
+    expect(error).toBeTruthy()
+    // PostgreSQL CHECK violation = SQLSTATE 23514
+    expect((error as { code?: string }).code).toBe('23514')
+  })
+
+  it('rejects category-mismatch (context node_type with structural category)', async () => {
+    const { error } = await admin
+      .from('nodes')
+      .insert({
+        organisation_id: testOrgId,
+        project_id: testProjectId,
+        document_id: testDocumentId,
+        parent_id: testParentId,
+        order: 201,
+        depth: 1,
+        layer_index: 1,
+        node_type: 'character',  // valid context type...
+        node_category: 'structural',  // ...but wrong category
+        name: 'should-fail',
+      } as never)
+    expect(error).toBeTruthy()
+    expect((error as { code?: string }).code).toBe('23514')
+  })
+
+  it('allows all 13 V1 node_type values with the correct category (regression guard)', async () => {
+    const valid: Array<{ type: string; category: 'structural' | 'context' }> = [
+      { type: 'book', category: 'structural' },
+      { type: 'series', category: 'structural' },
+      { type: 'story', category: 'structural' },
+      { type: 'act', category: 'structural' },
+      { type: 'chapter', category: 'structural' },
+      { type: 'scene', category: 'structural' },
+      { type: 'beat', category: 'structural' },
+      { type: 'character', category: 'context' },
+      { type: 'location', category: 'context' },
+      { type: 'organisation', category: 'context' },
+      { type: 'theme', category: 'context' },
+      { type: 'plot_thread', category: 'context' },
+      { type: 'world', category: 'context' },
+    ]
+    for (let i = 0; i < valid.length; i++) {
+      const v = valid[i]!
+      const { error } = await admin
+        .from('nodes')
+        .insert({
+          organisation_id: testOrgId,
+          project_id: testProjectId,
+          document_id: v.category === 'structural' ? testDocumentId : null,
+          parent_id: v.category === 'structural' ? testParentId : null,
+          order: 300 + i,
+          depth: 1,
+          layer_index: 1,
+          node_type: v.type,
+          node_category: v.category,
+          scope: v.category === 'context' ? 'project' : null,
+          name: `valid-${v.type}`,
+        } as never)
+      expect(error, `${v.category}/${v.type} should pass CHECK`).toBeNull()
+    }
   })
 })
