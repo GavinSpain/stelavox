@@ -27,13 +27,25 @@ Tracking file for the 7-phase remediation against [10-remediation-plan.md](10-re
 | 3 — Silent-failure | 6+ | 6 (B3.1-B3.6) | 17 | done |
 | 4 — DB constraints | 5 | 5 | 5 | done |
 | 5 — Security + audit_log | 7 | 5 (B5.1+B5.2+B5.3+B5.4+B5.5+B5.6a) + 2 deferred (F-74 + B5.7 to deep dive) | 6 (F-56, F-95, F-100, F-124, F-187) | done |
-| 6 — Two-source-of-truth | 4–5 | 1 | 1 | in-progress (B6.3 done; B6.1/B6.2/B6.4 deferred) |
+| 6 — Two-source-of-truth | 4–5 | 2 (B6.1 + B6.3) | 2 | in-progress (B6.1/B6.3 done; B6.2/B6.4 deferred to Phase 8) |
 | 7 — Inviolables + UI + spec | 5 | 1 partial (B7.3 F-167) + 1 from B6.3 sweep (F-179) | 2 | partial — B7.1/B7.2/B7.4/B7.5 deferred to dedicated batches |
 | 8+ — Long tail | rolling | 0 | 0 | open |
 
 ---
 
 ## Batch log
+
+### Batch B6.1 — Director tool input_schemas generated from Zod (F-81)
+
+- **Phase:** 6
+- **Findings closed:** F-81 (HIGH)
+- **Site:** new `lib/director/tool-schema.ts:toolInputSchemaFor(name)` + every `input_schema` entry in `lib/director/tools/index.ts` (13 tools).
+- **Pre-fix:** input_schema was hand-written JSON Schema duplicating the Zod schemas in `lib/director/schemas.ts:ToolInputSchemas`. Drift risk: a fix in one wouldn't propagate; every model-facing schema was a separate maintenance surface.
+- **Implementation:** uses Zod v4's built-in `z.toJSONSchema()`. The first attempt used the `zod-to-json-schema` package (npm-installed per user permission), but that library is Zod-v3-only and silently produced `{}` schemas at runtime against v4 inputs. Zod v4's built-in produces standard JSON Schema that Anthropic's tool API accepts. We strip the draft-07 `$schema` URL and any `definitions` wrapper for a flat output.
+- **Test added:** `tests/unit/tool-schema-generation.test.ts` — 6 cases. Validates structure (type=object, additionalProperties=false), pins `target_field` and `context_type` enums, asserts UUID format, and exercises all 13 V1 tools.
+- **Verification:** Step 1 mini-novel ran 27/27 successfully against the regenerated schemas, confirming the live Anthropic-side validation accepts them; Playwright API+integrity 359/359 ✓.
+- **Side-fix discovered during the boundary smoke:** my F-167 `requireEnv(name)` helper used a dynamic `process.env[name]` lookup. Next.js's build-time inlining of `process.env.NEXT_PUBLIC_*` only triggers for static references, so the dynamic read returned undefined in the browser bundle, breaking client-side auth via `lib/supabase/client.ts`. Refactored to `requireEnv(value, name)` — caller passes the static reference + the name string for the error message. All four Supabase factories updated.
+- **Verification gates:** type-check ✓ • lint ✓ • vitest 178/178 ✓ • build ✓ • Playwright API+integrity 359/359 ✓ • LLM smoke 27/27, 0 SUs, $0.1630.
 
 ### Batch B7.3 (partial) — central `requireEnv` helper, env-var assertions removed (F-167)
 
@@ -408,8 +420,9 @@ This section is a one-line-per-finding ledger. Updated when a finding's status c
 | F-19 | lib/llm/byok.ts (new) + token-budget.ts + factory.ts | resolved | B6.3 | isByok helper unifies BYOK detection; both call sites flow through it |
 | F-167 | lib/env.ts (new) + lib/supabase/{service,server,middleware,client}.ts | resolved | B7.3 (partial) | requireEnv helper replaces `process.env.X!` non-null assertions; clear missing-var error message |
 | F-179 | lib/api/agent-operation-helper.ts | resolved | sweep | validateProfile now requires is_system_profile=true on profile-by-id load |
+| F-81 | lib/director/tool-schema.ts (new) + tools/index.ts | resolved | B6.1 | input_schema generated from Zod via z.toJSONSchema; single source of truth |
 
-(Remaining 217 findings to be added as their batches start.)
+(Remaining 216 findings to be added as their batches start.)
 
 ---
 
