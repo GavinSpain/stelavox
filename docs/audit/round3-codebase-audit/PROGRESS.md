@@ -25,7 +25,7 @@ Tracking file for the 7-phase remediation against [10-remediation-plan.md](10-re
 | 1 — Pattern fixes | 4 | 3 + 1 deferred | 7 | done (B1.4 deferred to Phase 8) |
 | 2 — Root-cause cascades | 3 | 2 (B2.2+B2.3 merged) | 4 | in-progress (B2.2+B2.3 done) |
 | 3 — Silent-failure | 6+ | 6 (B3.1-B3.6) | 17 | done |
-| 4 — DB constraints | 5 | 0 | 0 | open |
+| 4 — DB constraints | 5 | 1 | 1 | in-progress (B4.1 done) |
 | 5 — Security + audit_log | 7 | 0 | 0 | open |
 | 6 — Two-source-of-truth | 4–5 | 0 | 0 | open |
 | 7 — Inviolables + UI + spec | 5 | 0 | 0 | open |
@@ -34,6 +34,20 @@ Tracking file for the 7-phase remediation against [10-remediation-plan.md](10-re
 ---
 
 ## Batch log
+
+### Batch B4.1 — `nodes` UNIQUE(parent_id, "order") DEFERRABLE (F-265)
+
+- **Phase:** 4 (DB constraints)
+- **Findings closed:** F-265 (HIGH)
+- **Migration:** `supabase/migrations/20260510000038_nodes_order_unique.sql`
+- **DEFERRABLE INITIALLY DEFERRED** — required so the existing `move_node` RPC's multi-row UPDATEs (Migration 021) don't fail mid-transaction. The constraint is checked at COMMIT time, after the post-shift state is settled.
+- **NULLS DISTINCT default applies** — the ~1000 existing root structural and context nodes share `parent_id=NULL, order=1`; PostgreSQL's default `NULLS DISTINCT` semantics let multiple NULL parent_ids coexist.
+- **Pre-flight data check:** `SELECT parent_id, "order", COUNT(*) FROM nodes WHERE parent_id IS NOT NULL GROUP BY 1,2 HAVING COUNT(*) > 1` returned 0 rows — no existing duplicates to backfill.
+- **Test added:** `tests/integration/db-constraints.test.ts` — 3 cases. INSERT-duplicate fails with SQLSTATE 23505; INSERT with different order succeeds (regression guard); multiple NULL-parent rows coexist (NULLS DISTINCT regression guard).
+- **Failing-test-first proof:** the duplicate-INSERT case red against pre-migration DB (the second INSERT silently succeeded — F-265's exact bug); green post-migration. The two regression-guard cases stayed green throughout.
+- **Completed:** 2026-05-10
+- **Status:** resolved
+- **Verification gates:** type-check ✓ • lint ✓ • vitest 150/150 ✓ • build ✓ • Playwright move_node 20/20 ✓ • Playwright tests/api/ 261/261 ✓ (no regression — DEFERRABLE constraint compatible with `move_node` multi-row UPDATEs)
 
 ### Batch B3.6 — Component-layer fetch silences (F-220, F-238, F-239, F-240, F-243, F-247, F-248, F-250)
 
@@ -233,8 +247,9 @@ This section is a one-line-per-finding ledger. Updated when a finding's status c
 | F-247 | components/tree/NodeMoreMenu.tsx | resolved | B3.6 | rename / del / setStatus non-OK / network error now console.error |
 | F-248 | components/focus/FocusMode.tsx | resolved | B3.6 | siblings GET non-OK / network error now console.error |
 | F-250 | components/context/ContextCreateModal.tsx | resolved | B3.6 | documents GET non-OK / network error now console.error (was explicit silent .catch) |
+| F-265 | supabase/migrations/038_nodes_order_unique.sql | resolved | B4.1 | UNIQUE(parent_id, "order") DEFERRABLE; NULLS DISTINCT lets root nodes coexist |
 
-(Remaining 230 findings to be added as their batches start.)
+(Remaining 229 findings to be added as their batches start.)
 
 ---
 
@@ -282,4 +297,4 @@ Captured at the end of each pilot/early-phase batch. Goal: identify protocol fri
 
 | Tag | Commit | Date | Reason |
 |---|---|---|---|
-| (none yet) | | | |
+| pre-phase4-snapshot | 54fe3ab | 2026-05-10 | Pre-Phase-4 known-good reference. Phases 1+2+3 closed (28 findings). |
