@@ -25,7 +25,7 @@ Tracking file for the 7-phase remediation against [10-remediation-plan.md](10-re
 | 1 — Pattern fixes | 4 | 3 + 1 deferred | 7 | done (B1.4 deferred to Phase 8) |
 | 2 — Root-cause cascades | 3 | 2 (B2.2+B2.3 merged) | 4 | in-progress (B2.2+B2.3 done) |
 | 3 — Silent-failure | 6+ | 6 (B3.1-B3.6) | 17 | done |
-| 4 — DB constraints | 5 | 1 | 1 | in-progress (B4.1 done) |
+| 4 — DB constraints | 5 | 2 | 2 | in-progress (B4.2 done) |
 | 5 — Security + audit_log | 7 | 0 | 0 | open |
 | 6 — Two-source-of-truth | 4–5 | 0 | 0 | open |
 | 7 — Inviolables + UI + spec | 5 | 0 | 0 | open |
@@ -34,6 +34,19 @@ Tracking file for the 7-phase remediation against [10-remediation-plan.md](10-re
 ---
 
 ## Batch log
+
+### Batch B4.2 — `conversation_messages` UNIQUE(conversation_id, sequence) (F-266)
+
+- **Phase:** 4
+- **Findings closed:** F-266 (MEDIUM)
+- **Migration:** `supabase/migrations/20260510000039_conversation_messages_sequence_unique.sql`
+- **Not DEFERRABLE** — there is no multi-row UPDATE pattern on this table analogous to `move_node`. INSERTs are append-only; the constraint is checked immediately.
+- **Pre-flight data check:** zero existing duplicates.
+- **Test added:** 2 cases extending `tests/integration/db-constraints.test.ts`. Duplicate sequence INSERT fails with 23505; different sequence succeeds.
+- **Failing-test-first proof:** duplicate-INSERT case red against pre-migration DB; green post-migration.
+- **Completed:** 2026-05-10
+- **Status:** resolved
+- **Verification gates:** vitest 152/152 ✓ • Playwright tests/director/api.spec.ts 16/16 (36 skipped LLM-bound) ✓
 
 ### Batch B4.1 — `nodes` UNIQUE(parent_id, "order") DEFERRABLE (F-265)
 
@@ -248,8 +261,9 @@ This section is a one-line-per-finding ledger. Updated when a finding's status c
 | F-248 | components/focus/FocusMode.tsx | resolved | B3.6 | siblings GET non-OK / network error now console.error |
 | F-250 | components/context/ContextCreateModal.tsx | resolved | B3.6 | documents GET non-OK / network error now console.error (was explicit silent .catch) |
 | F-265 | supabase/migrations/038_nodes_order_unique.sql | resolved | B4.1 | UNIQUE(parent_id, "order") DEFERRABLE; NULLS DISTINCT lets root nodes coexist |
+| F-266 | supabase/migrations/039_conversation_messages_sequence_unique.sql | resolved | B4.2 | UNIQUE(conversation_id, sequence); F-96 nextSequence race now guarded at DB |
 
-(Remaining 229 findings to be added as their batches start.)
+(Remaining 228 findings to be added as their batches start.)
 
 ---
 

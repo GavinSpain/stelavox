@@ -66,7 +66,7 @@ beforeAll(async () => {
     p_authors: [],
   })
   if (docErr) throw new Error(`document create failed: ${docErr.message}`)
-  testDocumentId = (docRpc as unknown as { document_id: string }).document_id
+  testDocumentId = (docRpc as unknown as { document: { id: string } }).document.id
 
   // Create a parent node so we can attempt duplicate (parent, order) inserts.
   const { data: parent, error: parentErr } = await admin
@@ -165,4 +165,69 @@ describe.skipIf(!hasLocalDb)('Phase 4 B4.1 — nodes UNIQUE(parent_id, "order") 
   })
 })
 
-// Update vitest.config.ts include glob to pick up tests/integration/.
+// ─── B4.2 — conversation_messages UNIQUE(conversation_id, sequence) ─────
+
+describe.skipIf(!hasLocalDb)('Phase 4 B4.2 — conversation_messages UNIQUE(conversation_id, sequence) (F-266)', () => {
+  let conversationId: string
+
+  beforeAll(async () => {
+    if (!hasLocalDb) return
+    // Create a conversation against the test document (created in the
+    // outer beforeAll). conversations.UNIQUE(document_id) means we get
+    // either the existing one or a fresh insert.
+    const { data: existing } = await admin
+      .from('conversations')
+      .select('id')
+      .eq('document_id', testDocumentId)
+      .maybeSingle()
+    if (existing) {
+      conversationId = existing.id
+    } else {
+      const { data: created, error } = await admin
+        .from('conversations')
+        .insert({
+          document_id: testDocumentId,
+          organisation_id: testOrgId,
+        })
+        .select('id')
+        .single()
+      if (error || !created) throw new Error(`conversation create failed: ${error?.message}`)
+      conversationId = created.id
+    }
+  })
+
+  it('rejects a second INSERT with the same (conversation_id, sequence) — UNIQUE violation', async () => {
+    const { error: err1 } = await admin
+      .from('conversation_messages')
+      .insert({
+        conversation_id: conversationId,
+        sequence: 9999,
+        role: 'user',
+        content: 'first',
+      })
+    expect(err1).toBeNull()
+
+    const { error: err2 } = await admin
+      .from('conversation_messages')
+      .insert({
+        conversation_id: conversationId,
+        sequence: 9999,
+        role: 'user',
+        content: 'duplicate-seq',
+      })
+    expect(err2).toBeTruthy()
+    expect((err2 as { code?: string }).code).toBe('23505')
+  })
+
+  it('allows different sequence values in the same conversation (regression guard)', async () => {
+    const { error } = await admin
+      .from('conversation_messages')
+      .insert({
+        conversation_id: conversationId,
+        sequence: 10000,
+        role: 'user',
+        content: 'distinct-seq',
+      })
+    expect(error).toBeNull()
+  })
+})
