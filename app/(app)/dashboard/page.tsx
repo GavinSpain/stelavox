@@ -22,7 +22,7 @@ export default async function DashboardPage() {
 
       {!projects?.length ? (
         <div style={{ textAlign: 'center', padding: 'var(--space-8) 0' }}>
-          <p style={{ fontSize: 'var(--text-base)', color: 'var(--color-text-muted)' }}>
+          <p style={{ fontSize: 'var(--text-base)', color: 'var(--color-text-secondary)' }}>
             No projects yet. Create one to get started.
           </p>
         </div>

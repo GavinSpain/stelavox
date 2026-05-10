@@ -144,8 +144,8 @@ The full rationale for these values is in Brand Identity v2.0 §4. Key principle
 /* ── Text ── */
 --color-text-primary:     #ecf0f5;  /* 🔒 Main text. ~14.8:1 on bg-base. NOT #ffffff */
 --color-text-secondary:   #8aa0b8;  /* Labels, metadata, helper text */
---color-text-muted:       #4a6080;  /* Placeholder, secondary labels */
---color-text-disabled:    #2a3850;  /* Disabled states */
+--color-text-muted:       #6884a4;  /* WCAG AA on bg-base/surface (~5.2:1) */
+--color-text-disabled:    #2a3850;  /* Disabled controls only — never visible text */
 
 /* ── Accent — verdigris (9 sanctioned uses only) ── */
 --color-accent:           #3d7858;  /* 🔒 See Brand Identity §5 and §12 */
@@ -187,8 +187,8 @@ Applied via `[data-theme="light"]` on the `<html>` element. The same halation pr
   --color-border-strong:    #b8a898;
   --color-text-primary:     #1e1a12;  /* 🔒 Warm dark ink. NOT #000000 */
   --color-text-secondary:   #6a6050;
-  --color-text-muted:       #9a9080;
-  --color-text-disabled:    #c0b8a8;
+  --color-text-muted:       #6e6856;  /* WCAG AA on bg-base/surface (~4.7:1) */
+  --color-text-disabled:    #c0b8a8;  /* Disabled controls only — never visible text */
   --color-accent:           #254a38;
   --color-accent-hover:     #3d7858;
   --color-accent-muted:     #deeee6;
@@ -770,7 +770,7 @@ All text must meet WCAG AA minimum. Prose text meets AAA.
 |---|---|---|
 | `--color-text-primary` on `--color-bg-base` | 14.8:1 | AAA |
 | `--color-text-secondary` on `--color-bg-surface` | ~5.2:1 | AA |
-| `--color-text-muted` on `--color-bg-base` | ~3.1:1 | AA large text only — use at 14px+ only |
+| `--color-text-muted` on `--color-bg-base` | ~5.2:1 | AA (Phase 5d round-3 hardening; was ~3.1:1, now AA at all text sizes) |
 | `--color-accent` on `--color-bg-base` | ~4.8:1 | AA |
 
 Light mode pairings must meet the same standards. Verify all light mode combinations against WCAG 2.1 AA before each phase ships.

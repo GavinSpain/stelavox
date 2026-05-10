@@ -28,11 +28,14 @@ export async function tableCounts(tables: string[]): Promise<Record<string, numb
   return out
 }
 
+// H-01 (round-3 audit F-258): .maybeSingle() — a user not yet in any
+// organisation_members row is a valid result and should not surface as
+// a PGRST116 error.
 export async function getOrgId(userId: string): Promise<string | null> {
   const { data } = await adminClient()
     .from('organisation_members')
     .select('organisation_id')
     .eq('user_id', userId)
-    .single()
+    .maybeSingle()
   return data?.organisation_id ?? null
 }

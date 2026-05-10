@@ -20,6 +20,7 @@
 import 'server-only'
 
 import { getConfigInt } from '@/lib/config/platform-config'
+import { isByok } from '@/lib/llm/byok'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 
 /** Subset of organisations row needed by the gate. */
@@ -27,6 +28,7 @@ export interface BudgetCheckOrg {
   id: string
   plan: string
   current_period_start: string | null
+  byok_enabled?: boolean | null
 }
 
 /**
@@ -40,8 +42,11 @@ export async function checkTokenBudget(
   organisation: BudgetCheckOrg,
   estimatedTokens: number,
 ): Promise<boolean> {
-  // BYOK plans bypass — V2 work; V1 has no BYOK plans, defensive.
-  if (organisation.plan === 'byok_solo' || organisation.plan === 'byok_team') {
+  // BYOK plans bypass the platform budget gate. B6.3 / F-19: routed
+  // through the central `isByok` helper so this check can never
+  // disagree with the factory's BYOK detection (factory.ts uses the
+  // same helper).
+  if (isByok(organisation)) {
     return true
   }
 

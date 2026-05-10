@@ -28,13 +28,17 @@ export function startHeartbeat(
   // Run immediately so the first heartbeat lands without waiting one
   // interval (Phase 5 pattern: agent_jobs.started_at + last_heartbeat_at
   // both visible from real-time on transition to running).
-  void Promise.resolve(updateFn()).catch(() => {
-    /* swallow — heartbeat failures must not crash the runner */
+  // F-87 (round-3 audit): heartbeat failures must not crash the runner
+  // (recovery cron sweeps stalled jobs as the eventual fail-safe), but
+  // they must NOT be silent — a sustained heartbeat outage should be
+  // visible in operator logs immediately.
+  void Promise.resolve(updateFn()).catch((err) => {
+    console.warn('[heartbeat] update failed', { error: err instanceof Error ? err.message : err })
   })
 
   const id = setInterval(() => {
-    void Promise.resolve(updateFn()).catch(() => {
-      /* swallow */
+    void Promise.resolve(updateFn()).catch((err) => {
+      console.warn('[heartbeat] update failed', { error: err instanceof Error ? err.message : err })
     })
   }, intervalMs)
 

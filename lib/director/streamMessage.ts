@@ -95,12 +95,21 @@ export async function streamDirectorMessage(
       /* swallow */
     }
     h.onError?.({ error: 'request_failed', message })
-    return
+    // F-92 (round-3 audit): throw so the Promise rejects on transport
+    // failure. Pre-fix the bare `return` resolved the Promise; callers
+    // doing `await streamDirectorMessage(...)` saw clean completion when
+    // the request actually 4xx/5xx'd. Convention:
+    // docs/architecture/error-handling-conventions.md.
+    throw new Error(`streamDirectorMessage transport failure: ${message}`)
   }
 
   const reader = res.body.getReader()
   const decoder = new TextDecoder()
   let buf = ''
+  // F-94 (round-3 audit): track whether a terminal application-level
+  // event arrived. If the network stream closes without `done` or
+  // `error`, the server crashed mid-stream and we must surface it.
+  let saw_terminator = false
 
   // Read until done.
   while (true) {
@@ -113,11 +122,24 @@ export async function streamDirectorMessage(
       const block = buf.slice(0, sep)
       buf = buf.slice(sep + 2)
       const parsed = parseSseBlock(block)
-      if (parsed) dispatch(parsed, h)
+      if (parsed) {
+        if (parsed.event === 'done' || parsed.event === 'error') saw_terminator = true
+        dispatch(parsed, h)
+      }
       sep = buf.indexOf('\n\n')
     }
   }
   // Any tail buffer is ignored — last event must be `done` per spec.
+
+  // F-94: surface a mid-stream crash. If the server-side route handler
+  // throws or the network is severed before emitting `done`/`error`,
+  // the read loop ends naturally and pre-fix the Promise resolved as
+  // if the stream completed successfully.
+  if (!saw_terminator) {
+    throw new Error(
+      'streamDirectorMessage: stream ended without a terminating `done` or `error` event (server may have crashed mid-stream)',
+    )
+  }
 }
 
 function dispatch(ev: ParsedSseEvent, h: DirectorStreamHandlers) {

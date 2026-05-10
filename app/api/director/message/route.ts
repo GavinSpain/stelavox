@@ -30,6 +30,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { getConfigInt } from '@/lib/config/platform-config'
 import { getProvider } from '@/lib/llm/factory'
 import { computeCostUsd } from '@/lib/llm/cost'
+import { checkTokenBudget } from '@/lib/llm/token-budget'
 import { runAgenticTurn, type TurnEvent } from '@/lib/director/executor'
 import { persistDraftWorkflow } from '@/lib/director/workflow-executor'
 import {
@@ -140,6 +141,43 @@ export async function POST(req: NextRequest): Promise<Response> {
         retry_after_seconds: 60,
       },
       { status: 429 },
+    )
+  }
+
+  // ---- 6.5. Token budget gate (round-3 audit B5.5, F-187) -------------
+  // H-07's stated scope explicitly names "director message" but pre-fix
+  // this route never called checkTokenBudget. A user with depleted
+  // budget could still drive the Director and rack up cost. Estimate
+  // is intentionally generous (worst-case Director turn = many tool
+  // calls + conversation history + response) so the gate is a soft
+  // guard that catches obvious budget exhaustion rather than a precise
+  // accounting (the actual tokens are recorded post-turn via the
+  // existing usage_records pipeline).
+  const { data: org } = await service
+    .from('organisations')
+    .select('id, plan, current_period_start')
+    .eq('id', organisationId)
+    .maybeSingle()
+  if (!org) {
+    return NextResponse.json(
+      { error: 'organisation_not_found', message: 'Org row missing.' },
+      { status: 500 },
+    )
+  }
+  const directorTurnEstimate = await getConfigInt(
+    'agent.director_estimated_tokens_per_turn',
+  )
+  const budgetOk = await checkTokenBudget(
+    { id: org.id, plan: org.plan ?? 'trial', current_period_start: org.current_period_start },
+    directorTurnEstimate,
+  )
+  if (!budgetOk) {
+    return NextResponse.json(
+      {
+        error: 'token_budget_exceeded',
+        message: 'Token budget exhausted for the current period.',
+      },
+      { status: 402 },
     )
   }
 

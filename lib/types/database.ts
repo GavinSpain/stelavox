@@ -312,28 +312,37 @@ export type Database = {
       }
       audit_log: {
         Row: {
+          conversation_id: string | null
           created_at: string
+          document_id: string | null
           event_type: string
           id: string
           metadata: Json | null
+          node_id: string | null
           organisation_id: string | null
           severity: string
           user_id: string | null
         }
         Insert: {
+          conversation_id?: string | null
           created_at?: string
+          document_id?: string | null
           event_type: string
           id?: string
           metadata?: Json | null
+          node_id?: string | null
           organisation_id?: string | null
           severity?: string
           user_id?: string | null
         }
         Update: {
+          conversation_id?: string | null
           created_at?: string
+          document_id?: string | null
           event_type?: string
           id?: string
           metadata?: Json | null
+          node_id?: string | null
           organisation_id?: string | null
           severity?: string
           user_id?: string | null
@@ -1057,10 +1066,10 @@ export type Database = {
           id: string
           metadata: Json | null
           node_id: string
-          notes: string | null
+          notes: Json | null
           organisation_id: string
-          prose: string | null
-          summary: string | null
+          prose: Json | null
+          summary: Json | null
           version: number
         }
         Insert: {
@@ -1071,10 +1080,10 @@ export type Database = {
           id?: string
           metadata?: Json | null
           node_id: string
-          notes?: string | null
+          notes?: Json | null
           organisation_id: string
-          prose?: string | null
-          summary?: string | null
+          prose?: Json | null
+          summary?: Json | null
           version: number
         }
         Update: {
@@ -1085,10 +1094,10 @@ export type Database = {
           id?: string
           metadata?: Json | null
           node_id?: string
-          notes?: string | null
+          notes?: Json | null
           organisation_id?: string
-          prose?: string | null
-          summary?: string | null
+          prose?: Json | null
+          summary?: Json | null
           version?: number
         }
         Relationships: [
@@ -1114,7 +1123,7 @@ export type Database = {
           attachment_count: number
           content_revision: number
           created_at: string
-          created_by: string
+          created_by: string | null
           depth: number
           document_id: string | null
           export_heading_override: string | null
@@ -1122,7 +1131,7 @@ export type Database = {
           export_page_break_before: boolean
           external_ref: string | null
           id: string
-          last_modified_by: string
+          last_modified_by: string | null
           layer_index: number | null
           lock_reason: string | null
           locked: boolean
@@ -1133,16 +1142,16 @@ export type Database = {
           name: string | null
           node_category: string
           node_type: string
-          notes: string | null
+          notes: Json | null
           order: number
           organisation_id: string
           parent_id: string | null
           project_id: string
-          prose: string | null
+          prose: Json | null
           scope: string | null
           short_description: string | null
           status: string
-          summary: string | null
+          summary: Json | null
           tags: string[] | null
           updated_at: string
           version: number
@@ -1154,7 +1163,7 @@ export type Database = {
           attachment_count?: number
           content_revision?: number
           created_at?: string
-          created_by?: string
+          created_by?: string | null
           depth?: number
           document_id?: string | null
           export_heading_override?: string | null
@@ -1162,7 +1171,7 @@ export type Database = {
           export_page_break_before?: boolean
           external_ref?: string | null
           id?: string
-          last_modified_by?: string
+          last_modified_by?: string | null
           layer_index?: number | null
           lock_reason?: string | null
           locked?: boolean
@@ -1173,16 +1182,16 @@ export type Database = {
           name?: string | null
           node_category: string
           node_type: string
-          notes?: string | null
+          notes?: Json | null
           order?: number
           organisation_id: string
           parent_id?: string | null
           project_id: string
-          prose?: string | null
+          prose?: Json | null
           scope?: string | null
           short_description?: string | null
           status?: string
-          summary?: string | null
+          summary?: Json | null
           tags?: string[] | null
           updated_at?: string
           version?: number
@@ -1194,7 +1203,7 @@ export type Database = {
           attachment_count?: number
           content_revision?: number
           created_at?: string
-          created_by?: string
+          created_by?: string | null
           depth?: number
           document_id?: string | null
           export_heading_override?: string | null
@@ -1202,7 +1211,7 @@ export type Database = {
           export_page_break_before?: boolean
           external_ref?: string | null
           id?: string
-          last_modified_by?: string
+          last_modified_by?: string | null
           layer_index?: number | null
           lock_reason?: string | null
           locked?: boolean
@@ -1213,16 +1222,16 @@ export type Database = {
           name?: string | null
           node_category?: string
           node_type?: string
-          notes?: string | null
+          notes?: Json | null
           order?: number
           organisation_id?: string
           parent_id?: string | null
           project_id?: string
-          prose?: string | null
+          prose?: Json | null
           scope?: string | null
           short_description?: string | null
           status?: string
-          summary?: string | null
+          summary?: Json | null
           tags?: string[] | null
           updated_at?: string
           version?: number

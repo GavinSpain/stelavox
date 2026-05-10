@@ -26,7 +26,7 @@
  *   - Context delivery probe passes for all 27 synthesise calls + every refine
  */
 
-import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+import { createClient } from '@supabase/supabase-js'
 import type { Database } from '../lib/types/database'
 
 const APP_URL = process.env.PLAYWRIGHT_APP_URL ?? 'http://localhost:3000'

@@ -16,12 +16,14 @@
 import 'server-only'
 
 import { getConfigString } from '@/lib/config/platform-config'
+import { isByok } from '@/lib/llm/byok'
 import { AnthropicProvider } from '@/lib/llm/providers/anthropic'
 import type { LLMProvider } from '@/lib/llm/types'
 
 /** Subset of organisations row needed by the factory. V2 expands. */
 export interface ProviderResolutionOrg {
   id: string
+  plan?: string | null
   byok_enabled?: boolean | null
   byok_provider?: string | null
   byok_api_key_vault_id?: string | null
@@ -46,8 +48,10 @@ export async function getProvider(
   const modelId =
     organisation.preferred_model_overrides?.[operationType] ?? profileModelId
 
-  // V2 BYOK path (deferred — kept here as a structural marker)
-  // if (organisation.byok_enabled && organisation.byok_api_key_vault_id) { ... }
+  // V2 BYOK path (deferred — kept here as a structural marker).
+  // B6.3 / F-19: BYOK detection routes through `isByok` so the factory's
+  // future BYOK branch agrees with token-budget.ts's bypass.
+  // if (isByok(organisation) && organisation.byok_api_key_vault_id) { ... }
 
   const apiKey = process.env.ANTHROPIC_API_KEY
   if (!apiKey) {

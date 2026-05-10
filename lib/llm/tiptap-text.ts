@@ -46,13 +46,28 @@ const LIST_ITEM_TYPES = new Set([
 
 /**
  * Extract plain text from a Tiptap JSON document.
- * Accepts a JSON string, a JSON object, or null/undefined/empty.
- * Legacy plain-text strings (pre-Tiptap rows) pass through unchanged.
+ * Accepts:
+ *   - A JSON string (legacy TEXT rows pre-Migration 042)
+ *   - A JSON object (post-Migration 042 JSONB rows; supabase-js parses
+ *     JSONB to JS values automatically)
+ *   - null/undefined/empty
+ *   - Any other Json scalar (number/boolean) — coerced via JSON.stringify
+ *     so the model still sees something rather than crashing
+ *
+ * B4.5 (round-3 audit F-269): Migration 042 converted nodes.summary /
+ * nodes.prose / nodes.notes from TEXT to JSONB. supabase-js returns
+ * JSONB columns as the parsed JS value, so this function now sees
+ * objects directly. The string branch is kept for backwards-compat
+ * with code that still hand-stringifies (e.g. workflow-executor).
+ *
+ * Type accepts the broad `Json` union from the generated database
+ * types so all node read sites flow through cleanly.
  */
 export function extractPlainText(
-  input: string | Record<string, unknown> | null | undefined,
+  input: string | number | boolean | Record<string, unknown> | unknown[] | null | undefined,
 ): string {
-  if (!input) return ''
+  if (input === null || input === undefined) return ''
+  if (input === '') return ''
 
   // String input — try to parse as JSON; if that fails, treat as legacy plain text.
   if (typeof input === 'string') {
@@ -63,6 +78,14 @@ export function extractPlainText(
     } catch {
       return input
     }
+  }
+
+  // Number/boolean from the Json union — coerce defensively so callers
+  // don't crash. These shouldn't actually appear in practice (the columns
+  // store Tiptap doc objects), but the type system forces us to handle
+  // them.
+  if (typeof input === 'number' || typeof input === 'boolean') {
+    return String(input)
   }
 
   return walkNode(input as TiptapNode).trim()

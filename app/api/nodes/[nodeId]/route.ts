@@ -23,6 +23,7 @@ import {
   getDocumentMaxLayerIndex, decorateWithLeaf,
 } from '@/lib/data/nodes'
 import { countBackLinks } from '@/lib/data/context-links'
+import { normalizeContent } from '@/lib/editor/serialise'
 
 interface Context { params: Promise<{ nodeId: string }> }
 
@@ -216,8 +217,19 @@ export async function PATCH(request: NextRequest, { params }: Context) {
     const {
       expected_version: expectedVersion,
       expected_content_revision: expectedContentRevision,
-      ...updateFields
+      ...rawUpdateFields
     } = parsed.data
+
+    // B4.5 (round-3 audit F-269): summary / prose / notes columns are now
+    // JSONB. Clients still send JSON-stringified Tiptap docs in the wire
+    // format (the editor-store layer hasn't changed); normalise here so
+    // PostgREST stores actual JSONB objects, not JSONB primitive strings.
+    const updateFields: Record<string, unknown> = { ...rawUpdateFields }
+    for (const k of ['summary', 'prose', 'notes'] as const) {
+      if (k in updateFields) {
+        updateFields[k] = normalizeContent(updateFields[k] as string | null | undefined)
+      }
+    }
 
     const { data: node } = await getNode(supabase, nodeId)
     if (!node) return err.notFound()

@@ -102,11 +102,13 @@ export default function NewProjectDialog() {
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  // Wrapping label associates label text with the wrapped form control,
+  // satisfying axe `label` and `select-name` rules without needing matching id/htmlFor.
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
-      <label style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-secondary)' }}>{label}</label>
+    <label style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
+      <span style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-secondary)' }}>{label}</span>
       {children}
-    </div>
+    </label>
   )
 }
 

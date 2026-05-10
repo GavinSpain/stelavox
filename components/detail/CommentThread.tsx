@@ -106,8 +106,20 @@ export function CommentThread({ nodeId, currentUserId }: Props) {
   async function resolveComment(id: string) {
     setBusy(true)
     try {
-      await fetch(`/api/comments/${id}/resolve`, { method: 'POST' })
+      const r = await fetch(`/api/comments/${id}/resolve`, { method: 'POST' })
+      if (!r.ok) {
+        // F-243 (round-3 audit B3.6): pre-fix this didn't check status —
+        // refresh fired even on a failed resolve, so the UI showed the
+        // same comment unresolved. Convention:
+        // docs/architecture/error-handling-conventions.md.
+        console.error('[CommentThread] resolveComment non-OK', r.status)
+        setError(`Resolve failed (HTTP ${r.status})`)
+      }
       void refresh()
+    } catch (e) {
+      // F-243: pre-fix the catch was missing entirely.
+      console.error('[CommentThread] resolveComment failed', e)
+      setError('Resolve failed (network error)')
     } finally {
       setBusy(false)
     }
@@ -117,8 +129,17 @@ export function CommentThread({ nodeId, currentUserId }: Props) {
     if (!confirm('Delete this comment? Any replies will also be deleted.')) return
     setBusy(true)
     try {
-      await fetch(`/api/comments/${id}`, { method: 'DELETE' })
+      const r = await fetch(`/api/comments/${id}`, { method: 'DELETE' })
+      if (!r.ok) {
+        // F-243 (round-3 audit B3.6): pre-fix non-OK was silent.
+        console.error('[CommentThread] deleteComment non-OK', r.status)
+        setError(`Delete failed (HTTP ${r.status})`)
+      }
       void refresh()
+    } catch (e) {
+      // F-243: pre-fix the catch was missing entirely.
+      console.error('[CommentThread] deleteComment failed', e)
+      setError('Delete failed (network error)')
     } finally {
       setBusy(false)
     }
@@ -213,6 +234,7 @@ export function CommentThread({ nodeId, currentUserId }: Props) {
           </div>
         )}
         <select
+          aria-label="Comment type"
           value={newType}
           onChange={(e) => setNewType(e.target.value as Comment['comment_type'])}
           disabled={busy}

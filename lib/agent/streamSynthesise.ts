@@ -118,12 +118,20 @@ export async function streamSynthesise(
       /* swallow */
     }
     h.onError?.({ error: errorCode, message })
-    return
+    // F-139 (round-3 audit, mirror of F-92): throw so the Promise rejects
+    // on transport failure. Pre-fix the bare `return` resolved the
+    // Promise; callers doing `await streamSynthesise(...)` saw clean
+    // completion when the request actually 4xx/5xx'd.
+    throw new Error(`streamSynthesise transport failure (${errorCode}): ${message}`)
   }
 
   const reader = res.body.getReader()
   const decoder = new TextDecoder()
   let buf = ''
+  // F-94 (round-3 audit, applied by extension to streamSynthesise):
+  // surface a mid-stream crash. The Promise must reject if the server
+  // closes the body without emitting either `done` or `error`.
+  let saw_terminator = false
 
   while (true) {
     const { value, done } = await reader.read()
@@ -134,9 +142,18 @@ export async function streamSynthesise(
       const block = buf.slice(0, sep)
       buf = buf.slice(sep + 2)
       const parsed = parseSseBlock(block)
-      if (parsed) dispatch(parsed, h)
+      if (parsed) {
+        if (parsed.event === 'done' || parsed.event === 'error') saw_terminator = true
+        dispatch(parsed, h)
+      }
       sep = buf.indexOf('\n\n')
     }
+  }
+
+  if (!saw_terminator) {
+    throw new Error(
+      'streamSynthesise: stream ended without a terminating `done` or `error` event (server may have crashed mid-stream)',
+    )
   }
 }
 

@@ -250,7 +250,11 @@ export const ToolInputSchemas = {
   create_comment_step: z
     .object({
       target_node_id: uuidSchema,
-      comment_type: z.enum(['instruction', 'note']),
+      // F-242 (round-3 audit): aligned to the 5-type set the UI exposes.
+      // Pre-fix admitted only 'instruction' | 'note' — Director couldn't
+      // create question/critique/approval comments via workflow-step.
+      // DB CHECK constraint (Migration 046) enforces the same whitelist.
+      comment_type: z.enum(['instruction', 'question', 'note', 'critique', 'approval']),
       content: z.string().min(1).max(5_000),
       description: z.string().min(1).max(2_000),
       estimated_duration_seconds: nonNegativeIntSchema,

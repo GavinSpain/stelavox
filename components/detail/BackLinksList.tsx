@@ -36,14 +36,27 @@ export function BackLinksList({ nodeId }: Props) {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoading(true)
     fetch(`/api/nodes/${nodeId}/back-links`)
-      .then(r => r.ok ? r.json() : null)
+      .then(async r => {
+        if (!r.ok) {
+          // F-238 (round-3 audit B3.6): non-OK was silently treated as
+          // empty list, indistinguishable from genuine empty state.
+          // Surface via console.error so the dev console shows the
+          // failure. Convention:
+          // docs/architecture/error-handling-conventions.md.
+          console.error('[BackLinksList] back-links fetch non-OK', r.status)
+          return null
+        }
+        return r.json()
+      })
       .then(body => {
         if (cancelled) return
         setRows(body?.back_links ?? [])
         setLoading(false)
       })
-      .catch(() => {
+      .catch(e => {
         if (cancelled) return
+        // F-238: network failure was silent. Surface.
+        console.error('[BackLinksList] back-links fetch failed', e)
         setLoading(false)
       })
     return () => { cancelled = true }

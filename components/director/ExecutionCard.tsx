@@ -340,7 +340,7 @@ function StepRow({ step }: { step: WorkflowStepDto }) {
               ? 'var(--color-error, #b83030)'
               : completed
               ? 'var(--color-text-muted)'
-              : 'var(--color-text-disabled)',
+              : 'var(--color-text-muted)',
             fontSize: 12,
             lineHeight: 1.2,
           }}
@@ -358,7 +358,7 @@ function StepRow({ step }: { step: WorkflowStepDto }) {
                 ? 'var(--color-text-primary)'
                 : running
                 ? 'var(--color-text-primary)'
-                : 'var(--color-text-disabled)',
+                : 'var(--color-text-muted)',
               lineHeight: 1.4,
             }}
           >

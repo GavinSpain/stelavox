@@ -37,60 +37,59 @@ export function SidebarContextSection({
 
   return (
     <div data-testid={`sidebar-section-${type}`}>
-      {/* Header — TC-AX-01: role="button", aria-expanded, aria-controls. */}
+      {/* Header — TC-AX-01: a real <button> for the toggle so screen readers
+          and axe nested-interactive accept it. The create-+ button sits as a
+          sibling, not a descendant, to avoid nested interactive controls. */}
       <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          padding: '4px 6px',
-          cursor: 'pointer',
-          borderRadius: '4px',
-        }}
-        // Native <button> would steal layout (icons + count flexed); use
-        // a div with role=button per the standard ARIA pattern.
-        role="button"
-        tabIndex={0}
-        aria-expanded={expanded}
-        aria-controls={sectionId}
-        onClick={onToggle}
-        onKeyDown={e => {
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault()
-            onToggle()
-          }
-        }}
         className="sidebar-section-header"
+        style={{ display: 'flex', alignItems: 'center', borderRadius: '4px' }}
       >
-        <Chevron
-          size={12}
-          color="var(--color-text-muted)"
+        <button
+          type="button"
+          onClick={onToggle}
+          aria-expanded={expanded}
+          aria-controls={sectionId}
           style={{
-            flexShrink: 0,
-            transition: 'transform var(--duration-fast) var(--easing-smooth)',
-          }}
-        />
-        <span
-          style={{
-            marginLeft: 6,
-            fontSize: 'var(--text-xs)',
-            color: 'var(--color-text-muted)',
-            textTransform: 'uppercase',
-            letterSpacing: '0.05em',
+            display: 'flex',
+            alignItems: 'center',
             flex: 1,
+            padding: '4px 6px',
+            background: 'none',
+            border: 'none',
+            cursor: 'pointer',
+            textAlign: 'left',
+            font: 'inherit',
+            color: 'inherit',
           }}
         >
-          {label}
-          <span style={{ marginLeft: 6, opacity: 0.7 }}>
-            ({nodes.length})
+          <Chevron
+            size={12}
+            color="var(--color-text-muted)"
+            style={{
+              flexShrink: 0,
+              transition: 'transform var(--duration-fast) var(--easing-smooth)',
+            }}
+          />
+          <span
+            style={{
+              marginLeft: 6,
+              fontSize: 'var(--text-xs)',
+              color: 'var(--color-text-muted)',
+              textTransform: 'uppercase',
+              letterSpacing: '0.05em',
+              flex: 1,
+            }}
+          >
+            {label}
+            <span style={{ marginLeft: 6 }}>
+              ({nodes.length})
+            </span>
           </span>
-        </span>
+        </button>
         {/* + button — only visible on hover via CSS sibling rule below */}
         <button
           type="button"
-          onClick={e => {
-            e.stopPropagation()
-            onCreateClick()
-          }}
+          onClick={onCreateClick}
           aria-label={`Create new ${label.toLowerCase().replace(/s$/, '')}`}
           className="sidebar-section-create"
           style={{
@@ -99,6 +98,7 @@ export function SidebarContextSection({
             cursor: 'pointer',
             color: 'var(--color-text-muted)',
             padding: 2,
+            marginRight: 6,
             display: 'flex',
             alignItems: 'center',
             opacity: 0,
@@ -126,7 +126,7 @@ export function SidebarContextSection({
             <li
               style={{
                 fontSize: 'var(--text-xs)',
-                color: 'var(--color-text-disabled)',
+                color: 'var(--color-text-muted)',
                 padding: '4px 6px',
                 fontStyle: 'italic',
               }}
@@ -176,7 +176,7 @@ export function SidebarContextSection({
                   <span
                     style={{
                       fontSize: 'var(--text-xs)',
-                      color: 'var(--color-text-disabled)',
+                      color: 'var(--color-text-muted)',
                       letterSpacing: '0.05em',
                     }}
                     title="Document-scoped"

@@ -12,6 +12,7 @@ import { err } from '@/lib/api/errors'
 import { isValidUuid } from '@/lib/validation/uuid'
 import { nodePostSchema } from '@/lib/validation/nodes'
 import { getDocument } from '@/lib/data/documents'
+import { normalizeContent } from '@/lib/editor/serialise'
 import {
   createNode, getNode, listNodes,
   getDocumentMaxLayerIndex, decorateWithLeaf,
@@ -176,9 +177,11 @@ export async function POST(request: NextRequest, { params }: Context) {
       short_description: parsed.data.short_description ?? null,
       agent_instruction: parsed.data.agent_instruction ?? null,
       word_count_target: parsed.data.word_count_target ?? null,
-      summary:           parsed.data.summary ?? null,
-      prose:             parsed.data.prose ?? null,
-      notes:             parsed.data.notes ?? null,
+      // B4.5 (round-3 audit F-269): normalise string-encoded Tiptap docs
+      // to JSONB objects before INSERT.
+      summary:           normalizeContent(parsed.data.summary) as never,
+      prose:             normalizeContent(parsed.data.prose) as never,
+      notes:             normalizeContent(parsed.data.notes) as never,
       metadata:          (parsed.data.metadata ?? {}) as never,
       status:            'draft',
       version:           1,

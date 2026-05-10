@@ -202,16 +202,29 @@ export function NodeDetailPanel({ nodeId, refreshKey, onMutated, onClose }: Node
     const trimmed = next.trim()
     if (!trimmed || trimmed === node.name) { setEditing(false); return }
     setEditing(false)
-    const r = await fetch(`/api/nodes/${nodeId}`, {
-      method: 'PATCH',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ name: trimmed }),
-    })
+    let r: Response
+    try {
+      r = await fetch(`/api/nodes/${nodeId}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ name: trimmed }),
+      })
+    } catch (e) {
+      // F-220 (round-3 audit B3.6): network failure was silent. Surface
+      // to the dev console at minimum. UI toast is Phase 7 polish per
+      // docs/architecture/error-handling-conventions.md (this component
+      // doesn't currently consume useToast).
+      console.error('[NodeDetailPanel] rename network failure', e)
+      return
+    }
     if (r.ok) {
       const body = await r.json()
       setNode(body.node as NodeRecord)
       onMutated?.()
+      return
     }
+    // F-220: non-OK was silent. Surface to the dev console.
+    console.error('[NodeDetailPanel] rename non-OK', r.status)
   }
 
   async function changeStatus(status: string) {
@@ -359,6 +372,7 @@ export function NodeDetailPanel({ nodeId, refreshKey, onMutated, onClose }: Node
             <NodeStatusBadge status={node.status} />
             <select
               data-testid="status-select"
+              aria-label="Status"
               value={node.status}
               onChange={(e) => changeStatus(e.target.value)}
               style={{

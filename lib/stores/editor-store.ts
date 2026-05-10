@@ -60,6 +60,16 @@ interface EditorState {
   inflight: Promise<void> | null
   conflictCurrent: NodeRecord | null
   lockedReason: LockedReason
+  // F-170 / F-171 / F-172 (round-3 audit B3.4): autosave save-error
+  // surface. Pre-fix the store was silent on (a) `patchNode` throw
+  // (network error), (b) non-200/409/423 responses, (c) reloadFromServer
+  // !res.ok. The user kept typing with `dirty=true` and no signal that
+  // anything had failed. This field is set on each of those failure
+  // paths and cleared on the next successful save. The UI banner that
+  // consumes it is a separate Phase 7 polish; Phase 3's job is to stop
+  // the silence at the data layer. Convention:
+  // docs/architecture/error-handling-conventions.md.
+  saveError: string | null
 
   // Actions
   loadNode: (node: NodeRecord) => void
@@ -242,8 +252,14 @@ export const useEditorStore = create<EditorState>((set, get) => {
       let result: { status: number; data: unknown }
       try {
         result = await patchNode(targetNodeId, body)
-      } catch {
-        // Network error — stay dirty, retry on next setField fire.
+      } catch (e) {
+        // F-170: surface the network failure. Pre-fix this was a silent
+        // bare `return` — dirty stayed true with no signal to the user.
+        // Stay dirty (autosave will retry on the next setField), but
+        // record the error so the UI banner can render.
+        const message = e instanceof Error ? e.message : 'network error'
+        console.error('[editor-store] autosave network failure:', e)
+        set({ saveError: `Save failed (network): ${message}` })
         return
       }
 
@@ -269,6 +285,7 @@ export const useEditorStore = create<EditorState>((set, get) => {
             dirty: false,
             conflictCurrent: null,
             lockedReason: null,
+            saveError: null,  // F-170/171: clear any prior save error.
           })
         } else if (stillOn) {
           // User typed during inflight. The captured edits are saved but
@@ -279,6 +296,7 @@ export const useEditorStore = create<EditorState>((set, get) => {
             expectedContentRevision: newRevision,
             conflictCurrent: null,
             lockedReason: null,
+            saveError: null,  // F-170/171: clear any prior save error.
           })
           captureShadow()
         }
@@ -304,9 +322,17 @@ export const useEditorStore = create<EditorState>((set, get) => {
         return
       }
 
-      // Other 4xx/5xx: leave dirty so a future setField will retry, but
-      // don't surface a banner here — this is the silent-on-other-errors
-      // policy. The conflict / lock banners are the only autosave UI.
+      // F-171 (round-3 audit): other 4xx/5xx (422 / 500 / 503 / etc.) —
+      // leave dirty so a future setField will retry, AND record a
+      // saveError so the UI banner can render. Pre-fix this was the
+      // "silent-on-other-errors policy" that left users typing into a
+      // tight retry loop with no signal.
+      if (stillOn) {
+        const errInfo = result.data as { error?: string; message?: string } | null
+        const detail = errInfo?.message ?? errInfo?.error ?? `HTTP ${result.status}`
+        console.error('[editor-store] autosave error response', result.status, errInfo)
+        set({ saveError: `Save failed (${result.status}): ${detail}` })
+      }
     })()
 
     set({ inflight: promise })
@@ -353,6 +379,7 @@ export const useEditorStore = create<EditorState>((set, get) => {
     inflight: null,
     conflictCurrent: null,
     lockedReason: null,
+    saveError: null,
 
     loadNode: (node: NodeRecord) => {
       clearDebounce()
@@ -463,10 +490,27 @@ export const useEditorStore = create<EditorState>((set, get) => {
       const s = get()
       if (!s.nodeId) return
       const targetId = s.nodeId
-      const res = await fetch(`/api/nodes/${targetId}`, {
-        headers: { 'content-type': 'application/json' },
-      })
-      if (!res.ok) return
+      let res: Response
+      try {
+        res = await fetch(`/api/nodes/${targetId}`, {
+          headers: { 'content-type': 'application/json' },
+        })
+      } catch (e) {
+        // F-172 (round-3 audit): network failure during reload — surface
+        // it. Pre-fix the catch-less await would have thrown to the
+        // caller (acceptCurrent / keepMine) which themselves had no
+        // surface. Now record a saveError; reload-from-server is a
+        // recovery path so failure must not be silent.
+        console.error('[editor-store] reloadFromServer fetch failed:', e)
+        set({ saveError: `Reload failed (network): ${e instanceof Error ? e.message : 'unknown'}` })
+        return
+      }
+      if (!res.ok) {
+        // F-172: surface unrecoverable response.
+        console.error('[editor-store] reloadFromServer non-OK', res.status)
+        set({ saveError: `Reload failed (HTTP ${res.status})` })
+        return
+      }
       const body = await res.json()
       const node = body?.node as NodeRecord | undefined
       if (!node || get().nodeId !== targetId) return

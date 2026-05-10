@@ -12,8 +12,15 @@
  *   2. workflows with status='running' whose last_heartbeat_at is older
  *      than workflow.heartbeat_timeout_ms (default 300s) → marked
  *      paused with error_message='heartbeat_timeout'.
- *   3. conversation_messages with turn_state='interim' whose updated_at
+ *   3. conversation_messages with turn_state='interim' whose created_at
  *      is older than agent.heartbeat_timeout_ms → marked 'interrupted'.
+ *      (F-196 round-3 audit fix: comment originally said 'updated_at'
+ *      but conversation_messages has no updated_at column. The
+ *      created_at filter sweeps interim rows by their dispatch age.
+ *      A long-running streaming Director turn that produces text
+ *      successfully for >timeout would still be flagged stuck — that's
+ *      a known limitation. Pre-fix the comment lied; now it documents
+ *      the actual behavior.)
  *
  * For each newly-failed agent_job whose triggered_by encodes a
  * workflow_step, calls advanceWorkflow() so the workflow transitions

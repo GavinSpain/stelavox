@@ -114,15 +114,26 @@
   /* Sidebar */
   --sidebar:                       var(--color-bg-surface);
   --sidebar-foreground:            var(--color-text-primary);
-  --sidebar-primary:               var(--color-accent);
+  /* F-251 (round-3 audit): pre-fix --sidebar-primary aliased
+   * --color-accent, which silently propagated verdigris to any shadcn
+   * Sidebar component using the token — a "verdigris backdoor" that
+   * bypassed Inviolable #2's enumeration. Remapped to text-primary
+   * for a neutral active-state colour. Stelavox doesn't use the
+   * shadcn Sidebar component today (the project's sidebar is custom),
+   * so this alias is precautionary. */
+  --sidebar-primary:               var(--color-text-primary);
   --sidebar-primary-foreground:    #ecf0f5;
   --sidebar-accent:                var(--color-bg-hover);
   --sidebar-accent-foreground:     var(--color-text-primary);
   --sidebar-border:                var(--color-border-subtle);
   --sidebar-ring:                  var(--color-border-strong);
 
-  /* Charts — mapped to our status/semantic colours */
-  --chart-1: var(--color-accent);
+  /* Charts — mapped to our status/semantic colours.
+   * F-251 (round-3 audit): pre-fix --chart-1 aliased --color-accent
+   * (the verdigris brand colour). Same backdoor concern as
+   * --sidebar-primary above. Remapped to text-primary. Stelavox
+   * doesn't currently render shadcn charts; this is precautionary. */
+  --chart-1: var(--color-text-primary);
   --chart-2: var(--color-info);
   --chart-3: var(--color-warning);
   --chart-4: var(--color-error);

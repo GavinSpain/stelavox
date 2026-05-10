@@ -69,22 +69,31 @@ async function main() {
   if (projErr || !project) throw new Error(`project create: ${projErr?.message}`)
   console.log(`   project: ${project.id}`)
 
-  // Create document via the RPC (handles layer_stack + root node)
+  // Create document via the RPC (handles layer_stack + root node).
+  // F-253 (round-3 audit): pre-fix called this with `p_title`,
+  // `p_root_node_name`, `p_root_node_summary` — none of which exist on
+  // the RPC. The actual signature is documented in Migrations
+  // 015/017/018/020: p_project_id / p_organisation_id / p_name /
+  // p_description / p_document_type / p_authors. Returns a JSONB
+  // object with `document.id`, `layer_stack.id`, and `root_node.id`.
   const { data: docResult, error: docErr } = await supabase.rpc(
     'create_document_with_layer_stack',
     {
       p_project_id: project.id,
       p_organisation_id: orgId,
+      p_name: 'Smoke Novel',
+      p_description: 'A disgraced magistrate\'s daughter, exiled to the northern coast, discovers her father\'s old ledger and must decide whether to expose his complicity in a thirty-year-old shipwreck.',
       p_document_type: 'novel',
-      p_title: 'Smoke Novel',
-      p_root_node_name: 'The Northern Light',
-      p_root_node_summary: 'A disgraced magistrate\'s daughter, exiled to the northern coast, discovers her father\'s old ledger and must decide whether to expose his complicity in a thirty-year-old shipwreck.',
+      p_authors: [],
     },
   )
   if (docErr || !docResult) throw new Error(`document create: ${docErr?.message}`)
-  const r = Array.isArray(docResult) ? docResult[0] : docResult
-  const documentId = r?.document_id ?? r?.out_document_id
-  const bookNodeId = r?.root_node_id ?? r?.out_root_node_id
+  const r = docResult as unknown as {
+    document?: { id: string }
+    root_node?: { id: string }
+  }
+  const documentId = r.document?.id
+  const bookNodeId = r.root_node?.id
   if (!documentId || !bookNodeId) throw new Error(`document RPC missing IDs: ${JSON.stringify(r)}`)
   console.log(`   document: ${documentId}`)
   console.log(`   book node: ${bookNodeId}`)

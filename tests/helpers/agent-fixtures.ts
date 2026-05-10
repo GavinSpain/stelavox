@@ -205,9 +205,15 @@ export async function getUserId(email: string): Promise<string> {
   return u.id
 }
 
+// H-01 + silent-failure (round-3 audit F-259): use .maybeSingle() so a
+// user without an organisation_members row returns clean null rather
+// than the PGRST116 error path; throw an informative error naming the
+// email instead of the prior `data!` non-null-assertion's cryptic
+// "Cannot read properties of null" crash.
 export async function getOrgIdForUser(email: string): Promise<string> {
   const userId = await getUserId(email)
   const { data } = await adminClient()
-    .from('organisation_members').select('organisation_id').eq('user_id', userId).single()
-  return data!.organisation_id
+    .from('organisation_members').select('organisation_id').eq('user_id', userId).maybeSingle()
+  if (!data) throw new Error(`getOrgIdForUser: user ${email} has no organisation_members row`)
+  return data.organisation_id
 }

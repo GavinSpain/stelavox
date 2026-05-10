@@ -28,6 +28,8 @@ import 'server-only'
 import type { SupabaseClient } from '@supabase/supabase-js'
 
 import { getConfigInt } from '@/lib/config/platform-config'
+import { escapeXml } from '@/lib/security/escape-xml'
+import { wrapContextWithSecurityFrame } from '@/lib/security/security-frame'
 import type { LLMProvider } from '@/lib/llm/types'
 
 // ---------------------------------------------------------------------------
@@ -295,12 +297,28 @@ export async function summariseConversation(
   const oldest = messages.slice(0, midpoint)
   const lastSequence = oldest[oldest.length - 1]?.sequence as number | undefined
 
-  const promptBody = oldest
-    .map((m) => `${m.role.toUpperCase()}: ${m.content}`)
+  // B5.3 (round-3 audit F-95): the summariser used to pass `promptBody`
+  // raw — no escapeXml, no <user_data> wrap, no security frame. A
+  // user-injected message reached the summariser verbatim, and any
+  // injected instructions then *persisted* in `conversation_summary`
+  // for re-inclusion in future Director context (a long-term injection
+  // vector). Fix: route through the same security pipeline the agent
+  // assembler uses — escapeXml every message field, wrap the whole
+  // body in <user_data>, prepend the security header.
+  //
+  // The stable system text is the summariser's own instructions and
+  // never contains user content; it doesn't need wrapping itself, but
+  // it gets the security header so the model's interpretation rules
+  // are explicit.
+  const escapedBody = oldest
+    .map((m) => `${escapeXml(m.role.toUpperCase())}: ${escapeXml(m.content as string ?? '')}`)
     .join('\n\n')
+  const wrappedDynamic = `<user_data>\n${escapedBody}\n</user_data>`
 
   const systemText =
     'You are summarising the earlier half of a Director conversation between an author and the Stelavox Director assistant. Produce a compact summary capturing: key decisions made, content the Director read about, plans approved/cancelled, and any open threads. Output plain prose only — no JSON, no headings. Keep under 600 words.'
+
+  const framed = wrapContextWithSecurityFrame(systemText, wrappedDynamic)
 
   const summaryResponse = await provider.complete({
     stable: {
@@ -308,13 +326,13 @@ export async function summariseConversation(
       ancestors: '',
       contextNodes: '',
       styleGuide: '',
-      securityWrapped: systemText,
+      securityWrapped: framed.stable,
     },
     dynamic: {
       currentNode: '',
       agentInstruction: '',
       editorialComments: '',
-      securityWrapped: promptBody,
+      securityWrapped: framed.dynamic,
     },
     config: {
       model: modelId,

@@ -33,10 +33,18 @@ const LINK_SELECT = [
 
 // ─── createContextLink ───────────────────────────────────────────────────
 
-// INSERT a structural→context link. Returns the inserted row; on UNIQUE
-// constraint violation the maybeSingle resolves to data: null (the route
-// then issues a follow-up SELECT to fetch the existing row for the 409
-// `link_already_exists` response per §2.3).
+// INSERT a structural→context link. Returns the inserted row.
+//
+// On UNIQUE constraint violation the wrapper returns the PostgREST error
+// (code '23505') in the `error` field, NOT data:null — UNIQUE violation
+// is an error, not a zero-row return, regardless of whether the terminal
+// is .single() or .maybeSingle(). The route catches the 23505 error and
+// then issues a follow-up findExistingLink() SELECT to fetch the existing
+// row for the 409 `link_already_exists` response per §2.3.
+//
+// Round-3 audit F-163: the prior comment described non-existent
+// `.maybeSingle()` zero-row semantics for the UNIQUE-violation case;
+// the actual mechanism is the 23505 error path described above.
 export async function createContextLink(
   supabase: Client,
   sourceNodeId:   string,
@@ -49,6 +57,7 @@ export async function createContextLink(
     organisation_id: organisationId,
     link_type:       'structural_to_context',
   }
+  // eslint-disable-next-line no-restricted-syntax -- INSERT validation: 0 rows is genuinely an error here. UNIQUE-violation surfaces via the 23505 error path (route catches and issues findExistingLink).
   return supabase
     .from('node_context_links')
     .insert(insert)

@@ -72,6 +72,46 @@ const useStore = create<AgentJobsState>((set) => ({
   clear: () => set({ jobs: {} }),
 }))
 
+// F-201 (round-3 audit B3.5): real-time subscription error surface.
+// Pre-fix the `.subscribe()` had no callback; if the channel errored
+// (network drop, broker timeout) the subscription dropped silently and
+// the UI saw no events arrive without any error indication. This store
+// holds the error so a future Phase 7 banner can render. Convention:
+// docs/architecture/error-handling-conventions.md.
+interface AgentJobsErrorState {
+  realtimeError: string | null
+  setRealtimeError: (msg: string | null) => void
+}
+
+export const useAgentJobsErrorStore = create<AgentJobsErrorState>((set) => ({
+  realtimeError: null,
+  setRealtimeError: (msg) => set({ realtimeError: msg }),
+}))
+
+// Subscription-status handler. Exported for direct testing without
+// having to render the hook in a React tree. The Supabase real-time
+// status values are documented in @supabase/supabase-js.
+export function handleRealtimeStatus(
+  status: string,
+  err: Error | undefined,
+): void {
+  if (status === 'SUBSCRIBED') {
+    // Clear any stale error from a prior connection.
+    useAgentJobsErrorStore.getState().setRealtimeError(null)
+    return
+  }
+  if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+    const detail = err?.message ?? `agent-jobs realtime ${status}`
+    console.error('[realtime/agent-jobs]', status, err ?? '(no error object)')
+    useAgentJobsErrorStore.getState().setRealtimeError(
+      status === 'TIMED_OUT' ? `Live updates timed out: ${detail}` :
+      status === 'CLOSED' ? `Live updates connection closed: ${detail}` :
+      `Live updates error: ${detail}`,
+    )
+  }
+  // Other statuses (e.g. internal CONNECTING) are not actionable.
+}
+
 /**
  * Mount once at the AppShell level. Subscribes to the org's agent_jobs
  * channel and pipes all events into the Zustand store. Returns nothing.
@@ -108,7 +148,10 @@ export function useAgentJobsRealtime(organisationId: string | null): void {
       data.forEach((row) => upsertJob(row as unknown as AgentJob))
     })()
 
-    // Subscribe to all changes for this org's agent_jobs
+    // Subscribe to all changes for this org's agent_jobs.
+    // F-201 (round-3 audit B3.5): wired the subscribe-status callback so
+    // CHANNEL_ERROR / TIMED_OUT / CLOSED don't drop silently. See
+    // handleRealtimeStatus above.
     const channel = supabase
       .channel(`agent-jobs:${organisationId}`)
       .on(
@@ -123,7 +166,7 @@ export function useAgentJobsRealtime(organisationId: string | null): void {
           }
         },
       )
-      .subscribe()
+      .subscribe(handleRealtimeStatus)
 
     return () => {
       cancelled = true

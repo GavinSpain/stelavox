@@ -18,7 +18,7 @@
  * don't need to wait for the actual scheduled invocation.
  */
 
-import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+import { createClient } from '@supabase/supabase-js'
 import type { Database } from '../lib/types/database'
 
 const APP_URL = process.env.PLAYWRIGHT_APP_URL ?? 'http://localhost:3000'
@@ -159,10 +159,9 @@ async function main() {
   }
 
   // ── Test 2 — stalled workflow → cron sweep pauses it ────────────────
-  // Need a conversation_id since workflows.conversation_id is FK to
-  // director_conversations
+  // Need a conversation_id since workflows.conversation_id is FK to conversations
   const { data: conv } = await admin
-    .from('director_conversations')
+    .from('conversations')
     .insert({ organisation_id: ctx.orgId, document_id: ctx.documentId })
     .select('id')
     .single()

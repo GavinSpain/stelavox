@@ -257,7 +257,6 @@ function NodeTreeInner({ documentId, documentType, onSelect, refreshKey }: NodeT
       }}
     >
       <div
-        role="tree"
         style={{
           background: 'var(--color-bg-base)',
           padding: '8px 0',

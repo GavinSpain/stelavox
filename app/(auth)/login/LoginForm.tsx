@@ -101,7 +101,7 @@ export default function LoginForm() {
         )}
         <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-secondary)' }}>
           No account?{' '}
-          <Link href="/signup" style={{ color: 'var(--color-text-primary)' }}>Create one</Link>
+          <Link href="/signup" style={{ color: 'var(--color-text-primary)', textDecoration: 'underline' }}>Create one</Link>
         </p>
       </div>
     </>

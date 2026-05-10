@@ -11,7 +11,7 @@
  *      correct end state in the DB and in both tabs.
  */
 
-import { chromium, type BrowserContext, type Page } from 'playwright'
+import { chromium, type Page } from 'playwright'
 import { createClient } from '@supabase/supabase-js'
 import type { Database } from '../lib/types/database'
 
@@ -132,7 +132,11 @@ async function readSummary(beatId: string): Promise<string | null> {
     .select('summary')
     .eq('id', beatId)
     .single()
-  return data?.summary ?? null
+  // B4.5: nodes.summary is now JSONB — supabase-js returns the parsed
+  // object. Stringify it for this script's display purposes (it just
+  // logs the raw stored value).
+  if (data?.summary === null || data?.summary === undefined) return null
+  return typeof data.summary === 'string' ? data.summary : JSON.stringify(data.summary)
 }
 
 async function navigateAndOpenContent(page: Page, projectId: string, documentId: string, beatId: string): Promise<void> {

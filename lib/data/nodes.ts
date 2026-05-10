@@ -53,30 +53,62 @@ type NodeUpdate = Database['public']['Tables']['nodes']['Update']
 //
 // We expose the layer-count fetch as a helper so list endpoints can fetch
 // once per document and decorate every row, instead of N queries.
+//
+// Round-3 audit F-152 + F-160: the function previously returned `null` on
+// every data-integrity failure (no layer_stacks row, empty layers array,
+// missing or non-numeric `index` field). decorateWithLeaf turned every
+// such null into is_leaf=false silently — leaf-only UI affordances
+// disappeared with no error to the user. The fix throws clearly at this
+// layer instead. Per TA H-14, every document MUST have a non-template
+// layer_stacks row; not finding one is a data integrity violation worth
+// surfacing as 500 at the route layer.
+//
+// Route callers that pass document_id=null for context nodes never call
+// this function; they pass null directly to decorateWithLeaf. That path
+// is unchanged and still legitimate.
 
 export async function getDocumentMaxLayerIndex(
   supabase: Client,
   documentId: string,
-): Promise<number | null> {
+): Promise<number> {
   const { data } = await supabase
     .from('layer_stacks')
     .select('layers')
     .eq('document_id', documentId)
     .eq('is_template', false)
     .maybeSingle()
-  if (!data?.layers) return null
-  const layers = data.layers as Array<{ index?: number }>
-  if (!Array.isArray(layers) || layers.length === 0) return null
-  // Defensive: layers should be 0-indexed contiguous, so length-1 IS the max.
-  // We compute via Math.max for robustness against any future out-of-band
-  // insertion / non-contiguity.
-  return Math.max(...layers.map(l => l.index ?? 0))
+  if (!data?.layers) {
+    throw new Error(
+      `getDocumentMaxLayerIndex: no non-template layer_stacks row for document '${documentId}' (data integrity / H-14 violation)`,
+    )
+  }
+  const layers = data.layers as Array<{ index?: unknown }>
+  if (!Array.isArray(layers) || layers.length === 0) {
+    throw new Error(
+      `getDocumentMaxLayerIndex: layer_stacks.layers is empty or non-array for document '${documentId}'`,
+    )
+  }
+  // F-160: validate every layer has a numeric `index` field. The previous
+  // implementation used `l.index ?? 0` which silently masked malformed
+  // data as a 0 max-index, making every non-root node appear non-leaf.
+  const indices = layers.map((l, i) => {
+    if (typeof l.index !== 'number' || !Number.isFinite(l.index)) {
+      throw new Error(
+        `getDocumentMaxLayerIndex: layer at position ${i} for document '${documentId}' has invalid 'index' field (got ${typeof l.index})`,
+      )
+    }
+    return l.index
+  })
+  return Math.max(...indices)
 }
 
 export function decorateWithLeaf<T extends NodeRow>(
   node: T,
   maxLayerIndex: number | null,
 ): T & { is_leaf: boolean } {
+  // null is the legitimate context-node path — route callers that pass
+  // document_id=null skip the lookup and pass null here. Context nodes
+  // have no leaf-ness in the structural sense; is_leaf=false is correct.
   const is_leaf = maxLayerIndex !== null && node.layer_index === maxLayerIndex
   return { ...node, is_leaf }
 }
@@ -104,6 +136,7 @@ export async function createNode(
   supabase: Client,
   fields: NodeInsert,
 ): Promise<PostgrestSingleResponse<NodeRow>> {
+  // eslint-disable-next-line no-restricted-syntax -- INSERT validation: 0 rows is genuinely an error here (RLS denial / FK violation).
   return supabase
     .from('nodes')
     .insert(fields)
@@ -144,17 +177,23 @@ export async function getNode(
     .maybeSingle() as unknown as PostgrestMaybeSingleResponse<NodeRow>
 }
 
+// H-01 (round-3 audit F-155): .maybeSingle() — zero rows is a valid
+// outcome here (concurrent delete between the route's pre-check and
+// this UPDATE). Caller MUST treat data === null as not_found. The
+// `updateNodeOptimistic` and `updateNodeOptimisticByContentRevision`
+// variants below already use `.maybeSingle()` for the same reason —
+// this aligns the non-optimistic path with the rest of the file.
 export async function updateNode(
   supabase: Client,
   nodeId: string,
   fields: NodeUpdate,
-): Promise<PostgrestSingleResponse<NodeRow>> {
+): Promise<PostgrestMaybeSingleResponse<NodeRow>> {
   return supabase
     .from('nodes')
     .update({ ...fields, updated_at: new Date().toISOString() })
     .eq('id', nodeId)
     .select(NODE_SELECT)
-    .single() as unknown as PostgrestSingleResponse<NodeRow>
+    .maybeSingle() as unknown as PostgrestMaybeSingleResponse<NodeRow>
 }
 
 // Phase 3 (T-4.3): atomic optimistic-concurrency UPDATE.
@@ -253,6 +292,7 @@ export async function createContextNode(
     status:            'draft',
     version:           1,
   }
+  // eslint-disable-next-line no-restricted-syntax -- INSERT validation: 0 rows is genuinely an error here (RLS denial / FK violation / scope-document_id consistency).
   return supabase
     .from('nodes')
     .insert(insert)
@@ -307,6 +347,16 @@ export async function listContextNodesByProject(
   } else if (f.documentId !== undefined) {
     // No scope filter; document_id supplied → return project-scoped + this
     // document's document-scoped (the inheritance-aware default per G-3).
+    //
+    // F-156 (round-3 audit): assert UUID format before the string-
+    // interpolated PostgREST .or() filter. Today the route layer's
+    // isValidUuid() is the only guard; defence-in-depth at the wrapper
+    // ensures a non-UUID documentId can never reach the .or()
+    // expression where it could break the filter parser or alter
+    // matching semantics.
+    if (!/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(f.documentId)) {
+      throw new Error(`listContextNodesByProject: documentId is not a valid UUID: ${f.documentId}`)
+    }
     query = query.or(`scope.eq.project,and(scope.eq.document,document_id.eq.${f.documentId})`)
   }
 

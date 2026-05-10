@@ -31,6 +31,9 @@ export function ProseEditor({ value, onChange, mode, readOnly = false, wordTarge
     editable: !readOnly,
     // Tiptap v3 SSR safety — see SummaryEditor.tsx for rationale.
     immediatelyRender: false,
+    editorProps: {
+      attributes: { role: 'textbox', 'aria-multiline': 'true', 'aria-label': 'Prose' },
+    },
     onUpdate: ({ editor: e }) => {
       onChange(toStorage(e))
     },

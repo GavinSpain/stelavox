@@ -23,7 +23,7 @@ export function FocusEscHint() {
         fontWeight: 300,
         fontSize: '10px',
         letterSpacing: '0.12em',
-        color: 'var(--color-text-disabled)',
+        color: 'var(--color-text-muted)',
         opacity,
         pointerEvents: 'none',
         // --duration-slow per spec; falls back to 1200ms

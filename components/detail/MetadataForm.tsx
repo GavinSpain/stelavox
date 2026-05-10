@@ -183,7 +183,7 @@ function FieldRow({
           style={{
             fontSize: '11px',
             fontFamily: 'var(--font-inter), Inter, sans-serif',
-            color: 'var(--color-text-disabled)',
+            color: 'var(--color-text-muted)',
           }}
         >
           {field.description}
