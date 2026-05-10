@@ -24,7 +24,7 @@ Tracking file for the 7-phase remediation against [10-remediation-plan.md](10-re
 | 0 — Setup | 0 | — | — | done |
 | 1 — Pattern fixes | 4 | 3 + 1 deferred | 7 | done (B1.4 deferred to Phase 8) |
 | 2 — Root-cause cascades | 3 | 2 (B2.2+B2.3 merged) | 4 | in-progress (B2.2+B2.3 done) |
-| 3 — Silent-failure | 6+ | 5 (B3.1-B3.5) | 9 | in-progress (B3.5 done) |
+| 3 — Silent-failure | 6+ | 6 (B3.1-B3.6) | 17 | done |
 | 4 — DB constraints | 5 | 0 | 0 | open |
 | 5 — Security + audit_log | 7 | 0 | 0 | open |
 | 6 — Two-source-of-truth | 4–5 | 0 | 0 | open |
@@ -34,6 +34,26 @@ Tracking file for the 7-phase remediation against [10-remediation-plan.md](10-re
 ---
 
 ## Batch log
+
+### Batch B3.6 — Component-layer fetch silences (F-220, F-238, F-239, F-240, F-243, F-247, F-248, F-250)
+
+- **Phase:** 3
+- **Findings closed:** F-220, F-238, F-239, F-240, F-243, F-247, F-248, F-250 (8 of the 10 plan-listed sites)
+- **Plan composition error #5:** F-237 (memory leak — different category) and F-244 (wrong-semantics, not silent-failure) were listed in the plan but don't fit this batch's theme. Logged as Phase-8 / separate-batch follow-ups.
+- **Test-feasibility:** structural per the protocol's structural-finding honesty exception. Each of these is an inline component-level fetch handler — unit-testing requires React Testing Library setup which is not in the test infrastructure today. The change shape is consistent across all sites (replace silent return / catch-with-no-op with a console.error naming the component) and verified by code review against the conventions doc + existing Playwright UI suites.
+- **Sites changed:**
+  - `components/detail/NodeDetailPanel.tsx` — submitName: catch network + check r.ok (F-220)
+  - `components/detail/BackLinksList.tsx` — back-links GET: console.error on non-OK and on .catch (F-238)
+  - `components/detail/ContextLinker.tsx` — context-links GET: console.error on both paths (F-239)
+  - `components/detail/NodePicker.tsx` — context-nodes GET: console.error on both paths (F-240)
+  - `components/detail/CommentThread.tsx` — resolveComment + deleteComment: r.ok check + setError + catch (F-243)
+  - `components/tree/NodeMoreMenu.tsx` — rename + del + setStatus: console.error on non-OK + catch (F-247)
+  - `components/focus/FocusMode.tsx` — siblings GET: console.error on both paths (F-248)
+  - `components/context/ContextCreateModal.tsx` — documents GET: console.error on both paths (F-250)
+- **UI toast / banner deferred:** the components don't currently consume `useToast()`. Per Phase 3's scope ("stop the silence at the data layer") console.error is the minimum surface; consistent toast UI is a Phase 7 polish item. The conventions doc documents this trade-off.
+- **Completed:** 2026-05-10
+- **Status:** resolved
+- **Verification gates:** type-check ✓ • lint ✓ • vitest 147/147 ✓ • build ✓ • Playwright UI (tree_more_menu, context_linker, focus-mode) 10/10 ✓
 
 ### Batch B3.5 — useAgentJobsRealtime WebSocket error handler (F-201)
 
@@ -205,8 +225,16 @@ This section is a one-line-per-finding ledger. Updated when a finding's status c
 | F-171 | lib/stores/editor-store.ts | resolved | B3.4 | non-200/409/423 responses set saveError (was silent-on-other-errors policy) |
 | F-172 | lib/stores/editor-store.ts | resolved | B3.4 | reloadFromServer surfaces network/non-OK failures via saveError |
 | F-201 | lib/hooks/useAgentJobsRealtime.ts | resolved | B3.5 | WebSocket subscribe-status handler wired; CHANNEL_ERROR/TIMED_OUT/CLOSED set realtimeError instead of dropping silently |
+| F-220 | components/detail/NodeDetailPanel.tsx | resolved | B3.6 | rename PATCH non-OK / network error now console.error |
+| F-238 | components/detail/BackLinksList.tsx | resolved | B3.6 | back-links GET non-OK / network error now console.error |
+| F-239 | components/detail/ContextLinker.tsx | resolved | B3.6 | context-links GET non-OK / network error now console.error |
+| F-240 | components/detail/NodePicker.tsx | resolved | B3.6 | context-nodes GET non-OK / network error now console.error (was explicit silent .catch) |
+| F-243 | components/detail/CommentThread.tsx | resolved | B3.6 | resolveComment + deleteComment non-OK / network error now setError + console.error |
+| F-247 | components/tree/NodeMoreMenu.tsx | resolved | B3.6 | rename / del / setStatus non-OK / network error now console.error |
+| F-248 | components/focus/FocusMode.tsx | resolved | B3.6 | siblings GET non-OK / network error now console.error |
+| F-250 | components/context/ContextCreateModal.tsx | resolved | B3.6 | documents GET non-OK / network error now console.error (was explicit silent .catch) |
 
-(Remaining 238 findings to be added as their batches start.)
+(Remaining 230 findings to be added as their batches start.)
 
 ---
 

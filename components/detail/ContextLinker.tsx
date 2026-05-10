@@ -49,8 +49,22 @@ export function ContextLinker({ sourceNodeId, projectId, documentId }: Props) {
   void _setProject
 
   const refetch = useCallback(async () => {
-    const r = await fetch(`/api/nodes/${sourceNodeId}/context-links`)
+    let r: Response
+    try {
+      r = await fetch(`/api/nodes/${sourceNodeId}/context-links`)
+    } catch (e) {
+      // F-239 (round-3 audit B3.6): network failure was silent — both
+      // lists were cleared, indistinguishable from "no links". Surface
+      // to the dev console at minimum. Convention:
+      // docs/architecture/error-handling-conventions.md.
+      console.error('[ContextLinker] context-links fetch failed', e)
+      setDirect([])
+      setInherited([])
+      return
+    }
     if (!r.ok) {
+      // F-239: non-OK was silent for the same reason. Surface.
+      console.error('[ContextLinker] context-links fetch non-OK', r.status)
       setDirect([])
       setInherited([])
       return

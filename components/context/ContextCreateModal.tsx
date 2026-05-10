@@ -65,12 +65,21 @@ export function ContextCreateModal({
 
   // Fetch the project's documents for the scope-document path. If the
   // request fails we still render the toggle; submission will surface
-  // a server error.
+  // a server error. F-250 (round-3 audit B3.6): until submit, surface
+  // the failure to the dev console at minimum so a broken document
+  // selector doesn't go undiagnosed. Convention:
+  // docs/architecture/error-handling-conventions.md.
   useEffect(() => {
     if (!open) return
     let cancelled = false
     fetch(`/api/projects/${projectId}/documents`)
-      .then(r => r.ok ? r.json() : null)
+      .then(async r => {
+        if (!r.ok) {
+          console.error('[ContextCreateModal] documents fetch non-OK', r.status)
+          return null
+        }
+        return r.json()
+      })
       .then(body => {
         if (cancelled || !body) return
         const docs = (body.documents ?? []) as DocumentSummary[]
@@ -78,7 +87,9 @@ export function ContextCreateModal({
         // If a context-document was supplied, auto-select it.
         if (documentId) setSelectedDocId(documentId)
       })
-      .catch(() => { /* silent — server errors surface on submit */ })
+      .catch(e => {
+        console.error('[ContextCreateModal] documents fetch failed', e)
+      })
     return () => { cancelled = true }
   }, [open, projectId, documentId])
 

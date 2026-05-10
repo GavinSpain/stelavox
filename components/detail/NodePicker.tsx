@@ -54,12 +54,23 @@ export function NodePicker({
       ? `/api/projects/${projectId}/context-nodes?limit=200&document_id=${documentId}`
       : `/api/projects/${projectId}/context-nodes?limit=200`
     fetch(url)
-      .then(r => r.ok ? r.json() : null)
+      .then(async r => {
+        if (!r.ok) {
+          // F-240 (round-3 audit B3.6): non-OK was silent. Surface.
+          // Convention: docs/architecture/error-handling-conventions.md.
+          console.error('[detail/NodePicker] context-nodes fetch non-OK', r.status)
+          return null
+        }
+        return r.json()
+      })
       .then(body => {
         if (cancelled || !body) return
         setNodes(body.context_nodes ?? [])
       })
-      .catch(() => { /* silent */ })
+      .catch(e => {
+        // F-240: explicit silent catch. Surface.
+        console.error('[detail/NodePicker] context-nodes fetch failed', e)
+      })
     return () => { cancelled = true }
   }, [open, projectId, documentId])
 

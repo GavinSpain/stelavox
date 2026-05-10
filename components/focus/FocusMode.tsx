@@ -90,16 +90,30 @@ export function FocusMode({ node, onExit }: FocusModeProps) {
     if (!node.document_id) return
     let cancelled = false
     fetch(`/api/documents/${node.document_id}/nodes`)
-      .then(r => r.json())
+      .then(async r => {
+        if (!r.ok) {
+          // F-248 (round-3 audit B3.6): pre-fix .then(r => r.json()) was
+          // unconditional; on non-OK the body had no `nodes` key and
+          // siblings became []. Sibling navigation silently did nothing.
+          // Surface to dev console. Convention:
+          // docs/architecture/error-handling-conventions.md.
+          console.error('[FocusMode] siblings fetch non-OK', r.status)
+          return null
+        }
+        return r.json()
+      })
       .then(body => {
-        if (cancelled) return
+        if (cancelled || !body) return
         const all = (body.nodes ?? []) as Array<SiblingRow & { parent_id: string | null }>
         const sibs = all
           .filter(r => r.parent_id === node.parent_id)
           .sort((a, b) => a.order - b.order)
         setSiblings(sibs)
       })
-      .catch(() => { /* sibling navigation simply does nothing */ })
+      .catch(e => {
+        // F-248: explicit silent catch. Surface.
+        console.error('[FocusMode] siblings fetch failed', e)
+      })
     return () => { cancelled = true }
   }, [node.document_id, node.parent_id])
 

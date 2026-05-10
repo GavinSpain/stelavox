@@ -67,6 +67,11 @@ export function NodeMoreMenu({ nodeId, anchor, isRoot, onClose, onMutated }: Nod
         body: JSON.stringify({ name: next.trim() }),
       })
       if (r.ok) onMutated()
+      else console.error('[NodeMoreMenu] rename non-OK', r.status)  // F-247
+    } catch (e) {
+      // F-247 (round-3 audit B3.6): pre-fix the network error case had
+      // no catch — the failure surface was just the missing onMutated().
+      console.error('[NodeMoreMenu] rename failed', e)
     } finally {
       setBusy(false)
       onClose()
@@ -84,6 +89,10 @@ export function NodeMoreMenu({ nodeId, anchor, isRoot, onClose, onMutated }: Nod
       if (!ok) { onClose(); return }
       const r = await fetch(`/api/nodes/${nodeId}`, { method: 'DELETE' })
       if (r.ok) onMutated()
+      else console.error('[NodeMoreMenu] delete non-OK', r.status)  // F-247
+    } catch (e) {
+      // F-247 (round-3 audit B3.6): pre-fix no catch.
+      console.error('[NodeMoreMenu] delete failed', e)
     } finally {
       setBusy(false)
       onClose()
@@ -99,6 +108,10 @@ export function NodeMoreMenu({ nodeId, anchor, isRoot, onClose, onMutated }: Nod
         body: JSON.stringify({ status }),
       })
       if (r.ok) onMutated()
+      else console.error('[NodeMoreMenu] setStatus non-OK', r.status)  // F-247
+    } catch (e) {
+      // F-247 (round-3 audit B3.6): pre-fix no catch.
+      console.error('[NodeMoreMenu] setStatus failed', e)
     } finally {
       setBusy(false)
       onClose()
