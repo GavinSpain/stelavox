@@ -295,7 +295,18 @@ function NodeTreeInner({ documentId, documentType, onSelect, refreshKey }: NodeT
           openByDefault
           idAccessor="id"
           onMove={handleMove}
-          onSelect={(nodes) => onSelect?.(nodes[0]?.id ?? null)}
+          onSelect={(nodes) => {
+            // Migration 042 / SU-J13-1 follow-up: the Tree is keyed on
+            // (refreshKey + refreshTick) and remounts on every realtime
+            // nodes-table change so newly-Accepted children become visible
+            // without a manual reload. react-arborist fires onSelect with
+            // an empty array on that remount, which previously cleared
+            // selectedNodeId upstream and made NodeDetailPanel disappear
+            // mid-edit. Only forward a real selection; the deliberate
+            // "click empty space to deselect" path is wired separately
+            // and does not flow through this callback.
+            if (nodes.length > 0) onSelect?.(nodes[0].id)
+          }}
         >
           {NodeRow}
         </Tree>
