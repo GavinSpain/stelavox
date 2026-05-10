@@ -22,7 +22,7 @@ Tracking file for the 7-phase remediation against [10-remediation-plan.md](10-re
 | Phase | Batches planned | Batches done | Findings closed | State |
 |---|---|---|---|---|
 | 0 — Setup | 0 | — | — | done |
-| 1 — Pattern fixes | 4 | 3 | 7 | in-progress (B1.3 done) |
+| 1 — Pattern fixes | 4 | 3 + 1 deferred | 7 | done (B1.4 deferred to Phase 8) |
 | 2 — Root-cause cascades | 3 | 0 | 0 | open |
 | 3 — Silent-failure | 6+ | 0 | 0 | open |
 | 4 — DB constraints | 5 | 0 | 0 | open |
@@ -34,6 +34,17 @@ Tracking file for the 7-phase remediation against [10-remediation-plan.md](10-re
 ---
 
 ## Batch log
+
+### Batch B1.4 — Spec-version citation cleanup (T-13)
+
+- **Phase:** 1
+- **Status:** **deferred to Phase 8 long-tail** (decision dated 2026-05-10)
+- **Rationale:**
+  - T-13 is LOW severity across the board (every linked finding is LOW). Stale citations mislead readers but don't break code.
+  - 161+ occurrences of `_v\d+_\d+\.md` across `lib/`, `components/`, `app/`, `tests/`, plus the docs/ tree itself. Bulk retrofit is 4–5 batches by itself — bigger than Phase 1 should absorb.
+  - Tried adding a `warn`-level lint rule scoped to `lib/`. ESLint flat-config rule merging across overlapping `files:` blocks made the configuration brittle (the H-01 lib/data block and a wider lib/** block compete on `no-restricted-syntax` options). The implementation cost outweighs the value for a LOW-severity hygiene finding.
+  - Phase 8 is the natural home for opportunistic LOW-finding sweeps. Per `99-themes.md` closing observation: "treat Phase 8 as opportunistic — when a developer is in a file for an unrelated reason, sweep the LOW findings while there."
+- **No code change for B1.4. Phase 1 closes on B1.1 + B1.2 + B1.3.**
 
 ### Batch B1.3 — ESLint guardrail `no-supabase-single` (scoped to lib/data/)
 
