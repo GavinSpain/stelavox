@@ -136,7 +136,11 @@ Captured at the end of each pilot/early-phase batch. Goal: identify protocol fri
 
 | Boundary | Date | Smoke result | Notes |
 |---|---|---|---|
-| (none yet) | | | |
+| End-of-Phase-1 | 2026-05-10 | PASS (with caveat) | type-check ✓ • lint ✓ (0 errors, 9 pre-existing warnings) • vitest 112/112 ✓ • build ✓ • Playwright `tests/api/projects/documents/nodes.spec.ts` 119/119 ✓. **Caveat:** 7 pre-existing failures in `tests/api/nodes-patch.spec.ts` (version-trigger expectations not met). Diagnosed by reverting `lib/data/nodes.ts` to pre-B1.1 state — failures persist, so they pre-date Phase 1. Not caused by B1.1; flagged as a separate finding for investigation outside this remediation. |
+
+### Pre-existing test failures discovered at Phase 1 boundary
+
+`tests/api/nodes-patch.spec.ts` — 7 tests fail (TC-A-01, TC-A-02, TC-A-03, TC-A-09, TC-A-10, TC-A-13, TC-A-32). All expect the version trigger to bump `version` from 1 → 2 on a PATCH that changes content; observed `version` remains 1. Diagnosis: I reverted `lib/data/nodes.ts:updateNode` to its pre-B1.1 state (`.single()` instead of `.maybeSingle()`) and the failures persisted, so the cause is upstream of Phase 1. Hypothesis: the version trigger migration is missing or out-of-date on the local Supabase instance, OR a Phase 5d-era migration changed the trigger semantics. Not investigating in this audit run — it doesn't intersect Phase 1's findings, and the symptom doesn't suggest an audit finding (no comment-vs-code, no signature mismatch, no spec-divergence we catalogued). Worth a separate diagnostic session.
 
 ---
 
