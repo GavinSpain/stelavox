@@ -312,6 +312,55 @@ describe.skipIf(!hasLocalDb)('Phase 4 B4.3 — nodes.node_type CHECK constraint 
   })
 })
 
+// ─── B5.1 / B5.2 — audit_log table writes ────────────────────────────────
+
+describe.skipIf(!hasLocalDb)('Phase 5 B5.1 — audit_log writeAuditLogEntry helper', () => {
+  it('persists a row to audit_log and is readable via service-role', async () => {
+    const { writeAuditLogEntry } = await import('@/lib/security/audit')
+
+    const probeEventType = `b5_1_probe_${Date.now()}`
+    await writeAuditLogEntry({
+      event_type: probeEventType,
+      severity: 'info',
+      organisation_id: testOrgId,
+      metadata: { test: 'b5.1', stamp: Date.now() },
+    })
+
+    const { data } = await admin
+      .from('audit_log')
+      .select('event_type, severity, organisation_id, metadata')
+      .eq('event_type', probeEventType)
+      .maybeSingle()
+
+    expect(data).toBeTruthy()
+    expect(data!.severity).toBe('info')
+    expect(data!.organisation_id).toBe(testOrgId)
+  })
+
+  it('rejects an invalid severity via DB CHECK', async () => {
+    const { error } = await admin
+      .from('audit_log')
+      .insert({
+        event_type: 'b5_1_bad_severity',
+        severity: 'extreme' as never,
+        organisation_id: testOrgId,
+      } as never)
+    expect(error).toBeTruthy()
+    expect((error as { code?: string }).code).toBe('23514')
+  })
+
+  it('accepts the new low severity (B5.1 CHECK extension)', async () => {
+    const { error } = await admin
+      .from('audit_log')
+      .insert({
+        event_type: 'b5_1_low_severity',
+        severity: 'low',
+        organisation_id: testOrgId,
+      } as never)
+    expect(error).toBeNull()
+  })
+})
+
 // ─── B4.4 — created_by / last_modified_by → UUID FK ─────────────────────
 
 describe.skipIf(!hasLocalDb)('Phase 4 B4.4 — audit-column UUID FK to auth.users (F-268)', () => {

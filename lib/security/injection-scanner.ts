@@ -10,12 +10,11 @@
  *             API routes; throw from Edge Function context assembly).
  *   - MEDIUM: log to audit trail and continue.
  *
- * Both severities should also be written to audit_log per TA §4.3 ("All
- * matches (any severity) are written to audit_log with node ID, field name,
- * matched pattern, and timestamp"). Phase 5 logs to console.error tagged
- * `[SECURITY]` since the audit_log table is V2 work; the pattern survives
- * a future swap to a real audit table without changing the call sites.
+ * Both severities are written to audit_log per TA §4.3 (round-3 audit B5.2
+ * fix for F-56's spec-divergence — pre-fix this used console.error only).
  */
+
+import { writeAuditLogEntry } from '@/lib/security/audit'
 
 export interface ScanMatch {
   pattern: string
@@ -71,13 +70,17 @@ export function hasHighSeverityMatch(result: ScanResult): boolean {
 }
 
 /**
- * Audit-log every match to the side channel.
- * V1: console.error with [SECURITY] prefix (audit_log table is V2 work).
- * V2: replace with a writeAuditLogEntry() call to the real table.
+ * Audit-log every match.
+ *
+ * B5.2 (round-3 audit F-56): writes to the audit_log table (TA §4.3 /
+ * §4.9 mandate). Console.error retained as a redundant ops-channel for
+ * tail-of-failure visibility — if audit_log itself is down,
+ * [AUDIT-FALLBACK] in writeAuditLogEntry handles that, plus the
+ * [SECURITY] prefix remains in Vercel logs as a backstop.
  */
 export function logScanMatches(
   result: ScanResult,
-  context: { fieldName: string; nodeId?: string; userId?: string },
+  context: { fieldName: string; nodeId?: string; userId?: string; organisationId?: string },
 ): void {
   if (result.clean) return
   for (const match of result.matches) {
@@ -88,6 +91,21 @@ export function logScanMatches(
       node_id: context.nodeId,
       user_id: context.userId,
       timestamp: new Date().toISOString(),
+    })
+    // Map injection-scanner severity ('high' | 'medium' | 'low') to
+    // audit_log severity union directly — both vocabularies use the
+    // same labels.
+    void writeAuditLogEntry({
+      event_type: 'injection_pattern_match',
+      severity: match.severity as 'high' | 'medium' | 'low',
+      organisation_id: context.organisationId,
+      user_id: context.userId,
+      node_id: context.nodeId,
+      metadata: {
+        pattern: match.pattern,
+        field: context.fieldName,
+        timestamp: new Date().toISOString(),
+      },
     })
   }
 }

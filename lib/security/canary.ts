@@ -17,6 +17,8 @@
 
 import 'server-only'
 
+import { writeAuditLogEntry } from '@/lib/security/audit'
+
 export class SecurityViolationError extends Error {
   constructor(message: string) {
     super(message)
@@ -60,9 +62,27 @@ export function scanForCanaryLeak(content: string, toolCalls?: unknown): void {
 
   const haystack = content + (toolCalls ? JSON.stringify(toolCalls) : '')
   if (haystack.includes(token)) {
+    // B5.2 (round-3 audit F-56): write to audit_log table (TA §4.3 / §4.9
+    // mandate). Console.error retained as a redundant ops-channel for
+    // tail-of-failure visibility — if audit_log itself is down,
+    // [AUDIT-FALLBACK] in writeAuditLogEntry handles that, plus this
+    // [SECURITY] prefix remains in Vercel logs.
     console.error('[SECURITY]', 'canary_leak_detected', {
       severity: 'critical',
       timestamp: new Date().toISOString(),
+    })
+    // Fire-and-forget audit write. The throw below preserves the
+    // existing control flow (caller catches SecurityViolationError);
+    // we don't await audit because (a) the canary scanner is sync
+    // outside of `void` and (b) audit failure must never block the
+    // throw that aborts the agent operation.
+    void writeAuditLogEntry({
+      event_type: 'canary_leak_detected',
+      severity: 'critical',
+      metadata: {
+        timestamp: new Date().toISOString(),
+        haystack_excerpt: haystack.slice(0, 200),
+      },
     })
     throw new SecurityViolationError('System integrity check failed.')
   }

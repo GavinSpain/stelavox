@@ -26,8 +26,9 @@
  *      platform_config.agent.director_tool_call_rate_limit_per_60s
  *      (default 30). Exceeded → reject.
  *
- * Audit log entries are written to console.error with a SECURITY tag
- * per Phase 5's pattern; future audit_log table swap is non-breaking.
+ * Audit log entries are written to the audit_log table (TA §4.3 / §4.5
+ * mandate; round-3 audit B5.2 closure of F-56). Console.error retained
+ * as a redundant ops-channel for tail-of-failure visibility.
  */
 
 import 'server-only'
@@ -37,6 +38,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { getConfigInt } from '@/lib/config/platform-config'
 import { scanContent } from '@/lib/security/injection-scanner'
 import { createServiceRoleClient } from '@/lib/supabase/service'
+import { writeAuditLogEntry } from '@/lib/security/audit'
 import {
   isWriteTool,
   ToolInputSchemas,
@@ -54,11 +56,32 @@ export interface ValidateContext {
   session: DirectorSession
 }
 
-function audit(event: string, severity: 'critical' | 'high' | 'medium', detail: Record<string, unknown>): void {
+// Audit helper. Writes to both audit_log (canonical, queryable per TA §4.3)
+// and console.error (Vercel-log fallback for tail-of-failure visibility).
+//
+// Callers pass `session` separately so the helper can extract the
+// organisation_id / document_id / conversation_id columns directly,
+// keeping the metadata blob a flat key-value bag of event-specific
+// detail rather than a place we re-thread context UUIDs.
+function audit(
+  event: string,
+  severity: 'critical' | 'high' | 'medium',
+  session: DirectorSession,
+  detail: Record<string, unknown>,
+): void {
   console.error('[SECURITY]', event, {
     severity,
     timestamp: new Date().toISOString(),
+    conversation: session.conversation_id,
     ...detail,
+  })
+  void writeAuditLogEntry({
+    event_type: event,
+    severity,
+    organisation_id: session.organisation_id,
+    document_id: session.document_id,
+    conversation_id: session.conversation_id,
+    metadata: { ...detail, timestamp: new Date().toISOString() },
   })
 }
 
@@ -79,19 +102,13 @@ export async function validateToolCall(ctx: ValidateContext): Promise<Validation
     | { safeParse: (v: unknown) => { success: boolean } }
     | undefined
   if (!schema) {
-    audit('tool_call_unknown_tool', 'high', {
-      tool: toolName,
-      conversation: session.conversation_id,
-    })
+    audit('tool_call_unknown_tool', 'high', session, { tool: toolName })
     return deny('unknown_tool')
   }
 
   const parsed = schema.safeParse(args)
   if (!parsed.success) {
-    audit('tool_call_invalid_parameters', 'medium', {
-      tool: toolName,
-      conversation: session.conversation_id,
-    })
+    audit('tool_call_invalid_parameters', 'medium', session, { tool: toolName })
     return deny('invalid_parameters')
   }
 
@@ -151,32 +168,24 @@ async function checkNodeScope(
 
   if (!node) {
     // Non-existent node — treat as cross-org (the model fabricated a UUID).
-    audit('tool_call_unknown_node', 'high', {
-      tool: toolName,
-      node_id: nodeId,
-      conversation: session.conversation_id,
-    })
+    audit('tool_call_unknown_node', 'high', session, { tool: toolName, node_id: nodeId })
     return deny('cross_org_access_denied')
   }
 
   if (node.organisation_id !== session.organisation_id) {
-    audit('tool_call_cross_org_attempt', 'critical', {
+    audit('tool_call_cross_org_attempt', 'critical', session, {
       tool: toolName,
       node_id: nodeId,
-      caller_org: session.organisation_id,
       target_org: node.organisation_id,
-      conversation: session.conversation_id,
     })
     return deny('cross_org_access_denied')
   }
 
   if (node.document_id !== session.document_id) {
-    audit('tool_call_cross_document_attempt', 'high', {
+    audit('tool_call_cross_document_attempt', 'high', session, {
       tool: toolName,
       node_id: nodeId,
-      caller_document: session.document_id,
       target_document: node.document_id,
-      conversation: session.conversation_id,
     })
     return deny('cross_document_access_denied')
   }
@@ -185,11 +194,7 @@ async function checkNodeScope(
     // Write tool targeting a locked node — denied. Comments are an
     // exception (admitted on locked nodes); checked at the executor layer.
     if (toolName !== 'create_comment_step') {
-      audit('tool_call_locked_node', 'medium', {
-        tool: toolName,
-        node_id: nodeId,
-        conversation: session.conversation_id,
-      })
+      audit('tool_call_locked_node', 'medium', session, { tool: toolName, node_id: nodeId })
       return deny('node_locked')
     }
   }
@@ -209,20 +214,18 @@ function scanForInjection(
     if (!result.clean) {
       const high = result.matches.find((m) => m.severity === 'high')
       if (high) {
-        audit('tool_call_injection_in_params', 'high', {
+        audit('tool_call_injection_in_params', 'high', session, {
           tool: toolName,
           parameter: key,
           pattern: high.pattern,
-          conversation: session.conversation_id,
         })
         return deny('injection_pattern_in_parameters')
       }
       // Medium-severity matches log but don't reject (TA §4.3).
-      audit('tool_call_injection_medium', 'medium', {
+      audit('tool_call_injection_medium', 'medium', session, {
         tool: toolName,
         parameter: key,
         matches: result.matches.length,
-        conversation: session.conversation_id,
       })
     }
   }
@@ -254,10 +257,7 @@ async function checkToolCallRateLimit(
   if (error) {
     // Fail-open: if the rate-limit query errors, allow the call but log.
     // A persistent rate-limit-counter failure would noisily surface in logs.
-    audit('tool_call_rate_limit_query_failed', 'medium', {
-      reason: error.message,
-      conversation: session.conversation_id,
-    })
+    audit('tool_call_rate_limit_query_failed', 'medium', session, { reason: error.message })
     return null
   }
 
@@ -268,11 +268,7 @@ async function checkToolCallRateLimit(
   }
 
   if (count >= limit) {
-    audit('tool_call_rate_exceeded', 'medium', {
-      count,
-      limit,
-      conversation: session.conversation_id,
-    })
+    audit('tool_call_rate_exceeded', 'medium', session, { count, limit })
     return deny('tool_rate_limit_exceeded')
   }
 

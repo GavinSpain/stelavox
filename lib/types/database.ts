@@ -312,28 +312,37 @@ export type Database = {
       }
       audit_log: {
         Row: {
+          conversation_id: string | null
           created_at: string
+          document_id: string | null
           event_type: string
           id: string
           metadata: Json | null
+          node_id: string | null
           organisation_id: string | null
           severity: string
           user_id: string | null
         }
         Insert: {
+          conversation_id?: string | null
           created_at?: string
+          document_id?: string | null
           event_type: string
           id?: string
           metadata?: Json | null
+          node_id?: string | null
           organisation_id?: string | null
           severity?: string
           user_id?: string | null
         }
         Update: {
+          conversation_id?: string | null
           created_at?: string
+          document_id?: string | null
           event_type?: string
           id?: string
           metadata?: Json | null
+          node_id?: string | null
           organisation_id?: string | null
           severity?: string
           user_id?: string | null

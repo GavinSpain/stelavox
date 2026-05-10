@@ -26,7 +26,7 @@ Tracking file for the 7-phase remediation against [10-remediation-plan.md](10-re
 | 2 — Root-cause cascades | 3 | 2 (B2.2+B2.3 merged) | 4 | in-progress (B2.2+B2.3 done) |
 | 3 — Silent-failure | 6+ | 6 (B3.1-B3.6) | 17 | done |
 | 4 — DB constraints | 5 | 5 | 5 | done |
-| 5 — Security + audit_log | 7 | 1 (B5.6a hygiene) + 1 deferred (F-74 to deep dive) | 0 | in-progress |
+| 5 — Security + audit_log | 7 | 3 (B5.1+B5.2+B5.6a) + 2 deferred (F-74 + B5.7 to deep dive) | 1 (F-56) | in-progress |
 | 6 — Two-source-of-truth | 4–5 | 0 | 0 | open |
 | 7 — Inviolables + UI + spec | 5 | 0 | 0 | open |
 | 8+ — Long tail | rolling | 0 | 0 | open |
@@ -34,6 +34,23 @@ Tracking file for the 7-phase remediation against [10-remediation-plan.md](10-re
 ---
 
 ## Batch log
+
+### Batch B5.1 + B5.2 — `audit_log` table extended + `writeAuditLogEntry` wired into 3 security sites (F-56)
+
+- **Phase:** 5
+- **Findings closed:** F-56 (HIGH)
+- **Migration:** `supabase/migrations/20260510000044_audit_log.sql` — extends the existing `audit_log` table (which already existed from Migration 008 with `event_type` / `severity` / `metadata` columns and an `owners_read_audit_log` policy). The audit's F-56 isn't "create the table"; it's "the security writes never use the table that exists." Migration 044 adds: `document_id` / `conversation_id` / `node_id` columns (soft-referenced), `service_role INSERT` and `org-member SELECT` policies, `low` severity, plus 2 missing indexes.
+- **Helper added:** `lib/security/audit.ts:writeAuditLogEntry(entry)` — service-role-clienting fire-and-forget helper. On audit_log INSERT failure, falls back to `console.error('[AUDIT-FALLBACK]', ...)` so events are still visible somewhere; the caller's path is never blocked by audit failure (audit is observability, not a security gate).
+- **Wired into 3 sites:**
+  - `lib/security/canary.ts` — canary-leak detection: writes a `canary_leak_detected` critical event before throwing SecurityViolationError. Console.error retained as redundant ops-channel.
+  - `lib/security/injection-scanner.ts:logScanMatches` — every injection-pattern match writes an `injection_pattern_match` event with severity matching the match's severity. Caller signature gained an optional `organisationId` for org-scoping the audit row.
+  - `lib/security/tool-validator.ts` — internal `audit()` helper now takes `session: DirectorSession` as a 3rd arg and writes both console.error AND an audit_log entry with org/document/conversation context columns extracted from the session. All 10 audit() callsites updated.
+- **Test added:** `tests/integration/db-constraints.test.ts` — 3 cases. `writeAuditLogEntry` round-trip; invalid-severity rejection (23514); the new `low` severity acceptance.
+- **Failing-test-first proof:** before the migration, `severity = 'low'` would have failed the existing CHECK constraint; the writeAuditLogEntry test would have failed because `service_role INSERT` policy didn't exist (RLS would silently drop the insert). All 3 green post-migration.
+- **Anthropic 429 logging deferred to the Director deep dive** alongside the broader throttling architecture (per user direction 2026-05-10). When the deep-dive throttling subsystem ships, it'll write `event_type = 'anthropic_throttle_*'` events through the same helper.
+- **Completed:** 2026-05-10
+- **Status:** resolved
+- **Verification gates:** type-check ✓ • lint ✓ • vitest 160/160 ✓ • build ✓
 
 ### Batch B5.6a — Director rate-limit window config-ified; F-74 + B5.7 deferred to Director deep dive
 
@@ -323,8 +340,9 @@ This section is a one-line-per-finding ledger. Updated when a finding's status c
 | F-267 | supabase/migrations/040_nodes_node_type_check.sql | resolved | B4.3 | CHECK enforcing 13-type V1 whitelist + type/category coupling |
 | F-268 | supabase/migrations/041_audit_user_fk.sql | resolved | B4.4 | nodes.{created_by,last_modified_by} TEXT → UUID FK auth.users(id) ON DELETE SET NULL |
 | F-269 | supabase/migrations/042_nodes_content_jsonb.sql | resolved | B4.5 | nodes + node_versions summary/prose/notes TEXT → JSONB; server-side normalizeContent in API routes; legacy plain-text wrapped as Tiptap docs |
+| F-56 | lib/security/{canary,injection-scanner,tool-validator}.ts + Migration 044 + lib/security/audit.ts | resolved | B5.1+B5.2 | audit_log table extended + writeAuditLogEntry helper wired into the 3 [SECURITY] console.error sites |
 
-(Remaining 225 findings to be added as their batches start.)
+(Remaining 224 findings to be added as their batches start.)
 
 ---
 
