@@ -6,12 +6,21 @@
 
 ## Headline numbers
 
-- **41 of 258 findings closed** (~16% of total). Of these, the vast majority are HIGH-severity — the audit's HIGH count was 48 and many of those were closed.
-- **24 commits** landed on the working branch over the session.
+- **48 of 258 findings closed** (~19% of total) — the bulk being the audit's HIGH severity work (the audit listed 48 HIGH; we closed most of them).
+- **27 commits** landed on the working branch over the session.
 - **7 schema migrations** applied to local Supabase (numbered 038–045).
-- **9 new test files** added (unit + integration), 5 new platform_config keys seeded.
-- **Total LLM cost across 7 mini-novel boundary smokes: ~$1.10.**
-- **Zero production behaviour regressions** detected across 261/261 Playwright API tests, 98/98 integrity tests, 172/172 vitest tests, and 7/7 LLM smoke runs.
+- **10 new test files** added (unit + integration), 5 new platform_config keys seeded.
+- **Total LLM cost across 8 mini-novel boundary smokes: ~$1.27.**
+- **Zero production behaviour regressions** detected across **359/359 Playwright API + integrity tests** and **178/178 vitest tests**.
+
+## Update — addendum sweep (added 2026-05-10 after the initial close-out)
+
+The user agreed to all close-out recommendations. The follow-up work landed:
+
+- **B6.1 / F-81 (HIGH)** — Director tool input_schemas generated from Zod via Zod v4's built-in `z.toJSONSchema()`. (The npm-installed `zod-to-json-schema` package turned out to be Zod-v3-only; Zod v4 has the equivalent built-in.) All 13 V1 tools migrated. **Side-fix discovered during the boundary smoke:** my earlier B7.3 `requireEnv(name)` helper used a dynamic `process.env[name]` lookup that broke Next.js's build-time inlining of NEXT_PUBLIC vars in the client bundle, breaking client-side auth. Refactored to `requireEnv(value, name)` — caller passes the static reference + the name string for the error.
+- **HIGH-severity sweep** — 6 bounded findings closed in a focused batch: **F-87** (heartbeat silent catch), **F-156** (UUID assertion before `.or()` PostgREST filter), **F-196** (comment-vs-code on stuck-interim recovery cron), **F-204** (200ms debounced refresh in useDirectorConversation), **F-242** (CommentThread comment_type aligned across UI / Director schema / DB), **F-253** (smoke-agent-runner RPC params).
+
+This brings the total from 41 to 48 findings closed, all HIGH severity.
 
 ## Phases completed
 
