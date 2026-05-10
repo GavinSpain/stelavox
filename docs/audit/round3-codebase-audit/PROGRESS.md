@@ -24,7 +24,7 @@ Tracking file for the 7-phase remediation against [10-remediation-plan.md](10-re
 | 0 — Setup | 0 | — | — | done |
 | 1 — Pattern fixes | 4 | 3 + 1 deferred | 7 | done (B1.4 deferred to Phase 8) |
 | 2 — Root-cause cascades | 3 | 2 (B2.2+B2.3 merged) | 4 | in-progress (B2.2+B2.3 done) |
-| 3 — Silent-failure | 6+ | 4 (B3.1+B3.2+B3.3+B3.4) | 8 | in-progress (B3.4 done) |
+| 3 — Silent-failure | 6+ | 5 (B3.1-B3.5) | 9 | in-progress (B3.5 done) |
 | 4 — DB constraints | 5 | 0 | 0 | open |
 | 5 — Security + audit_log | 7 | 0 | 0 | open |
 | 6 — Two-source-of-truth | 4–5 | 0 | 0 | open |
@@ -34,6 +34,19 @@ Tracking file for the 7-phase remediation against [10-remediation-plan.md](10-re
 ---
 
 ## Batch log
+
+### Batch B3.5 — useAgentJobsRealtime WebSocket error handler (F-201)
+
+- **Phase:** 3
+- **Findings closed:** F-201 (HIGH)
+- **Test-feasibility:** observable-via-mock + structural (extracted the subscription-status handler `handleRealtimeStatus` to a named exported function so it can be tested without rendering the hook in a React tree).
+- **Test added:** `tests/unit/agent-jobs-realtime-error.test.ts` — 4 cases. CHANNEL_ERROR sets realtimeError; TIMED_OUT sets it; CLOSED sets it; SUBSCRIBED clears it.
+- **Failing-test-first proof:** all 4 red pre-fix because `handleRealtimeStatus` and `useAgentJobsErrorStore` didn't exist. All 4 green post-fix.
+- **Wiring:** `.subscribe()` → `.subscribe(handleRealtimeStatus)`. The handler logs to console.error and sets a Zustand-backed `realtimeError` field. UI banner that consumes the field is a Phase 7 polish item.
+- **Discovered (audit gap):** `lib/hooks/useNodesRealtime.ts:68` has the same pattern — `.subscribe()` with no callback. The audit's F-208 marked the file as a positive finding (clean H-05 cleanup) but missed this WebSocket error handler issue. Logged as a Phase-8 follow-up rather than expanding B3.5 scope to keep the batch tight.
+- **Completed:** 2026-05-10
+- **Status:** resolved
+- **Verification gates:** type-check ✓ • lint ✓ • vitest 147/147 ✓ • build ✓
 
 ### Batch B3.4 — Editor-store autosave saveError surface (F-170 + F-171 + F-172)
 
@@ -191,8 +204,9 @@ This section is a one-line-per-finding ledger. Updated when a finding's status c
 | F-170 | lib/stores/editor-store.ts | resolved | B3.4 | network failure now sets saveError (was bare `return`) |
 | F-171 | lib/stores/editor-store.ts | resolved | B3.4 | non-200/409/423 responses set saveError (was silent-on-other-errors policy) |
 | F-172 | lib/stores/editor-store.ts | resolved | B3.4 | reloadFromServer surfaces network/non-OK failures via saveError |
+| F-201 | lib/hooks/useAgentJobsRealtime.ts | resolved | B3.5 | WebSocket subscribe-status handler wired; CHANNEL_ERROR/TIMED_OUT/CLOSED set realtimeError instead of dropping silently |
 
-(Remaining 239 findings to be added as their batches start.)
+(Remaining 238 findings to be added as their batches start.)
 
 ---
 
