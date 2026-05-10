@@ -311,3 +311,53 @@ describe.skipIf(!hasLocalDb)('Phase 4 B4.3 — nodes.node_type CHECK constraint 
     }
   })
 })
+
+// ─── B4.4 — created_by / last_modified_by → UUID FK ─────────────────────
+
+describe.skipIf(!hasLocalDb)('Phase 4 B4.4 — audit-column UUID FK to auth.users (F-268)', () => {
+  it('rejects an INSERT with a non-existent created_by UUID', async () => {
+    const fakeUuid = '00000000-0000-0000-0000-000000000099'
+    const { error } = await admin
+      .from('nodes')
+      .insert({
+        organisation_id: testOrgId,
+        project_id: testProjectId,
+        document_id: testDocumentId,
+        parent_id: testParentId,
+        order: 400,
+        depth: 1,
+        layer_index: 1,
+        node_type: 'act',
+        node_category: 'structural',
+        name: 'fake-author',
+        created_by: fakeUuid,
+      } as never)
+    expect(error).toBeTruthy()
+    // PostgreSQL FK violation = SQLSTATE 23503.
+    expect((error as { code?: string }).code).toBe('23503')
+  })
+
+  it('allows NULL created_by (service-role / system writes)', async () => {
+    const { error } = await admin
+      .from('nodes')
+      .insert({
+        organisation_id: testOrgId,
+        project_id: testProjectId,
+        document_id: testDocumentId,
+        parent_id: testParentId,
+        order: 401,
+        depth: 1,
+        layer_index: 1,
+        node_type: 'act',
+        node_category: 'structural',
+        name: 'no-author',
+        created_by: null,
+      } as never)
+    expect(error).toBeNull()
+  })
+
+  // Note: node_attachments.created_by and scheduled_jobs.created_by
+  // already have FK to auth.users (verified via \d in pre-flight). The
+  // audit's F-268 was specifically about nodes.{created_by,last_modified_by};
+  // the other tables were correctly constrained.
+})

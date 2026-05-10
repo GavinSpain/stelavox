@@ -25,7 +25,7 @@ Tracking file for the 7-phase remediation against [10-remediation-plan.md](10-re
 | 1 — Pattern fixes | 4 | 3 + 1 deferred | 7 | done (B1.4 deferred to Phase 8) |
 | 2 — Root-cause cascades | 3 | 2 (B2.2+B2.3 merged) | 4 | in-progress (B2.2+B2.3 done) |
 | 3 — Silent-failure | 6+ | 6 (B3.1-B3.6) | 17 | done |
-| 4 — DB constraints | 5 | 3 | 3 | in-progress (B4.3 done) |
+| 4 — DB constraints | 5 | 4 | 4 | in-progress (B4.4 done) |
 | 5 — Security + audit_log | 7 | 0 | 0 | open |
 | 6 — Two-source-of-truth | 4–5 | 0 | 0 | open |
 | 7 — Inviolables + UI + spec | 5 | 0 | 0 | open |
@@ -34,6 +34,21 @@ Tracking file for the 7-phase remediation against [10-remediation-plan.md](10-re
 ---
 
 ## Batch log
+
+### Batch B4.4 — `nodes.created_by` / `last_modified_by` → UUID FK to auth.users (F-268)
+
+- **Phase:** 4
+- **Findings closed:** F-268 (MEDIUM)
+- **Migration:** `supabase/migrations/20260510000041_audit_user_fk.sql`
+- **Type conversion:** TEXT NOT NULL DEFAULT 'user' → UUID nullable. Existing 2683 rows had the literal string 'user' (placeholder, not real audit data); migration nullifies them via `USING (NULL::uuid)`. Lossless for forensic purposes since the values weren't real.
+- **FK semantics:** `ON DELETE SET NULL` — when a user is deleted, their audit-trail rows survive but with NULL author. Audit forensics still work; cascading delete would lose the row's history entirely.
+- **Pre-flight discovery:** my initial information_schema query (looking for FK constraints) was buggy and reported zero FKs on `node_attachments.created_by` and `scheduled_jobs.created_by`. `\d` on each table showed they already had FKs. So the audit's F-268 was correctly scoped to nodes only; the "go deeper" expansion I considered was based on a faulty SQL query. Documented as a process observation.
+- **Type regen:** ran `supabase gen types typescript --local > lib/types/database.ts`. The CLI's update-available notice got concatenated into the file — re-ran with `2>/dev/null` to strip stderr. Process observation.
+- **Test added:** 2 cases — fake-UUID INSERT rejected with 23503; NULL created_by allowed (service-role / system writes).
+- **Failing-test-first proof:** both red pre-migration (column was TEXT — fake UUID was just stored as a string); green post-migration.
+- **Completed:** 2026-05-10
+- **Status:** resolved
+- **Verification gates:** type-check ✓ • lint ✓ • vitest 157/157 ✓ • build ✓ • Playwright tests/api/nodes.spec.ts 33/33 ✓
 
 ### Batch B4.3 — `nodes.node_type` CHECK constraint (F-267)
 
@@ -278,8 +293,9 @@ This section is a one-line-per-finding ledger. Updated when a finding's status c
 | F-265 | supabase/migrations/038_nodes_order_unique.sql | resolved | B4.1 | UNIQUE(parent_id, "order") DEFERRABLE; NULLS DISTINCT lets root nodes coexist |
 | F-266 | supabase/migrations/039_conversation_messages_sequence_unique.sql | resolved | B4.2 | UNIQUE(conversation_id, sequence); F-96 nextSequence race now guarded at DB |
 | F-267 | supabase/migrations/040_nodes_node_type_check.sql | resolved | B4.3 | CHECK enforcing 13-type V1 whitelist + type/category coupling |
+| F-268 | supabase/migrations/041_audit_user_fk.sql | resolved | B4.4 | nodes.{created_by,last_modified_by} TEXT → UUID FK auth.users(id) ON DELETE SET NULL |
 
-(Remaining 227 findings to be added as their batches start.)
+(Remaining 226 findings to be added as their batches start.)
 
 ---
 

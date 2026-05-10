@@ -1114,7 +1114,7 @@ export type Database = {
           attachment_count: number
           content_revision: number
           created_at: string
-          created_by: string
+          created_by: string | null
           depth: number
           document_id: string | null
           export_heading_override: string | null
@@ -1122,7 +1122,7 @@ export type Database = {
           export_page_break_before: boolean
           external_ref: string | null
           id: string
-          last_modified_by: string
+          last_modified_by: string | null
           layer_index: number | null
           lock_reason: string | null
           locked: boolean
@@ -1154,7 +1154,7 @@ export type Database = {
           attachment_count?: number
           content_revision?: number
           created_at?: string
-          created_by?: string
+          created_by?: string | null
           depth?: number
           document_id?: string | null
           export_heading_override?: string | null
@@ -1162,7 +1162,7 @@ export type Database = {
           export_page_break_before?: boolean
           external_ref?: string | null
           id?: string
-          last_modified_by?: string
+          last_modified_by?: string | null
           layer_index?: number | null
           lock_reason?: string | null
           locked?: boolean
@@ -1194,7 +1194,7 @@ export type Database = {
           attachment_count?: number
           content_revision?: number
           created_at?: string
-          created_by?: string
+          created_by?: string | null
           depth?: number
           document_id?: string | null
           export_heading_override?: string | null
@@ -1202,7 +1202,7 @@ export type Database = {
           export_page_break_before?: boolean
           external_ref?: string | null
           id?: string
-          last_modified_by?: string
+          last_modified_by?: string | null
           layer_index?: number | null
           lock_reason?: string | null
           locked?: boolean
