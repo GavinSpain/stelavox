@@ -23,7 +23,7 @@ Tracking file for the 7-phase remediation against [10-remediation-plan.md](10-re
 |---|---|---|---|---|
 | 0 — Setup | 0 | — | — | done |
 | 1 — Pattern fixes | 4 | 3 + 1 deferred | 7 | done (B1.4 deferred to Phase 8) |
-| 2 — Root-cause cascades | 3 | 1 | 2 | in-progress (B2.1 done) |
+| 2 — Root-cause cascades | 3 | 2 (B2.2+B2.3 merged) | 4 | in-progress (B2.2+B2.3 done) |
 | 3 — Silent-failure | 6+ | 0 | 0 | open |
 | 4 — DB constraints | 5 | 0 | 0 | open |
 | 5 — Security + audit_log | 7 | 0 | 0 | open |
@@ -34,6 +34,20 @@ Tracking file for the 7-phase remediation against [10-remediation-plan.md](10-re
 ---
 
 ## Batch log
+
+### Batch B2.2 + B2.3 (merged) — `decorateWithLeaf` + `getDocumentMaxLayerIndex` data-integrity fix (F-152 + F-160)
+
+- **Phase:** 2
+- **Findings closed:** F-152 (HIGH), F-160 (MEDIUM)
+- **Merged because they're the same code path.** B2.3 was nominally about migrations but the actual F-160 fix is in `getDocumentMaxLayerIndex` — same function as F-152's root cause. No migration needed.
+- **Test-feasibility:** observable-via-mock (mock the supabase chain to return various malformed layer_stacks shapes; assert the function throws with informative messages naming the document_id).
+- **Test added:** `tests/unit/decorate-with-leaf.test.ts` — 8 cases. 5 cover `getDocumentMaxLayerIndex` (happy path returns max index; data-integrity violations throw — missing layer_stacks row, empty layers array, missing index field, non-numeric index field). 3 cover `decorateWithLeaf` (null context-node path returns is_leaf=false; matching layer_index returns true; mismatch returns false).
+- **Failing-test-first proof:** 4 of 8 red pre-fix (the data-integrity scenarios all silently returned null or 0 or NaN). All 8 green post-fix.
+- **API contract change:** `getDocumentMaxLayerIndex` return type changed from `Promise<number | null>` to `Promise<number>`. Callers were already handling the result through a conditional that passes null directly (for context nodes); they now receive a non-null number when the call is made, or skip the call entirely. No caller needed updating.
+- **Side effect:** `decorateWithLeaf(node, null)` is preserved as the legitimate context-node path — context nodes have no leaf semantics in the structural sense; `is_leaf=false` is correct. Documented inline.
+- **Completed:** 2026-05-10
+- **Status:** resolved
+- **Verification gates:** type-check ✓ • lint ✓ • vitest 126/126 ✓ • build ✓ • Playwright projects+documents+nodes+nodes-leaf 122/122 ✓
 
 ### Batch B2.1 — `getConfig<T>` runtime validation (F-07 root + F-20 cascade)
 
@@ -118,8 +132,10 @@ This section is a one-line-per-finding ledger. Updated when a finding's status c
 | F-259 | tests/helpers/agent-fixtures.ts | resolved | B1.2 | `.single()` → `.maybeSingle()`; informative error replaces `data!` crash |
 | F-07 | lib/config/platform-config.ts | resolved | B2.1 | typed aliases now runtime-validate; throw clear key-naming error on type mismatch |
 | F-20 | lib/llm/token-budget.ts | resolved | B2.1 | cascade closure — F-07 fix surfaces the budget config's type error instead of silently misbehaving |
+| F-152 | lib/data/nodes.ts | resolved | B2.2+B2.3 | data-integrity violations now throw at the data layer (missing layer_stacks, empty layers); decorateWithLeaf null path preserved for context nodes |
+| F-160 | lib/data/nodes.ts | resolved | B2.2+B2.3 | malformed layer rows (missing/non-numeric index) throw clear errors instead of silently returning 0 (which made non-root nodes appear non-leaf) |
 
-(Remaining 249 findings to be added as their batches start.)
+(Remaining 247 findings to be added as their batches start.)
 
 ---
 
