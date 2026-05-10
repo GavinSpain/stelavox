@@ -160,6 +160,27 @@ function gcOldShadows(): void {
   }
 }
 
+// Migration 042 (round-3 audit B4.5 / F-269) flipped nodes.summary / prose
+// / notes from TEXT to JSONB. lib/editor/serialise.ts kept the *client wire
+// format* as a JSON-stringified Tiptap doc — toStorage / fromStorage and
+// the API Zod validators all work in strings, with normalizeContent doing
+// string→object coercion at the API-route boundary. The migration's header
+// promised editor-store would be updated too, but it wasn't: loadNode was
+// still copying raw API values into store state. After the migration those
+// values arrive as JSONB objects (supabase-js returns JSONB columns
+// pre-parsed), so any field the user did not touch shipped back unchanged
+// on the next autosave PATCH and tripped the still-string-shaped Zod
+// validator with `invalid_summary` / `invalid_notes`.
+//
+// Fix is at the API→store boundary: normalise to the wire format the rest
+// of the pipeline already expects.
+function normaliseContentForStore(value: unknown): string | null {
+  if (value === null || value === undefined) return null
+  if (typeof value === 'string') return value
+  if (typeof value === 'object') return JSON.stringify(value)
+  return null
+}
+
 // ── Debounce timer state (module-scoped: there is only one active node) ─────
 
 let debounceTimer: ReturnType<typeof setTimeout> | null = null
@@ -388,12 +409,14 @@ export const useEditorStore = create<EditorState>((set, get) => {
       const shadow = readShadow(node.id)
       const serverAnchor = nodeAnchor(node)
 
-      // Default: load server state.
+      // Default: load server state. Normalise post-Migration-042 JSONB
+      // values back to the string wire format the rest of the pipeline
+      // assumes (see normaliseContentForStore comment).
       set({
         nodeId: node.id,
-        summary: node.summary,
-        prose: node.prose,
-        notes: node.notes,
+        summary: normaliseContentForStore(node.summary),
+        prose: normaliseContentForStore(node.prose),
+        notes: normaliseContentForStore(node.notes),
         metadata: node.metadata,
         expectedContentRevision: serverAnchor,
         dirty: false,
@@ -409,9 +432,9 @@ export const useEditorStore = create<EditorState>((set, get) => {
       // conflictCurrent from the freshly-loaded server node.
       if (shadow && shadow.expectedContentRevision > 0 && shadow.expectedContentRevision < serverAnchor) {
         set({
-          summary: shadow.summary,
-          prose: shadow.prose,
-          notes: shadow.notes,
+          summary: normaliseContentForStore(shadow.summary),
+          prose: normaliseContentForStore(shadow.prose),
+          notes: normaliseContentForStore(shadow.notes),
           expectedContentRevision: shadow.expectedContentRevision,
           dirty: true,
           conflictCurrent: node,
@@ -461,9 +484,9 @@ export const useEditorStore = create<EditorState>((set, get) => {
       clearDebounce()
       clearShadow(s.nodeId)
       set({
-        summary: current.summary,
-        prose: current.prose,
-        notes: current.notes,
+        summary: normaliseContentForStore(current.summary),
+        prose: normaliseContentForStore(current.prose),
+        notes: normaliseContentForStore(current.notes),
         metadata: current.metadata,
         expectedContentRevision: nodeAnchor(current),
         dirty: false,
@@ -516,9 +539,9 @@ export const useEditorStore = create<EditorState>((set, get) => {
       if (!node || get().nodeId !== targetId) return
       clearShadow(targetId)
       set({
-        summary: node.summary,
-        prose: node.prose,
-        notes: node.notes,
+        summary: normaliseContentForStore(node.summary),
+        prose: normaliseContentForStore(node.prose),
+        notes: normaliseContentForStore(node.notes),
         metadata: node.metadata,
         expectedContentRevision: nodeAnchor(node),
         dirty: false,

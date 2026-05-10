@@ -65,6 +65,11 @@ next-env.d.ts
 supabase/.branches
 supabase/.temp
 
+# Local DB snapshots — pg_dump custom-format dumps for restore-after-reset.
+# Created via `docker exec supabase_db_stelavox_2 pg_dump -U postgres -Fc`.
+# Never committed: contains user content + auth.users rows + secrets.
+/snapshots/
+
 # OS
 Thumbs.db
 

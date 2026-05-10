@@ -287,7 +287,24 @@ export async function advanceWorkflow(workflowId: string): Promise<void> {
   // via dispatchAgentJobForStep() which builds the agent_jobs row and
   // fires waitUntil(runAgentJob(jobId)). The actual implementation
   // imports the Phase 5 helpers; deferred to T-11 final wiring.
-  for (const step of dispatchable) {
+  //
+  // Launch-test session 2026-05-10 fanout-rate-limit fix:
+  // Cap the number of in-flight dispatches by `agent.director_max_concurrent_dispatch`
+  // (default 1, sequential). Without this, a Director plan with N
+  // independent steps fires all N LLM calls within seconds and trips
+  // the Anthropic concurrent-connections limit on the platform key.
+  // As each running step completes, the agent runner already calls
+  // back into advanceWorkflow which picks up the next slot, so the
+  // remaining 'pending' steps drain naturally. The full multi-tenant
+  // throttle (per-user + global, throttle-not-deny semantics) is
+  // queued for the Director architecture deep review; this is the
+  // holding-pattern shape.
+  const maxConcurrent = await getConfigInt('agent.director_max_concurrent_dispatch')
+  const runningCount = steps.filter((s) => s.status === 'running').length
+  const slots = Math.max(0, maxConcurrent - runningCount)
+  if (slots === 0) return
+  const toDispatch = dispatchable.slice(0, slots)
+  for (const step of toDispatch) {
     await dispatchAgentJobForStep(supabase, workflow, step)
   }
 }

@@ -143,21 +143,33 @@ function NodeTreeInner({ documentId, documentType, onSelect, refreshKey }: NodeT
     const childLayer = (parent.data.layer_index ?? 0) + 1
     const childType = types[childLayer]
     if (!childType) {
-      window.alert('No deeper layer available beneath this node.')
+      // SU-22 (round-3 follow-up): native window.alert blocks the renderer
+      // and is opaque to MCP/Playwright drivers. Toast carries the same
+      // message in-DOM and unblocks autonomous testing.
+      toast.show('No deeper layer available beneath this node.', 'error')
       return
     }
-    const name = window.prompt(`New ${childType} name:`)
-    if (!name?.trim()) return
+    // SU-22 fix: skip window.prompt for the new node's name. The native
+    // dialog froze the renderer and was undriveable from the launch-
+    // standard test harness. Generate a sensible default (`Act 3`,
+    // `Chapter 5`, etc.) from the existing sibling count so the row
+    // appears immediately; the author renames via the More menu's
+    // Rename action (also de-prompted in this commit) or the inline
+    // header rename in NodeDetailPanel.
+    const siblingCount = parent.children?.length ?? 0
+    const typeLabel = childType.charAt(0).toUpperCase() + childType.slice(1)
+    const defaultName = `${typeLabel} ${siblingCount + 1}`
     const r = await fetch(`/api/documents/${documentId}/nodes`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
         parent_id: parentId,
         node_type: childType,
-        name: name.trim(),
+        name: defaultName,
       }),
     })
     if (r.ok) setRefreshTick(t => t + 1)
+    else toast.show(`Could not add ${childType}.`, 'error')
   }
 
   // Drag-and-drop handler (T-5.1 / T-5.2). Optimistic update with
@@ -295,7 +307,18 @@ function NodeTreeInner({ documentId, documentType, onSelect, refreshKey }: NodeT
           openByDefault
           idAccessor="id"
           onMove={handleMove}
-          onSelect={(nodes) => onSelect?.(nodes[0]?.id ?? null)}
+          onSelect={(nodes) => {
+            // Migration 042 / SU-J13-1 follow-up: the Tree is keyed on
+            // (refreshKey + refreshTick) and remounts on every realtime
+            // nodes-table change so newly-Accepted children become visible
+            // without a manual reload. react-arborist fires onSelect with
+            // an empty array on that remount, which previously cleared
+            // selectedNodeId upstream and made NodeDetailPanel disappear
+            // mid-edit. Only forward a real selection; the deliberate
+            // "click empty space to deselect" path is wired separately
+            // and does not flow through this callback.
+            if (nodes.length > 0) onSelect?.(nodes[0].id)
+          }}
         >
           {NodeRow}
         </Tree>
