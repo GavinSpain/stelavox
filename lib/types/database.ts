@@ -153,6 +153,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "agent_jobs_node_id_fkey"
+            columns: ["node_id"]
+            isOneToOne: false
+            referencedRelation: "nodes_canonical"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "agent_jobs_organisation_id_fkey"
             columns: ["organisation_id"]
             isOneToOne: false
@@ -888,6 +895,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "node_attachments_node_id_fkey"
+            columns: ["node_id"]
+            isOneToOne: false
+            referencedRelation: "nodes_canonical"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "node_attachments_organisation_id_fkey"
             columns: ["organisation_id"]
             isOneToOne: false
@@ -951,6 +965,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "node_comments_node_id_fkey"
+            columns: ["node_id"]
+            isOneToOne: false
+            referencedRelation: "nodes_canonical"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "node_comments_organisation_id_fkey"
             columns: ["organisation_id"]
             isOneToOne: false
@@ -1007,10 +1028,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "node_context_links_source_node_id_fkey"
+            columns: ["source_node_id"]
+            isOneToOne: false
+            referencedRelation: "nodes_canonical"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "node_context_links_target_node_id_fkey"
             columns: ["target_node_id"]
             isOneToOne: false
             referencedRelation: "nodes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "node_context_links_target_node_id_fkey"
+            columns: ["target_node_id"]
+            isOneToOne: false
+            referencedRelation: "nodes_canonical"
             referencedColumns: ["id"]
           },
         ]
@@ -1046,6 +1081,13 @@ export type Database = {
             columns: ["node_id"]
             isOneToOne: true
             referencedRelation: "nodes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "node_locks_node_id_fkey"
+            columns: ["node_id"]
+            isOneToOne: true
+            referencedRelation: "nodes_canonical"
             referencedColumns: ["id"]
           },
           {
@@ -1106,6 +1148,13 @@ export type Database = {
             columns: ["node_id"]
             isOneToOne: false
             referencedRelation: "nodes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "node_versions_node_id_fkey"
+            columns: ["node_id"]
+            isOneToOne: false
+            referencedRelation: "nodes_canonical"
             referencedColumns: ["id"]
           },
           {
@@ -1258,6 +1307,13 @@ export type Database = {
             columns: ["parent_id"]
             isOneToOne: false
             referencedRelation: "nodes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "nodes_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "nodes_canonical"
             referencedColumns: ["id"]
           },
           {
@@ -1707,6 +1763,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "workflow_steps_target_node_id_fkey"
+            columns: ["target_node_id"]
+            isOneToOne: false
+            referencedRelation: "nodes_canonical"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "workflow_steps_workflow_id_fkey"
             columns: ["workflow_id"]
             isOneToOne: false
@@ -1796,7 +1859,87 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      nodes_canonical: {
+        Row: {
+          agent_instruction: string | null
+          attachment_count: number | null
+          canonical_position: number | null
+          content_revision: number | null
+          created_at: string | null
+          created_by: string | null
+          depth: number | null
+          document_id: string | null
+          export_heading_override: string | null
+          export_include: boolean | null
+          export_page_break_before: boolean | null
+          external_ref: string | null
+          id: string | null
+          last_modified_by: string | null
+          layer_index: number | null
+          lock_reason: string | null
+          locked: boolean | null
+          locked_at: string | null
+          locked_version: number | null
+          metadata: Json | null
+          mobile_notes: Json | null
+          name: string | null
+          node_category: string | null
+          node_type: string | null
+          notes: Json | null
+          order: number | null
+          ordinal_path: number[] | null
+          organisation_id: string | null
+          parent_id: string | null
+          project_id: string | null
+          prose: Json | null
+          scope: string | null
+          short_description: string | null
+          status: string | null
+          summary: Json | null
+          tags: string[] | null
+          updated_at: string | null
+          version: number | null
+          word_count_actual: number | null
+          word_count_target: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "nodes_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "nodes_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "nodes_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "nodes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "nodes_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "nodes_canonical"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "nodes_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       accept_agent_job: {

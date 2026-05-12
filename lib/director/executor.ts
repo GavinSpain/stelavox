@@ -272,11 +272,19 @@ export async function* runAgenticTurn(
         stream: true,
         operationType: 'director',
         tools: baseToolDefs,
+        // V1.x-LB task 5 — pass the extended-thinking flag through to the
+        // provider. The provider gates activation on model support, so the
+        // flag is dormant on Haiku and active on Opus 4.7+/Sonnet 4.6+.
+        extendedThinking: config.model_params.extended_thinking ?? false,
       },
     }
 
     // Per-iteration accumulators
     const turnToolCalls: ToolCall[] = []
+    // V1.x-LB task 5 — extended-thinking blocks emitted by the model in
+    // this iteration. Must be prepended to the assistant message we
+    // append to the messages array; Anthropic returns 400 if dropped.
+    const iterationThinkingBlocks: AssembledContentBlock[] = []
     let iterationStopReason = 'unknown'
     let iterationText = ''
 
@@ -318,6 +326,26 @@ export async function* runAgenticTurn(
         case 'tool_use_complete': {
           if (chunk.toolCall) {
             turnToolCalls.push(chunk.toolCall)
+          }
+          break
+        }
+        case 'thinking_block_complete': {
+          // V1.x-LB task 5 — capture extended-thinking blocks for re-inclusion
+          // in the assistant message at iteration boundary. Not surfaced to
+          // user-visible SSE.
+          if (chunk.thinkingBlock) {
+            if (chunk.thinkingBlock.kind === 'thinking') {
+              iterationThinkingBlocks.push({
+                type: 'thinking',
+                thinking: chunk.thinkingBlock.thinking,
+                signature: chunk.thinkingBlock.signature,
+              })
+            } else {
+              iterationThinkingBlocks.push({
+                type: 'redacted_thinking',
+                data: chunk.thinkingBlock.data,
+              })
+            }
           }
           break
         }
@@ -494,7 +522,15 @@ export async function* runAgenticTurn(
       // user message with tool_result content blocks. The model sees its
       // own prior turn intact on the next iteration, which is what
       // Anthropic's tool-use protocol expects.
+      //
+      // V1.x-LB task 5 — when extended thinking is active, the model emits
+      // thinking / redacted_thinking blocks BEFORE its visible content.
+      // Anthropic requires those blocks to appear first in the assistant
+      // message we send back next iteration, or the API returns 400.
       const assistantContent: AssembledContentBlock[] = []
+      for (const tb of iterationThinkingBlocks) {
+        assistantContent.push(tb)
+      }
       if (iterationText.trim().length > 0) {
         assistantContent.push({ type: 'text', text: iterationText })
       }

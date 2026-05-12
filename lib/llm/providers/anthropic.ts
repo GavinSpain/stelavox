@@ -56,6 +56,13 @@ function toAnthropicMessages(messages: AssembledMessage[]): Anthropic.Messages.M
             content: b.content,
             ...(b.is_error ? { is_error: true } : {}),
           }
+        case 'thinking':
+          // V1.x-LB task 5 — pass thinking blocks back to maintain multi-turn
+          // coherence. Anthropic verifies `signature` and returns 400 if the
+          // block was tampered with or dropped.
+          return { type: 'thinking', thinking: b.thinking, signature: b.signature }
+        case 'redacted_thinking':
+          return { type: 'redacted_thinking', data: b.data }
       }
     })
     return { role: m.role, content: blocks }
@@ -80,6 +87,35 @@ function modelAcceptsTemperature(model: string): boolean {
   if (/^claude-opus-4-([7-9]|\d{2,})/.test(model)) return false
   return true
 }
+
+/**
+ * Models that support Anthropic's extended-thinking parameter.
+ *
+ * V1.x-LB task 5. Currently Opus 4.7+ and Sonnet 4.6+ in the Claude 4
+ * family. Haiku 4.5 does not support extended thinking. When the Director
+ * config enables `extended_thinking: true` but the active model is not on
+ * this list, the provider silently omits the `thinking` request parameter
+ * — the flag becomes dormant rather than causing a 400.
+ *
+ * Update this matcher as Anthropic broadens support to additional models.
+ */
+function modelSupportsExtendedThinking(model: string): boolean {
+  if (/^claude-opus-4-([7-9]|\d{2,})/.test(model)) return true
+  if (/^claude-sonnet-4-([6-9]|\d{2,})/.test(model)) return true
+  return false
+}
+
+/**
+ * V1.x-LB task 5 — token budget for extended thinking when enabled.
+ *
+ * Anthropic recommends starting low and adjusting based on observed
+ * reasoning quality. 4096 covers typical Director planning turns (1500-
+ * 3000 thinking tokens in practice) with margin. The model self-budgets
+ * within this ceiling; setting it higher does not force more thinking.
+ *
+ * Tunable: promote to platform_config if empirical sizing requires it.
+ */
+const EXTENDED_THINKING_BUDGET_TOKENS = 4096
 
 export class AnthropicProvider implements LLMProvider {
   private client: Anthropic
@@ -347,10 +383,30 @@ export class AnthropicProvider implements LLMProvider {
         ? toAnthropicMessages(prompt.dynamic.messages)
         : [{ role: 'user', content: prompt.dynamic.securityWrapped }]
 
+    // V1.x-LB task 5 — extended thinking. Enable only when the config
+    // requests it AND the active model supports it. Haiku 4.5 (the V1
+    // default Director model) does not support thinking, so the flag is
+    // dormant; a model bump to Opus 4.7 or Sonnet 4.6 activates it.
+    // Anthropic rejects `temperature` alongside `thinking`, so when
+    // thinking is on, temperature is unconditionally skipped.
+    const thinkingActive =
+      prompt.config.extendedThinking === true &&
+      modelSupportsExtendedThinking(prompt.config.model)
+
     const stream = this.client.messages.stream({
       model: prompt.config.model,
       max_tokens: prompt.config.maxTokens,
-      ...(modelAcceptsTemperature(prompt.config.model) && prompt.config.temperature !== null
+      ...(thinkingActive
+        ? {
+            thinking: {
+              type: 'enabled' as const,
+              budget_tokens: EXTENDED_THINKING_BUDGET_TOKENS,
+            },
+          }
+        : {}),
+      ...(!thinkingActive &&
+      modelAcceptsTemperature(prompt.config.model) &&
+      prompt.config.temperature !== null
         ? { temperature: prompt.config.temperature }
         : {}),
       system: systemBlocks,
@@ -363,6 +419,8 @@ export class AnthropicProvider implements LLMProvider {
       number,
       | { type: 'text'; text: string }
       | { type: 'tool_use'; id: string; name: string; jsonBuffer: string }
+      | { type: 'thinking'; thinking: string; signature: string }
+      | { type: 'redacted_thinking'; data: string }
     > = {}
 
     // Accumulated text across the turn — scanned for canary on every delta.
@@ -413,6 +471,15 @@ export class AnthropicProvider implements LLMProvider {
               type: 'tool_use_start',
               toolStart: { id: b.id, name: b.name },
             }
+          } else if (b.type === 'thinking') {
+            // V1.x-LB task 5 — extended-thinking block. Reasoning text +
+            // signature accumulate via thinking_delta / signature_delta on
+            // content_block_delta; not surfaced to user-visible text_delta.
+            blocks[event.index] = { type: 'thinking', thinking: '', signature: '' }
+          } else if (b.type === 'redacted_thinking') {
+            // Encrypted thinking — opaque blob delivered in one piece at
+            // content_block_start (no per-delta accumulation).
+            blocks[event.index] = { type: 'redacted_thinking', data: b.data }
           }
           break
         }
@@ -440,6 +507,14 @@ export class AnthropicProvider implements LLMProvider {
                 argumentsJsonDelta: d.partial_json,
               },
             }
+          } else if (d.type === 'thinking_delta' && block.type === 'thinking') {
+            block.thinking += d.thinking
+            // Thinking is internal reasoning; not yielded as user-visible
+            // `text` chunks. Surfaces only via thinking_block_complete at
+            // content_block_stop for the executor to preserve in the
+            // assistant message.
+          } else if (d.type === 'signature_delta' && block.type === 'thinking') {
+            block.signature += d.signature
           }
           break
         }
@@ -470,6 +545,23 @@ export class AnthropicProvider implements LLMProvider {
                 id: block.id,
                 name: block.name,
                 arguments: args,
+              },
+            }
+          } else if (block.type === 'thinking') {
+            yield {
+              type: 'thinking_block_complete',
+              thinkingBlock: {
+                kind: 'thinking',
+                thinking: block.thinking,
+                signature: block.signature,
+              },
+            }
+          } else if (block.type === 'redacted_thinking') {
+            yield {
+              type: 'thinking_block_complete',
+              thinkingBlock: {
+                kind: 'redacted_thinking',
+                data: block.data,
               },
             }
           }

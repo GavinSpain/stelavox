@@ -108,11 +108,15 @@ function adminClient() {
 }
 
 async function setDirectorModel(model: string) {
+  // Target whichever director_config row is currently 'production' — the
+  // active Director prompt version evolves (v1.0 → v1.1 in Migration 048;
+  // future bumps land in later migrations). Filtering on a specific
+  // version_number quietly stops swapping models the moment the prompt
+  // is bumped, which is exactly what happened post-Migration-048.
   const admin = adminClient()
   const { error } = await admin
     .from('director_configs')
     .update({ model_id: model })
-    .eq('version_number', '1.0')
     .eq('status', 'production')
   if (error) fail(`failed to set director model: ${error.message}`)
 }
