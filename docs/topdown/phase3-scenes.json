@@ -1,0 +1,100 @@
+{
+  "phase": 3,
+  "target": "Chapter 1 → scenes",
+  "chapter_id": "e6c58530-20ca-4bbf-9c79-9d0cda014500",
+  "chapter_name": "Salvage",
+  "chapter_budget": 5600,
+  "workflow_id": "382c3ce2-8beb-455a-bfd2-98f3ff3e716e",
+  "workflow_title": "Expand Chapter 1 'Salvage' into scenes",
+  "duration_s": 54.67,
+  "new_scene_count": 5,
+  "scene_budget_sum": 4600,
+  "budget_compliance_pct": "82.1",
+  "scenes": [
+    {
+      "order": 1,
+      "name": "The Iron Ghost",
+      "short_description": "Kael erases his presence from corporate records aboard his salvage ship, alone and deliberate, until a degraded distress beacon breaks seven years of perfect isolation.",
+      "word_count_target": 600,
+      "summary_text": "Kael sits in the cramped bridge of the Iron Ghost, systematically erasing his trail from corporate networks—another day of the careful, solitary work he has perfected over seven years. He checks salvage manifests, deletes location markers, and maintains the fiction of a ghost ship that barely exists. The routine is comforting until a degraded distress beacon pulses across his scanner: ancient, impossible, and pulling at him in a way nothing has in years. Kael knows he should ignore it. Ignoring it is survival. But for the first time since Europa, something tugs at the part of him that died seven years ago—the part that used to answer calls. He plots a course toward the signal, breaking the vow of isolation he swore he would never break.",
+      "summary_word_count": 126,
+      "metadata": {
+        "location": "The Iron Ghost (bridge and main cabin)",
+        "scene_goal": "Maintain isolation and erase presence; tempted to break the vow by the impossible beacon",
+        "scene_turn": "Kael makes the choice to pursue the beacon—the vow is broken before he fully realizes it",
+        "pov_character": "Kael Voss",
+        "dramatic_question": "Will Kael ignore the distress beacon and preserve his isolation, or will he answer the call for the first time in seven years?",
+        "emotional_register": "Quiet desperation; routine interrupted by old hunger; the first crack in seven years of armor",
+        "chapter_structural_role": "Opening; establishes Kael's isolation, his routine, and the fragility of his vow"
+      }
+    },
+    {
+      "order": 2,
+      "name": "The Beacon in the Dark",
+      "short_description": "Kael pursues the impossible distress signal through the Kuiper Belt and discovers wreckage that predates human space travel—the first sign that something ancient is waking.",
+      "word_count_target": 900,
+      "summary_text": "Kael chases the beacon deeper into the Kuiper Belt, following a signal so old and degraded that it should not still be transmitting. The space around him is a graveyard of ancient debris—twisted metal, frozen hulls, and dust that has drifted for centuries. As he closes on the signal's source, Kael finds something that makes his blood cold: wreckage that is not human, not corporate, and far older than anything he has ever salvaged. The debris field shifts and reveals the source: a sleek, matte-black crystalline hull 800 meters long, covered in faint glowing runes that pulse like a slow heartbeat. The alien probe. Kael approaches with weapons armed, every instinct screaming that this is wrong, that this is a trap. But the probe does not move. It has been waiting. When Kael's scanners finally lock onto the interior, he reads life-support still active—and a single massive heat signature at the probe's heart. Something is still alive in there. Or something is waiting to be woken.",
+      "summary_word_count": 166,
+      "metadata": {
+        "location": "Kuiper Belt debris field and approach to the alien probe",
+        "scene_goal": "Identify the source of the beacon and decide whether to board",
+        "scene_turn": "Kael sees the alien probe and realizes this is no human salvage—the decision to board becomes inevitable",
+        "pov_character": "Kael Voss",
+        "dramatic_question": "What is this impossible ship, and should Kael board it or turn back while he still can?",
+        "emotional_register": "Awe mixed with dread; the ground shifting beneath his certainty; old soldier's caution overwhelmed by wonder",
+        "chapter_structural_role": "Rising action; introduces the alien probe as both salvation and threat; forces Kael closer to the choice point"
+      }
+    },
+    {
+      "order": 3,
+      "name": "Into the Probe",
+      "short_description": "Kael boards the alien probe and moves through its crystalline interior, drawn deeper by the humming intelligence beneath his feet, toward the device that waits at its heart.",
+      "word_count_target": 1000,
+      "summary_text": "Kael docks with the probe's outer hull and enters through a bay that seems to recognize him—doors sliding open as if expecting his arrival. The interior is a single vast chamber filled with floating crystalline lattices and zero-gravity dust motes that never settle. The air is cold and tastes of metal and ozone. As Kael moves deeper, he feels it: a low hum that resonates through his bones, through his neural implant, through the marrow of his being. The probe is alive. Or it is conscious. Or it is something that transcends the distinction. The walls pulse with faint blue light as he passes, and Kael realizes the runes are not decoration—they are writing. Ancient, mathematical, and somehow familiar despite being utterly alien. At the center of the chamber, suspended in a column of soft blue light, is the device: a crystalline object no larger than his fist, smooth and perfect, glowing with an inner light that seems to breathe. Kael approaches it slowly, every instinct telling him this is the moment that changes everything. His hand reaches out before his mind can stop it.",
+      "summary_word_count": 185,
+      "metadata": {
+        "location": "Interior of the alien probe—main chamber",
+        "scene_goal": "Explore the probe and reach the device at its center",
+        "scene_turn": "Kael's hand reaches toward the device—the point of no return is crossed",
+        "pov_character": "Kael Voss",
+        "dramatic_question": "What is this ancient intelligence, and what will happen when Kael touches the device?",
+        "emotional_register": "Wonder and dread intertwined; the feeling of being called; inevitability masquerading as choice",
+        "chapter_structural_role": "Escalation; the probe's ancient consciousness draws Kael forward; the climax is now unavoidable"
+      }
+    },
+    {
+      "order": 4,
+      "name": "The Bonding",
+      "short_description": "Kael touches the crystalline device and it bonds with his neural implant, flooding his mind with alien knowledge—star charts, warnings, and a countdown that cannot be stopped.",
+      "word_count_target": 1500,
+      "summary_text": "The moment Kael's fingers touch the device, it activates. There is no pain, only a sensation of shattering—as if his skull has opened and something vast is pouring in. The device's runes flare from soft blue to brilliant white, and Kael screams. Knowledge floods through him: star charts older than human civilization, coordinates that make no sense, warnings in a language he somehow understands. He sees the solar system from an impossible perspective—sees the planets as they were forty thousand years ago, sees the probe arrive and take position, sees the long sleep and the waiting. And he sees something else: a countdown. Numbers ticking down in his skull, embedded in his neural implant, inseparable from his own heartbeat. The device is not a weapon. It is a failsafe. And something far older than humanity is waking up. The knowledge is too vast, too ancient, too alien for a human mind to hold. Kael collapses to his knees, his implant screaming with static, his vision fragmenting into data streams and star charts. The device has chosen him. Or recognized him. Or been waiting for someone like him all along. When the flood finally slows, Kael is gasping, bleeding from his nose, and no longer alone in his own mind. The countdown reads: 47 hours, 23 minutes, 14 seconds.",
+      "summary_word_count": 218,
+      "metadata": {
+        "location": "Interior of the alien probe—at the device's heart",
+        "scene_goal": "Touch the device and survive the bonding",
+        "scene_turn": "The device bonds with Kael's neural implant and floods him with alien knowledge; he is no longer isolated in his own mind; a countdown begins",
+        "pov_character": "Kael Voss",
+        "dramatic_question": "What is the device, and what will it demand of Kael now that they are connected?",
+        "emotional_register": "Agony and transcendence; violation and recognition; the shattering of everything he thought he understood",
+        "chapter_structural_role": "Climax; the inciting incident that makes the entire book inevitable; Kael's isolation is permanently broken"
+      }
+    },
+    {
+      "order": 5,
+      "name": "The Countdown",
+      "short_description": "In the immediate aftermath of bonding, Kael struggles to process the alien knowledge and realizes the countdown is real—something is coming, and he has less than two days to understand what.",
+      "word_count_target": 600,
+      "summary_text": "Kael staggers back to the Iron Ghost, the countdown ticking in his skull like a second heartbeat. His neural implant is screaming with static, and every time he tries to focus, the alien data crashes through his thoughts like a wave. The coordinates the device gave him point to Europa—to the research colony built on top of the lab where his team died. The warnings are fragmentary, broken by the sheer alienness of the signal, but the meaning is clear: something is coming. Something is waking. And the countdown is real. Kael sits in his ship's bridge, staring at the impossible numbers ticking down, and realizes that the seven-year vow he swore—to stay alone, to keep everyone safe through isolation—is shattered. The device will not allow him to hide anymore. And in less than two days, whatever the probe was designed to warn about will reach the inner system. Kael's hand trembles as he reaches for the communications array. For the first time in seven years, he is going to have to trust someone. He is going to have to ask for help. And he has no idea who to call.",
+      "summary_word_count": 191,
+      "metadata": {
+        "location": "The Iron Ghost—bridge and main cabin",
+        "scene_goal": "Survive the bonding's aftermath and confront what the countdown means",
+        "scene_turn": "Kael realizes he cannot face what is coming alone and must break his vow to reach out to others",
+        "pov_character": "Kael Voss",
+        "dramatic_question": "Will Kael accept that isolation is no longer possible, and will he reach out for help before the countdown reaches zero?",
+        "emotional_register": "Shock giving way to grim acceptance; the old weight of responsibility settling back onto his shoulders; fear of what comes next",
+        "chapter_structural_role": "Release; the chapter's turning point is complete; Kael is forced toward the decision that will shape Act One—to build a crew or die alone"
+      }
+    }
+  ]
+}

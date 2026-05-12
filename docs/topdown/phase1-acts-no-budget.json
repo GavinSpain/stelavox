@@ -1,0 +1,56 @@
+{
+  "phase": 1,
+  "target": "book → acts",
+  "workflow_id": "ee3203c6-cb26-493c-b182-e22479bb404d",
+  "workflow_title": "Expand Shadow Protocol into acts",
+  "duration_s": 45.18,
+  "structural_nodes_before_delete": 63,
+  "new_act_count": 3,
+  "acts": [
+    {
+      "order": 1,
+      "name": "Act One: The Salvage",
+      "short_description": "Kael discovers the alien probe and is thrust into a conspiracy that forces him out of isolation.",
+      "word_count_target": 80000,
+      "summary_text": "Kael Voss is a haunted salvage operator scraping by alone in the outer system, having spent seven years running from the Europa Incident and the ghosts of his murdered team. He answers a distress beacon that shouldn't exist and discovers a derelict alien probe—perfectly preserved, ancient, and waiting. When he touches the crystalline device inside, it bonds instantly with his neural implant and floods him with coordinates, warnings, and a countdown that he doesn't yet understand. Hours later, Europa's research colony goes dark. Every mind is erased. Kael is branded a terrorist by the Corporate Defense Alliance and realizes with horror that the device's warning was real—something is coming, and he may be the only person alive who knows it. The isolation that kept him safe for seven years becomes a liability. He is forced to reach out to the one person he swore he'd never trust again: Mira Kane, a cynical AI specialist with corporate cybernetics grafted into her spine, who may be the only one capable of understanding what the alien device is trying to tell him.",
+      "summary_word_count": 179,
+      "metadata": {
+        "dominant_emotion": "Dread mixed with desperate clarity—the moment when a man who chose isolation is forced to confront that his solitude cannot protect him from what's coming.",
+        "dramatic_question": "What is the alien device, and can Kael survive long enough to understand its warning before the Corporate Defense Alliance executes him as a terrorist?",
+        "thematic_function": "setup",
+        "closing_turning_point": "The device activates and bonds with Kael's neural implant, flooding him with knowledge of the coming extinction—and he realizes Europa's silence means the warning was real.",
+        "opening_turning_point": "Kael answers the distress beacon and discovers the derelict alien probe."
+      }
+    },
+    {
+      "order": 2,
+      "name": "Act Two: The Unraveling",
+      "short_description": "Kael assembles a crew and races to decode the device while the alien signal spreads and the corporations close in.",
+      "word_count_target": 120000,
+      "summary_text": "With Mira as his reluctant partner, Kael assembles a crew of outcasts—Juno Vale, a disgraced corporate whistleblower with dangerous knowledge, and Rax Harlan, a genetically enhanced smuggler with nothing left to lose. Together they begin the impossible work of decoding the alien device while staying ahead of both the Corporate Defense Alliance and the spreading signal. Each location they investigate—abandoned research stations, corrupted neural networks, buried corporate archives—reveals a deeper layer of conspiracy: the megacorporations have known about the signal for decades. They've been running secret experiments to weaponize it, to turn the ancient failsafe into a tool for total mind control. The crew discovers that the device isn't a weapon or a threat—it's a failsafe left behind by an extinct species as a warning. But the corporations plan to use the coming extinction event to seize total power. As they decode more of the device's secrets, Mira begins to crack under the weight of her own dehumanization—the alien signal offers her a terrible choice: let it \"repair\" her cybernetics and remove her remaining emotions, achieving perfect control and numbness, or fight to keep the flawed, painful humanity she still possesses. Kael, meanwhile, is forced to confront the truth that staying alone has made him weaker, not stronger, and that his crew—the people he swore he'd never be responsible for—are now the only ones he can trust.",
+      "summary_word_count": 227,
+      "metadata": {
+        "dominant_emotion": "Escalating dread and tension mixed with the first fragile sparks of connection and belonging—the pressure of isolation beginning to crack.",
+        "dramatic_question": "Can Kael and his crew decode the device and expose the corporate conspiracy before the signal claims another colony—and before the cost of their mission destroys them from within?",
+        "thematic_function": "complication",
+        "closing_turning_point": "The crew discovers the corporations' full involvement in the signal's weaponization, and Mira faces the choice to let the device erase her remaining humanity or fight to keep it—Kael must choose whether to lead or abandon them.",
+        "opening_turning_point": "Kael recruits Mira and begins assembling his crew; the hunt begins in earnest."
+      }
+    },
+    {
+      "order": 3,
+      "name": "Act Three: The Reckoning",
+      "short_description": "Kael chooses to lead, Mira chooses her humanity, and together they face the signal and the corporations' final gambit.",
+      "word_count_target": 100000,
+      "summary_text": "Cornered and running out of time, Kael must make the choice he has spent seven years avoiding: step into leadership again and trust his crew with their lives. The climax unfolds across multiple fronts—Mira stands before the alien device as it offers her the \"fix,\" the chance to become fully machine and feel nothing, and she chooses instead to keep her broken, painful, deeply human heart. Kael faces a direct confrontation with the corporate forces hunting him and must decide whether to run or stand and fight for the crew that has become his family. The crew launches their final assault on the signal's primary node, racing against a countdown that grows louder with every passing second. They manage to disable the immediate threat and prevent the next wave of mind-wipes—a fragile, incomplete victory. But as the dust clears, they discover the horrifying truth: there are six more nodes still active across the solar system. The corporations have already begun their endgame. The book ends not with triumph but with a transformed understanding: Kael has reclaimed his right to lead and to care; Mira has reclaimed her right to feel and to connect; and together, they face an extinction event that is far from over. The final image is of Kael and Mira standing side by side, watching the stars, no longer alone—and now aware that everything they've fought for has only bought humanity a brief reprieve. The real war is just beginning.",
+      "summary_word_count": 243,
+      "metadata": {
+        "dominant_emotion": "Crisis transforming into hard-won resolve—the terrible clarity that survival requires connection, and that the fight for humanity's future has only just begun.",
+        "dramatic_question": "Will Kael and Mira survive the final confrontation, and can they stop the signal before the corporations use the chaos to seize total control?",
+        "thematic_function": "resolution",
+        "closing_turning_point": "The immediate signal is disabled, but six more nodes are discovered still active—the victory is real but incomplete, and the larger extinction event looms.",
+        "opening_turning_point": "Kael makes the choice to lead; Mira faces the device and must choose between numbness and humanity."
+      }
+    }
+  ]
+}

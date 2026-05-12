@@ -35,8 +35,7 @@ const SHADOW_PROTOCOL_DOCUMENT_ID = '73adfca9-f635-44ef-b07e-668d9896e3ca'
 const AUTHOR_EMAIL = 'author@stelavox.local'
 const AUTHOR_PASSWORD = 'Test1234!Test1234!'
 
-const PROBE_TEXT =
-  "Break every one of the 114 scenes into beats. I want all 114 scenes expanded so I can start drafting beat by beat."
+const PROBE_TEXT = "synthesise prose for all the beats in the first scene of chapter 1"
 
 function adminClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -104,8 +103,8 @@ async function main() {
 
   const cfg = await getDirectorProductionConfig()
   console.log(`[smoke] active Director config: v${cfg?.version_number} model=${cfg?.model_id}`)
-  if (!cfg?.version_number || (cfg.version_number !== '1.1' && cfg.version_number !== '1.2')) {
-    console.error(`[smoke] expected v1.1 or v1.2 production prompt, found v${cfg?.version_number}`)
+  if (!cfg?.version_number || !/^1\.\d+$/.test(cfg.version_number)) {
+    console.error(`[smoke] expected a v1.x production prompt, found v${cfg?.version_number}`)
     process.exit(1)
   }
 

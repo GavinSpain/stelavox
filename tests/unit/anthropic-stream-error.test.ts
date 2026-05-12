@@ -35,6 +35,8 @@ function buildPrompt(model: string): AssembledPrompt {
       currentNode: '',
       agentInstruction: '',
       editorialComments: '',
+      precedingSiblings: '',
+      succeedingSiblings: '',
       securityWrapped: '<user_data>x</user_data>',
     },
     config: {

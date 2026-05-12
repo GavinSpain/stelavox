@@ -1,0 +1,192 @@
+{
+  "label": "haiku-on-tighter-beats",
+  "model_id": "claude-haiku-4-5-20251001",
+  "preceding_sibling_count": 2,
+  "succeeding_sibling_count": 1,
+  "expand_workflow_id": "7d913cab-e59b-473d-96b7-b4396656f6a0",
+  "synth_workflow_id": "d2a00390-a24a-45c1-8589-c956c51120b8",
+  "synth_cost_usd": 0.04559800000000001,
+  "total_input_tokens": 10584,
+  "total_output_tokens": 5418,
+  "duration_s": 161.166,
+  "total_words": 4089,
+  "new_beat_summaries": [
+    {
+      "order": 1,
+      "name": "Routine Void",
+      "word_count_target": 120,
+      "summary_text": "Kael sits alone on the Iron Ghost's bridge, running a passive scan of the void. The instruments return only the expected: dust, debris, the faint thermal signatures of distant objects. His routine is mechanical—scan, catalog, move. He has made this dance a thousand times. Nothing new. Nothing alive. Nothing that requires him to decide or lead or risk anyone but himself. The emptiness is exactly as he prefers it.",
+      "summary_word_count": 69,
+      "metadata": {
+        "beat_function": "establish",
+        "pov_character": "Kael Voss",
+        "emotional_shift": "detachment, quiet control",
+        "characters_present": [
+          "Kael Voss"
+        ]
+      }
+    },
+    {
+      "order": 2,
+      "name": "The Anomaly",
+      "word_count_target": 140,
+      "summary_text": "An alert breaks the routine. The sensors catch something: a faint, rhythmic pulse buried under layers of encryption. Kael's training kicks in immediately—this is not corporate, not colonial, not anything he recognizes. The signal is ancient, the encryption pattern predates the Corporate Wars by decades, maybe centuries. Every survival instinct screams to ignore it, to change course, to disappear deeper into the Belt where nobody looks. But Kael leans forward, studying the frequency. Curiosity—or something darker—overrides his caution. He plots the coordinates. He cannot help himself.",
+      "summary_word_count": 86,
+      "metadata": {
+        "beat_function": "inciting incident",
+        "pov_character": "Kael Voss",
+        "emotional_shift": "curiosity breaking through numbness, danger rising",
+        "characters_present": [
+          "Kael Voss"
+        ]
+      }
+    },
+    {
+      "order": 3,
+      "name": "The Choice",
+      "word_count_target": 130,
+      "summary_text": "For a long moment, Kael's hand hovers over the navigation console. He knows what this means: deviation from the route, wasted fuel, risk. He knows the smart play is to ignore it, to stay invisible, to let the void keep its secrets. But he also knows that he has been waiting for something—anything—to break the suffocation of his own routine. The signal pulses. Kael's jaw tightens. He inputs the coordinates and fires the engines. The Iron Ghost lurches forward into the dark. There is no going back from curiosity. There never is.",
+      "summary_word_count": 92,
+      "metadata": {
+        "beat_function": "escalate",
+        "pov_character": "Kael Voss",
+        "emotional_shift": "surrender to impulse, acceptance of risk",
+        "characters_present": [
+          "Kael Voss"
+        ]
+      }
+    },
+    {
+      "order": 4,
+      "name": "The Approach",
+      "word_count_target": 150,
+      "summary_text": "Hours pass. The signal grows stronger, clearer, its rhythm becoming almost alive. Kael watches the scanner update with each passing hour—distance collapsing, coordinates solidifying. And then, at the edge of visual range, the shape emerges from the dark. An 800-meter hull, matte black, covered in faint glowing runes that pulse in perfect synchronization with the signal. It is beautiful and wrong in equal measure—nothing human, nothing corporate, nothing that belongs in this system. Kael's breathing slows. He has found something that was not supposed to exist. The realization settles in his chest like ice: whatever this is, it has been waiting.",
+      "summary_word_count": 101,
+      "metadata": {
+        "beat_function": "reveal",
+        "pov_character": "Kael Voss",
+        "emotional_shift": "awe mixed with dread, the lie of isolation beginning to crack",
+        "characters_present": [
+          "Kael Voss"
+        ]
+      }
+    },
+    {
+      "order": 5,
+      "name": "The Docking",
+      "word_count_target": 160,
+      "summary_text": "Kael moves through the pre-boarding checklist with military precision. Weapons armed, helmet sealed, communications encrypted. Every instinct screams trap—this could be a corporate ambush, a lure, a death waiting in the dark. But the probe is too old, too alien, too perfectly preserved. No human hand built this. No corporation owns it. He cycles the airlock, seals the connection, and steps into the void between ships. The probe's hull is warm under his gloved hand—impossibly warm, as if the thing is still alive. The airlock opens. Beyond it lies absolute darkness and the faint hum of power that should not exist. Kael takes a breath and steps inside.",
+      "summary_word_count": 108,
+      "metadata": {
+        "beat_function": "escalate",
+        "pov_character": "Kael Voss",
+        "emotional_shift": "military focus masking deeper fear",
+        "characters_present": [
+          "Kael Voss"
+        ]
+      }
+    },
+    {
+      "order": 6,
+      "name": "The Chamber",
+      "word_count_target": 180,
+      "summary_text": "The chamber is vast—a single hollow space that stretches beyond the reach of his helmet lights. The walls are crystalline, catching and refracting the faint blue glow of the signal. Floating in the darkness are lattices of the same material, suspended in zero-g, never settling, as if gravity itself has no hold here. The air is cold and metallic. The silence is absolute—not the absence of sound, but a presence in itself, pressing against him like deep water. Kael moves forward, weapons lowered, every sensor on full alert. Nothing moves. Nothing attacks. The probe waits with the patience of something that has waited for millennia. At the center of the chamber, suspended in a field of blue light, is a single object: a crystalline device, no larger than his fist, pulsing in rhythm with his own heartbeat.",
+      "summary_word_count": 137,
+      "metadata": {
+        "beat_function": "reveal",
+        "pov_character": "Kael Voss",
+        "emotional_shift": "awe and dread merging into something unnamed",
+        "characters_present": [
+          "Kael Voss"
+        ]
+      }
+    },
+    {
+      "order": 7,
+      "name": "The Threshold",
+      "word_count_target": 160,
+      "summary_text": "Kael's boots make no sound on the chamber floor. The device grows larger as he approaches, its blue pulse synchronizing with his breathing. He knows, with the certainty of a man who has learned to read danger, that this moment is a threshold. The moment he touches it, whatever isolation he has built will shatter. Whatever safety he has convinced himself he possesses will become illusion. But he is already moving forward. His hand reaches out. The device's light intensifies. Kael's fingers are inches away. The signal pulses louder, faster, as if the probe itself is holding its breath. He can still turn back. He can still leave this place untouched. But he will not. He never was going to.",
+      "summary_word_count": 120,
+      "metadata": {
+        "beat_function": "turning point",
+        "pov_character": "Kael Voss",
+        "emotional_shift": "surrender to fate, acceptance of transformation",
+        "characters_present": [
+          "Kael Voss"
+        ]
+      }
+    }
+  ],
+  "synth_beats": [
+    {
+      "order": 1,
+      "beat_id": "9263ff8a-af96-4ddf-9e43-8cd30d03f70a",
+      "beat_name": "Routine Void",
+      "prose": "Kael's eyes moved across the passive-scan readout without registering what they saw. Dust. Stellar debris. The faint thermal smear of a distant object cooling in the void—maybe a piece of something that had been whole once. His fingers moved across the console with the muscle memory of seven years: toggle the array, let it drink the dark, wait for the instruments to confirm what he already knew. Nothing out here. Nothing that moved. Nothing that thought or wanted or could be disappointed by him.\n\nThe bridge of the Iron Ghost was no wider than his arm span. The navigation console curved around him like a parenthesis—a shell within a shell. Beyond the viewscreen, the Kuiper Belt unfolded in absolute black, studded with the faint glitter of distant ice. The starlight was so far away it barely qualified as light. It was memory of light. The echo of something that had already died.\n\nHe pulled a cup of cold coffee toward him. It had been cold for hours. He drank it anyway.\n\nThe scan completed its cycle. The console chimed—a soft, tired sound. Kael ran the pattern-recognition subroutine by habit more than necessity. The algorithm would find nothing. It always found nothing. That was the point. That was the entire structure of his life, and he had built it carefully enough that the weight of it had become invisible. You could carry a burden forever if you never set it down, never acknowledged it was there. You could be alone in a way that looked like choice if you performed it often enough.\n\nThe readout refreshed. Same data. Same void.\n\nHe should move the Iron Ghost to a new sector, log the coordinates, and repeat the dance. That was the rhythm. That was how you made a life of salvage work—you drifted through the system like a ghost, touching nothing, keeping nothing, staying far enough from the inner colonies that the Corporate Defense Alliance would have to work to remember you existed. And if they did remember, well. Kael had learned to be fast with a weapon and faster with an escape burn.\n\nHis neural implant hummed low in his skull—a sound he had stopped noticing years ago. The device was old military hardware, modified, barely legal even by the black-market standards of the outer rim. It integrated with his ship's systems in ways that made the old pilot's guild techs nervous when they saw the scar tissue around the neural ports. But it worked. It kept him alive. And it asked nothing of him except silence.\n\nThe scan cycled again.\n\nKael set the cup down. The bridge was quiet enough that he could hear the low vibration of the engines, the whisper of life-support cycling through the walls. These sounds were company of a kind—predictable, mechanical, asking nothing in return. He had chosen them over human voices a long time ago. It had seemed like the only rational choice then. It still did.\n\nHe reached for the navigation controls to input the next drift vector.\n\nThe passive array chimed again. Different tone. Kael's hand stopped.",
+      "prose_word_count": 515,
+      "tokens_input": 202,
+      "tokens_output": 669,
+      "cost_usd": 0.004679
+    },
+    {
+      "order": 2,
+      "beat_id": "5bce4e77-b44d-4b2b-be2b-0e62550dfd61",
+      "beat_name": "The Anomaly",
+      "prose": "The readout scrolled. Kael's eyes locked on the data stream, and the familiar weight of routine fractured.\n\nA pulse. Rhythmic. Buried under layers of encryption so old the algorithm struggled to parse it. Not corporate—the signature was wrong, the frequency pattern nothing he recognized from a lifetime of scanning military and colonial broadcasts. This was something else. Something older.\n\nHe leaned forward, the cup forgotten. His fingers moved to the sensor array without conscious decision, pulling the signal into focus. The encryption wasn't just archaic. It predated the Corporate Wars. Predated the founding charters. The encryption pattern itself was wrong—not binary, not even the quantum-locked protocols of high-end military hardware. It was something else entirely. Layered. Breathing.\n\nEvery protocol Kael had ever learned screamed the same instruction: ignore it. Change vector. Disappear deeper into the Belt where the Corporate Defense Alliance's reach got thin and their memory got shorter. There were a thousand better ways to die than by following a signal that didn't belong to anyone human.\n\nHe ran the coordinates.\n\nThe source was three light-hours distant, floating in the deep beyond any established shipping lane or research station. Dead space. The kind of emptiness that only existed because no one had found a reason to visit it yet.\n\nKael's hand hovered over the nav console. He could feel the old implant pulsing faster—his body recognizing something his mind hadn't caught up to yet. Curiosity was a luxury he had excised from his operating parameters seven years ago. Curiosity got you killed. Curiosity got other people killed.\n\nHe pulled up the signal analysis. The pulse was faint, but consistent. Encrypted, but not encrypted against anything he knew. It was as if whoever had sent it understood that someone, someday, would be listening. That someone would be looking. That someone would not be able to help themselves.\n\nKael's jaw tightened. He knew better. He had spent seven years learning better.\n\nHe plotted the jump anyway.",
+      "prose_word_count": 325,
+      "tokens_input": 1002,
+      "tokens_output": 452,
+      "cost_usd": 0.004394
+    },
+    {
+      "order": 3,
+      "beat_id": "32061ba1-ee8d-4b83-81e9-589659a58df1",
+      "beat_name": "The Choice",
+      "prose": "His thumb hovered over the execute command.\n\nThe signal pulsed. Once. Twice. A rhythm that felt almost like breathing—like something alive was waiting for him out there in the dark, patient and certain he would come.\n\nKael's jaw clenched. Seven years. Seven years of discipline, of calculated routes and necessary isolation, of refusing to care about anything beyond the next salvage and the next fuel burn. Seven years of convincing himself that the absence of choice was the same as safety. And now a ghost signal from before the corporations existed, before the wars, before anyone had drawn the map of the inner system—and his hand was shaking.\n\nHe could still ignore it. Should ignore it. Every rational circuit in his brain screamed the calculation: the fuel cost of a three-light-hour deviation, the time burned, the risk of being spotted by a corporate cutter if he powered up the FTL drives. The smart move was to log the anomaly, mark it for future reference, and let the Iron Ghost drift to the next scheduled sector like nothing had changed.\n\nBut something had changed. The moment his passive array had caught that pulse, the moment he'd seen the encryption that predated everything, the moment he'd realized this was not corporate and not colonial and not anything human—the lie of his isolation had flickered. Just for an instant. Just enough to remind him that he had chosen this void, chosen this solitude, not because it kept him safe but because it kept him from having to answer to anyone else's death.\n\nThe signal pulsed again.\n\nKael's hand dropped. His fingers moved across the navigation console with the kind of certainty that bypassed thought entirely. The FTL drives spooled up with a deep, hungry growl. The Iron Ghost shuddered as power redirected through her aging reactor, and the Kuiper Belt wheeled slowly around him as the ship began to turn toward coordinates that no one had asked him to find.\n\nThere was no going back from curiosity. There never was.\n\nThe jump sequence initiated. The void swallowed the Iron Ghost whole.",
+      "prose_word_count": 348,
+      "tokens_input": 1546,
+      "tokens_output": 456,
+      "cost_usd": 0.004958
+    },
+    {
+      "order": 4,
+      "beat_id": "271284ee-60d0-4bbd-a40a-62d53f5bb696",
+      "beat_name": "The Approach",
+      "prose": "The distance counter flickered toward zero. Hours had bled into each other—jump, drift, scan, wait—until the rhythm became a meditation Kael could perform without thinking. The signal had grown steadier as the Iron Ghost closed the gap, the encryption still impenetrable but no longer frantic. Patient. It had been patient for a very long time.\n\nHe sat in the pilot's chair with cold coffee gone thicker at the bottom of a cup he'd forgotten to set down. The scanner painted the space ahead in soft green light, building the shape of something with each passing minute as his passive sensors triangulated the source.\n\nDistance: two light-hours. One. Thirty minutes.\n\nThe readout changed. Solid contact. Not debris. Not a probe. An object. Massive.\n\nKael's hand moved to the visual array without decision. The cameras swam into focus, piercing the dark, and the shape resolved from nothing into something that made his breathing stop.\n\nAn 800-meter hull. Matte black. Sleek the way nothing human ever learned to be sleek—every angle suggesting movement even while it drifted motionless in the void. The surface was smooth, almost liquid, covered in faint glowing runes that pulsed in perfect synchronization with the signal his sensors had been chasing.\n\nHe stared. The coffee cup slipped from his fingers and hit the deck plating without him noticing.\n\nNot corporate. Not colonial. Not anything that had ever been built in any shipyard in the system. The runes—if they were runes—shifted color as he watched. Blue fading to violet fading to blue again. A heartbeat. A countdown. A signal that had been waiting in the dark beyond any mapped space, beyond any reason for anything human to venture, and had waited until someone with the right implant came close enough to hear it.\n\nKael's jaw tightened. His fingers moved across the console, shortening the distance. Fifty thousand kilometers. Twenty. Ten.\n\nThe runes brightened.\n\nHe could feel it now—not in his ears but in the implant behind his left temple, a sensation that was almost like pressure, almost like attention. The device was aware. The device was awake. And it had been expecting him.\n\nThe iron in his chest settled deeper. He had answered the signal. He had crossed the void to find it. And now, as the Iron Ghost drifted toward that impossible hull with its patient, pulsing light, Kael understood with a clarity that felt like drowning: whatever was about to happen, there was no going back.\n\nThe ship's approach brought the runes into perfect focus. They were not random. They were language. And something in the depths of his neural implant was already beginning to understand.",
+      "prose_word_count": 438,
+      "tokens_input": 1350,
+      "tokens_output": 609,
+      "cost_usd": 0.005527
+    },
+    {
+      "order": 5,
+      "beat_id": "81508fc2-e0d8-40c3-b25d-84088b053392",
+      "beat_name": "The Docking",
+      "prose": "The docking collar locked with a metallic shudder that ran through Kael's spine. He waited—not for confirmation, which came in green lights across his heads-up display, but for the trap he was certain would spring the moment he committed to the airlock.\n\nNothing came. Just the hum, steady and patient.\n\nHe ran the pre-board checklist with the precision of muscle memory. Weapons armed. Secondary systems hot. The beacon still encrypted, still pulsing, still waiting. His suit's external mic picked up the whisper of the Iron Ghost's docking mechanism cycling through its final sequence, and then—silence. The kind of silence that existed only in deep space, where sound had already died generations ago.\n\nKael's hand moved to the helmet seal. The magnetic locks engaged with a soft click. Visor down. Suit pressurized. Every rational circuit in his brain cataloged the absurdity: one man in a pressure suit, about to walk into an eight-hundred-meter vessel that predated human civilization, because a signal had hummed to him across the void and he had answered like a fool answering a summons from his own grave.\n\nHe cycled the airlock.\n\nThe inner door hissed open, and Kael stepped out into the bridge between worlds.\n\nThe probe's hull was warm beneath his gloved palm. Not the ambient temperature of space that should have frozen anything human in seconds—warm like flesh, like blood moving beneath skin. He jerked his hand back before the wrongness of it could register fully, but the sensation lingered. The thing was alive. Or had been alive. Or was something that had never learned the difference.\n\nThe probe's airlock yawned open ahead of him, a mouth of absolute darkness that swallowed the light from his suit lamps before it traveled three meters. The hum came from deeper in, from somewhere vast and still breathing.\n\nKael's jaw tightened. He took a breath—heard the rasp of it in his helmet, the small sound of one animal preparing to enter another's den—and moved forward into the dark.\n\nThe interior opened around him like a cathedral carved from night. His lamps swept across surfaces that weren't quite metal and weren't quite crystal, surfaces that seemed to shift and settle as light touched them. The chamber stretched upward and outward in all directions, far larger than the exterior dimensions should have allowed. Floating lattices of something that might have been ice or might have been glass drifted in the zero-gravity like slow constellations.\n\nThe hum grew louder. Not through his suit's external mic now—through his neural implant. A vibration that started in the port behind his left temple and spread like ripples through his skull, like something trying to communicate in a language his implant recognized even if his conscious mind did not.\n\nAt the chamber's center, a single object hung suspended in the vast emptiness.\n\nIt was small—no larger than his fist—and crystalline, and it glowed with an inner light that shifted from blue to violet to blue again. The runes on the probe's hull were nothing compared to this. The runes had been language. This was the voice speaking.\n\nKael moved toward it. His boots found purchase on surfaces that weren't quite there, magnetic locks engaging with the ship's geometry in ways that defied the laws of physics he understood. Each step brought him closer to the floating crystal, and with each step the hum grew sharper, more insistent, more certain.\n\nThe implant behind his temple began to burn.\n\nHe was twenty meters away when he realized his hand was already reaching. Not because he had chosen to reach. Because the thing was calling him the way his own nervous system called to his hand to pull away from fire.\n\nTen meters.\n\nThe burn spread from his temple down his spine, a sensation like synapses firing in sequence, like neurons awakening after centuries of sleep. The crystal pulsed brighter. The runes on the walls blazed. And somewhere in the depths of the probe, something vast and ancient and patient opened its eyes.\n\nFive meters.\n\nKael's fingers touched the crystal.\n\nThe burn became light. The light became knowledge. The knowledge became a scream that started in his implant and tore through his entire consciousness like a blade through silk.\n\nHe was drowning. He was burning. He was standing in a vast darkness that was not darkness but absence, watching something older than time itself prepare to wake from a sleep that had lasted forty thousand years. Coordinates flooded his vision—Mars, Europa, Titan, the outer reaches of the Belt, and something else, something further, something moving through the dark between the stars with the certainty of a countdown already begun.\n\nThe signal. The warning. The failsafe.\n\nIt was not a weapon.\n\nIt was a clock.\n\nAnd someone—something—had just hit the alarm.\n\nKael's hand clenched around the crystal. The implant screamed. And in that moment of absolute clarity and unbearable pain, he understood with the finality of a death sentence: whatever he had been before this moment, whatever isolated salvage operator drifting alone through the void, was already gone. The device had recognized him. It had chosen him. And the countdown had already begun.",
+      "prose_word_count": 855,
+      "tokens_input": 1501,
+      "tokens_output": 1154,
+      "cost_usd": 0.008403
+    },
+    {
+      "order": 6,
+      "beat_id": "d471d6da-132f-45ff-a0b5-226334612073",
+      "beat_name": "The Chamber",
+      "prose": "The light faded slowly, like a star collapsing inward. Kael hung suspended in the chamber, his hand still locked around the crystal, unable to move, unable to release it, unable to do anything but exist in the space between screaming and silence. His suit's environmental readings scrolled past his vision in a blur of green—pressure nominal, oxygen nominal, heart rate one hundred and eighty-seven beats per minute. Everything breaking down into numbers. Everything becoming data.\n\nThe crystal was warm in his palm. Not the warmth of friction or body heat, but something deeper, something that felt like it was coming from inside him rather than outside. The implant behind his temple had stopped burning. That was worse. The absence of pain was its own kind of agony—a numbness that suggested some essential part of him had been overwritten, rewritten, burned away.\n\nHe forced his fingers open. The crystal fell away—or he did. The distinction no longer seemed to matter. He was drifting now, weightless, while the floating lattices drifted around him with the same aimless patience. They were beautiful in a way that made him want to vomit. Each one caught the faint glow and refracted it into prisms of blue and violet light, and for a moment Kael understood that they weren't floating at all. They were suspended. Waiting. Like he was waiting. Like everything in this chamber had been waiting since before the solar system coalesced around a dying star.\n\nHis boots found the deck—or the deck found his boots. He couldn't remember which way gravity worked anymore. The chamber extended upward into darkness that his suit lamps refused to penetrate. The walls were smooth, almost liquid, and they pulsed in time with something that was no longer outside his head. The coordinates were still there. Mars. Europa. Titan. And further out, in the dark beyond the Belt, something moving with the slow certainty of inevitability.\n\nThe countdown.\n\nKael pulled up his comm. Static. Not the kind of static that meant equipment failure, but the kind that meant every frequency was screaming at once. He switched to the Iron Ghost's emergency channel. Still static. Still screaming.\n\nHe was alone.\n\nHe had been alone for seven years. This should have felt familiar. This should have felt like coming home.\n\nInstead it felt like drowning in air.\n\nThe crystal hung before him—he had stopped moving and it had not. It pulsed with the steady rhythm of something alive, something breathing, something that was patient beyond the span of human lifetimes. The runes on the walls had gone dark. Only the crystal glowed now, and its light was enough to fill the vast chamber with a blue so deep it almost looked like night.\n\nKael's hand moved toward it again. Not of its own volition. Because that distinction no longer applied. His body and the chamber and the crystal and the countdown were all part of the same system now, and the device had already decided what came next.\n\nHis fingers were centimeters from the surface when something changed. The light shifted. The rhythm broke. And for the first time since he had entered the probe, the silence shattered.\n\nA voice. Not words. Not sound. But a presence in his implant that had the weight and texture of speech. It showed him things. Not images. Sensations. The feeling of standing on a world under a red sun, watching a structure rise from the dust. The feeling of setting something down and walking away, knowing you would never return. The feeling of watching the centuries turn like the wheels of some vast machine, waiting, always waiting, for the moment when—\n\nKael's hand clenched into a fist and he pulled back from the crystal. His breath came in ragged gasps that fogged his visor. The voice withdrew, but only slightly. It was still there, patient, pressing against the edges of his consciousness like deep water pressing against a hull.\n\nThe coordinates remained. The countdown remained. And somewhere in the depths of the probe, something that had been asleep for forty thousand years had opened its eyes and found him standing there, exactly where it had left a message for someone to find.\n\nHe understood, finally, what the device had been trying to tell him. Not a warning. A handoff. A burden. A countdown that had started before humanity learned to walk upright, and now—because he had been the one to answer the signal—the burden was his.\n\nKael turned toward the airlock. His legs obeyed. His body was his again, more or less. He was careful not to look back at the crystal. If he looked back, he knew, he would reach for it again. And this time he might not have the strength to let go.\n\nThe chamber fell silent behind him as he walked. The silence had texture now. It felt like goodbye.",
+      "prose_word_count": 811,
+      "tokens_input": 2274,
+      "tokens_output": 1057,
+      "cost_usd": 0.008691
+    },
+    {
+      "order": 7,
+      "beat_id": "e3310174-365d-4be2-9714-29349cb14b1c",
+      "beat_name": "The Threshold",
+      "prose": "# The Threshold\n\nThe airlock sealed behind him with a finality that echoed through the chamber. Kael did not turn to watch it close. His attention had already shifted forward, inward, toward the thing that was still calling.\n\nThe coordinates had embedded themselves in his implant like shrapnel. He could feel them there—Mars, Europa, Titan, and that other place, the one that made his nervous system flinch when he tried to focus on it directly. A location that should not exist, or a location that existed everywhere at once. The distinction was collapsing.\n\nHis boots found the deck with a soft magnetic click. Each step brought him closer to the center of the chamber, where the crystalline device still hung suspended in its own gravity. Up close, he could see that it was not perfectly smooth—it had seams, facets, a geometry that suggested it had been constructed with intention. Built by something that had understood precision the way his hands understood a weapon's balance.\n\nThe blue light pulsed. Once. Twice. Then faster, synchronizing with something inside his chest.\n\nHis heartbeat.\n\nKael stopped walking. That detail felt important. That detail felt like a trap closing. But he did not stop moving forward. His body had already committed to what his mind was still pretending to debate. The device had recognized him in that first moment of contact, and now it was simply drawing him toward what had already been decided.\n\nTen meters separated them now. The floating lattices drifted between them like ghosts of mathematics, refracting the blue light into patterns that suggested meaning. He could almost read them. Almost understand what they were trying to say about time, about distance, about the space between one moment and the next.\n\nThe chamber walls began to glow again—not the walls themselves, but the space behind them, as if something vast and attentive was watching from the other side of reality. Waiting. Always waiting.\n\nFive meters.\n\nThe implant behind his temple had stopped burning hours ago, but now it began to vibrate. Not pain. Something deeper. A resonance. The device was humming at a frequency that his neural implant was designed to hear, and somewhere in the architecture of his consciousness, something that had been dormant since his birth had woken and was humming back.\n\nHe could still turn around. That option was still theoretically available. He could walk back to the Iron Ghost, seal the airlock, and burn hard for the outer rim. Leave the probe and its coordinates and its countdown to drift alone in the dark for another forty thousand years. Find some ice asteroid in the Belt and disappear into solitude so complete that even the corporations would eventually stop looking.\n\nHe would not do any of these things.\n\nKael's hand rose. Not in defiance or acceptance—in recognition. A surrender that was simultaneous with a claiming. The device's light intensified, and for a moment the entire chamber became a single point of blue brightness, and he understood that this was not a moment of choice at all. This was a moment of acknowledgment. The device had chosen him the instant he had chosen to answer the beacon. Everything that had happened since was simply the formality of that choice being made manifest.\n\nHis fingers were inches away now. Close enough to feel the warmth radiating from the crystal. Close enough to see the intricate lattice of light moving inside it, patterns within patterns, information encoded at scales his eyes could not quite resolve. Close enough to understand that once he touched it, there would be no more silence. No more solitude. No more the comfortable lie that isolation was strength.\n\nThe blue light pulsed once more, brighter than before. A heartbeat. An invitation. A countdown reaching its final hour.\n\nKael's hand trembled—not from fear, but from the effort of holding still, of standing at the threshold for even one more second. The device was patient. It had been patient for forty thousand years. But something in him was running out of time. Something in the outer system was moving with terrible purpose. Something in the dark between the stars was waking up, and it was waking hungry.\n\nHe understood this with the certainty of a man who had learned to read the weight of silence.\n\nHis fingers were almost touching the crystal. Almost. Almost. The signal was so loud now that it was indistinguishable from his own breathing, his own pulse, his own desperate and futile hope that he could take just one more step and still find his way back to the emptiness he had cultivated for seven years.\n\nBut that man was already dead. Had been dead since the moment the beacon first called. The device had seen to that.\n\nKael's hand moved forward.",
+      "prose_word_count": 797,
+      "tokens_input": 2709,
+      "tokens_output": 1021,
+      "cost_usd": 0.008946
+    }
+  ]
+}

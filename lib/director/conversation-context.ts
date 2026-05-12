@@ -332,6 +332,8 @@ export async function summariseConversation(
       currentNode: '',
       agentInstruction: '',
       editorialComments: '',
+      precedingSiblings: '',
+      succeedingSiblings: '',
       securityWrapped: framed.dynamic,
     },
     config: {

@@ -110,6 +110,24 @@ export async function runExpand(content: string): Promise<{ result_child_nodes: 
     throw new Error(`output_schema_invalid:json_parse:${(err as Error).message}`)
   }
 
+  // Resilience: models often omit `position` when array order already
+  // conveys ordering. Fill in missing values from the array index before
+  // schema validation. Array-supplied order is canonical; this just
+  // patches the field if the model didn't bother emitting it.
+  if (Array.isArray(parsed)) {
+    for (let i = 0; i < parsed.length; i++) {
+      const item = parsed[i]
+      if (
+        item &&
+        typeof item === 'object' &&
+        !Array.isArray(item) &&
+        (item as Record<string, unknown>)['position'] === undefined
+      ) {
+        ;(item as Record<string, unknown>)['position'] = i
+      }
+    }
+  }
+
   const result = ExpandOutputSchema.safeParse(parsed)
   if (!result.success) {
     throw new Error(`output_schema_invalid:${JSON.stringify(result.error.issues)}`)

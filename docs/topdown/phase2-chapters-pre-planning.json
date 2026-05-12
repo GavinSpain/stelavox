@@ -1,0 +1,180 @@
+{
+  "phase": 2,
+  "target": "Act 1 → chapters",
+  "act_id": "3880cce3-f81a-46b2-a820-b4df50b6a1ab",
+  "act_name": "Act One: The Salvage",
+  "act_budget": 28000,
+  "workflow_id": "b4adc89b-693b-46fb-afb6-1ca522fed036",
+  "workflow_title": "Expand Act 1 'The Salvage' into chapters",
+  "duration_s": 145.784,
+  "new_chapter_count": 11,
+  "chapter_budget_sum": 46000,
+  "budget_compliance_pct": "164.3",
+  "chapters": [
+    {
+      "order": 1,
+      "name": "The Salvage Run",
+      "short_description": "Kael responds to a distress beacon in the outer rim and discovers a derelict alien probe that will change everything.",
+      "word_count_target": 4500,
+      "summary_text": "Kael Voss is a bitter salvage operator running solo jobs in the Kuiper Belt, deliberately isolated and off-grid. He responds to what appears to be a routine distress beacon, expecting wreckage and salvage credits. Instead, he discovers a massive derelict alien probe—perfectly preserved, impossibly ancient, and emanating a faint signal. When he boards and touches the crystalline device at its core, it bonds with his neural implant and floods his consciousness with data, coordinates, and a countdown. The experience is overwhelming and terrifying. Kael barely makes it back to his ship, the Iron Ghost, with his mind still reeling from the contact. The chapter establishes his isolation, his competence as a salvage operator, and the moment his carefully constructed solitude is shattered by forces beyond his control.",
+      "summary_word_count": 127,
+      "metadata": {
+        "chapter_turn": "The crystalline device activates and bonds with Kael's neural implant, flooding him with alien knowledge and a countdown timer.",
+        "pov_character": "Kael Voss",
+        "dramatic_question": "What is this ancient probe, and why does it feel like it's been waiting specifically for him?",
+        "emotional_register": "Awe mixed with growing dread; isolation punctured by cosmic contact.",
+        "act_structural_role": "act_opener"
+      }
+    },
+    {
+      "order": 2,
+      "name": "The Countdown",
+      "short_description": "Kael struggles to process the alien data while Europa Colony goes dark and the manhunt begins.",
+      "word_count_target": 3800,
+      "summary_text": "Back aboard the Iron Ghost, Kael tries to make sense of the knowledge flooding his implant—star coordinates, warnings in no human language, and a 72-hour countdown that feels like a death sentence. He attempts to isolate the data, to understand what the device was trying to communicate. But before he can piece together more than fragments, news breaks across all channels: Europa Research Colony has gone completely dark. Thousands of neural implants overwritten simultaneously. Thousands of minds erased in minutes. The Corporate Defense Alliance immediately issues a galaxy-wide alert, naming Kael Voss as the primary suspect—a terrorist who triggered the disaster remotely using the alien technology. Kael realizes the probe wasn't just a warning; it was a trigger. And he's been branded an extinction event.",
+      "summary_word_count": 125,
+      "metadata": {
+        "chapter_turn": "The Corporate Defense Alliance broadcasts Kael's name and face as the terrorist responsible for the Europa catastrophe.",
+        "pov_character": "Kael Voss",
+        "dramatic_question": "What did the device do to Europa, and why does the Corporate Defense Alliance know to blame him so quickly?",
+        "emotional_register": "Panic and grim realization; the weight of a galaxy turning against him.",
+        "act_structural_role": "escalation"
+      }
+    },
+    {
+      "order": 3,
+      "name": "Breaking Isolation",
+      "short_description": "Facing a manhunt, Kael makes the decision that shatters his seven-year rule: he reaches out to Mira Kane.",
+      "word_count_target": 4200,
+      "summary_text": "Kael knows he can't run alone—not with every corporate hunter in the system looking for him. For the first time in seven years, he breaks his cardinal rule of isolation. He reaches out to Dr. Mira Kane, a cynical AI specialist and hacker he once knew from his Black Ops days. Mira is suspicious and angry—she's spent years staying invisible, and Kael's sudden contact threatens that. But she's also the only person he knows who can hack deep enough into corporate systems to find answers. Their first meeting is tense and cold, laden with old history and mutual distrust. Mira agrees to help, not out of loyalty, but because she's curious about the device and because the corporations have already marked them both as targets. This chapter is a breathing moment after the chaos of the previous two—a moment of character development and the first crack in Kael's isolation.",
+      "summary_word_count": 149,
+      "metadata": {
+        "chapter_turn": "Mira agrees to help decode the device, forcing Kael to accept that he cannot do this alone.",
+        "pov_character": "Kael Voss",
+        "dramatic_question": "Will Mira agree to help, and can Kael trust her when he's sworn never to trust anyone again?",
+        "emotional_register": "Tension and reluctant vulnerability; the discomfort of asking for help.",
+        "act_structural_role": "breathing_chapter"
+      }
+    },
+    {
+      "order": 4,
+      "name": "The Hacker's Wound",
+      "short_description": "Mira reveals her history with the corporations and begins examining the alien device, while her past threatens to resurface.",
+      "word_count_target": 4100,
+      "summary_text": "As Mira begins her initial analysis of the crystalline device, she shares fragments of her history with Kael—the corporate neural-enhancement trial that killed her sister, the forced cybernetic integration, and the years she's spent trying to bury her own humanity under layers of code and detachment. She treats the device like any other hack: a system to be understood, analyzed, and exploited. But as she digs deeper, she discovers that the device's architecture is fundamentally different from anything human technology has produced. It's not just advanced—it's alive in a way she can't articulate. The chapter establishes Mira as a foil to Kael: both are isolated, both are running from corporate trauma, and both believe they've lost the capacity to feel. Kael begins to see in Mira the reflection of his own damage, which both draws him closer and pushes him away.",
+      "summary_word_count": 141,
+      "metadata": {
+        "chapter_turn": "Mira discovers that the device's architecture is fundamentally organic—alive in ways human technology cannot replicate.",
+        "pov_character": "Mira Kane",
+        "dramatic_question": "What is the alien device's true nature, and what will it reveal about Mira's own cybernetics?",
+        "emotional_register": "Clinical detachment masking deep pain; the unsettling recognition of shared wounds.",
+        "act_structural_role": "character_development"
+      }
+    },
+    {
+      "order": 5,
+      "name": "The Whistleblower",
+      "short_description": "Kael and Mira recruit Juno Vale, a disgraced corporate whistleblower who may hold keys to the corporations' conspiracy.",
+      "word_count_target": 4300,
+      "summary_text": "Kael and Mira track down Juno Vale, a former corporate analyst who was publicly destroyed for raising questions about classified research projects. Juno has been living off-grid, drinking herself into oblivion, drowning in guilt over the people she didn't save. She's initially hostile to Kael—he represents the violence and betrayal she's been running from. But when Mira shows her fragments of the data from the device, Juno's eyes go cold and clear. She recognizes the research parameters. The corporations weren't just studying the alien technology—they were trying to weaponize it. She has access to old classified files, incomplete but devastating. The three of them begin to form an unlikely alliance, bound not by trust but by mutual interest: they all need answers, and they all have nowhere else to go. This chapter marks the assembly of the core crew and introduces the corporate conspiracy as a central plot driver.",
+      "summary_word_count": 149,
+      "metadata": {
+        "chapter_turn": "Juno recognizes the research parameters from her time inside the corporations and confirms they were trying to weaponize the alien technology.",
+        "pov_character": "Kael Voss",
+        "dramatic_question": "How deep does the corporate conspiracy go, and can Juno's knowledge help them understand what the device is trying to warn them about?",
+        "emotional_register": "Grim recognition; the moment the crew shifts from isolated individuals to a functional unit.",
+        "act_structural_role": "escalation"
+      }
+    },
+    {
+      "order": 6,
+      "name": "The Smuggler's Debt",
+      "short_description": "The crew recruits Rax Harlan, a genetically enhanced smuggler with dangerous contacts and a past that's closing in.",
+      "word_count_target": 4000,
+      "summary_text": "With Juno's knowledge and Mira's hacking skills, they need firepower and access to smuggling routes that can keep them ahead of corporate hunters. Kael contacts Rax 'Ghost' Harlan, a genetically enhanced smuggler who operates in the black markets of the outer rim. Rax is fast, lethal, and utterly cynical—he and Kael share a dark bond built on sarcasm and shared contempt for corporate authority. But Rax is also being hunted by corporate bounty hunters, and his past is catching up with him in the form of a debt he can't repay. By bringing him into Kael's crew, Kael is offering Rax a way out—or a faster way to die. Rax accepts because the alternative is execution. This chapter completes the core crew and introduces an external threat: corporate bounty hunters closing in from multiple directions. The crew now has a deadline and a destination—they need to figure out what the device is telling them before the corporations catch them.",
+      "summary_word_count": 159,
+      "metadata": {
+        "chapter_turn": "Rax joins the crew, bringing both tactical skills and the immediate threat of corporate bounty hunters.",
+        "pov_character": "Kael Voss",
+        "dramatic_question": "Can Rax be trusted, and will bringing him into the crew bring down the hunters that are already on his trail?",
+        "emotional_register": "Dark camaraderie; the recognition that they are all marked for death.",
+        "act_structural_role": "crew_assembly"
+      }
+    },
+    {
+      "order": 7,
+      "name": "The First Decode",
+      "short_description": "Mira begins breaking down the alien data, revealing coordinates and a terrifying pattern.",
+      "word_count_target": 4200,
+      "summary_text": "With the crew assembled aboard the Iron Ghost, Mira sets up a makeshift lab and begins the painstaking work of decoding the alien device's data. The coordinates point to specific locations across the solar system—but not randomly. There's a pattern, a sequence, a deliberate architecture to the signal propagation. Mira and Juno cross-reference the coordinates with known corporate facilities and research stations. What they find is chilling: the device isn't just a warning. It's a map. And the map shows six other signal nodes, each one positioned near a major human settlement. The Europa colony wasn't an accident—it was the first activation in a larger sequence. The device is counting down not to a single event, but to a cascade of events. Kael realizes that the corporations' brand of him as a terrorist may not be entirely a lie—they may have actually believed he triggered something larger. Or worse, they already knew what was coming and needed someone to blame. This chapter is a turning point in the crew's understanding of the threat.",
+      "summary_word_count": 173,
+      "metadata": {
+        "chapter_turn": "Mira discovers that the device is not a single weapon but a map of six signal nodes positioned near major human settlements.",
+        "pov_character": "Mira Kane",
+        "dramatic_question": "What is the true nature of the alien signal, and how many more colonies are in danger?",
+        "emotional_register": "Rising dread; the moment the crew realizes the scope of the threat.",
+        "act_structural_role": "escalation"
+      }
+    },
+    {
+      "order": 8,
+      "name": "The Corporate Hunter",
+      "short_description": "A corporate bounty hunter closes in on the crew, forcing them to move and raising the stakes.",
+      "word_count_target": 4200,
+      "summary_text": "Corporate Defense Alliance hunter Commander Vex tracks the crew to their temporary safe house on Callisto Station. Vex is relentless, professional, and utterly committed to the capture of Kael Voss. The hunter doesn't care about the truth—only the contract. The crew barely escapes, losing supplies and nearly losing Rax when Vex's team corners him in the docking bay. The encounter is brutal and fast, leaving no doubt that corporate forces are closing in. Kael makes a hard decision: they can't stay mobile forever. They need to go somewhere the corporations can't reach them—somewhere with answers. Kael reveals to the crew that he knows where they need to go: Europa, back to the ice warrens where his team died seven years ago. The original lab records are still there, buried beneath the new colony. They need those records to understand what the corporations have known all along. This chapter raises the external pressure and forces Kael to confront the place he's been running from since the Europa Incident.",
+      "summary_word_count": 167,
+      "metadata": {
+        "chapter_turn": "Commander Vex nearly catches them, forcing Kael to make the decision to return to Europa—the place he swore he would never go again.",
+        "pov_character": "Kael Voss",
+        "dramatic_question": "Can the crew escape the corporate hunter, and will Kael survive returning to the place where his team died?",
+        "emotional_register": "Panic and grim determination; old trauma resurging.",
+        "act_structural_role": "escalation"
+      }
+    },
+    {
+      "order": 9,
+      "name": "The Journey to Europa",
+      "short_description": "The crew makes the journey to Europa while Kael struggles with the weight of returning to his trauma.",
+      "word_count_target": 3800,
+      "summary_text": "During the long transit to Europa, tensions rise within the crew. Kael becomes increasingly withdrawn, haunted by memories of his last time on Europa. Mira notices his deterioration and, for the first time, pushes past his walls—not with sympathy, but with cold logic. She points out that his isolation is becoming a liability, that the crew needs him present and functional, not lost in ghosts. Juno spends her time cross-referencing Mira's data with her old corporate knowledge, piecing together the timeline of when the corporations first discovered the alien technology. Rax maintains the ship and watches for corporate pursuers. This chapter is a breathing moment before the act's climax, allowing for character development and the deepening of relationships. Kael begins to understand that staying alone won't protect anyone—it will only make them all vulnerable. By the time the Iron Ghost reaches Europa's orbit, Kael has made a subtle but crucial shift: he is beginning to lead, not just survive.",
+      "summary_word_count": 159,
+      "metadata": {
+        "chapter_turn": "Mira confronts Kael about his isolation, and he begins to accept that leading the crew is the only way to protect them.",
+        "pov_character": "Kael Voss",
+        "dramatic_question": "Can Kael hold himself together long enough to go back to the place where his team died, and will the crew stay loyal as the weight of the mission becomes clear?",
+        "emotional_register": "Introspection and reluctant acceptance; the slow crack in Kael's armor.",
+        "act_structural_role": "breathing_chapter"
+      }
+    },
+    {
+      "order": 10,
+      "name": "The Return to Europa",
+      "short_description": "Kael descends into the ice warrens and confronts the ghosts of his past while the crew waits above.",
+      "word_count_target": 4800,
+      "summary_text": "Kael makes the descent into the ice warrens alone, insisting that the crew stay aboard the ship in case he triggers any alarms. He moves through the frozen tunnels with his weapon drawn, every breath a struggle. The bodies of his old team are still there, preserved in the ice like grotesque statues. Kael forces himself to walk past them, to acknowledge them, to carry their weight without breaking. He reaches the original lab and finds the records still intact—corporate data on the alien technology, research notes, and a final entry from a scientist named Dr. Helena Voss. The name hits Kael like a physical blow. Helena Voss was his mother. She was working on the original research project. She was part of the team that first encountered the alien signal. Kael's entire understanding of his past, his wound, and his purpose shifts in that moment. He is not a random victim of corporate conspiracy—he is part of a much older pattern. The chapter closes with Kael emerging from the ice with the records and the terrible knowledge that his connection to the device may not be accident or fate, but family legacy.",
+      "summary_word_count": 193,
+      "metadata": {
+        "chapter_turn": "Kael discovers that his mother was part of the original research team studying the alien technology, reframing his entire connection to the device.",
+        "pov_character": "Kael Voss",
+        "dramatic_question": "What will Kael find in the ice warrens, and can he face the ghosts of his past without breaking?",
+        "emotional_register": "Horror and grim recognition; the moment his personal tragedy becomes part of a larger pattern.",
+        "act_structural_role": "act_climax"
+      }
+    },
+    {
+      "order": 11,
+      "name": "The Final Decode",
+      "short_description": "Mira decodes the final layer of the alien data, revealing the true scope of the threat and the corporations' plan.",
+      "word_count_target": 4100,
+      "summary_text": "Back aboard the Iron Ghost, Mira processes the data from the original lab records alongside the alien device's coordinates and warnings. The final decode reveals a devastating truth: the alien signal isn't an invasion—it's a failsafe left by an extinct species to warn of something far older and more patient awakening in the dark between the stars. The corporations didn't discover this by accident. They've known about it for generations. And they've been preparing to use it. The six signal nodes aren't random—they're positioned to maximize the corporations' ability to consolidate power during the chaos. The mind-wipe on Europa wasn't a disaster; it was a test run. The corporations are planning to use the coming extinction event as cover to eliminate all remaining independent operators and resistance movements. They will frame the crisis as an external threat and use it to justify total authoritarian control. Kael and the crew now understand the full scope of what they're up against: not just an ancient alien threat, but a conspiracy that reaches into the highest levels of the five megacorporations. The chapter closes with the crew making a final decision: they will not run. They will fight. And they will expose the truth, no matter the cost.",
+      "summary_word_count": 205,
+      "metadata": {
+        "chapter_turn": "Mira reveals that the corporations have known about the signal for generations and are planning to use it to consolidate total power.",
+        "pov_character": "Mira Kane",
+        "dramatic_question": "What is the true nature of the alien signal, and how deep does the corporate conspiracy go?",
+        "emotional_register": "Grim clarity; the moment of full understanding and commitment.",
+        "act_structural_role": "act_turning_point"
+      }
+    }
+  ]
+}
