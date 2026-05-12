@@ -1,0 +1,36 @@
+◇ injected env (6) from .env.local // tip: ⌁ auth for agents [www.vestauth.com]
+[variety] target: Chapter 4 "First Contact" (budget 5600w)
+[variety] probe sent: expand Chapter 4 'First Contact' into scenes…
+[variety] approved 8fbfc35f-1c19-41bf-8e4b-cf13c945a6a6 (expand→scenes)
+[variety] expand→scenes: 0/1 steps done
+[variety] expand→scenes: 0/1 steps done
+[variety] expand→scenes: 0/1 steps done
+[variety] expand→scenes: 0/1 steps done
+[variety] expand→scenes: 0/1 steps done
+[variety] expand→scenes: 0/1 steps done
+[variety] expand→scenes: 1/1 steps done
+[variety] scenes for First Contact: 4
+[variety] picked scene: The Encrypted Archive (budget 1800w)
+[variety] probe sent: expand scene 'The Encrypted Archive' into beats…
+[variety] approved 2d263761-7a90-4e16-af18-641963878c20 (expand→beats)
+[variety] expand→beats: 0/1 steps done
+[variety] expand→beats: 0/1 steps done
+[variety] expand→beats: 0/1 steps done
+[variety] expand→beats: 0/1 steps done
+[variety] expand→beats: 0/1 steps done
+[variety] expand→beats: 1/1 steps done
+[variety] beats for The Encrypted Archive: 6
+[variety] probe sent: synthesise prose for all beats in scene 'The Encrypted Archi…
+[variety] approved d7600e29-5eef-4843-8d27-bdeae89db0e3 (synthesise)
+[variety] synthesise: 0/6 steps done
+[variety] synthesise: 0/6 steps done
+[variety] synthesise: 1/6 steps done
+[variety] synthesise: 1/6 steps done
+[variety] synthesise: 2/6 steps done
+[variety] synthesise: 3/6 steps done
+[variety] synthesise: 4/6 steps done
+[variety] synthesise: 4/6 steps done
+[variety] synthesise: 5/6 steps done
+[variety] synthesise: 6/6 steps done
+[variety] saved → C:\dev\stelavox_2\.claude\worktrees\nervous-feynman-7158bc\docs\variety\ch4-dialogue-first-contact.json
+[variety] scene_sum=5600w  beat_sum=1800w  prose=2031w (target 1800w)  cost=$0.0459  dur=155s

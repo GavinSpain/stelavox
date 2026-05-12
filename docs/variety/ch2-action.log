@@ -1,0 +1,23 @@
+◇ injected env (6) from .env.local // tip: ⌘ enable debugging { debug: true }
+[variety] target: Chapter 2 "The Wipe" (budget 5800w)
+[variety] scenes already exist (3); skipping expand→scenes
+[variety] scenes for The Wipe: 3
+[variety] picked scene: The Accusation (budget 2750w)
+[variety] beats already exist (5); skipping expand→beats
+[variety] beats for The Accusation: 5
+[variety] probe sent: synthesise prose for all beats in scene 'The Accusation'…
+[variety] approved 65d5557a-a424-40b9-a241-6a27a9be5a75 (synthesise)
+[variety] synthesise: 0/5 steps done
+[variety] synthesise: 0/5 steps done
+[variety] synthesise: 1/5 steps done
+[variety] synthesise: 1/5 steps done
+[variety] synthesise: 2/5 steps done
+[variety] synthesise: 2/5 steps done
+[variety] synthesise: 3/5 steps done
+[variety] synthesise: 3/5 steps done
+[variety] synthesise: 4/5 steps done
+[variety] synthesise: 4/5 steps done
+[variety] synthesise: 4/5 steps done
+[variety] synthesise: 5/5 steps done
+[variety] saved → C:\dev\stelavox_2\.claude\worktrees\nervous-feynman-7158bc\docs\variety\ch2-action-the-wipe.json
+[variety] scene_sum=5800w  beat_sum=2750w  prose=2796w (target 2750w)  cost=$0.0471  dur=77s

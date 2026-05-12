@@ -1,0 +1,41 @@
+◇ injected env (6) from .env.local // tip: ⌘ suppress logs { quiet: true }
+[variety] target: Chapter 5 "The Crew" (budget 5600w)
+[variety] probe sent: expand Chapter 5 'The Crew' into scenes…
+[variety] approved 78fcee06-b8ad-4eab-8c47-0c9d06192e5d (expand→scenes)
+[variety] expand→scenes: 0/1 steps done
+[variety] expand→scenes: 0/1 steps done
+[variety] expand→scenes: 0/1 steps done
+[variety] expand→scenes: 0/1 steps done
+[variety] expand→scenes: 0/1 steps done
+[variety] expand→scenes: 0/1 steps done
+[variety] expand→scenes: 1/1 steps done
+[variety] scenes for The Crew: 3
+[variety] picked scene: The Bridge (budget 3000w)
+[variety] probe sent: expand scene 'The Bridge' into beats…
+[variety] approved 52661001-f1ae-494a-8d73-05132287da2b (expand→beats)
+[variety] expand→beats: 0/1 steps done
+[variety] expand→beats: 0/1 steps done
+[variety] expand→beats: 0/1 steps done
+[variety] expand→beats: 0/1 steps done
+[variety] expand→beats: 0/1 steps done
+[variety] expand→beats: 0/1 steps done
+[variety] expand→beats: 0/1 steps done
+[variety] expand→beats: 1/1 steps done
+[variety] beats for The Bridge: 7
+[variety] probe sent: synthesise prose for all beats in scene 'The Bridge'…
+[variety] approved ea4f9e63-4c9f-42b2-997d-cd461c253a70 (synthesise)
+[variety] synthesise: 0/7 steps done
+[variety] synthesise: 0/7 steps done
+[variety] synthesise: 1/7 steps done
+[variety] synthesise: 1/7 steps done
+[variety] synthesise: 2/7 steps done
+[variety] synthesise: 2/7 steps done
+[variety] synthesise: 3/7 steps done
+[variety] synthesise: 4/7 steps done
+[variety] synthesise: 4/7 steps done
+[variety] synthesise: 5/7 steps done
+[variety] synthesise: 5/7 steps done
+[variety] synthesise: 6/7 steps done
+[variety] synthesise: 7/7 steps done
+[variety] saved → C:\dev\stelavox_2\.claude\worktrees\nervous-feynman-7158bc\docs\variety\ch5-ensemble-the-crew.json
+[variety] scene_sum=5600w  beat_sum=2400w  prose=2755w (target 2400w)  cost=$0.0544  dur=172s
