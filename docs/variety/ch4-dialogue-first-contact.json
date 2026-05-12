@@ -1,0 +1,155 @@
+{
+  "label": "dialogue-first-contact",
+  "chapter_order": 4,
+  "chapter_name": "First Contact",
+  "chapter_budget": 5600,
+  "scene_count": 4,
+  "scenes_budget_sum": 5600,
+  "picked_scene_name": "The Encrypted Archive",
+  "picked_scene_budget": 1800,
+  "beat_count": 6,
+  "beats_budget_sum": 1800,
+  "synth_workflow_id": "d7600e29-5eef-4843-8d27-bdeae89db0e3",
+  "synth_cost_usd": 0.045921,
+  "total_input_tokens": 10212,
+  "total_output_tokens": 2773,
+  "duration_s": 155.118,
+  "target_sum": 1800,
+  "prose_sum": 2031,
+  "scenes": [
+    {
+      "order": 1,
+      "name": "The Last Threshold",
+      "word_count_target": 900,
+      "summary_text": "Kael sits in the darkness of the Iron Ghost's bridge, the device's whispers still echoing in his neural implant. He has run for days, jumping system to system, watching the corporate bounty on his head grow. But running alone is no longer enough—the device is still counting down, and the pattern of silent colonies is accelerating. For the first time since Europa, Kael accepts that he cannot solve this alone. He pulls up encrypted contact protocols he swore he would never use again, hands shaking as he reaches out to old Black Ops contacts. Each message is a violation of his own vow to stay isolated. Each one risks dragging someone else into his death sentence. But he has no choice. He needs someone brilliant enough to decode alien architecture, someone desperate enough to risk everything, someone who understands what it means to be hunted by the corporations. The chapter establishes Kael's internal breaking point and sets up the search for Mira Kane."
+    },
+    {
+      "order": 2,
+      "name": "The Bar on Vesta Station",
+      "word_count_target": 1400,
+      "summary_text": "Vesta Station's lower docks are a haven for those the corporations want forgotten: smugglers, hackers, refugees, and the desperate. Kael finds Mira in a dim bar called the Void, nursing synthetic whiskey and scanning data streams through her neural interface. She is smaller than he expected, with the faint blue glow of neural ports visible at her temples and the careful, predatory stillness of someone who has learned to survive in systems that want her dead. When Kael approaches, Mira's hand moves toward the knife at her belt—not from fear, but from reflex. Kael is a ghost, a terrorist, a man with a corporate death sentence on his head. Associating with him is suicide. She tells him to leave. But Kael doesn't ask her to join him or trust him. He simply says he has something that shouldn't exist, and he knows she's the only person in the outer system brilliant enough to understand it. That single statement—an acknowledgment that she is extraordinary—is enough to make Mira pause. She agrees to listen, but only because walking away from a mystery has never been her strength."
+    },
+    {
+      "order": 3,
+      "name": "The Encrypted Archive",
+      "word_count_target": 1800,
+      "summary_text": "They move to a private booth in the back of the bar, shielded from corporate surveillance. Kael projects the encrypted data from the device onto a portable holoscreen, and Mira's entire posture changes. She leans forward, her eyes flickering with data overlays as she begins to scan the patterns. What she sees is impossible: architecture that predates human civilization, signal patterns that follow no known language structure, and code that is not corporate, not human, and not anything she has encountered in her seven years of hacking the most secure systems in the solar system. She runs analysis after analysis, each one confirming what she already knows: this is genuinely beyond her understanding. For the first time since her sister died, Mira feels something other than cold detachment—curiosity, wonder, and the faint, terrifying spark of something that might be hope. She asks Kael where it came from. He tells her the truth: a derelict alien probe, older than human civilization, and it has been counting down to something catastrophic. Mira recognizes the pattern now—the signal that wiped Europa, the colonies going silent, the corporate cover-up. She understands what Kael is asking without him having to say it."
+    },
+    {
+      "order": 4,
+      "name": "The Offer",
+      "word_count_target": 1500,
+      "summary_text": "Kael doesn't ask Mira to save humanity or join a hopeless cause. He simply asks her to do what she does best: hack something that shouldn't be hackable. He tells her the corporations have been covering up the signal for years, that there are more nodes still active across the system, and that understanding the device might be the only way to stop the next wipe before it erases another colony. Mira knows the risks: associating with Kael makes her a target for the Corporate Defense Alliance, and she has already lost everything once. But she also knows that walking away from this mystery would mean going back to the cold, detached existence she has been living—a half-life in which she processes data but feels nothing. She agrees, but on her terms: she works for information, not loyalty; she leaves if the situation becomes unsalvageable; and Kael never asks her to care about anything beyond the puzzle itself. Kael accepts these terms. As they prepare to leave the bar, Mira feels the faint, terrifying weight of connection beginning to form—not trust, not friendship, but the beginning of something shared. For both of them, isolation has just become impossible."
+    }
+  ],
+  "beats": [
+    {
+      "order": 1,
+      "beat_id": "bf9d063f-01b1-4b40-a8cf-f6a396f510b3",
+      "beat_name": "Into the Booth",
+      "word_count_target": 280,
+      "summary_text": "Kael guides Mira to a booth in the bar's back, away from corporate surveillance. As they sit, Mira's hand remains near her knife—not from fear of Kael, but from the habit of staying ready to run. The physical act of moving deeper into the bar, away from exits and sight lines, costs her something. Kael sets up a portable holoscreen. The booth's privacy shielding hums to life, creating a thin membrane of silence between them and the rest of the Void. For the first time since Kael approached her, Mira allows her full attention to settle on him and what he is about to show her.",
+      "prose": "The booth was in the back corner, the kind of place where privacy came with a hum and a price. Kael led her there without speaking, and Mira followed—not because she trusted him, but because the encrypted data he'd shown her had been too strange to refuse. Her hand stayed close to the knife at her hip, muscle memory from a thousand narrow exits. Old habits that had kept her alive when the corporations were still hunting her through the lower levels of Nexus Prime.\n\nThe privacy shielding activated as soon as they crossed the threshold. A faint vibration in the air, barely perceptible, that meant sound could not escape. No surveillance. No corporate listening posts tracking neural frequencies. Just the two of them in a pocket of manufactured silence.\n\nMira sat across from him, her back to the wall. Her eyes took in the booth's dimensions, the single exit behind Kael, the distance to the bar's main entrance. Old patterns. She was good at reading rooms for survival, and this one had all the hallmarks of a trap—except the trap would only work if she cared about being caught, and she had stopped caring about that a long time ago.\n\nKael set the portable holoscreen on the table between them. His movements were precise, economical. Military training, she could see that. The kind of discipline that came from either rigid structure or the absence of it. From discipline or from the complete dissolution of discipline into pure reflex.\n\nThe screen flickered to life.\n\nMira leaned forward. The moment her full attention settled on the data, everything else—the bar beyond the shielding, the knife at her hip, the hundred reasons she should have walked away—became background noise. Her eyes flickered with data overlays as her neural implant began parsing the patterns Kael had uploaded.\n\nWhat she saw made her breath catch.\n\nIt was impossible. It was not corporate. It was not human. It was not anything she had ever encountered in her seven years of hacking the most secure systems in the solar system.\n\nIt was code that had never been written by hands.",
+      "prose_word_count": 354,
+      "metadata": {
+        "beat_function": "establish",
+        "pov_character": "Mira Kane",
+        "emotional_shift": "defensive caution → reluctant openness",
+        "characters_present": [
+          "Kael Voss",
+          "Mira Kane"
+        ]
+      }
+    },
+    {
+      "order": 2,
+      "beat_id": "81161c68-a531-4730-9452-ab5f6fb2fc33",
+      "beat_name": "First Glimpse",
+      "word_count_target": 320,
+      "summary_text": "Kael projects the encrypted data from the device onto the holoscreen. Mira's entire posture shifts. Her eyes—which have been guarded, distant, human—flicker with the blue data overlays of her neural interface as she leans forward. The code is the first thing she sees: architecture that predates human civilization by millennia, rendered in crystalline lattices that follow no corporate design language, no human logic. Signal patterns cascade across the screen in sequences that do not match any known linguistic structure. Her breath catches, though she tries to hide it. This is not corporate encryption. This is not human code at all.",
+      "prose": "The holoscreen painted the booth in blue light. Architecture bloomed across it—not blueprints, but something deeper. Fractals that spiraled into themselves, geometric patterns that seemed to exist in more dimensions than the screen could render. Mira's eyes locked onto it, and her entire frame went still.\n\nHer neural implants flickered. She could see it happening in her peripheral vision—the faint blue glow at her temples pulsing as her interface tried to parse what was in front of her. The data overlays activated without her conscious command, her cybernetics recognizing something worth analyzing. Something worth *trying* to understand.\n\nShe ran the first filter. Corporate encryption. The data rejected it—not blocked, just absent. The architecture did not speak corporate language. It did not speak any language she recognized.\n\nThe signal patterns were worse. They cascaded across the screen in sequences that seemed almost melodic, rhythmic in a way that had nothing to do with binary. Each pulse seemed to contain information not just in its structure but in its *timing*, in the spaces between the signals. She had never seen anything like it.\n\nMira leaned closer. Her hand moved without her permission, reaching toward the screen as if she could touch it and understand. She caught herself, pulled back. But too late. Kael had seen the gesture. He had seen the moment her detachment cracked.\n\nShe did not look at him. Could not. If she looked away from the data now, she might lose it—lose the thread of whatever this was, whatever her implants were struggling to process.\n\n\"Where,\" she said, and her voice came out rougher than she intended, \"did you get this?\"\n\nBut even as she asked, she was already running the second filter. Alien. The word formed before she could stop it. Not because the data matched any template for alien architecture—she had no templates, no reference points—but because it was so fundamentally *other* that no human system could have built it.\n\nHer breath came faster. She could feel her pulse in her synthetic ports, the familiar flutter of adrenaline mixed with something else. Something she had not felt in seven years of cold, clinical work.\n\nCuriosity. Wonder. The terrifying spark of something that might have been hope.",
+      "prose_word_count": 369,
+      "metadata": {
+        "beat_function": "establish",
+        "pov_character": "Mira Kane",
+        "emotional_shift": "detachment → professional fascination",
+        "characters_present": [
+          "Kael Voss",
+          "Mira Kane"
+        ]
+      }
+    },
+    {
+      "order": 3,
+      "beat_id": "b10d3279-d68a-42f5-b3a0-2445a2fd92c8",
+      "beat_name": "The Impossibility Deepens",
+      "word_count_target": 300,
+      "summary_text": "Mira's fingers move across the holoscreen's interface, pulling up her own analytical tools—algorithms she has written herself, code-breaking subroutines that have cracked every corporate system she has ever targeted. She runs them against the alien data. Nothing. The patterns refuse to yield. She runs them again, pushing deeper, looking for the mathematical skeleton beneath the surface. Still nothing. The architecture doesn't just resist decryption—it doesn't follow the rules that would allow decryption to be possible. It is not hiding something. It is simply operating in a language that has no translation key. After seven years of hacking the most secure systems in the solar system, Mira has never encountered anything like this. The realization settles into her chest like cold metal: she is looking at something genuinely beyond her understanding.",
+      "prose": "Mira's fingers moved across the holoscreen's interface without conscious thought, pulling up her own analytical tools—algorithms she had written herself over seven years of systematized theft and survival. Code-breaking subroutines that had peeled open Nexus Prime's financial systems, that had unraveled Helios Dynamics' personnel databases, that had carved their way through encryption so dense it should have been impenetrable. She ran them against the alien data.\n\nNothing.\n\nThe patterns refused to yield. She pushed deeper, looking for the mathematical skeleton beneath the surface, the fundamental logic that all code—human, corporate, anything constructed by a mind—had to follow. There had to be a way in. There was always a way in.\n\nStill nothing.\n\nShe ran the routines again. Expanded the parameters. Tried approaching the architecture from a different angle, looking for vulnerabilities in the gaps between the signal sequences. The holoscreen flickered with her attempts, blue light dancing across her face as her implants worked at speeds no unaugmented human could follow.\n\nThe data did not resist. It simply did not apply to her.\n\nIt was not hiding something behind encryption. It was not protecting itself with layers of corporate obfuscation. It was operating in a language that had no translation key, no Rosetta stone, no bridge back to anything she understood. The very concept of \"breaking in\" was meaningless. There was no lock. There was only a door that had been built for hands that were not human.\n\nMira's breath came shallow. She could feel the familiar burn of frustration in her chest—that old, dangerous feeling from before her sister died, before the corporations turned her into spare parts. She had trained herself not to feel it. She had learned to treat every problem as code, every obstacle as a puzzle with a solution if you were smart enough, cold enough, willing to work long enough to find it.\n\nShe was not finding this.\n\nFor the first time in seven years, she was looking at something genuinely beyond her understanding.",
+      "prose_word_count": 330,
+      "metadata": {
+        "beat_function": "escalate",
+        "pov_character": "Mira Kane",
+        "emotional_shift": "professional confidence → dawning humility",
+        "characters_present": [
+          "Kael Voss",
+          "Mira Kane"
+        ]
+      }
+    },
+    {
+      "order": 4,
+      "beat_id": "3dd93b0b-ce4a-450b-b0d8-a128249cfec0",
+      "beat_name": "The Crack",
+      "word_count_target": 280,
+      "summary_text": "Mira pulls back from the holoscreen, her hands trembling slightly. She tells herself it is the bar's poor lighting, the cheap whiskey still in her system, the exhaustion of months running from corporate hunters. But she knows the truth: something in her chest has moved. For seven years—since waking on the lab table, since watching them incinerate her sister—she has felt nothing but static and cold calculation. Emotions are unreliable. They corrupt analysis. They get people killed. But looking at this impossible code, at architecture that predates human civilization, she feels something that tastes like wonder. Like hunger. Like the memory of being alive. She hates it. She needs it. And in that moment, she understands that she is about to make a choice that will change everything.",
+      "prose": "Mira pulled her hands back from the screen. They were trembling—a small, involuntary betrayal of the cold certainty she had spent seven years building. She told herself it was the bar's fluorescent buzz, the cheap whiskey still sitting in her empty glass, the month of running on four hours of sleep and pure spite. Her implants sometimes misfired when she was tired. That was all.\n\nBut her implants were not misfiring.\n\nShe could feel it happening in the back of her skull, beneath the ports and the fused ceramic where human spine became corporate property: something was moving. Something was waking up. For seven years—since the lab table, since the incinerator, since she had learned that emotions were a luxury she could no longer afford—she had kept it locked down. Starved it. Treated it the way she treated every unreliable system: with detachment, with cold calculation, with the knowledge that feeling things got people killed.\n\nBut this. This *thing* on the holoscreen. This architecture that had no name, no creator, no entry point. It was looking back at her.\n\nShe wanted to understand it more than she wanted to breathe.\n\nThe realization hit like a circuit overload. Hunger. Wonder. The ghost of something that had been alive in her before the procedure, before the screaming, before her sister's body went into the fire. She hated it. The sensation was messy and unreliable and dangerous. It would cloud her judgment. It would make her weak.\n\nShe needed it the way a drowning person needs air.\n\nMira looked at Kael without looking at him—kept her eyes on the data, but let him see the shift in her posture, the way her hands had stopped shaking because she had made a choice. Not a logical one. Not one that could be justified with cold analysis or corporate risk assessment.\n\n\"Tell me what you need,\" she said quietly. \"I'll do it.\"",
+      "prose_word_count": 317,
+      "metadata": {
+        "beat_function": "turning point",
+        "pov_character": "Mira Kane",
+        "emotional_shift": "cold detachment → emotional awakening (fear, wonder, hunger)",
+        "characters_present": [
+          "Kael Voss",
+          "Mira Kane"
+        ]
+      }
+    },
+    {
+      "order": 5,
+      "beat_id": "c74f2dca-2509-4942-a2e6-4945f2383921",
+      "beat_name": "The Origin",
+      "word_count_target": 340,
+      "summary_text": "Mira's voice is steady when she asks, though her hands are not: \"Where did this come from?\" Kael meets her eyes. He tells her the truth—a derelict alien probe, older than human civilization, perfectly preserved in the dark between stars. A device that has been waiting. A countdown that is still running. As he speaks, Mira pulls the data back up, scanning the patterns with new context. The signal structure suddenly makes sense. Not as code, but as a warning. A cascade of information designed not to be hidden, but to be understood by something intelligent enough to listen. The pattern matches—fragments of it match—the signal that wiped Europa. The colonies going silent. The corporate cover-up. Mira's mind, brilliant and fractured as it is, slots the pieces together. She understands now. She understands what Kael is asking without him having to say the words.",
+      "prose": "Kael did not look away. \"A derelict probe. Deep space, Kuiper Belt, far enough out that no corporate scanner has mapped it yet. Alien architecture. Older than human civilization—older than anything we have records for. It was intact. Perfectly preserved.\"\n\nHe paused. The bar's noise—cheap music, the clink of glasses, the low murmur of drunks—seemed very far away.\n\n\"When I touched it, something bonded. The device interfaced directly with my neural implant. Flooded me with data. Coordinates. Star charts. And a countdown I cannot stop.\"\n\nMira's fingers moved across the holoscreen again, but differently now. Not searching. Contextualizing. She pulled the signal patterns back up, and Kael watched understanding move across her face like a shock through water.\n\n\"How long ago?\" she asked.\n\n\"Six hours. Maybe seven.\"\n\nShe was quiet for a moment. Her eyes flickered with data overlays—the blue glow of her implants working at speed. Then she looked up at him, and he saw the exact moment the pieces connected.\n\n\"Europa,\" she said. It was not a question.\n\n\"The research colony went dark. Every neural implant on the moon was overwritten simultaneously. Every mind inside—thousands of them—erased in seconds. The corporations are calling it a reactor breach. They're calling me a saboteur. A terrorist. But I was three light-minutes away when it happened. And the timing—\" He stopped. \"The timing matches the device's activation to the millisecond.\"\n\nMira leaned back. Her hands were steady now, but her breathing had changed—shallower, faster, the rhythm of someone whose nervous system had just recognized a predator. \"They're saying you caused it.\"\n\n\"Yes.\"\n\n\"But you didn't.\"\n\n\"No. The device caused it. Or something did. Something that has been waiting in the dark for a very long time, and when I woke it up, it sent a signal. And that signal—\" He stopped. \"I need someone who can look at what this thing is actually *saying*. Someone who can understand what comes next. Before the next colony goes silent.\"\n\nMira pulled the encrypted data back to the center of the holoscreen. The alien architecture bloomed in blue light between them, intricate and vast and utterly inhuman.\n\n\"Then tell me everything,\" she said. \"Start with the moment you touched it.\"",
+      "prose_word_count": 366,
+      "metadata": {
+        "beat_function": "reveal",
+        "pov_character": "Mira Kane",
+        "emotional_shift": "wonder → understanding → grim recognition",
+        "characters_present": [
+          "Kael Voss",
+          "Mira Kane"
+        ]
+      }
+    },
+    {
+      "order": 6,
+      "beat_id": "3817eefa-75d2-44c5-8b0c-14b7c9ba643e",
+      "beat_name": "The Unspoken Ask",
+      "word_count_target": 280,
+      "summary_text": "Kael doesn't need to ask. Mira sees it in the way he is watching her, in the way his hand rests on the holoscreen's edge—steady, but waiting. He is asking her to do what she does best: to hack the unhackable. To find meaning in code that was never meant for human eyes. To understand something that should be impossible to understand. And underneath that ask is another one, older and more dangerous: to care about the answer. To care enough that she stays, that she helps, that she risks the small, fragile life she has rebuilt in the outer system. Mira looks at the data one more time—at the cascading patterns of an ancient warning, at the mathematics of extinction—and feels the weight of connection beginning to form. Not trust. Not yet. But the beginning of something shared. The beginning of a reason to stay. She nods, just once. Kael understands.",
+      "prose": "Kael's hand was still on the holoscreen's edge. He wasn't looking at the data anymore—he was looking at her. Waiting. Not asking, because they both knew what the question was and what the cost of answering would be.\n\nStay. Help. Risk the small, careful distance she had spent seven years constructing between herself and the rest of the world. Risk caring whether this worked or failed. Risk being responsible for something other than her own survival.\n\nMira felt the weight of it settling into the spaces between her neural ports. Not pressure exactly. Gravity. The slow, terrible pull of connection beginning to form where she had sworn there would be only code and calculation.\n\nShe looked back at the data one more time. The cascading patterns bloomed in the holoscreen's blue light—mathematics of extinction, a warning written in a language that predated human speech. She let her eyes track the signal flow, the elegant architecture of something that had been waiting in the dark for forty thousand years. Waiting for her, specifically, to see it.\n\nNo one else could. Only someone whose mind was half-machine, half-human, could walk that narrow edge and read what lived there.\n\nOnly her.\n\nShe felt it then—not quite hope. Not quite fear. Something older than both, something she had burned out of herself in the lab and thought was gone forever. The knowledge that she could matter. That what she did next would change the shape of what came after.\n\nShe nodded. Just once.\n\nKael's hand relaxed on the holoscreen's edge. He understood. Not everything—she would not let him understand everything, not yet. But he understood the yes. He understood that she was choosing this. Choosing him. Choosing to stop running long enough to stand and fight.\n\nThat was enough.",
+      "prose_word_count": 295,
+      "metadata": {
+        "beat_function": "release",
+        "pov_character": "Mira Kane",
+        "emotional_shift": "isolation → connection (tentative, fragile)",
+        "characters_present": [
+          "Kael Voss",
+          "Mira Kane"
+        ]
+      }
+    }
+  ]
+}
