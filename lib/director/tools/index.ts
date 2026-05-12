@@ -52,7 +52,7 @@ const readTools: DirectorToolDefinition[] = [
     name: 'get_document_state',
     kind: 'read',
     description:
-      'Get the document\'s overall structure: layer stack, node counts by type, locked node IDs, root node id, total approximate word count. Use this first when orienting yourself to a project.',
+      "Get the document's overall structure: layer stack, node counts by type, locked node IDs, root node id, total approximate word count, and per-layer progress (expand counters with the next un-expanded canonical position; for leaf layers, synthesise counters with the next un-synthesised canonical position). Use the progress.by_layer field as the authoritative starting point for multi-workflow batch continuation — do not derive batch start positions from conversation history. Use this tool first when orienting yourself to a project.",
     input_schema: toolInputSchemaFor('get_document_state'),
   },
   {

@@ -51,7 +51,7 @@ export async function execGetDocumentState(
     return { ok: false, error: 'document_not_found' }
   }
 
-  const [nodes, lockedNodes, layerStack] = await Promise.all([
+  const [nodes, lockedNodes, layerStack, canonical] = await Promise.all([
     supabase
       .from('nodes')
       .select('id, node_type, node_category, layer_index')
@@ -70,6 +70,18 @@ export async function execGetDocumentState(
           .eq('id', doc.layer_stack_id)
           .maybeSingle()
       : Promise.resolve({ data: null, error: null }),
+    // V1.x-LB B3: canonical-ordered node list used to derive progress.by_layer
+    // (next un-expanded / un-synthesised canonical position per structural
+    // layer). Sourced from Migration 047's nodes_canonical VIEW. The walk
+    // is depth-first in canonical order, so per-layer counters tick 1, 2,
+    // 3 in canonical sequence and the first node without children at each
+    // layer is the authoritative batch continuation point.
+    supabase
+      .from('nodes_canonical')
+      .select('id, name, parent_id, layer_index, prose, canonical_position')
+      .eq('document_id', session.document_id)
+      .eq('organisation_id', session.organisation_id)
+      .order('ordinal_path'),
   ])
 
   const nodeRows = nodes.data ?? []
@@ -103,8 +115,133 @@ export async function execGetDocumentState(
       total_node_count: nodeRows.length,
       locked_node_ids: (lockedNodes.data ?? []).map((n) => n.id),
       total_word_count_approx: totalWordCount,
+      progress: buildProgress(
+        (canonical.data ?? []) as ProgressRow[],
+        (layerStack.data?.layers ?? null) as LayerStackEntry[] | null,
+      ),
     },
   }
+}
+
+// ---------------------------------------------------------------------------
+// Progress ledger (B3) — per-layer batch-continuation primitive.
+// ---------------------------------------------------------------------------
+
+interface ProgressRow {
+  id: string
+  name: string | null
+  parent_id: string | null
+  layer_index: number | null
+  prose: unknown
+  canonical_position: number | null
+}
+
+interface LayerStackEntry {
+  index?: number
+  is_leaf?: boolean
+}
+
+interface LayerProgress {
+  layer_index: number
+  total_nodes: number
+  is_leaf_layer: boolean
+  nodes_with_children: number
+  next_unexpanded: {
+    layer_rank: number
+    canonical_position: number | null
+    node_id: string
+    node_name: string | null
+  } | null
+  nodes_with_prose: number
+  next_unsynthesised: {
+    layer_rank: number
+    canonical_position: number | null
+    node_id: string
+    node_name: string | null
+  } | null
+}
+
+function buildProgress(
+  rows: ProgressRow[],
+  layerStack: LayerStackEntry[] | null,
+): { by_layer: LayerProgress[] } {
+  // Map layer_index → is_leaf from the layer_stack metadata (TA H-15: leaf
+  // is a layer-stack property, not inferred from child count).
+  const leafByIndex = new Map<number, boolean>()
+  for (const layer of layerStack ?? []) {
+    if (typeof layer.index === 'number' && typeof layer.is_leaf === 'boolean') {
+      leafByIndex.set(layer.index, layer.is_leaf)
+    }
+  }
+
+  // Child counts per parent.
+  const childCountByParent = new Map<string, number>()
+  for (const r of rows) {
+    if (r.parent_id) {
+      childCountByParent.set(r.parent_id, (childCountByParent.get(r.parent_id) ?? 0) + 1)
+    }
+  }
+
+  // Walk in canonical order accumulating per-layer ledger.
+  const byIndex = new Map<number, LayerProgress>()
+  const layerRank = new Map<number, number>()
+  for (const r of rows) {
+    if (r.layer_index == null) continue // skip context nodes
+    const idx = r.layer_index
+
+    let ledger = byIndex.get(idx)
+    if (!ledger) {
+      ledger = {
+        layer_index: idx,
+        total_nodes: 0,
+        is_leaf_layer: leafByIndex.get(idx) ?? false,
+        nodes_with_children: 0,
+        next_unexpanded: null,
+        nodes_with_prose: 0,
+        next_unsynthesised: null,
+      }
+      byIndex.set(idx, ledger)
+    }
+
+    const rank = (layerRank.get(idx) ?? 0) + 1
+    layerRank.set(idx, rank)
+    ledger.total_nodes += 1
+
+    const hasChildren = (childCountByParent.get(r.id) ?? 0) > 0
+    if (hasChildren) {
+      ledger.nodes_with_children += 1
+    } else if (!ledger.is_leaf_layer && ledger.next_unexpanded == null) {
+      ledger.next_unexpanded = {
+        layer_rank: rank,
+        canonical_position: r.canonical_position,
+        node_id: r.id,
+        node_name: r.name,
+      }
+    }
+
+    const hasProse = proseIsFilled(r.prose)
+    if (hasProse) {
+      ledger.nodes_with_prose += 1
+    } else if (ledger.is_leaf_layer && ledger.next_unsynthesised == null) {
+      ledger.next_unsynthesised = {
+        layer_rank: rank,
+        canonical_position: r.canonical_position,
+        node_id: r.id,
+        node_name: r.name,
+      }
+    }
+  }
+
+  return { by_layer: Array.from(byIndex.values()).sort((a, b) => a.layer_index - b.layer_index) }
+}
+
+function proseIsFilled(value: unknown): boolean {
+  if (!value) return false
+  if (typeof value === 'string') return value.trim().length > 0
+  if (typeof value === 'object') {
+    return extractText(value).trim().length > 0
+  }
+  return false
 }
 
 // ---------------------------------------------------------------------------
@@ -176,8 +313,13 @@ export async function execGetNodesByLayer(
 ): Promise<ReadToolReturn> {
   const supabase = createServiceRoleClient()
 
+  // Source: nodes_canonical VIEW (Migration 047). Ordering by ordinal_path
+  // gives canonical depth-first order across ancestors — fixes the
+  // launch-test bug where "next 10 scenes" returned scattered canonical
+  // positions because PostgreSQL had no cross-parent tiebreak on "order".
+  // Director Architecture v2.0 §7.1.
   let query = supabase
-    .from('nodes')
+    .from('nodes_canonical')
     .select('id, name, node_type, layer_index, parent_id, "order", locked, summary')
     .eq('document_id', session.document_id)
     .eq('organisation_id', session.organisation_id)
@@ -187,7 +329,7 @@ export async function execGetNodesByLayer(
     query = query.eq('parent_id', args.parent_node_id)
   }
 
-  const { data, error } = await query.order('order')
+  const { data, error } = await query.order('ordinal_path')
   if (error) {
     return { ok: false, error: 'query_failed', reason: error.message }
   }

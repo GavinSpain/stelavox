@@ -22,6 +22,16 @@ export type AssembledContentBlock =
   | { type: 'text'; text: string }
   | { type: 'tool_use'; id: string; name: string; input: Record<string, unknown> }
   | { type: 'tool_result'; tool_use_id: string; content: string; is_error?: boolean }
+  // V1.x-LB task 5 — Anthropic extended thinking.
+  // `thinking` is the model's reasoning text + a cryptographic signature
+  // Anthropic verifies when the block is passed back in subsequent turns.
+  // `redacted_thinking` is encrypted thinking — opaque to us but must be
+  // passed back so the model maintains conversational coherence across
+  // iterations. Without these, multi-iteration agentic loops with
+  // thinking enabled return 400 ("Expected `thinking` or
+  // `redacted_thinking` block to be present in the assistant message").
+  | { type: 'thinking'; thinking: string; signature: string }
+  | { type: 'redacted_thinking'; data: string }
 
 /**
  * Provider-neutral message for the multi-turn agentic loop. Phase 5b SU-47.
@@ -69,6 +79,13 @@ export interface AssembledPrompt {
     stream: boolean
     operationType: string
     tools?: ToolDefinition[]
+    /**
+     * V1.x-LB task 5 — extended thinking on Opus-class models.
+     * When true AND the model supports it (provider decides), the provider
+     * sends `thinking: { type: 'enabled', budget_tokens: ... }` and skips
+     * the `temperature` parameter (Anthropic rejects both together).
+     */
+    extendedThinking?: boolean
   }
 }
 
@@ -95,6 +112,7 @@ export interface LLMStreamChunk {
     | 'tool_use_start'
     | 'tool_use_delta'
     | 'tool_use_complete'
+    | 'thinking_block_complete'
     | 'message_stop'
   /** Text fragment for `text` chunks. */
   text?: string
@@ -106,6 +124,15 @@ export interface LLMStreamChunk {
   toolDelta?: { id: string; argumentsJsonDelta: string }
   /** For `tool_use_complete`: fully-assembled tool call. */
   toolCall?: ToolCall
+  /**
+   * For `thinking_block_complete`: the assembled extended-thinking block.
+   * The executor must include this in the assistant message it appends to
+   * the messages array before the next iteration; otherwise Anthropic
+   * returns 400.
+   */
+  thinkingBlock?:
+    | { kind: 'thinking'; thinking: string; signature: string }
+    | { kind: 'redacted_thinking'; data: string }
   /** For `message_stop`: the model's stop_reason. */
   stopReason?: 'end_turn' | 'tool_use' | 'max_tokens' | 'stop_sequence' | 'pause_turn' | 'refusal' | string
 }
