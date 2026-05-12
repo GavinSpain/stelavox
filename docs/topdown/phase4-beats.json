@@ -1,0 +1,79 @@
+{
+  "phase": 4,
+  "target": "Scene 1 → beats",
+  "scene_id": "e32566e9-77f2-4816-a93b-220b7ccbcb86",
+  "scene_name": "The Iron Ghost",
+  "scene_budget": 600,
+  "workflow_id": "1374f044-3bc4-4c26-ab0e-932b20ca7378",
+  "workflow_title": "Expand Scene 1 'The Iron Ghost' into beats",
+  "duration_s": 34.312,
+  "new_beat_count": 4,
+  "beat_budget_sum": 600,
+  "budget_compliance_pct": "100.0",
+  "beats": [
+    {
+      "order": 1,
+      "name": "The Routine",
+      "short_description": "Kael methodically erases his digital footprint, perfectly comfortable in isolation.",
+      "word_count_target": 150,
+      "summary_text": "Kael sits at the Iron Ghost's bridge console, running systematic deletion protocols on his salvage manifests, location markers, and corporate registry entries. The work is meticulous, practiced, almost meditative—seven years of perfecting the art of leaving no trace. He exists as a ghost because ghosts cannot be hunted. The routine is comforting, a ritual that confirms he has chosen the right path: alone is safe.",
+      "summary_word_count": 65,
+      "metadata": {
+        "beat_function": "establish",
+        "pov_character": "Kael Voss",
+        "emotional_shift": "calm, controlled, resigned",
+        "characters_present": [
+          "Kael Voss"
+        ]
+      }
+    },
+    {
+      "order": 2,
+      "name": "The Signal",
+      "short_description": "A degraded distress beacon pulses across Kael's scanner—ancient, impossible, and tugging at something dead inside him.",
+      "word_count_target": 140,
+      "summary_text": "A blip appears on Kael's scanner. Degraded. Old. The kind of signal that should have died decades ago. It pulses weakly across the Kuiper Belt frequencies, fragmented and barely coherent—but persistent. Kael's first instinct is to mark it as noise and move on. That is what survival demands. But something in the signal's rhythm catches him. For the first time in seven years, the part of him that used to *answer* calls stirs. Just barely. Just enough to make him pause.",
+      "summary_word_count": 81,
+      "metadata": {
+        "beat_function": "inciting incident",
+        "pov_character": "Kael Voss",
+        "emotional_shift": "unease, a faint pull toward something forgotten",
+        "characters_present": [
+          "Kael Voss"
+        ]
+      }
+    },
+    {
+      "order": 3,
+      "name": "Recognition",
+      "short_description": "Kael analyzes the beacon and realizes it is real—not corporate noise, but the kind of impossible signal he used to hunt.",
+      "word_count_target": 160,
+      "summary_text": "Kael runs the signal through every filter, every analysis protocol. The results are impossible. The beacon is ancient—thousands of years old, maybe more. It shouldn't be transmitting. It shouldn't be *here*. But it is. And as he isolates the signal's origin point, something shifts in his chest. This is not a corporate distress call. This is not a trap or a lure. This is something *other*. The kind of call that used to pull him and his team into the dark. The kind of call that ended in screams. The dead part of him—the part that died in the ice—suddenly wakes.",
+      "summary_word_count": 101,
+      "metadata": {
+        "beat_function": "escalate",
+        "pov_character": "Kael Voss",
+        "emotional_shift": "dread mixed with recognition, old instinct returning",
+        "characters_present": [
+          "Kael Voss"
+        ]
+      }
+    },
+    {
+      "order": 4,
+      "name": "The Breaking",
+      "short_description": "Kael plots a course toward the beacon, shattering the seven-year vow of isolation.",
+      "word_count_target": 150,
+      "summary_text": "Kael's hands move across the console before his mind catches up. He plots coordinates. He locks the course. The Iron Ghost's engines hum as they adjust trajectory. The vow is broken. Seven years of staying alone, of refusing to answer, of keeping the dead buried—all of it crumbles in the moment it takes to push one button. He knows this is wrong. He knows this is how people die. But the beacon pulls, and for the first time since Europa, Kael chooses to follow. The ghost ship is no longer dark. It is moving toward light.",
+      "summary_word_count": 96,
+      "metadata": {
+        "beat_function": "turning point",
+        "pov_character": "Kael Voss",
+        "emotional_shift": "resignation breaking into resolve, the past reclaiming the present",
+        "characters_present": [
+          "Kael Voss"
+        ]
+      }
+    }
+  ]
+}

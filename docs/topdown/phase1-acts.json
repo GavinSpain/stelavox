@@ -1,0 +1,56 @@
+{
+  "phase": 1,
+  "target": "book → acts",
+  "workflow_id": "c6696899-38cd-4bcc-8773-a2d3d8e8279b",
+  "workflow_title": "Expand Shadow Protocol into acts",
+  "duration_s": 54.415,
+  "structural_nodes_before_delete": 14,
+  "new_act_count": 3,
+  "acts": [
+    {
+      "order": 1,
+      "name": "Act One: The Salvage",
+      "short_description": "Kael finds a derelict alien probe, bonds with its crystalline device, and watches an entire colony burn as the signal activates.",
+      "word_count_target": 28000,
+      "summary_text": "Kael Voss operates alone on the fringes of the solar system, scraping salvage from dead ships and dead worlds. He is a ghost: branded a terrorist after the Europa Incident, haunted by the screams of his team, and convinced that isolation is the only way to keep others alive. When a distress beacon leads him to an impossible discovery—a derelict alien probe, perfectly preserved and older than human civilization—his solitude ends.\n\nThe moment Kael touches the crystalline device at the probe's heart, it bonds with his neural implant. He is flooded with knowledge not his own: star charts, warnings, and a countdown he cannot stop. Hours later, the Europa Research Colony goes dark. Every neural implant on the moon is overwritten. Every mind inside—thousands of them—is erased in seconds.\n\nThe Corporate Defense Alliance blames Kael. They brand him a terrorist, a saboteur, a threat to human survival. But Kael knows the truth: the device isn't a weapon. It's a failsafe. And something far older than humanity is waking up.\n\nWith corporate hunters closing in and no one to trust, Kael makes a choice that breaks his seven-year vow: he reaches out. He finds Mira Kane, a cynical hacker-specialist with more cybernetics than humanity left in her; Juno Vale, a disgraced corporate whistleblower with access to secrets; and Rax Harlan, a genetically enhanced smuggler with nothing left to lose. Together, they become the only crew willing to answer a question the corporations want buried: What is the device, and why did it erase an entire colony the moment it woke up?\n\nThis act establishes the world of corporate control, introduces the alien threat as both mystery and catastrophe, and forces Kael to break his isolation for the first time since Europa—setting him on a collision course with the very thing he swore he would never do again: lead.",
+      "summary_word_count": 307,
+      "metadata": {
+        "dominant_emotion": "Dread mixed with the first stirring of purpose after years of numbness.",
+        "dramatic_question": "What is the alien device, and what will happen when it fully awakens?",
+        "thematic_function": "setup",
+        "closing_turning_point": "The Europa colony goes dark; Kael is branded a terrorist and forced to assemble a crew to survive.",
+        "opening_turning_point": "Kael answers the distress beacon and discovers the derelict alien probe."
+      }
+    },
+    {
+      "order": 2,
+      "name": "Act Two: The Signal Spreads",
+      "short_description": "As Kael and his crew race to decode the device, the alien signal spreads across the solar system, and Kael's refusal to lead nearly destroys them all.",
+      "word_count_target": 58000,
+      "summary_text": "With a bounty on his head and corporate assassins closing in, Kael assembles his first real crew in seven years. Mira Kane brings her ability to hack systems that shouldn't be hackable; Juno Vale brings corporate intelligence that reveals the megacorps have known about the signal for decades; Rax Harlan brings muscle and the kind of recklessness that matches Kael's own.\n\nTogether, they begin to decode the device. What they discover is worse than any of them imagined: the signal isn't new. It's ancient. An extinct alien species left it behind as a failsafe—a failsafe against something even older and infinitely more patient, something that is now waking up in the dark between the stars. The corporations didn't just know. They've been running secret experiments for years, trying to weaponize the signal, trying to turn the failsafe into a tool for total mind control.\n\nAs the crew works, the signal spreads. Mining colonies go dark. Research stations fall silent. Every mind touched by the signal is erased—a blank slate that the corporations hope to fill with obedience.\n\nBut Mira begins to change. As she decodes the device's language, as she touches its logic and architecture, something shifts inside her. She begins to feel again—anger at the corporations, fear for the crew, and something that terrifies her most of all: connection. She starts to reject the lie that told her she was no longer human. Meanwhile, Kael refuses to lead. He makes decisions alone, takes insane risks, and treats his crew as tools rather than people. His refusal to trust, to delegate, to let anyone close nearly gets them all killed. The crew fractures. Juno questions his judgment. Rax grows reckless with frustration. Mira sees in Kael the same isolation that nearly destroyed her.\n\nThe midpoint arrives when they discover there are six more signal nodes still active across the solar system. The device they're holding is only the first. What they've been racing to stop is only the beginning. The countdown doesn't end at Europa—it continues, spreading outward, accelerating.\n\nThe act ends at the lowest point: Kael's isolation has fractured the crew at the exact moment they need unity most. Corporate forces have cornered them. The signal is spreading faster than they can track it. And Kael must finally confront the choice he's been avoiding: lead, and risk losing everyone again, or stay alone, and watch humanity burn.",
+      "summary_word_count": 398,
+      "metadata": {
+        "dominant_emotion": "Desperation, fracture, and the first stirring of forced connection.",
+        "dramatic_question": "Can Kael and his crew decode the signal and stop the extinction before corporate control and his own isolation destroy them?",
+        "thematic_function": "complication",
+        "closing_turning_point": "The crew discovers six more signal nodes; Kael's isolation has fractured the team; they are cornered by corporate forces.",
+        "opening_turning_point": "Kael assembles his crew and they begin to decode the device."
+      }
+    },
+    {
+      "order": 3,
+      "name": "Act Three: The Heart of the Signal",
+      "short_description": "Kael and Mira descend into the signal's origin point, where Kael chooses leadership and Mira chooses to feel—but victory comes at the cost of uncovering a far larger threat.",
+      "word_count_target": 34000,
+      "summary_text": "Cornered and out of time, Kael makes the choice that will define him: he leads. Not perfectly, not without doubt, but with the full weight of responsibility he swore he would never carry again. He stops treating his crew as tools and starts treating them as people worth dying for. It's the first crack in the lie that kept him isolated for seven years.\n\nThe crew traces the signal to its source: a massive crystalline structure buried deep within the ice of Europa, beneath the research colony that fell silent days ago. It is the original node—the one that started it all, the one that has been calling out for millennia, waiting for someone with the right neural architecture to answer. Kael and Mira descend into the ice, leaving Juno and Rax above to coordinate an escape that may never come.\n\nInside the structure, the signal reaches its crescendo. It offers them both a choice: Let it repair them. Let it erase the damage—Kael's trauma, his guilt, his broken memories; Mira's cybernetics, her pain, her lingering humanity. It offers them the lie that has haunted them both: that erasure is mercy, that isolation is safety, that the only way to survive is to stop feeling.\n\nMira is the first to refuse. She looks at the signal, at the offer to be \"fixed,\" and she chooses the opposite. She chooses to keep her pain, her flawed humanity, her capacity to feel and connect. She chooses Kael. In that moment, the last of her lie falls away: she is still human, and her humanity is worth fighting for.\n\nKael watches her choose connection. And he finally understands: his seven-year isolation didn't protect anyone. It only delayed the moment when he would have to choose between his guilt and his responsibility. He chooses responsibility. He chooses to lead, to trust, to be present for the people who have chosen to fight beside him.\n\nTogether, they shut down the first signal node. The immediate extinction event is halted. The colony on Europa is saved. The corporations' secret is exposed—not completely, but enough to damage them, enough to make the truth harder to hide.\n\nBut as the device powers down, Kael receives one final transmission from the probe. Six more nodes are still active across the solar system. The signal is still spreading. The corporations are still preparing. And something far older than either humans or the signal is still moving through the dark.\n\nThe book ends not with victory, but with the hard-won knowledge that the fight is only beginning. Kael and Mira have reclaimed their humanity, broken their isolation, and chosen connection. But the cost of that choice is that they can no longer run. They can no longer hide. They must now face what comes next.\n\nThe clock isn't ticking toward war. It's ticking toward extinction. And they are the only ones who know the truth.",
+      "summary_word_count": 484,
+      "metadata": {
+        "dominant_emotion": "Catharsis mixed with the weight of unfinished reckoning; triumph shadowed by larger threat.",
+        "dramatic_question": "Will Kael and Mira choose connection and leadership, or will isolation and fear consume them and everyone they've sworn to protect?",
+        "thematic_function": "resolution",
+        "closing_turning_point": "Kael and Mira shut down the first node but discover six more are still active; they are no longer able to run or hide.",
+        "opening_turning_point": "Kael chooses to lead; the crew descends to the signal's source."
+      }
+    }
+  ]
+}

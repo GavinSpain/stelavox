@@ -95,6 +95,47 @@ export async function assembleContext(
 
   if (!node) throw new Error(`Node ${nodeId} not found in context assembly`)
 
+  // 1c. Preceding-sibling continuity context (Migration 053).
+  //
+  // For content-generation operations (synthesise, expand) the immediately
+  // preceding nodes at the target's canonical layer carry signal the
+  // ancestor chain cannot: rhythm, voice, density, last-paragraph state.
+  // The count is configured per-profile via context_rules.preceding_sibling_count.
+  // Crosses parent-scope boundaries by design — strict canonical order over
+  // the whole document at the target's layer.
+  //
+  // Lives in the dynamic block (changes per iteration of a sequential
+  // workflow), not stable, so the cache breakpoint at the end of the
+  // stable system+tools prefix continues to serve across iterations.
+  const precedingSiblingCount =
+    typeof profile.context_rules?.['preceding_sibling_count'] === 'number'
+      ? (profile.context_rules['preceding_sibling_count'] as number)
+      : 0
+  const succeedingSiblingCount =
+    typeof profile.context_rules?.['succeeding_sibling_count'] === 'number'
+      ? (profile.context_rules['succeeding_sibling_count'] as number)
+      : 0
+  const [precedingSiblings, succeedingSiblings] = await Promise.all([
+    precedingSiblingCount > 0 && node.layer_index != null && node.document_id
+      ? fetchPrecedingSiblingsAtLayer(
+          supabase,
+          node.id,
+          node.document_id,
+          node.layer_index,
+          precedingSiblingCount,
+        )
+      : Promise.resolve<NodeForAssembly[]>([]),
+    succeedingSiblingCount > 0 && node.layer_index != null && node.document_id
+      ? fetchSucceedingSiblingsAtLayer(
+          supabase,
+          node.id,
+          node.document_id,
+          node.layer_index,
+          succeedingSiblingCount,
+        )
+      : Promise.resolve<NodeForAssembly[]>([]),
+  ])
+
   // 1b. For generate_context (and any other profile with
   //     context_rules.include_book_synopsis = true), fetch the project's
   //     first document's book root summary so the agent has thematic
@@ -123,6 +164,8 @@ export async function assembleContext(
   const formattedBookSynopsis = formatBookSynopsis(bookSynopsis, nodeId)
   const formattedCurrentNode = formatCurrentNode(node, nodeId)
   const formattedComments = formatComments(comments, nodeId)
+  const formattedPrecedingSiblings = formatPrecedingSiblings(precedingSiblings, nodeId)
+  const formattedSucceedingSiblings = formatSucceedingSiblings(succeedingSiblings, nodeId)
 
   const stableRaw = [
     formattedBookSynopsis,
@@ -133,8 +176,19 @@ export async function assembleContext(
     .filter(Boolean)
     .join('\n')
 
+  // Preceding/succeeding-sibling context lives in the dynamic block because
+  // it changes per iteration of a sequential workflow (beat N's job sees
+  // beats 1..N-1's prose; beat N+1's sees 1..N). Placing it in stable would
+  // invalidate the cache breakpoint at the end of the stable system+ancestors
+  // prefix.
+  //
+  // Order: preceding → current → succeeding. Reads temporally — what came
+  // before, what you are doing, what comes next. Migration 054 adds the
+  // succeeding-siblings block as a destination horizon (length governor).
   const dynamicRaw = [
+    formattedPrecedingSiblings,
     formattedCurrentNode,
+    formattedSucceedingSiblings,
     agentInstruction.trim()
       ? `\n<agent_instruction><user_data>${escapeXml(agentInstruction.trim())}</user_data></agent_instruction>`
       : '',
@@ -159,6 +213,8 @@ export async function assembleContext(
       currentNode: formattedCurrentNode,
       agentInstruction: agentInstruction.trim(),
       editorialComments: formattedComments,
+      precedingSiblings: formattedPrecedingSiblings,
+      succeedingSiblings: formattedSucceedingSiblings,
       securityWrapped: dynamicWrapped,
     },
     config: {
@@ -181,22 +237,103 @@ interface NodeForAssembly {
   node_type: string
   node_category: string
   depth: number | null
+  layer_index: number | null
   parent_id: string | null
   document_id?: string | null
   summary: string | null
   prose: string | null
   notes: string | null
   metadata: Record<string, unknown> | null
+  word_count_target: number | null
 }
 
 async function fetchNode(supabase: Client, nodeId: string): Promise<NodeForAssembly | null> {
   const { data, error } = await supabase
     .from('nodes')
-    .select('id, name, node_type, node_category, depth, parent_id, summary, prose, notes, metadata')
+    .select('id, name, node_type, node_category, depth, layer_index, parent_id, document_id, summary, prose, notes, metadata, word_count_target')
     .eq('id', nodeId)
     .maybeSingle()
   if (error) throw new Error(`fetchNode failed: ${error.message}`)
   return data as NodeForAssembly | null
+}
+
+/**
+ * Fetch the N preceding nodes at a given canonical layer.
+ *
+ * Migration 053 — preceding-sibling continuity context. The query orders
+ * by canonical_position from the nodes_canonical VIEW (Migration 047) so
+ * "preceding" means strict canonical depth-first order over the whole
+ * document — crosses parent boundaries by design.
+ *
+ * Returns nodes in canonical-ascending order (oldest first, target-
+ * adjacent last) so the formatter renders them in reading order.
+ */
+async function fetchPrecedingSiblingsAtLayer(
+  supabase: Client,
+  targetNodeId: string,
+  documentId: string,
+  layerIndex: number,
+  count: number,
+): Promise<NodeForAssembly[]> {
+  if (count <= 0) return []
+
+  const { data: target } = await supabase
+    .from('nodes_canonical')
+    .select('canonical_position')
+    .eq('id', targetNodeId)
+    .maybeSingle()
+  if (!target || target.canonical_position == null) return []
+
+  const { data: rows } = await supabase
+    .from('nodes_canonical')
+    .select('id, name, node_type, node_category, depth, layer_index, parent_id, document_id, summary, prose, notes, metadata, canonical_position')
+    .eq('document_id', documentId)
+    .eq('layer_index', layerIndex)
+    .lt('canonical_position', target.canonical_position)
+    .order('canonical_position', { ascending: false })
+    .limit(count)
+
+  if (!rows || rows.length === 0) return []
+  // Reverse to canonical-ascending (oldest → newest, then target).
+  return rows.reverse() as unknown as NodeForAssembly[]
+}
+
+/**
+ * Fetch the N succeeding nodes at a given canonical layer.
+ *
+ * Migration 054 — succeeding-sibling destination horizon. Mirror of
+ * fetchPrecedingSiblingsAtLayer, swapping `<` for `>` and ascending order.
+ * Crosses parent boundaries by design.
+ *
+ * Returns nodes in canonical-ascending order (target-adjacent first,
+ * furthest last) — temporal "what's coming next" reading order.
+ */
+async function fetchSucceedingSiblingsAtLayer(
+  supabase: Client,
+  targetNodeId: string,
+  documentId: string,
+  layerIndex: number,
+  count: number,
+): Promise<NodeForAssembly[]> {
+  if (count <= 0) return []
+
+  const { data: target } = await supabase
+    .from('nodes_canonical')
+    .select('canonical_position')
+    .eq('id', targetNodeId)
+    .maybeSingle()
+  if (!target || target.canonical_position == null) return []
+
+  const { data: rows } = await supabase
+    .from('nodes_canonical')
+    .select('id, name, node_type, node_category, depth, layer_index, parent_id, document_id, summary, prose, notes, metadata, canonical_position')
+    .eq('document_id', documentId)
+    .eq('layer_index', layerIndex)
+    .gt('canonical_position', target.canonical_position)
+    .order('canonical_position', { ascending: true })
+    .limit(count)
+
+  return (rows ?? []) as unknown as NodeForAssembly[]
 }
 
 async function fetchAncestors(
@@ -493,13 +630,90 @@ function formatCurrentNode(node: NodeForAssembly, nodeId: string): string {
   const summary = scanAndWrap(extractPlainText(node.summary), `current_node.summary`, nodeId)
   const prose = scanAndWrap(extractPlainText(node.prose), `current_node.prose`, nodeId)
   const notes = scanAndWrap(extractPlainText(node.notes), `current_node.notes`, nodeId)
+  // Migration 060 — surface word_count_target on current_node so the
+  // budget cascade reaches expand + synthesise agents. The field has
+  // existed on `nodes` since Phase 1 but was never rendered into the
+  // prompt; agents were rendering against null length anchors.
+  const wctLine =
+    node.word_count_target != null && node.word_count_target > 0
+      ? `\n  <word_count_target>${node.word_count_target}</word_count_target>`
+      : ''
   return `
 <current_node type="${escapeXml(node.node_type)}" id="${node.id}">
-  <name>${name}</name>
+  <name>${name}</name>${wctLine}
   <summary><user_data>${summary}</user_data></summary>
   <prose><user_data>${prose}</user_data></prose>
   <notes><user_data>${notes}</user_data></notes>
 </current_node>`
+}
+
+/**
+ * Format the preceding-siblings continuity block (Migration 053).
+ *
+ * Each sibling is rendered with the same `type` + `id` + `name` shape as
+ * the ancestor blocks, then with one body element: `<prose>` if the
+ * sibling has prose content (typical for synthesised leaf beats), or
+ * `<summary>` as the fallback (always populated for structural layers
+ * like scene/chapter/act, and the fallback for un-synthesised beats).
+ */
+function formatPrecedingSiblings(
+  siblings: NodeForAssembly[],
+  nodeId: string,
+): string {
+  if (siblings.length === 0) return ''
+  const blocks = siblings.map((s) => {
+    const name = scanAndWrap(s.name ?? '', `preceding_sibling.name`, nodeId)
+    const proseText = extractPlainText(s.prose).trim()
+    if (proseText.length > 0) {
+      const prose = scanAndWrap(proseText, `preceding_sibling.prose`, nodeId)
+      return `
+<sibling type="${escapeXml(s.node_type)}" id="${s.id}">
+  <name>${name}</name>
+  <prose><user_data>${prose}</user_data></prose>
+</sibling>`
+    }
+    const summary = scanAndWrap(
+      extractPlainText(s.summary),
+      `preceding_sibling.summary`,
+      nodeId,
+    )
+    return `
+<sibling type="${escapeXml(s.node_type)}" id="${s.id}">
+  <name>${name}</name>
+  <summary><user_data>${summary}</user_data></summary>
+</sibling>`
+  })
+  return `\n<preceding_siblings>${blocks.join('')}\n</preceding_siblings>`
+}
+
+/**
+ * Format the succeeding-siblings destination block (Migration 054).
+ *
+ * Always renders <summary> (succeeding nodes have no prose yet by
+ * definition of sequential dispatch — they're the future). The
+ * synthesise/expand agents read this as a destination horizon: the
+ * current beat/scene/chapter must close in a way that opens what's
+ * named here.
+ */
+function formatSucceedingSiblings(
+  siblings: NodeForAssembly[],
+  nodeId: string,
+): string {
+  if (siblings.length === 0) return ''
+  const blocks = siblings.map((s) => {
+    const name = scanAndWrap(s.name ?? '', `succeeding_sibling.name`, nodeId)
+    const summary = scanAndWrap(
+      extractPlainText(s.summary),
+      `succeeding_sibling.summary`,
+      nodeId,
+    )
+    return `
+<sibling type="${escapeXml(s.node_type)}" id="${s.id}">
+  <name>${name}</name>
+  <summary><user_data>${summary}</user_data></summary>
+</sibling>`
+  })
+  return `\n<succeeding_siblings>${blocks.join('')}\n</succeeding_siblings>`
 }
 
 function formatComments(comments: CommentRow[], nodeId: string): string {

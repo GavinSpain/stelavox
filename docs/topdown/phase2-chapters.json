@@ -1,0 +1,90 @@
+{
+  "phase": 2,
+  "target": "Act 1 → chapters",
+  "act_id": "f6f6e110-cf27-4a13-9220-a9cba28baeb3",
+  "act_name": "Act One: The Salvage",
+  "act_budget": 28000,
+  "workflow_id": "c3888acd-cb41-46b0-a09b-89e7a14e53a5",
+  "workflow_title": "Expand Act 1 'The Salvage' into chapters",
+  "duration_s": 109.32,
+  "new_chapter_count": 5,
+  "chapter_budget_sum": 28000,
+  "budget_compliance_pct": "100.0",
+  "chapters": [
+    {
+      "order": 1,
+      "name": "Salvage",
+      "short_description": "Kael drifts alone on the Kuiper Belt fringe when a distress beacon leads him to an impossible discovery: a derelict alien probe, perfectly preserved and older than human civilization. When he touches the crystalline device at its heart, his solitude ends.",
+      "word_count_target": 5600,
+      "summary_text": "Kael Voss operates alone in the outer system, salvaging dead ships and erasing his presence from corporate records. His ship, the Iron Ghost, is a metal coffin floating in the dark—exactly how he prefers it. Seven years after Europa, he has built a life of perfect isolation: no crew, no responsibilities, no one to lose. When a distress beacon—old, degraded, and impossible—pulls him to the Kuiper Belt, Kael should ignore it. Instead, he finds a derelict alien probe, its hull covered in faint glowing runes, its interior a vast chamber filled with crystalline lattices that seem to pulse with ancient intelligence. At the probe's heart: a single device, glowing softly, waiting. When Kael touches it, it bonds with his neural implant. He is flooded with knowledge not his own: star charts, coordinates, warnings, and a countdown he cannot stop. The device recognizes him as the one it was meant to find. For the first time in seven years, Kael is not alone in his own mind.",
+      "summary_word_count": 166,
+      "metadata": {
+        "chapter_turn": "Kael activates the alien device and it bonds with his neural implant, flooding him with alien knowledge and a countdown.",
+        "pov_character": "Kael Voss",
+        "dramatic_question": "What is this device, and why does it recognize Kael as its intended recipient?",
+        "emotional_register": "Wonder mixed with dread; the illusion of safety shattered.",
+        "act_structural_role": "act_opener"
+      }
+    },
+    {
+      "order": 2,
+      "name": "The Wipe",
+      "short_description": "Hours after Kael's discovery, the entire Europa Research Colony goes dark. Every neural implant is overwritten. Every mind inside is erased in seconds. Kael watches it happen through the device's connection and realizes the countdown was a warning, not a timer.",
+      "word_count_target": 5800,
+      "summary_text": "The device's countdown reaches zero while Kael is still aboard the alien probe, trying to understand what he's been connected to. The signal pulses outward—invisible, unstoppable, traveling at the speed of light toward the inner system. On Europa, in the buried research colony, thousands of workers and scientists are at their neural-interface stations, their implants synced to the corporate network. When the signal hits, it doesn't negotiate. It overwrites. In seconds, every neural implant on the moon is filled with static. Every mind inside goes blank. Thousands of people collapse simultaneously, their eyes roll back, and they begin to scream. Some turn violent. Some catatonic. Some simply die. The colony's emergency systems fail. Life-support begins to fail. Kael feels the wipe through the device—a phantom echo of thousands of minds being erased—and realizes with horror that the device didn't cause this. It was trying to prevent it. The corporate Defense Alliance immediately blames Kael. Distress calls flood the system. He is branded a terrorist, a saboteur, a threat to human survival. The hunt begins.",
+      "summary_word_count": 174,
+      "metadata": {
+        "chapter_turn": "The alien signal pulses outward and erases every mind on Europa; Kael is branded a terrorist by the Corporate Defense Alliance.",
+        "pov_character": "Kael Voss",
+        "dramatic_question": "What is the device, and why did it trigger a catastrophe the moment it activated?",
+        "emotional_register": "Horror, guilt, disorientation; the weight of thousands of deaths.",
+        "act_structural_role": "escalation"
+      }
+    },
+    {
+      "order": 3,
+      "name": "Hunted",
+      "short_description": "Corporate forces close in on Kael as he flees the Kuiper Belt. Every channel broadcasts his face as a terrorist. Every station is barred to him. The device still hums in his neural implant, and he begins to understand the magnitude of what he's uncovered—and the impossibility of surviving alone.",
+      "word_count_target": 5400,
+      "summary_text": "Kael runs. The Iron Ghost jumps system to system, burning fuel and staying dark. Every corporate station is now hostile. Every independent trader who recognizes him is a threat. The Corporate Defense Alliance has branded him a terrorist, saboteur, mass murderer. They've frozen his accounts, seized his salvage rights, and put a bounty on his head large enough to turn any friend into an enemy. But worse than the hunters is the device. It continues to whisper to him through his neural implant—fragments of alien language, star charts he doesn't understand, warnings he can't decipher. Kael realizes with growing dread that the device isn't finished. The countdown was only for the first signal node. There are more. And the corporations know. He hacks into a black-market news feed and finds buried stories: mining colonies going dark months ago, research stations falling silent, always blamed on equipment failure or reactor breaches. The pattern is clear now. The signal has been spreading for years. The corporations have been covering it up. And somehow, they knew this was coming. Kael is alone, hunted, and carrying technology that the most powerful forces in the solar system want to control or destroy. He realizes, for the first time in seven years, that isolation won't save him. He needs help. He needs people he can trust. And he needs to find someone who can understand what the device is trying to tell him.",
+      "summary_word_count": 237,
+      "metadata": {
+        "chapter_turn": "Kael realizes the signal is spreading, the corporations knew it was coming, and he cannot decode the device alone.",
+        "pov_character": "Kael Voss",
+        "dramatic_question": "Can Kael survive being hunted alone, or must he break his vow and reach out to others?",
+        "emotional_register": "Desperation, paranoia, the first cracks in his isolation.",
+        "act_structural_role": "escalation"
+      }
+    },
+    {
+      "order": 4,
+      "name": "First Contact",
+      "short_description": "Desperate and hunted, Kael reaches out to Mira Kane, a cynical hacker-specialist with more cybernetics than humanity left in her. Their first meeting is tense, distrustful, and the moment Kael's seven-year vow of isolation truly breaks.",
+      "word_count_target": 5600,
+      "summary_text": "Mira Kane lives in the cracks of the corporate system—a ghost in the machine, literally and figuratively. Seven years ago, she was a brilliant corporate scientist. Then the neural-enhancement trial killed her sister and turned her into corporate property. She escaped with nothing but her hacking skills and a body half-fused with cybernetics. Now she survives by taking jobs no one else will touch: breaking into corporate systems, erasing evidence, stealing secrets. She's good at staying invisible. She's better at not caring. Kael finds her through old Black Ops contacts—people he swore he'd never contact again. He approaches her in a dark bar on an asteroid station, and Mira's first instinct is to run. Kael Voss is a ghost, a terrorist, a man with a death sentence on his head. Associating with him is suicide. But Kael doesn't ask her to join him. He asks her to do what she does best: hack something that shouldn't be hackable. He shows her the encrypted data from the device—alien architecture, signal patterns, a language that exists nowhere in human records. Mira sees it and recognizes something she has never encountered before: code that is not corporate, not human, and genuinely beyond her understanding. For the first time in years, she is intrigued. For the first time since her sister died, she feels something other than cold detachment: curiosity. She agrees to help him. Not because she trusts him. Not because she cares if humanity survives. But because she needs to know what this is. And because, in the back of her fractured mind, she recognizes in Kael Voss a fellow ghost—someone else who lost everything and is still running.",
+      "summary_word_count": 277,
+      "metadata": {
+        "chapter_turn": "Kael reaches out to Mira Kane; she agrees to help him decode the device, breaking both their codes of isolation.",
+        "pov_character": "Kael Voss, Mira Kane",
+        "dramatic_question": "Will Mira agree to help Kael, and can two damaged people trust each other enough to survive what comes next?",
+        "emotional_register": "Tense, cautious; the first real human connection either has allowed in years.",
+        "act_structural_role": "turning_point"
+      }
+    },
+    {
+      "order": 5,
+      "name": "The Crew",
+      "short_description": "With Mira on board, Kael assembles the only crew willing to help him: Juno Vale, a disgraced corporate whistleblower with access to forbidden secrets, and Rax Harlan, a genetically enhanced smuggler with nothing left to lose. The act closes with the crew formed and Kael—for the first time in seven years—accepting leadership.",
+      "word_count_target": 5600,
+      "summary_text": "Mira brings her own contacts into the fold. Juno Vale was a senior corporate analyst at Nexus Prime until she discovered the truth about the signal and tried to go public. The corporations buried her career, her reputation, and her family. She has been living off the grid for three years, waiting for the moment when her evidence would matter. When Mira reaches out with proof of the device, Juno recognizes it immediately: it matches fragments from classified corporate archives she stole before they erased her. She joins without hesitation. Next comes Rax Harlan—a genetically enhanced smuggler with a body designed for violence and a mind designed for survival. Rax runs contraband across the solar system and has no loyalty except to money and the few people who've never betrayed him. Mira knows him from the black market. When she explains what they're doing, Rax's response is a grin: the corporations want them dead anyway, so why not go out doing something that matters? The crew assembles in the Iron Ghost's cramped bridge: Kael, Mira, Juno, and Rax. Four broken people with nothing to lose and everything at stake. For the first time since Europa, Kael accepts that he cannot do this alone. He accepts leadership. He accepts responsibility. He accepts that connection—messy, dangerous, terrifying—is the only path forward. As they begin to plot their first move, to decode the device together, to trace the signal's spread across the system, Kael feels something he thought he had burned out of himself seven years ago: hope. It is fragile and terrifying. But it is real.",
+      "summary_word_count": 264,
+      "metadata": {
+        "chapter_turn": "The crew assembles; Kael accepts leadership and breaks his seven-year vow of isolation completely.",
+        "pov_character": "Kael Voss, Mira Kane, Juno Vale, Rax Harlan",
+        "dramatic_question": "Can this fractured crew work together, or will their damage and distrust tear them apart before they can stop the signal?",
+        "emotional_register": "Cautious hope mixed with dread; the birth of something new and dangerous.",
+        "act_structural_role": "act_climax"
+      }
+    }
+  ]
+}

@@ -259,6 +259,11 @@ export async function* runAgenticTurn(
         currentNode: '',
         agentInstruction: '',
         editorialComments: '',
+        // Preceding/succeeding-sibling context (Migrations 053/054) are
+        // per-target-node primitives for content-generation specialists;
+        // not applicable to Director turns.
+        precedingSiblings: '',
+        succeedingSiblings: '',
         // SU-47: legacy single-string body unused when `messages` is set;
         // kept as empty string for backward compat with the AssembledPrompt
         // shape. The provider reads `messages` first.

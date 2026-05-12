@@ -56,6 +56,29 @@ export interface AssembledPrompt {
     currentNode: string
     agentInstruction: string
     editorialComments: string
+    /**
+     * Preceding-sibling continuity context for content-generation operations.
+     * For synthesise: preceding beats' prose (summary fallback when prose
+     * is empty). For expand at any layer: preceding siblings' summaries.
+     * Count comes from agent_profiles.context_rules.preceding_sibling_count.
+     * Crosses parent-scope boundaries — strict canonical-order over the
+     * document at the target's layer. Empty string when count is 0 or the
+     * profile doesn't set the key.
+     */
+    precedingSiblings: string
+    /**
+     * Succeeding-sibling destination horizon for content-generation
+     * operations. Mirror of precedingSiblings on the future side: summaries
+     * (never prose, since succeeding nodes haven't been synthesised yet by
+     * definition of sequential dispatch) of the N nodes immediately after
+     * the target in canonical order at the target's layer.
+     * Count comes from agent_profiles.context_rules.succeeding_sibling_count.
+     * Migration 054. The synthesise agent uses this as a destination
+     * boundary so it stops at the next beat's natural beginning; expand
+     * agents use it to shape how the current node's structure resolves
+     * into the next.
+     */
+    succeedingSiblings: string
     /** The wrapped+escapeXml'd dynamic block, ready for the provider. */
     securityWrapped: string
     /**

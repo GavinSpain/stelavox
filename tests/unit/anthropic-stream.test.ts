@@ -42,6 +42,8 @@ function buildPrompt(model: string): AssembledPrompt {
       currentNode: '',
       agentInstruction: 'Write a single short sentence about a quiet morning. Stop after one sentence.',
       editorialComments: '',
+      precedingSiblings: '',
+      succeedingSiblings: '',
       securityWrapped:
         '<user_data>Write a single short sentence about a quiet morning. Stop after one sentence.</user_data>',
     },

@@ -1,0 +1,62 @@
+{
+  "phase": 5,
+  "target": "Scene 1 → synthesise",
+  "workflow_id": "6e589be7-f29b-413a-b239-a7f721f0110f",
+  "synth_cost_usd": 0.027112,
+  "total_input_tokens": 2773,
+  "total_output_tokens": 1080,
+  "duration_s": 38.945,
+  "target_sum": 600,
+  "prose_sum": 795,
+  "budget_compliance_pct": "132.5",
+  "beats": [
+    {
+      "order": 1,
+      "beat_id": "627f949c-07af-4f53-8c59-5c587a8d97ec",
+      "beat_name": "The Routine",
+      "word_count_target": 150,
+      "summary_text": "Kael sits at the Iron Ghost's bridge console, running systematic deletion protocols on his salvage manifests, location markers, and corporate registry entries. The work is meticulous, practiced, almost meditative—seven years of perfecting the art of leaving no trace. He exists as a ghost because ghosts cannot be hunted. The routine is comforting, a ritual that confirms he has chosen the right path: alone is safe.",
+      "prose": "The console hummed its familiar frequency as Kael's fingers moved through the deletion protocols. Manifest files dissolved into nothing. Location markers erased themselves from the corporate registry. Names—crew names, salvage sites, the careful fictions he'd built across seven years—all of it unwound in orderly sequences of code.\n\nHe didn't watch the screen. He knew the patterns well enough to work blind.\n\nThe Iron Ghost's bridge was cold at this hour, the heating system on minimum burn. Outside the viewport, the Kuiper Belt stretched in all directions: asteroids and ice, the debris of dead worlds, the perfect dark where a man could disappear. Kael had made himself into exactly that—a name that appeared nowhere, a ghost that couldn't be hunted because ghosts left no trail.\n\nThis was what safety looked like. Not comfort. Safety.\n\nHe finished the last protocol. The console chimed softly. All records cleaned, all trails erased, all connections severed. He leaned back in the pilot's seat and let the silence settle around him like a familiar blanket.\n\nThen the scanner picked up the distress beacon.",
+      "prose_word_count": 177,
+      "tokens_input": 217,
+      "tokens_output": 248,
+      "cost_usd": 0.01673
+    },
+    {
+      "order": 2,
+      "beat_id": "d31218da-e5c7-468e-b55a-66802bd93b1e",
+      "beat_name": "The Signal",
+      "word_count_target": 140,
+      "summary_text": "A blip appears on Kael's scanner. Degraded. Old. The kind of signal that should have died decades ago. It pulses weakly across the Kuiper Belt frequencies, fragmented and barely coherent—but persistent. Kael's first instinct is to mark it as noise and move on. That is what survival demands. But something in the signal's rhythm catches him. For the first time in seven years, the part of him that used to *answer* calls stirs. Just barely. Just enough to make him pause.",
+      "prose": "The scanner's ping cut through the silence like a crack in ice.\n\nKael's hand froze above the console. The blip was weak, fragmented—old code struggling through dead frequencies. Noise. The outer system was full of noise: ghost signals from derelict probes, radiation artifacts, the electromagnetic corpses of ships that had burned out decades ago. He should mark it and move on.\n\nHe didn't move.\n\nThe signal pulsed again. Degraded, yes, but rhythmic. Deliberate. Not the random scatter of background radiation. Something underneath the corruption was trying to reach him.\n\nSeven years. Seven years since he'd answered anything that didn't involve salvage manifests and corporate evasion. Seven years since the part of him that led people had learned to stay dead.\n\nKael pulled up the signal's source vector. The coordinates placed it deep in the Belt, far enough out that no rescue team had ever been sent, far enough that corporate scanners wouldn't reach it. The beacon's age made his throat tighten: the timestamp was corrupted, but the decay pattern suggested—decades. Centuries, maybe.\n\nHe should log it as noise and continue the burn toward the outer dark.\n\nInstead, he plotted the intercept course.",
+      "prose_word_count": 192,
+      "tokens_input": 596,
+      "tokens_output": 277,
+      "cost_usd": 0.003203
+    },
+    {
+      "order": 3,
+      "beat_id": "79bd6b9f-de92-4c40-8c5e-db21e2a9c1ed",
+      "beat_name": "Recognition",
+      "word_count_target": 160,
+      "summary_text": "Kael runs the signal through every filter, every analysis protocol. The results are impossible. The beacon is ancient—thousands of years old, maybe more. It shouldn't be transmitting. It shouldn't be *here*. But it is. And as he isolates the signal's origin point, something shifts in his chest. This is not a corporate distress call. This is not a trap or a lure. This is something *other*. The kind of call that used to pull him and his team into the dark. The kind of call that ended in screams. The dead part of him—the part that died in the ice—suddenly wakes.",
+      "prose": "Kael ran the signal through every analysis filter the Iron Ghost possessed. Spectral decay. Modulation patterns. Source harmonics. Each protocol returned the same impossible result.\n\nThe beacon was ancient. Not decades old. Not centuries. The degradation signature pointed to something far deeper in time—thousands of years, maybe longer. The signal should have dissipated into background noise millennia ago. Instead it was still transmitting. Still reaching out.\n\nHe pulled up the origin coordinates and isolated the source point visually. The scope magnified the region, hunting through the Belt's scatter until it resolved on something dark and sleek against the starfield. A hull. Crystalline. Covered in faint markings that his eye couldn't quite parse but his nervous system recognized as *other*.\n\nSomething woke in his chest. Not hope—he'd learned better than that seven years ago. But something close to it. The part of him that had led a team into the dark, that had answered calls that shouldn't have been answered, that had screamed in the ice and never come back whole.\n\nHe was already plotting the approach vector before he realized he'd made the choice.",
+      "prose_word_count": 184,
+      "tokens_input": 992,
+      "tokens_output": 250,
+      "cost_usd": 0.003464
+    },
+    {
+      "order": 4,
+      "beat_id": "db7418bd-b165-4e11-b860-e36785cdeed2",
+      "beat_name": "The Breaking",
+      "word_count_target": 150,
+      "summary_text": "Kael's hands move across the console before his mind catches up. He plots coordinates. He locks the course. The Iron Ghost's engines hum as they adjust trajectory. The vow is broken. Seven years of staying alone, of refusing to answer, of keeping the dead buried—all of it crumbles in the moment it takes to push one button. He knows this is wrong. He knows this is how people die. But the beacon pulls, and for the first time since Europa, Kael chooses to follow. The ghost ship is no longer dark. It is moving toward light.",
+      "prose": "The navigation console chimed. Kael's fingers were already moving, the sequence burned into his muscle memory from a lifetime before the ice: lock trajectory, engage burn sequence, set autopilot to intercept. His mind caught up somewhere in the middle of the third command.\n\nThis was the breaking point. He knew it the way a man knows the exact moment a bone snaps—the precise instant when something whole becomes irreversibly fractured.\n\nSeven years. He had kept the vow intact through salvage runs that could have gone wrong, through corporate hunters that came close enough to taste, through every night listening to the screams that lived in his neural implant. The vow had held because he had not tested it. Because he had not answered.\n\nThe Iron Ghost's engines began to hum, a rising tone that he felt in his teeth. The course was locked. The burn sequence initiated. In six hours, they would be close enough to see the probe with naked eyes.\n\nHe stared at his own hands on the console like they belonged to a stranger. In that moment of clarity before the doubt could take root, he understood: he had not chosen this. The beacon had. The moment his fingers touched the console, the vow broke not because he was weak, but because something older than his fear, older than the ice, older than all of it, had finally reached him.\n\nThe Iron Ghost began to move toward the light.",
+      "prose_word_count": 242,
+      "tokens_input": 968,
+      "tokens_output": 305,
+      "cost_usd": 0.003715
+    }
+  ]
+}
