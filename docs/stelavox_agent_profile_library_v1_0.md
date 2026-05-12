@@ -1,5 +1,5 @@
 # Stelavox — Agent Profile Library
-## Version 1.2
+## Version 1.3
 
 > **Versioning note:** This file is versioned. The version lives here, not in the filename — the filename pattern remains `stelavox_agent_profile_library_v[major]_[minor].md`. When this file changes, increment the version and add a changelog entry at the bottom (newest first). This document is the source of truth for every system prompt seeded into the `agent_profiles` table by Migration 027 (Phase 5) and any subsequent prompt-update migrations. **Production discipline:** every production edit to `agent_profiles.system_prompt` MUST be reflected by a corresponding commit bumping this document AND a follow-up migration that replicates the change to the database. The library doc + migrations together are the version-control mechanism while V1 is in market — see §6.
 
@@ -1304,6 +1304,18 @@ Board paper as a document type is V2+. Defer all five:
 
 The full v0.3 prompts for §3.6, §3.7, §3.8, §3.9 are preserved as authored in v0.3. When the absorbing phase begins, Tier-B authoring on Opus will reformat them to match §2's metadata-block-plus-prompt-body shape, apply the security frame, align output formats with the then-current `agent_jobs` schema, and remove biography-style openings.
 
+### 3.10 V1.x / V2 — QC and Review Job Types (Director V2 deep-dive, 2026-05-12)
+
+Identified during the Director Architecture V2 deep-dive as additional single-node job types that the Director can propose alongside expand / synthesise / refine. Each is dispatched the same way as existing job types — single LLM call, single agent_profile row, no agentic loop. They are **not multi-agent** in product terms.
+
+Three candidate profiles:
+
+- **`review_node`** — read a leaf's prose against its linked context (characters, locations, themes) and return observations as `node_comments` rows. Useful as a final pass before approving a beat. Operation_class: `single_node`. Output: structured comments. Sibling-to-prose op. **Phase:** V1.x candidate; needs craft-quality prompt authoring on Opus before seeding.
+- **`consistency_check`** — read multiple nodes (typically a layer or subtree) and find inconsistencies (character traits, timeline contradictions, language register drift) and return as `node_comments`. Cross-cutting; reads multiple targets but updates only via comments. **Phase:** V2 candidate; requires multi-target read support in the agent dispatch path.
+- **`evaluate_against_goal`** — read a node plus its Brief Stage description and return whether the node meets the stated stage goal, with specific reasoning. Useful for the user wanting to know "is this scene doing what I wanted it to do?" Output: structured assessment. **Phase:** V2 candidate; requires Brief integration (V1.x-A).
+
+Source: `docs/stelavox_director_architecture_v2_0.md` §16.3; `docs/sessions/director_v2_deep_dive_session_record_2026-05-11.md` §4. Tier-B authoring on Opus when each absorbing phase begins.
+
 ---
 
 ## 4. Security Frame
@@ -1560,6 +1572,8 @@ Pattern (1) is the standard approach. The migration file ends up large (~3000 li
 ---
 
 ## 9. Changelog
+
+**v1.3 — 2026-05-12** Director Architecture V2 deep-dive absorption. §3.10 adds three V1.x / V2 candidate QC-and-review single-node job-type profiles surfaced during the deep-dive: `review_node` (V1.x candidate — read a leaf's prose against linked context, return comments), `consistency_check` (V2 — read multiple nodes, find inconsistencies, return comments), `evaluate_against_goal` (V2 — read a node + Brief Stage description, return assessment). These are dispatched the same way as existing job types — single LLM call, single agent_profile row, no agentic loop. They are explicitly NOT multi-agent in product terms (Director Architecture v2 §4 stance). Tier-B authoring on Opus when each absorbing phase begins; no Migration 027-style seed in this iteration. Source: `docs/stelavox_director_architecture_v2_0.md` §16.3 and `docs/sessions/director_v2_deep_dive_session_record_2026-05-11.md` §4. No existing profile bodies changed.
 
 **v1.2 — 2026-05-08** SU-25 close-out — Short Story and Series profile coverage. Phase 5 shipped 18 system profiles dedicated to the Novel layer stack; the `story → ...` and `series → ...` top-level transitions had no dedicated profiles and §2A flagged this as V1.x scope. Migration 033 (`supabase/migrations/20260508000033_short_story_series_profiles.sql`) seeds four new system profiles: §2.19 `expand_story_into_scenes`, §2.20 `refine_story_synopsis`, §2.21 `expand_series_into_books`, §2.22 `refine_series_synopsis`. Each is a dedicated short-fiction or series-architecture prompt — not a Novel prompt with substituted node types — because the craft demands genuinely differ (short fiction is not a small novel; series architecture is not a long novel). System profile count moves 18 → 22 across all environments (local + cloud applied 2026-05-08). §2A rewritten to reference the new profiles by section number; §3.4 marked RESOLVED. The four new prompt bodies live in Migration 033's SQL — the library doc's §2.19–§2.22 carry the metadata tables + brief content summaries with cross-reference, rather than duplicating the prompt bodies. Future iterations of these prompts (T-15-style, after live-LLM testing on each) follow the same pattern as v1.1's §2.12 update — edit Migration 033 + library §2.19–§2.22 in lockstep per §6.1.
 
