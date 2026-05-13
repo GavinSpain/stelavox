@@ -32,7 +32,7 @@ import { BriefProposalCard } from './BriefProposalCard'
 import { ProjectProfileAmendmentCard } from './ProjectProfileAmendmentCard'
 import { ConversationClearButton } from './ConversationClearButton'
 import { streamDirectorMessage } from '@/lib/director/streamMessage'
-import { parseMessageProposals } from '@/lib/director/parse-message-proposals'
+import { findProposalInToolCalls } from '@/lib/director/parse-message-proposals'
 
 interface DirectorPanelProps {
   documentId: string
@@ -210,8 +210,16 @@ export function DirectorPanel({
   )
 
   const renderBriefSlot = useCallback(
-    (_messageId: string, content: string) => {
-      const { briefProposal, profileAmendmentProposal } = parseMessageProposals(content)
+    (messageId: string, _content: string) => {
+      // V1.x-A.1 (v1.6): read proposal artefacts from the message's
+      // tool_calls audit log, not from XML in the rendered text. The
+      // executor stashes the validated artefact on the propose_brief /
+      // propose_profile_amendment tool_call entry.
+      const message = messages.find((m) => m.id === messageId)
+      if (!message) return null
+      const { briefProposal, profileAmendmentProposal } = findProposalInToolCalls(
+        message.tool_calls,
+      )
       if (briefProposal) {
         return (
           <BriefProposalCard
@@ -232,7 +240,7 @@ export function DirectorPanel({
       }
       return null
     },
-    [documentId, profileId, refresh],
+    [documentId, messages, profileId, refresh],
   )
 
   const showThinking = !!streaming && streaming.isThinking

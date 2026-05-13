@@ -93,7 +93,23 @@ export interface WorkflowSuppressionState {
   tail: string
 }
 
+// V1.x-A.1 (v1.6 prompt) — proposal artefact suppression list.
+//
+// `<plan>` is the Director's chain-of-thought scratchpad (modelled on the
+// expand-profile "PLAN BEFORE YOU EXPAND" pattern in Migration 062). The
+// UI strips it before rendering to the author; we persist the raw content
+// in conversation_messages for debugging.
+//
+// `<workflow_proposal>` stays in the suppression list — workflows still
+// emit XML from the model (different architecture: aggregates N step-tool
+// results into one workflow shape).
+//
+// `<brief_proposal>` and `<profile_amendment_proposal>` are kept as
+// defensive suppressions: with v1.6 the model is instructed NOT to emit
+// these as XML (the tool call IS the proposal), but if a model regresses
+// we don't want raw JSON leaking into the rendered conversation.
 const PROPOSAL_OPEN_TAGS = [
+  '<plan>',
   '<workflow_proposal>',
   '<brief_proposal>',
   '<profile_amendment_proposal>',
@@ -260,6 +276,13 @@ export async function* runAgenticTurn(
     validation_result: string
     executed_at: string
     result_summary: string
+    /**
+     * V1.x-A.1 (v1.6): validated proposal artefact returned by a write
+     * tool. Populated for propose_brief (full BriefProposal shape) and
+     * propose_profile_amendment (ProfileAmendmentProposal shape).
+     * The UI re-renders the proposal card from this field after reload.
+     */
+    proposal_artefact?: unknown
   }> = []
 
   let totalUsage: TokenUsage = {
@@ -522,6 +545,18 @@ export async function* runAgenticTurn(
       }
 
       const summary = summariseToolResult(call.name, result)
+      // V1.x-A.1 (v1.6): stash the validated proposal artefact on the
+      // tool_calls audit entry. The UI reads this back via
+      // findProposalInToolCalls to re-render BriefProposalCard /
+      // ProjectProfileAmendmentCard after a page reload. Replaces the
+      // V1.x-A.1 (v1.5) XML-echo path where the model was supposed to
+      // re-emit the same data as text — which it didn't reliably do.
+      const r = result as {
+        brief_proposal_full?: unknown
+        profile_amendment_proposal?: unknown
+      }
+      const artefact =
+        r.brief_proposal_full ?? r.profile_amendment_proposal ?? undefined
       accumulatedToolCalls.push({
         id: call.id,
         name: call.name,
@@ -529,6 +564,7 @@ export async function* runAgenticTurn(
         validation_result: 'allowed',
         executed_at: new Date().toISOString(),
         result_summary: summary,
+        ...(artefact !== undefined ? { proposal_artefact: artefact } : {}),
       })
       yield {
         type: 'tool_use_complete',
@@ -599,21 +635,47 @@ export async function* runAgenticTurn(
       continue
     }
 
-    // Any non-tool-use stop reason: parse proposal block(s) + exit.
-    // The model emits at most one of three: workflow_proposal,
-    // brief_proposal, or brief_amendment_proposal. Try each; the first
-    // one that parses determines the event yielded.
+    // Any non-tool-use stop reason: yield proposal event(s) and exit.
+    //
+    // V1.x-A.1 (v1.6) — Brief and Profile-amendment proposals come from
+    // the write-tool result (tracked as `proposal_artefact` on the tool
+    // call entry). The model's tool call IS the proposal — no XML echo
+    // required. Workflow proposals still use the legacy XML-extraction
+    // path (different architecture: aggregates N step-tool results).
     workflowProposal = parseWorkflowProposal(accumulatedText)
     if (workflowProposal) {
       yield { type: 'workflow_proposal', proposal: workflowProposal }
-    } else {
-      const briefProposal = parseBriefProposal(accumulatedText)
-      if (briefProposal) {
-        yield { type: 'brief_proposal', proposal: briefProposal }
+    }
+
+    // Find the most recent propose_brief / propose_profile_amendment
+    // tool call with a proposal_artefact attached; yield the
+    // corresponding event.
+    const briefCall = [...accumulatedToolCalls]
+      .reverse()
+      .find((c) => c.name === 'propose_brief' && c.proposal_artefact !== undefined)
+    if (briefCall) {
+      const r = BriefProposalV1xA1Schema.safeParse(briefCall.proposal_artefact)
+      if (r.success) {
+        yield { type: 'brief_proposal', proposal: r.data }
       } else {
-        const amendmentProposal = parseProfileAmendmentProposal(accumulatedText)
-        if (amendmentProposal) {
-          yield { type: 'profile_amendment_proposal', proposal: amendmentProposal }
+        console.warn('[director] propose_brief artefact failed end-of-turn schema check', {
+          error: r.error.message,
+        })
+      }
+    } else {
+      const amendmentCall = [...accumulatedToolCalls]
+        .reverse()
+        .find(
+          (c) => c.name === 'propose_profile_amendment' && c.proposal_artefact !== undefined,
+        )
+      if (amendmentCall) {
+        const r = ProfileAmendmentProposalSchema.safeParse(amendmentCall.proposal_artefact)
+        if (r.success) {
+          yield { type: 'profile_amendment_proposal', proposal: r.data }
+        } else {
+          console.warn('[director] propose_profile_amendment artefact failed end-of-turn schema check', {
+            error: r.error.message,
+          })
         }
       }
     }
@@ -750,41 +812,11 @@ export function parseWorkflowProposal(text: string): WorkflowProposalParsed | nu
   }
 }
 
-/**
- * Locate and parse the <brief_proposal>...</brief_proposal> JSON block.
- * V1.x-A.1: operation-level Brief.
- */
-export function parseBriefProposal(text: string): BriefProposalV1xA1Parsed | null {
-  return parseTaggedJsonBlock<BriefProposalV1xA1Parsed>(text, 'brief_proposal', (obj) => {
-    const r = BriefProposalV1xA1Schema.safeParse(obj)
-    if (!r.success) {
-      console.warn('[director] brief_proposal failed schema validation', { error: r.error.message })
-      return null
-    }
-    return r.data
-  })
-}
-
-/**
- * Locate and parse the <profile_amendment_proposal>...</profile_amendment_proposal>
- * JSON block.
- */
-export function parseProfileAmendmentProposal(text: string): ProfileAmendmentProposalParsed | null {
-  return parseTaggedJsonBlock<ProfileAmendmentProposalParsed>(
-    text,
-    'profile_amendment_proposal',
-    (obj) => {
-      const r = ProfileAmendmentProposalSchema.safeParse(obj)
-      if (!r.success) {
-        console.warn('[director] profile_amendment_proposal failed schema validation', {
-          error: r.error.message,
-        })
-        return null
-      }
-      return r.data
-    },
-  )
-}
+// V1.x-A.1 (v1.6) — parseBriefProposal and parseProfileAmendmentProposal
+// removed. Brief and Profile-amendment proposals are now yielded directly
+// from write-tool results via accumulatedToolCalls.proposal_artefact —
+// the model's tool call IS the proposal. parseTaggedJsonBlock remains
+// (workflow_proposal still uses the XML-extraction path).
 
 function parseTaggedJsonBlock<T>(
   text: string,
