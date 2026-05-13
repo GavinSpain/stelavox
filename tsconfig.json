@@ -30,5 +30,10 @@
     ".next/dev/types/**/*.ts",
     "**/*.mts"
   ],
-  "exclude": ["node_modules"]
+  "exclude": [
+    "node_modules",
+    "scripts/step4-a11y-probe-dashboard.ts",
+    "scripts/step4-a11y-probe-details.ts",
+    "scripts/step4-a11y-sweep.ts"
+  ]
 }

@@ -28,11 +28,16 @@ import { ConversationThread, type ConversationMessage } from './ConversationThre
 import { DirectorInput } from './DirectorInput'
 import { PlanCard } from './PlanCard'
 import { ExecutionCard } from './ExecutionCard'
+import { BriefProposalCard } from './BriefProposalCard'
+import { BriefAmendmentCard } from './BriefAmendmentCard'
+import { ConversationClearButton } from './ConversationClearButton'
 import { streamDirectorMessage } from '@/lib/director/streamMessage'
+import { parseMessageProposals } from '@/lib/director/parse-message-proposals'
 
 interface DirectorPanelProps {
   documentId: string
   documentName: string
+  briefId?: string | null
   onClose?: () => void
 }
 
@@ -48,6 +53,7 @@ interface StreamingState {
 export function DirectorPanel({
   documentId,
   documentName,
+  briefId,
   onClose,
 }: DirectorPanelProps) {
   const {
@@ -203,6 +209,33 @@ export function DirectorPanel({
     [currentWorkflow, refresh],
   )
 
+  const renderBriefSlot = useCallback(
+    (_messageId: string, content: string) => {
+      if (!briefId) return null
+      const { briefProposal, briefAmendmentProposal } = parseMessageProposals(content)
+      if (briefProposal) {
+        return (
+          <BriefProposalCard
+            briefId={briefId}
+            proposal={briefProposal}
+            onApproved={() => void refresh()}
+          />
+        )
+      }
+      if (briefAmendmentProposal) {
+        return (
+          <BriefAmendmentCard
+            briefId={briefId}
+            amendment={briefAmendmentProposal}
+            onApproved={() => void refresh()}
+          />
+        )
+      }
+      return null
+    },
+    [briefId, refresh],
+  )
+
   const showThinking = !!streaming && streaming.isThinking
   const streamingMessageId = streaming?.assistantMessageId ?? null
 
@@ -219,7 +252,12 @@ export function DirectorPanel({
         background: 'var(--color-bg-surface)',
       }}
     >
-      <DirectorHeader documentName={documentName} onClose={onClose} />
+      <DirectorHeader
+        documentName={documentName}
+        conversationId={conversation?.id ?? null}
+        onClose={onClose}
+        onCleared={() => void refresh()}
+      />
 
       {error || streamError ? (
         <div
@@ -259,6 +297,7 @@ export function DirectorPanel({
           isThinking={showThinking}
           streamingMessageId={streamingMessageId}
           renderWorkflowSlot={renderWorkflowSlot}
+          renderBriefSlot={renderBriefSlot}
         />
       )}
 
@@ -276,10 +315,14 @@ export function DirectorPanel({
 
 function DirectorHeader({
   documentName,
+  conversationId,
   onClose,
+  onCleared,
 }: {
   documentName: string
+  conversationId: string | null
   onClose?: () => void
+  onCleared?: () => void
 }) {
   return (
     <header
@@ -330,6 +373,12 @@ function DirectorHeader({
       </span>
 
       <div style={{ marginLeft: 'auto', display: 'inline-flex', gap: 8 }}>
+        {conversationId ? (
+          <ConversationClearButton
+            conversationId={conversationId}
+            onCleared={onCleared}
+          />
+        ) : null}
         <button
           type="button"
           disabled
