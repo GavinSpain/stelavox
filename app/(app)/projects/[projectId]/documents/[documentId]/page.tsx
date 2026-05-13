@@ -2,8 +2,8 @@ import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { DocumentClient } from './_DocumentClient'
-import { BriefViewer } from '@/components/director/BriefViewer'
-import { getBriefState } from '@/lib/brief/getBriefState'
+import { ProjectProfileViewer } from '@/components/director/ProjectProfileViewer'
+import { getProjectProfile } from '@/lib/profile/getProjectProfile'
 
 interface Props {
   params: Promise<{ projectId: string; documentId: string }>
@@ -15,18 +15,18 @@ export default async function DocumentPage({ params }: Props) {
 
   const { data: document } = await supabase
     .from('documents')
-    .select('id, name, description, document_type, status, created_at, brief_id')
+    .select('id, name, description, document_type, status, created_at, profile_id')
     .eq('id', documentId)
     .maybeSingle()
 
   if (!document) notFound()
 
-  // V1.x-A: every document has exactly one Brief (Migration 073 backfill
-  // + Migration 074 auto-create). Server-render the initial state so the
-  // BriefViewer hydrates without an extra round-trip; client component
-  // subscribes to realtime updates from there.
-  const initialBrief = document.brief_id
-    ? await getBriefState(supabase, document.brief_id).catch(() => null)
+  // V1.x-A.1: every document has exactly one Project Profile (M-084
+  // backfill + M-085 auto-create). Server-render the initial state so
+  // the ProjectProfileViewer hydrates without an extra round-trip; the
+  // client component subscribes to realtime updates from there.
+  const initialProfile = document.profile_id
+    ? await getProjectProfile(supabase, document.profile_id).catch(() => null)
     : null
 
   return (
@@ -57,9 +57,9 @@ export default async function DocumentPage({ params }: Props) {
         <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)', marginTop: 'var(--space-1)' }}>
           {document.document_type.replace('_', ' ')} · {document.status}
         </p>
-        {document.brief_id ? (
+        {document.profile_id ? (
           <div style={{ marginTop: 'var(--space-3)' }}>
-            <BriefViewer briefId={document.brief_id} initialState={initialBrief} />
+            <ProjectProfileViewer profileId={document.profile_id} initialState={initialProfile} />
           </div>
         ) : null}
       </div>
@@ -69,7 +69,7 @@ export default async function DocumentPage({ params }: Props) {
           documentId={documentId}
           documentName={document.name}
           documentType={document.document_type as 'novel' | 'short_story' | 'series'}
-          briefId={document.brief_id}
+          profileId={document.profile_id}
         />
       </div>
     </div>

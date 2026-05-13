@@ -32,6 +32,7 @@ import {
   execGetNode,
   execGetNodeTree,
   execGetNodesByLayer,
+  execGetProjectProfile,
   execGetWorkflowHistory,
 } from '@/lib/director/tools/read'
 import {
@@ -42,7 +43,7 @@ import {
   execCreateRefineStep,
   execCreateSynthesiseStep,
   execProposeBrief,
-  execProposeBriefAmendment,
+  execProposeProfileAmendment,
 } from '@/lib/director/tools/write'
 import { toolInputSchemaFor } from '@/lib/director/tool-schema'
 
@@ -52,10 +53,17 @@ import { toolInputSchemaFor } from '@/lib/director/tool-schema'
 
 const readTools: DirectorToolDefinition[] = [
   {
+    name: 'get_project_profile',
+    kind: 'read',
+    description:
+      "Get the Project Profile — the persistent identity of this document: optional project-level goal_text, preferences (voice rules, constraints, decisions, named entities), and recent amendments. The Profile lives for the document's whole life. Call this first on every substantive planning turn.",
+    input_schema: toolInputSchemaFor('get_project_profile'),
+  },
+  {
     name: 'get_brief_state',
     kind: 'read',
     description:
-      "Get the current project Brief: goal text, status, the stage roadmap (with each stage's title, description, trigger type, and current status), preferences (voice, constraints, decisions, named entities), and the most recent amendments. The Brief is the canonical durable memory for this project — call this first on any substantive planning turn, before deciding whether to propose a workflow, a Brief, or a Brief amendment. Returns the flattened §6.3 payload.",
+      "Get the currently-active Brief for this document (or `active_brief: null` if none is in flight). Returns the Brief's goal_text, current_stage, full stage list with statuses and trigger config. V1.x-A.1 enforces ONE active Brief at a time per document — if non-null, the user's next request likely extends or continues that work. Call this immediately after get_project_profile.",
     input_schema: toolInputSchemaFor('get_brief_state'),
   },
   {
@@ -160,15 +168,15 @@ const writeTools: DirectorToolDefinition[] = [
     name: 'propose_brief',
     kind: 'write',
     description:
-      'Propose the initial project Brief — goal_text, preferences (voice / constraints / decisions / named_entities), and the staged roadmap. Use ONLY when get_brief_state shows an empty Brief AND the author\'s request implies multi-workflow or whole-document scope. Returns a brief proposal artefact; nothing writes until the author approves the BriefProposalCard.',
+      "Propose a Brief — the operation plan for ANY unit of work the author has asked for. Required fields: goal_text (operation description) + stages (one or more). Stage 1's workflow must be fully specified (concrete steps with target_node_ids); stages 2..N may pass workflow:null (their workflows are planned just-in-time when their stage activates, typically because they depend on outputs from earlier stages). The trivial n=1 case (one stage with one workflow with one step) is just a degenerate Brief — propose it the same way as a multi-stage Brief. V1.x-A.1 enforces one active Brief per document; if get_brief_state shows a non-null active Brief, do not propose another (extend the existing or propose to cancel it first).",
     input_schema: toolInputSchemaFor('propose_brief'),
   },
   {
-    name: 'propose_brief_amendment',
+    name: 'propose_profile_amendment',
     kind: 'write',
     description:
-      "Propose a delta change to a populated Brief — promote a durable voice/constraint/decision the author stated in conversation into the Brief. amendment_type must be one of update_goal_text / update_voice / add_constraint / update_constraints / add_decision / update_decisions / update_named_entities / generic_preferences_set. target_path is dotted JSONB (e.g. 'preferences.constraints'), omitted for update_goal_text. Returns a brief amendment proposal artefact; nothing writes until the author approves.",
-    input_schema: toolInputSchemaFor('propose_brief_amendment'),
+      "Propose a delta change to the Project Profile — promote a durable voice rule / constraint / named decision / named entity / goal_text that the author stated in conversation. amendment_type ∈ {update_goal_text, update_voice, add_constraint, update_constraints, add_decision, update_decisions, update_named_entities, generic_preferences_set}. target_path is the dotted JSONB path (e.g. 'preferences.constraints'); omitted for update_goal_text. Nothing writes until the author approves the ProfileAmendmentCard.",
+    input_schema: toolInputSchemaFor('propose_profile_amendment'),
   },
 ]
 
@@ -189,6 +197,7 @@ type ToolExecutor = (
 
 const TOOL_EXECUTORS: Record<string, ToolExecutor> = {
   // read
+  get_project_profile: execGetProjectProfile as ToolExecutor,
   get_brief_state: execGetBriefState as ToolExecutor,
   get_document_state: execGetDocumentState as ToolExecutor,
   get_node: execGetNode as ToolExecutor,
@@ -205,7 +214,7 @@ const TOOL_EXECUTORS: Record<string, ToolExecutor> = {
   create_comment_step: execCreateCommentStep as ToolExecutor,
   create_node_reorder_step: execCreateNodeReorderStep as ToolExecutor,
   propose_brief: execProposeBrief as ToolExecutor,
-  propose_brief_amendment: execProposeBriefAmendment as ToolExecutor,
+  propose_profile_amendment: execProposeProfileAmendment as ToolExecutor,
 }
 
 export function getToolByName(name: string): DirectorToolDefinition | undefined {

@@ -70,19 +70,23 @@ export interface ReadToolResult {
 /**
  * Output of a write tool — produces a proposal artefact, no DB write.
  *
- * The three optional fields are mutually exclusive: a write tool produces
- * exactly one. Workflow-step proposals (`proposal`) accumulate into a
- * `<workflow_proposal>` block; Brief proposals (`brief_proposal`) become
- * a `<brief_proposal>` block; amendment proposals (`brief_amendment_proposal`)
- * become a `<brief_amendment_proposal>` block. The model is instructed
- * by the system prompt to emit the correct block based on which tools it
- * called this turn.
+ * V1.x-A.1: brief_amendment_proposal replaced by profile_amendment_proposal
+ * (V1.x-A's Brief amendments are no longer modelled; Brief amendments
+ * become a V1.x-B candidate). Two optional fields are mutually exclusive
+ * for the Director's proposal stream:
+ *   - `proposal` — legacy workflow-step shape (kept for any in-flight
+ *     uses; not emitted by V1.x-A.1 tools directly)
+ *   - `brief_proposal` — operation-level Brief artefact (full proposal
+ *     including stages + first-stage workflow lives in `brief_proposal_full`)
+ *   - `profile_amendment_proposal` — Profile preference / goal_text delta
  */
 export interface WriteToolResult {
   ok: true
   proposal?: WorkflowStepProposal
   brief_proposal?: BriefProposalArtefact
-  brief_amendment_proposal?: BriefAmendmentProposalArtefact
+  /** Full validated Brief proposal — serialised onto tool_result.content. */
+  brief_proposal_full?: Record<string, unknown>
+  profile_amendment_proposal?: ProfileAmendmentProposalArtefact
 }
 
 /** Re-exports from lib/brief — kept here to avoid a circular import. */
@@ -98,7 +102,7 @@ export type BriefProposalArtefact = {
   }>
 }
 
-export type BriefAmendmentProposalArtefact = {
+export type ProfileAmendmentProposalArtefact = {
   amendment_type: string
   target_path?: string
   after: unknown

@@ -1858,13 +1858,26 @@ ALTER PUBLICATION supabase_realtime ADD TABLE nodes;
 
 The Director Architecture v2 design (`docs/stelavox_director_architecture_v2_0.md`) introduces several new tables across phases V1.x-A through V1.x-E. Specific migration numbers will be assigned at implementation time; the table shapes are documented in the V2 doc and summarised here:
 
-**V1.x-A — Brief and Stage:**
+**V1.x-A — Brief and Stage:** (superseded by V1.x-A.1 below — see Director Architecture v2.1.0 §6 for the corrected architecture)
 
-- `briefs` — one row per project. Columns: `id`, `document_id` (FK, one-to-one), `organisation_id` (FK), `status`, `goal_text`, `preferences` (JSONB), `current_stage_id` (FK), `created_at`, `updated_at`, `completed_at`. RLS scoped to organisation.
-- `brief_stages` — one row per stage. Columns: `id`, `brief_id` (FK), `order`, `title`, `description`, `trigger_type`, `trigger_config` (JSONB), `status`, `started_at`, `completed_at`. RLS via brief→organisation.
-- `brief_amendments` — append-only audit + replay log. Columns: `id`, `brief_id` (FK), `proposed_by` (`'user'`/`'director'`), `amendment_type`, `before` (JSONB), `after` (JSONB), `approved_at`, `approved_by_user_id`, `reason`.
-- `documents.brief_id` — new nullable FK column linking a document to its Brief (one-to-one with `briefs.document_id`).
-- `supabase_realtime` publication ADDs: `briefs`, `brief_stages`.
+- ~~`briefs` — one row per project. Columns: `id`, `document_id` (FK, one-to-one), `organisation_id` (FK), `status`, `goal_text`, `preferences` (JSONB), `current_stage_id` (FK), `created_at`, `updated_at`, `completed_at`. RLS scoped to organisation.~~
+- ~~`brief_stages` — one row per stage. Columns: `id`, `brief_id` (FK), `order`, `title`, `description`, `trigger_type`, `trigger_config` (JSONB), `status`, `started_at`, `completed_at`. RLS via brief→organisation.~~
+- ~~`brief_amendments` — append-only audit + replay log.~~
+- ~~`documents.brief_id` — new nullable FK column linking a document to its Brief (one-to-one with `briefs.document_id`).~~
+- ~~`supabase_realtime` publication ADDs: `briefs`, `brief_stages`.~~
+
+V1.x-A shipped 2026-05-13 with the conflated Brief schema; V1.x-A.1 (below) re-architected the data layer to separate Project Profile from Brief.
+
+**V1.x-A.1 — Project Profile + Brief (architectural correction):**
+
+- `project_profiles` — one row per document (1:1, persistent identity). Columns: `id`, `document_id` (FK, UNIQUE), `organisation_id` (FK), `goal_text` (TEXT, nullable — project-level vision), `preferences` (JSONB — `{voice, constraints[], decisions[], named_entities{}}`), `created_at`, `updated_at`. RLS scoped to organisation. Auto-created when a document is created (extended `create_document_with_layer_stack` RPC).
+- `profile_amendments` — append-only audit log for Profile preference changes. Columns: `id`, `profile_id` (FK), `proposed_by` (`'user'`/`'director'`), `amendment_type` (e.g. `update_voice` / `add_constraint`), `target_path` (TEXT, e.g. `preferences.constraints`), `before` (JSONB), `after` (JSONB), `approved_at`, `approved_by_user_id`, `reason`. RLS read-only via profile→organisation; SECURITY DEFINER RPC `apply_profile_amendment` is the only write path.
+- `briefs` — operation-level plan. Multiple per document over time. **One active at a time during V1.x-A.1**, enforced by a partial unique index on `briefs(document_id) WHERE status IN ('planned','active')`. Columns: `id`, `document_id` (FK), `organisation_id` (FK), `goal_text` (TEXT NOT NULL — operation description), `status` (`'planned'`/`'active'`/`'completed'`/`'cancelled'`), `current_stage_id` (FK to brief_stages, nullable), `created_at`, `approved_at`, `started_at`, `completed_at`, `cancelled_at`. RLS scoped to organisation. SECURITY DEFINER RPC `accept_brief` writes the briefs row + its stages atomically on user approval.
+- `brief_stages` — one row per stage within a Brief. Columns: `id`, `brief_id` (FK), `order` (INT), `title`, `description`, `trigger_type` (`'after_stage'`/`'scheduled_at'`/`'manual'`/`'compound'`), `trigger_config` (JSONB), `status` (`'planned'`/`'running'`/`'completed'`/`'skipped'`/`'cancelled'`), `workflow_id` (FK to workflows, **nullable** — populated when the stage's workflow is planned just-in-time), `started_at`, `completed_at`, `created_at`. UNIQUE (brief_id, "order"). RLS via brief→organisation.
+- `documents.profile_id` — new NOT NULL FK column linking a document to its Profile (one-to-one). FK is DEFERRABLE INITIALLY DEFERRED so the `create_document_with_layer_stack` RPC can insert document + profile in any order within one transaction.
+- `supabase_realtime` publication ADDs: `project_profiles`, `briefs`, `brief_stages`.
+
+**Migration path from V1.x-A → V1.x-A.1:** no real user data exists (only the Shadow Protocol test project on the local dev DB and stelavox-dev cloud). Migration 079+ drops the V1.x-A `briefs` / `brief_stages` / `brief_amendments` tables and `documents.brief_id` column, then creates the V1.x-A.1 schema fresh. The Shadow Protocol document is preserved through the migration (its V1.x-A Brief was empty); a new empty Project Profile is auto-created for it via the rewritten `create_document_with_layer_stack` RPC backfill.
 
 **V1.x-B — Scheduler and throttle:**
 
@@ -3352,6 +3365,8 @@ Director tool definitions and executor → `director-runner` Edge Function (read
 ---
 
 ## 14. Changelog
+
+**v2.3.2 — 2026-05-13** §3.6 V1.x-A migration table-shapes superseded by V1.x-A.1 — Project Profile + Brief separation per Director Architecture v2.1.0 §6. V1.x-A.1 migrations 079+ rip and recreate the V1.x-A schema (no real user data; only the Shadow Protocol test project, preserved through the migration). New tables: `project_profiles`, `profile_amendments`. Revised tables: `briefs` (now operation-level, partial-unique-index for one-at-a-time during V1.x-A.1), `brief_stages` (gains nullable `workflow_id` for just-in-time planning). `brief_amendments` table dropped (Brief amendments deferred to V1.x-B). `documents.brief_id` → `documents.profile_id`. No new hazards. §11 V1.x-A row gains a V1.x-A.1 sub-row marker pending its formal re-versioning.
 
 **v2.3.1 — 2026-05-13** §11 V1.x-A and V1.x-B rows re-aligned with Director Architecture v2.0.2. Per-iteration Director-turn decomposition (V2 doc §8.1a) moves out of V1.x-A and into V1.x-B alongside the scheduler that dispatches it. **Reason** (per V2 doc §16.1 A/B-boundary note added in v2.0.2): §8.1a requires a scheduler that can dispatch Class-1 iteration jobs ahead of background traffic; that scheduler is V1.x-B's deliverable. Shipping §8.1a in V1.x-A would either land an interim Class-1 bypass on cap=1 that B rips out, or serialise Director iterations behind background jobs (UX regression). Both avoidable by keeping §8.1a in V1.x-B. **V1.x-A revised scope:** Brief + Stage substrate + Brief-as-canonical-memory wiring + conversation rolling window — pure additive data-model + read-tool + Director-prompt-input work; Director executor unchanged. **V1.x-B revised scope:** the previously-listed scheduler/throttle work *plus* §8.1a per-iteration decomposition *plus* §8.4 scheduler-invokes-Director-on-stage-trigger (these three are tightly coupled and share the same dispatch surface). No checkpoint changes elsewhere. No new hazards. No Inviolables changed.
 

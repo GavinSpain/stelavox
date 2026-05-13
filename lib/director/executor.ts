@@ -52,10 +52,10 @@ import { writeAuditLogEntry } from '@/lib/security/audit'
 import {
   WorkflowProposalSchema,
   type WorkflowProposalParsed,
-  BriefProposalSchema,
-  type BriefProposalParsed,
-  BriefAmendmentProposalSchema,
-  type BriefAmendmentProposalParsed,
+  BriefProposalV1xA1Schema,
+  type BriefProposalV1xA1Parsed,
+  ProfileAmendmentProposalSchema,
+  type ProfileAmendmentProposalParsed,
   isWriteTool,
 } from '@/lib/director/schemas'
 import type {
@@ -96,7 +96,7 @@ export interface WorkflowSuppressionState {
 const PROPOSAL_OPEN_TAGS = [
   '<workflow_proposal>',
   '<brief_proposal>',
-  '<brief_amendment_proposal>',
+  '<profile_amendment_proposal>',
 ] as const
 const PROPOSAL_TAIL_HOLD = Math.max(...PROPOSAL_OPEN_TAGS.map((t) => t.length)) - 1
 
@@ -161,11 +161,11 @@ export type TurnEvent =
     }
   | {
       type: 'brief_proposal'
-      proposal: BriefProposalParsed
+      proposal: BriefProposalV1xA1Parsed
     }
   | {
-      type: 'brief_amendment_proposal'
-      proposal: BriefAmendmentProposalParsed
+      type: 'profile_amendment_proposal'
+      proposal: ProfileAmendmentProposalParsed
     }
   | {
       type: 'turn_complete'
@@ -491,13 +491,13 @@ export async function* runAgenticTurn(
         const r = result as {
           proposal?: unknown
           brief_proposal?: unknown
-          brief_amendment_proposal?: unknown
+          profile_amendment_proposal?: unknown
           data?: unknown
         }
         const hasProposalArtefact =
           r.proposal !== undefined ||
           r.brief_proposal !== undefined ||
-          r.brief_amendment_proposal !== undefined
+          r.profile_amendment_proposal !== undefined
         if (r.data !== undefined || !hasProposalArtefact) {
           await writeAuditLogEntry({
             event_type: 'h08_violation_write_tool_returned_data',
@@ -510,7 +510,7 @@ export async function* runAgenticTurn(
               has_data: r.data !== undefined,
               has_proposal: r.proposal !== undefined,
               has_brief_proposal: r.brief_proposal !== undefined,
-              has_brief_amendment_proposal: r.brief_amendment_proposal !== undefined,
+              has_profile_amendment_proposal: r.profile_amendment_proposal !== undefined,
             },
           })
           result = {
@@ -544,8 +544,9 @@ export async function* runAgenticTurn(
           result.ok
             ? (result as { data?: unknown }).data ??
               (result as { proposal?: unknown }).proposal ??
+              (result as { brief_proposal_full?: unknown }).brief_proposal_full ??
               (result as { brief_proposal?: unknown }).brief_proposal ??
-              (result as { brief_amendment_proposal?: unknown }).brief_amendment_proposal
+              (result as { profile_amendment_proposal?: unknown }).profile_amendment_proposal
             : result,
         ),
         is_error: !result.ok,
@@ -610,9 +611,9 @@ export async function* runAgenticTurn(
       if (briefProposal) {
         yield { type: 'brief_proposal', proposal: briefProposal }
       } else {
-        const amendmentProposal = parseBriefAmendmentProposal(accumulatedText)
+        const amendmentProposal = parseProfileAmendmentProposal(accumulatedText)
         if (amendmentProposal) {
-          yield { type: 'brief_amendment_proposal', proposal: amendmentProposal }
+          yield { type: 'profile_amendment_proposal', proposal: amendmentProposal }
         }
       }
     }
@@ -698,8 +699,8 @@ function summariseToolResult(toolName: string, result: ToolResult): string {
   if ('brief_proposal' in result && result.brief_proposal) {
     return `${toolName}: brief proposal — ${result.brief_proposal.stages.length} stages`
   }
-  if ('brief_amendment_proposal' in result && result.brief_amendment_proposal) {
-    return `${toolName}: amendment ${result.brief_amendment_proposal.amendment_type}`
+  if ('profile_amendment_proposal' in result && result.profile_amendment_proposal) {
+    return `${toolName}: profile amendment ${result.profile_amendment_proposal.amendment_type}`
   }
   return `${toolName}: ok`
 }
@@ -751,11 +752,11 @@ export function parseWorkflowProposal(text: string): WorkflowProposalParsed | nu
 
 /**
  * Locate and parse the <brief_proposal>...</brief_proposal> JSON block.
- * Same fenced-or-lazy tolerance as parseWorkflowProposal.
+ * V1.x-A.1: operation-level Brief.
  */
-export function parseBriefProposal(text: string): BriefProposalParsed | null {
-  return parseTaggedJsonBlock<BriefProposalParsed>(text, 'brief_proposal', (obj) => {
-    const r = BriefProposalSchema.safeParse(obj)
+export function parseBriefProposal(text: string): BriefProposalV1xA1Parsed | null {
+  return parseTaggedJsonBlock<BriefProposalV1xA1Parsed>(text, 'brief_proposal', (obj) => {
+    const r = BriefProposalV1xA1Schema.safeParse(obj)
     if (!r.success) {
       console.warn('[director] brief_proposal failed schema validation', { error: r.error.message })
       return null
@@ -765,17 +766,17 @@ export function parseBriefProposal(text: string): BriefProposalParsed | null {
 }
 
 /**
- * Locate and parse the <brief_amendment_proposal>...</brief_amendment_proposal>
+ * Locate and parse the <profile_amendment_proposal>...</profile_amendment_proposal>
  * JSON block.
  */
-export function parseBriefAmendmentProposal(text: string): BriefAmendmentProposalParsed | null {
-  return parseTaggedJsonBlock<BriefAmendmentProposalParsed>(
+export function parseProfileAmendmentProposal(text: string): ProfileAmendmentProposalParsed | null {
+  return parseTaggedJsonBlock<ProfileAmendmentProposalParsed>(
     text,
-    'brief_amendment_proposal',
+    'profile_amendment_proposal',
     (obj) => {
-      const r = BriefAmendmentProposalSchema.safeParse(obj)
+      const r = ProfileAmendmentProposalSchema.safeParse(obj)
       if (!r.success) {
-        console.warn('[director] brief_amendment_proposal failed schema validation', {
+        console.warn('[director] profile_amendment_proposal failed schema validation', {
           error: r.error.message,
         })
         return null

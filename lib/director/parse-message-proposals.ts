@@ -1,37 +1,27 @@
 /**
  * Parse proposal blocks out of an assistant message's persisted content.
  *
- * The Director streams the full text including a proposal block; the
- * client-side suppression (consumeTextForDelta) only affects in-flight
- * text_delta events, NOT the conversation_messages.content row that gets
- * persisted. So when rendering an assistant message from the DB, we need
- * to detect any embedded `<workflow_proposal>`, `<brief_proposal>`, or
- * `<brief_amendment_proposal>` block, strip it from the rendered text,
- * and surface the parsed payload to the UI for card rendering.
- *
- * This is the read-time mirror of executor.ts's parseWorkflowProposal /
- * parseBriefProposal / parseBriefAmendmentProposal — same regex grammar,
- * just operating on the persisted content rather than the streaming
- * accumulator.
+ * V1.x-A.1: three artefacts supported — <workflow_proposal> (legacy),
+ * <brief_proposal> (V1.x-A.1 operation-level), <profile_amendment_proposal>
+ * (V1.x-A.1 Profile delta).
  */
 
 import type {
   WorkflowProposalParsed,
-  BriefProposalParsed,
-  BriefAmendmentProposalParsed,
+  BriefProposalV1xA1Parsed,
+  ProfileAmendmentProposalParsed,
 } from '@/lib/director/schemas'
 import {
   WorkflowProposalSchema,
-  BriefProposalSchema,
-  BriefAmendmentProposalSchema,
+  BriefProposalV1xA1Schema,
+  ProfileAmendmentProposalSchema,
 } from '@/lib/director/schemas'
 
 export interface MessageProposals {
-  /** Content with proposal blocks removed. */
   cleanedContent: string
   workflowProposal: WorkflowProposalParsed | null
-  briefProposal: BriefProposalParsed | null
-  briefAmendmentProposal: BriefAmendmentProposalParsed | null
+  briefProposal: BriefProposalV1xA1Parsed | null
+  profileAmendmentProposal: ProfileAmendmentProposalParsed | null
 }
 
 export function parseMessageProposals(content: string): MessageProposals {
@@ -40,41 +30,34 @@ export function parseMessageProposals(content: string): MessageProposals {
     cleanedContent: content,
     workflowProposal: null,
     briefProposal: null,
-    briefAmendmentProposal: null,
+    profileAmendmentProposal: null,
   }
 
-  // Try workflow_proposal
   const workflow = extractBlock(cleaned, 'workflow_proposal')
   if (workflow) {
     cleaned = workflow.cleaned
     try {
       const parsed = WorkflowProposalSchema.safeParse(JSON.parse(workflow.body))
       if (parsed.success) result.workflowProposal = parsed.data
-    } catch {
-      // malformed — ignore, leave proposal null
-    }
+    } catch { /* malformed — ignore */ }
   }
 
   const brief = extractBlock(cleaned, 'brief_proposal')
   if (brief) {
     cleaned = brief.cleaned
     try {
-      const parsed = BriefProposalSchema.safeParse(JSON.parse(brief.body))
+      const parsed = BriefProposalV1xA1Schema.safeParse(JSON.parse(brief.body))
       if (parsed.success) result.briefProposal = parsed.data
-    } catch {
-      // malformed — ignore
-    }
+    } catch { /* malformed — ignore */ }
   }
 
-  const amendment = extractBlock(cleaned, 'brief_amendment_proposal')
+  const amendment = extractBlock(cleaned, 'profile_amendment_proposal')
   if (amendment) {
     cleaned = amendment.cleaned
     try {
-      const parsed = BriefAmendmentProposalSchema.safeParse(JSON.parse(amendment.body))
-      if (parsed.success) result.briefAmendmentProposal = parsed.data
-    } catch {
-      // malformed — ignore
-    }
+      const parsed = ProfileAmendmentProposalSchema.safeParse(JSON.parse(amendment.body))
+      if (parsed.success) result.profileAmendmentProposal = parsed.data
+    } catch { /* malformed — ignore */ }
   }
 
   result.cleanedContent = cleaned.trim()
@@ -93,7 +76,6 @@ function extractBlock(
     const cleaned = text.replace(m[0], '').trim()
     return { body: m[1].trim(), cleaned }
   }
-  // Tolerant fallback: open tag at end-of-string, no close tag.
   const lazy = text.match(new RegExp(`<${tag}>\\s*([\\s\\S]*)$`))
   if (lazy) {
     const cleaned = text.replace(lazy[0], '').trim()

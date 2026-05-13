@@ -1,21 +1,13 @@
 /**
- * Brief module — V1.x-A.
+ * Brief module — V1.x-A.1 (operation-level).
  *
- * Public exports for the Brief substrate. Consumers (Director tool
- * registry, API routes, UI components) import from this barrel.
+ * Public exports for the operation-level Brief artefact.
  */
 
 export * from './types'
-export { validatePreferences, validateAmendmentValue, BriefPreferencesSchema } from './preferencesValidator'
 export { detectStageTriggerCycles } from './cycleDetector'
 export type { CycleCheckResult } from './cycleDetector'
-export {
-  buildBriefProposal,
-  buildBriefAmendmentProposal,
-  ProposeBriefInputSchema,
-  ProposeBriefAmendmentInputSchema,
-} from './proposalBuilder'
-export type { ProposeBriefInput, ProposeBriefAmendmentInput } from './proposalBuilder'
-export { getBriefState, getBriefStateByDocumentId } from './getBriefState'
-export { applyBriefProposal, RpcError } from './applyProposal'
-export { applyBriefAmendment } from './applyAmendment'
+export { buildBriefProposal, ProposeBriefInputSchema } from './proposalBuilder'
+export type { ProposeBriefInput, BriefProposalStepInput } from './proposalBuilder'
+export { getActiveBriefForDocument, getBriefById } from './getBriefState'
+export { acceptBrief, completeBriefStage, cancelBrief, BriefRpcError } from './rpcWrappers'

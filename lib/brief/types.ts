@@ -1,14 +1,15 @@
 /**
- * Brief — shared types.
+ * Brief (operation-level) — shared types.
  *
- * Source: stelavox_director_architecture_v2_0.md §6 + V1.x-A build
- * checklist §3.2.
+ * Source: stelavox_director_architecture_v2_1_0.md §6.2 + V1.x-A.1 build
+ * checklist §3.3.
  *
- * Types only. Imported by lib/brief/* and the Brief API routes + the
- * Director tool registry write-proposal builders.
+ * Brief is the operation plan artefact — one per Director-driven unit of
+ * work. n=1 stage is the trivial case. Multiple Briefs per document over
+ * time; one active at a time during V1.x-A.1.
  */
 
-export type BriefStatus = 'active' | 'completed' | 'cancelled' | 'archived'
+export type BriefStatus = 'planned' | 'active' | 'completed' | 'cancelled'
 
 export type BriefStageTriggerType =
   | 'after_stage'
@@ -27,72 +28,38 @@ export type BriefStageStatus =
   | 'cancelled'
   | 'skipped'
 
-export type BriefAmendmentProposedBy = 'user' | 'director'
-
-/**
- * Supported amendment types in V1.x-A. Stage roadmap amendments
- * (insert_stage / remove_stage / reorder_stages / update_stage) are
- * deferred to V1.x-B alongside the trigger evaluator.
- */
-export type BriefAmendmentType =
-  | 'initial_brief'                // emitted only by apply_brief_proposal
-  | 'update_goal_text'
-  | 'update_voice'
-  | 'add_constraint'
-  | 'update_constraints'
-  | 'add_decision'
-  | 'update_decisions'
-  | 'update_named_entities'
-  | 'generic_preferences_set'
-
 /** Trigger config payloads keyed by trigger_type. */
 export interface BriefStageTriggerConfigAfterStage {
   after_stage_order: number
 }
-
 export interface BriefStageTriggerConfigScheduledAt {
   scheduled_at: string
 }
-
 export interface BriefStageTriggerConfigCompound {
   conditions: Array<
     | { type: 'after_stage'; after_stage_order: number }
     | { type: 'scheduled_at'; scheduled_at: string }
   >
 }
-
 export type BriefStageTriggerConfig =
   | BriefStageTriggerConfigAfterStage
   | BriefStageTriggerConfigScheduledAt
   | BriefStageTriggerConfigCompound
-  | Record<string, never>                              // manual → {}
+  | Record<string, never>
 
-/**
- * Preferences shape held in briefs.preferences JSONB. Unknown keys are
- * allowed (forward-compat) but the typed shape covers the V1.x-A
- * recognised fields. preferencesValidator enforces these at write time
- * per H-18.
- */
-export interface BriefPreferences {
-  voice?: string
-  constraints?: string[]
-  decisions?: string[]
-  named_entities?: Record<string, string>
-  [k: string]: unknown
-}
-
-/** A single Brief row (mirrors briefs table). */
+/** A single briefs row. */
 export interface Brief {
   id: string
   document_id: string
   organisation_id: string
+  goal_text: string
   status: BriefStatus
-  goal_text: string | null
-  preferences: BriefPreferences
   current_stage_id: string | null
   created_at: string
-  updated_at: string
+  approved_at: string | null
+  started_at: string | null
   completed_at: string | null
+  cancelled_at: string | null
 }
 
 /** A single brief_stages row. */
@@ -105,49 +72,35 @@ export interface BriefStage {
   trigger_type: BriefStageTriggerType
   trigger_config: BriefStageTriggerConfig
   status: BriefStageStatus
+  workflow_id: string | null
   started_at: string | null
   completed_at: string | null
   created_at: string
 }
 
-/** A single brief_amendments row. */
-export interface BriefAmendment {
-  id: string
-  brief_id: string
-  proposed_by: BriefAmendmentProposedBy
-  amendment_type: BriefAmendmentType | string         // string fallthrough for forward-compat
-  target_path: string | null
-  before: unknown
-  after: unknown
-  approved_at: string
-  approved_by_user_id: string | null
-  reason: string | null
-  created_at: string
-}
-
 // ---------------------------------------------------------------------------
-// Director-facing payloads
+// Director-facing payload
 // ---------------------------------------------------------------------------
 
 /**
- * Flattened response of get_brief_state. Source: V2 doc §6.3.
- *
- * Returned by lib/brief/getBriefState. Consumed by the get_brief_state
- * tool handler and by the BriefViewer + BriefProposalCard surfaces.
+ * Flattened response of get_brief_state. Returns the currently-active
+ * Brief, or null when no Brief is active (V1.x-A.1: at most one at a time).
+ * Source: V2.1 §6.2.3.
  */
 export interface BriefStatePayload {
-  goal_text: string | null
+  brief_id: string
+  goal_text: string
   status: BriefStatus
   current_stage: Pick<BriefStage, 'order' | 'title' | 'status'> | null
-  stages: Array<Pick<BriefStage, 'order' | 'title' | 'description' | 'trigger_type' | 'status'>>
-  preferences: BriefPreferences
-  recent_amendments: Array<
-    Pick<BriefAmendment, 'amendment_type' | 'target_path' | 'reason' | 'approved_at' | 'proposed_by'>
+  stages: Array<
+    Pick<BriefStage, 'order' | 'title' | 'description' | 'trigger_type' | 'status' | 'workflow_id'> & {
+      trigger_config: BriefStageTriggerConfig
+    }
   >
 }
 
 // ---------------------------------------------------------------------------
-// Proposal artefacts (Director write-tools)
+// Proposal artefact (Director write-tool)
 // ---------------------------------------------------------------------------
 
 /** Stage shape inside a <brief_proposal> artefact. */
@@ -157,21 +110,32 @@ export interface BriefProposalStageInput {
   description?: string
   trigger_type: BriefStageTriggerType
   trigger_config?: BriefStageTriggerConfig
+  /** Stage 1's workflow is required; stages 2..N may have null (just-in-time planning). */
+  workflow: BriefProposalWorkflowInput | null
 }
 
-/** Output of propose_brief tool — emitted as <brief_proposal> content block. */
+/** Workflow shape inside a stage (mirrors existing WorkflowStepProposal vocabulary). */
+export interface BriefProposalWorkflowInput {
+  title: string
+  description?: string
+  impact_summary?: string
+  estimated_total_minutes?: number
+  steps: BriefProposalStepInput[]
+}
+
+export interface BriefProposalStepInput {
+  operation_type: 'expand' | 'synthesise' | 'refine' | 'generate_context' | 'comment' | 'node_reorder'
+  target_node_id: string
+  description: string
+  estimated_duration_seconds: number
+  parameters?: Record<string, unknown>
+  depends_on_step_orders?: number[]
+}
+
+/** Output of propose_brief — emitted as <brief_proposal> content block. */
 export interface BriefProposal {
   goal_text: string
-  preferences: BriefPreferences
   stages: BriefProposalStageInput[]
-}
-
-/** Output of propose_brief_amendment tool — emitted as <brief_amendment_proposal> content block. */
-export interface BriefAmendmentProposal {
-  amendment_type: BriefAmendmentType
-  target_path?: string                                // omitted for update_goal_text
-  after: unknown
-  reason: string
 }
 
 // ---------------------------------------------------------------------------

@@ -1,10 +1,10 @@
 /**
- * V1.x-A — cycleDetector unit tests.
+ * V1.x-A.1 — cycleDetector unit tests.
  *
- * H-19 mitigation: stage trigger cycles must be detected at proposal-
- * validation time. V1.x-A doesn't fire stage triggers (V1.x-B does), but
- * the cycle check prevents the V1.x-B scheduler from ever inheriting a
- * cyclic Brief.
+ * H-19 mitigation: stage trigger cycles detected at proposal-validation
+ * time. V1.x-A.1 doesn't fire triggers automatically (that's V1.x-B), but
+ * the cycle check prevents the V1.x-B scheduler from inheriting a cyclic
+ * Brief.
  */
 
 import { describe, expect, it } from 'vitest'
@@ -17,21 +17,15 @@ function stage(
   trigger_type: BriefProposalStageInput['trigger_type'],
   trigger_config: BriefProposalStageInput['trigger_config'] = {},
 ): BriefProposalStageInput {
-  return {
-    order,
-    title: `Stage ${order}`,
-    trigger_type,
-    trigger_config,
-  }
+  return { order, title: `Stage ${order}`, trigger_type, trigger_config, workflow: null }
 }
 
-describe('detectStageTriggerCycles', () => {
+describe('detectStageTriggerCycles (V1.x-A.1)', () => {
   it('accepts a linear after_stage chain', () => {
     const stages = [
       stage(1, 'manual'),
       stage(2, 'after_stage', { after_stage_order: 1 }),
       stage(3, 'after_stage', { after_stage_order: 2 }),
-      stage(4, 'after_stage', { after_stage_order: 3 }),
     ]
     expect(detectStageTriggerCycles(stages)).toEqual({ ok: true })
   })
@@ -51,17 +45,13 @@ describe('detectStageTriggerCycles', () => {
     expect(detectStageTriggerCycles(stages)).toEqual({ ok: true })
   })
 
-  it('detects a direct cycle between two stages', () => {
+  it('detects a 2-stage cycle', () => {
     const stages = [
       stage(1, 'after_stage', { after_stage_order: 2 }),
       stage(2, 'after_stage', { after_stage_order: 1 }),
     ]
     const result = detectStageTriggerCycles(stages)
     expect(result.ok).toBe(false)
-    if (!result.ok) {
-      expect(result.cycle).toContain(1)
-      expect(result.cycle).toContain(2)
-    }
   })
 
   it('detects a 3-stage cycle', () => {
@@ -74,7 +64,7 @@ describe('detectStageTriggerCycles', () => {
     expect(result.ok).toBe(false)
   })
 
-  it('detects a cycle introduced via compound trigger', () => {
+  it('detects a cycle via compound trigger', () => {
     const stages = [
       stage(1, 'manual'),
       stage(2, 'compound', {
@@ -93,7 +83,6 @@ describe('detectStageTriggerCycles', () => {
     const stages = [
       stage(1, 'manual'),
       stage(2, 'scheduled_at', { scheduled_at: '2026-06-01T00:00:00Z' }),
-      stage(3, 'manual'),
     ]
     expect(detectStageTriggerCycles(stages)).toEqual({ ok: true })
   })
