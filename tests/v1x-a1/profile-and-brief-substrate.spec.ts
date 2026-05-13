@@ -192,13 +192,13 @@ test.describe('V1.x-A.1 Profile + Brief substrate', () => {
     expect(r.brief.goal_text).toBe('Test Brief 2 (after cancel)')
   })
 
-  test('Director config v1.5 is production with 16 tools', async () => {
+  test('Director config v1.6 is production with 16 tools', async () => {
     const { data } = await adminClient()
       .from('director_configs')
-      .select('version_number, status, tool_suite')
+      .select('version_number, status, tool_suite, system_prompt')
       .eq('status', 'production')
       .single()
-    expect(data!.version_number).toBe('1.5')
+    expect(data!.version_number).toBe('1.6')
     const tools = data!.tool_suite as string[]
     expect(tools).toHaveLength(16)
     expect(tools).toContain('get_project_profile')
@@ -206,6 +206,10 @@ test.describe('V1.x-A.1 Profile + Brief substrate', () => {
     expect(tools).toContain('propose_brief')
     expect(tools).toContain('propose_profile_amendment')
     expect(tools).not.toContain('propose_brief_amendment')
+    // v1.6 — verifies the prompt mentions <plan> scratchpad pattern
+    // and the "tool call IS the proposal" framing.
+    expect(data!.system_prompt).toContain('<plan>')
+    expect(data!.system_prompt).toContain('tool call IS the proposal')
   })
 
   test('platform_config has the rolling-window key', async () => {
