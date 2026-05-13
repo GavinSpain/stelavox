@@ -13,11 +13,13 @@
 import 'server-only'
 
 import { NextResponse, type NextRequest } from 'next/server'
+import { waitUntil } from '@vercel/functions'
 import { z } from 'zod'
 
 import { apiError, isUuid } from '@/lib/director/route-helpers'
 import { ProposeBriefInputSchema, buildBriefProposal } from '@/lib/brief/proposalBuilder'
 import { acceptBrief, BriefRpcError } from '@/lib/brief/rpcWrappers'
+import { advanceWorkflow } from '@/lib/director/workflow-executor'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { createClient } from '@/lib/supabase/server'
 
@@ -95,6 +97,12 @@ export async function POST(req: NextRequest): Promise<Response> {
         .from('brief_stages')
         .update({ workflow_id: workflow!.id })
         .eq('id', firstStageRow.id)
+
+      // Kick off stage 1's workflow execution. advanceWorkflow promotes
+      // status 'approved' → 'running' and dispatches the first batch of
+      // agent_jobs (Phase 5b workflow-executor). Same pattern as
+      // POST /api/director/workflows/[id]/approve.
+      waitUntil(advanceWorkflow(workflow!.id))
     }
 
     return NextResponse.json(result)
