@@ -263,6 +263,10 @@ export async function POST(
               validation_result: event.validation_result,
               result_summary: event.result_summary,
               executed_at: new Date().toISOString(),
+              // V1.x-A.1 (v1.6): forward proposal_artefact for UI re-render.
+              ...(event.proposal_artefact !== undefined
+                ? { proposal_artefact: event.proposal_artefact }
+                : {}),
             })
           } else if (event.type === 'turn_complete') {
             accumulator.usage = event.usage
