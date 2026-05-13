@@ -7,6 +7,8 @@
 
 import type { ReactNode } from 'react'
 
+import { parseMessageProposals } from '@/lib/director/parse-message-proposals'
+
 interface DirectorMessageProps {
   content: string
   createdAt: string
@@ -58,6 +60,11 @@ export function DirectorMessage({
   isStreaming = false,
   children,
 }: DirectorMessageProps) {
+  // Strip any embedded proposal blocks from the rendered text. The
+  // persisted content includes the raw <workflow_proposal> /
+  // <brief_proposal> / <brief_amendment_proposal> XML — proposal cards
+  // render those separately, so we don't want the JSON shown as text.
+  const { cleanedContent } = parseMessageProposals(content)
   return (
     <div
       role="article"
@@ -117,7 +124,7 @@ export function DirectorMessage({
           wordBreak: 'break-word',
         }}
       >
-        {renderInlineBold(content)}
+        {renderInlineBold(cleanedContent)}
       </div>
       {children ? <div style={{ marginTop: 12, width: '100%' }}>{children}</div> : null}
     </div>

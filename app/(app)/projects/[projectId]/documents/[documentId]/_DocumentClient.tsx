@@ -29,6 +29,7 @@ interface Props {
   documentId: string
   documentName: string
   documentType: 'novel' | 'short_story' | 'series'
+  briefId?: string | null
 }
 
 const DIRECTOR_MIN_WIDTH = 400 // Component Spec §7.1
@@ -38,6 +39,7 @@ export function DocumentClient({
   documentId,
   documentName,
   documentType,
+  briefId,
 }: Props) {
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
   const [refreshKey, setRefreshKey] = useState(0)
@@ -72,6 +74,7 @@ export function DocumentClient({
         <DirectorPanel
           documentId={documentId}
           documentName={documentName}
+          briefId={briefId}
           onClose={() => setMode('edit')}
         />,
       )

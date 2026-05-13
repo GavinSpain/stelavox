@@ -26,6 +26,7 @@ import type {
 } from '@/lib/director/types'
 import {
   execAssessDownstreamImpact,
+  execGetBriefState,
   execGetConversationHistory,
   execGetDocumentState,
   execGetNode,
@@ -40,6 +41,8 @@ import {
   execCreateNodeReorderStep,
   execCreateRefineStep,
   execCreateSynthesiseStep,
+  execProposeBrief,
+  execProposeBriefAmendment,
 } from '@/lib/director/tools/write'
 import { toolInputSchemaFor } from '@/lib/director/tool-schema'
 
@@ -48,6 +51,13 @@ import { toolInputSchemaFor } from '@/lib/director/tool-schema'
 // ---------------------------------------------------------------------------
 
 const readTools: DirectorToolDefinition[] = [
+  {
+    name: 'get_brief_state',
+    kind: 'read',
+    description:
+      "Get the current project Brief: goal text, status, the stage roadmap (with each stage's title, description, trigger type, and current status), preferences (voice, constraints, decisions, named entities), and the most recent amendments. The Brief is the canonical durable memory for this project — call this first on any substantive planning turn, before deciding whether to propose a workflow, a Brief, or a Brief amendment. Returns the flattened §6.3 payload.",
+    input_schema: toolInputSchemaFor('get_brief_state'),
+  },
   {
     name: 'get_document_state',
     kind: 'read',
@@ -146,6 +156,20 @@ const writeTools: DirectorToolDefinition[] = [
       'Propose a step that reorders a node within its current parent (or moves it to a new parent if parent_id is provided). new_order is 1-indexed (Phase 2 convention). Returns a workflow step proposal; nothing executes until approved.',
     input_schema: toolInputSchemaFor('create_node_reorder_step'),
   },
+  {
+    name: 'propose_brief',
+    kind: 'write',
+    description:
+      'Propose the initial project Brief — goal_text, preferences (voice / constraints / decisions / named_entities), and the staged roadmap. Use ONLY when get_brief_state shows an empty Brief AND the author\'s request implies multi-workflow or whole-document scope. Returns a brief proposal artefact; nothing writes until the author approves the BriefProposalCard.',
+    input_schema: toolInputSchemaFor('propose_brief'),
+  },
+  {
+    name: 'propose_brief_amendment',
+    kind: 'write',
+    description:
+      "Propose a delta change to a populated Brief — promote a durable voice/constraint/decision the author stated in conversation into the Brief. amendment_type must be one of update_goal_text / update_voice / add_constraint / update_constraints / add_decision / update_decisions / update_named_entities / generic_preferences_set. target_path is dotted JSONB (e.g. 'preferences.constraints'), omitted for update_goal_text. Returns a brief amendment proposal artefact; nothing writes until the author approves.",
+    input_schema: toolInputSchemaFor('propose_brief_amendment'),
+  },
 ]
 
 // ---------------------------------------------------------------------------
@@ -165,6 +189,7 @@ type ToolExecutor = (
 
 const TOOL_EXECUTORS: Record<string, ToolExecutor> = {
   // read
+  get_brief_state: execGetBriefState as ToolExecutor,
   get_document_state: execGetDocumentState as ToolExecutor,
   get_node: execGetNode as ToolExecutor,
   get_nodes_by_layer: execGetNodesByLayer as ToolExecutor,
@@ -179,6 +204,8 @@ const TOOL_EXECUTORS: Record<string, ToolExecutor> = {
   create_context_step: execCreateContextStep as ToolExecutor,
   create_comment_step: execCreateCommentStep as ToolExecutor,
   create_node_reorder_step: execCreateNodeReorderStep as ToolExecutor,
+  propose_brief: execProposeBrief as ToolExecutor,
+  propose_brief_amendment: execProposeBriefAmendment as ToolExecutor,
 }
 
 export function getToolByName(name: string): DirectorToolDefinition | undefined {

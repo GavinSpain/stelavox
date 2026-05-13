@@ -253,7 +253,41 @@ export async function buildConversationContext(
       result.push({ role: m.role, content: m.content })
     }
   }
+
+  // V1.x-A — apply the conversation rolling window. Brief is the canonical
+  // durable memory; conversation is a working buffer of the most recent N
+  // turns (one user + one assistant pair per turn). Older turns are dropped
+  // from the prompt body (the Brief carries durable load). The window size
+  // is configurable via agent.director_conversation_window_turns.
+  //
+  // We don't touch any preserved earlier-conversation-summary message at
+  // index 0 — that stays as the lossy retention mechanism for content that
+  // pre-dated the Brief.
+  const windowTurns = await readWindowTurns(supabase)
+  if (windowTurns > 0) {
+    const maxMessagesInWindow = windowTurns * 2
+    const hasSummaryPrefix =
+      result.length > 0 && result[0].role === 'user' && result[0].content.startsWith('[Earlier conversation summary:')
+    const head = hasSummaryPrefix ? [result[0]] : []
+    const body = hasSummaryPrefix ? result.slice(1) : result
+    if (body.length > maxMessagesInWindow) {
+      return [...head, ...body.slice(body.length - maxMessagesInWindow)]
+    }
+  }
+
   return result
+}
+
+async function readWindowTurns(supabase: SupabaseClient): Promise<number> {
+  const { data, error } = await supabase
+    .from('platform_config')
+    .select('value, value_type')
+    .eq('key', 'agent.director_conversation_window_turns')
+    .maybeSingle()
+  if (error || !data) return 0
+  if (data.value_type !== 'integer') return 0
+  const n = typeof data.value === 'number' ? data.value : Number(data.value)
+  return Number.isFinite(n) && n > 0 ? n : 0
 }
 
 /**

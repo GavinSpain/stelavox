@@ -67,10 +67,42 @@ export interface ReadToolResult {
   data: Record<string, unknown>
 }
 
-/** Output of a write tool — produces a proposal, no DB write. */
+/**
+ * Output of a write tool — produces a proposal artefact, no DB write.
+ *
+ * The three optional fields are mutually exclusive: a write tool produces
+ * exactly one. Workflow-step proposals (`proposal`) accumulate into a
+ * `<workflow_proposal>` block; Brief proposals (`brief_proposal`) become
+ * a `<brief_proposal>` block; amendment proposals (`brief_amendment_proposal`)
+ * become a `<brief_amendment_proposal>` block. The model is instructed
+ * by the system prompt to emit the correct block based on which tools it
+ * called this turn.
+ */
 export interface WriteToolResult {
   ok: true
-  proposal: WorkflowStepProposal
+  proposal?: WorkflowStepProposal
+  brief_proposal?: BriefProposalArtefact
+  brief_amendment_proposal?: BriefAmendmentProposalArtefact
+}
+
+/** Re-exports from lib/brief — kept here to avoid a circular import. */
+export type BriefProposalArtefact = {
+  goal_text: string
+  preferences: Record<string, unknown>
+  stages: Array<{
+    order: number
+    title: string
+    description?: string
+    trigger_type: 'after_stage' | 'scheduled_at' | 'manual' | 'compound'
+    trigger_config?: Record<string, unknown>
+  }>
+}
+
+export type BriefAmendmentProposalArtefact = {
+  amendment_type: string
+  target_path?: string
+  after: unknown
+  reason: string
 }
 
 export interface ToolErrorResult {

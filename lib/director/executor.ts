@@ -52,6 +52,10 @@ import { writeAuditLogEntry } from '@/lib/security/audit'
 import {
   WorkflowProposalSchema,
   type WorkflowProposalParsed,
+  BriefProposalSchema,
+  type BriefProposalParsed,
+  BriefAmendmentProposalSchema,
+  type BriefAmendmentProposalParsed,
   isWriteTool,
 } from '@/lib/director/schemas'
 import type {
@@ -74,21 +78,27 @@ import type {
 // ---------------------------------------------------------------------------
 
 // ---------------------------------------------------------------------------
-// Workflow-proposal text suppression — keeps the literal
-// <workflow_proposal>...</workflow_proposal> XML block out of user-visible
-// text_delta events. Exported so the state machine is unit-testable
-// independent of the full agentic loop.
+// Proposal-block text suppression — keeps the literal
+// <workflow_proposal>, <brief_proposal>, and <brief_amendment_proposal>
+// XML blocks out of user-visible text_delta events. They are rendered
+// as structured cards in the conversation UI (PlanCard / BriefProposalCard
+// / BriefAmendmentCard), not as raw markup. Exported so the state machine
+// is unit-testable independent of the full agentic loop.
 // ---------------------------------------------------------------------------
 
 export interface WorkflowSuppressionState {
   /** Once true, all subsequent text in this iteration is suppressed. */
   suppressing: boolean
-  /** Tail buffer holding chars that might be the start of `<workflow_proposal>`. */
+  /** Tail buffer holding chars that might be the start of a proposal tag. */
   tail: string
 }
 
-const WORKFLOW_OPEN_TAG = '<workflow_proposal>'
-const WORKFLOW_TAIL_HOLD = WORKFLOW_OPEN_TAG.length - 1
+const PROPOSAL_OPEN_TAGS = [
+  '<workflow_proposal>',
+  '<brief_proposal>',
+  '<brief_amendment_proposal>',
+] as const
+const PROPOSAL_TAIL_HOLD = Math.max(...PROPOSAL_OPEN_TAGS.map((t) => t.length)) - 1
 
 export function freshSuppressionState(): WorkflowSuppressionState {
   return { suppressing: false, tail: '' }
@@ -99,9 +109,9 @@ export function freshSuppressionState(): WorkflowSuppressionState {
  * portion (to yield as `text_delta`) and the new state.
  *
  *  - If already suppressing, the chunk is dropped from output.
- *  - If the open tag appears in (tail + chunk), yield the prefix and
- *    transition to suppressing.
- *  - Otherwise, yield (tail + chunk) minus the trailing WORKFLOW_TAIL_HOLD
+ *  - If any proposal open tag appears in (tail + chunk), yield the prefix
+ *    up to the earliest tag and transition to suppressing.
+ *  - Otherwise, yield (tail + chunk) minus the trailing PROPOSAL_TAIL_HOLD
  *    chars; hold those as the new tail so a tag split across chunk
  *    boundaries is still detected.
  */
@@ -113,14 +123,18 @@ export function consumeTextForDelta(
     return { visible: '', state }
   }
   const combined = state.tail + chunk
-  const tagIndex = combined.indexOf(WORKFLOW_OPEN_TAG)
-  if (tagIndex !== -1) {
+  let earliest = -1
+  for (const tag of PROPOSAL_OPEN_TAGS) {
+    const idx = combined.indexOf(tag)
+    if (idx !== -1 && (earliest === -1 || idx < earliest)) earliest = idx
+  }
+  if (earliest !== -1) {
     return {
-      visible: combined.slice(0, tagIndex),
+      visible: combined.slice(0, earliest),
       state: { suppressing: true, tail: '' },
     }
   }
-  const safeLen = Math.max(0, combined.length - WORKFLOW_TAIL_HOLD)
+  const safeLen = Math.max(0, combined.length - PROPOSAL_TAIL_HOLD)
   return {
     visible: combined.slice(0, safeLen),
     state: { suppressing: false, tail: combined.slice(safeLen) },
@@ -144,6 +158,14 @@ export type TurnEvent =
   | {
       type: 'workflow_proposal'
       proposal: WorkflowProposalParsed
+    }
+  | {
+      type: 'brief_proposal'
+      proposal: BriefProposalParsed
+    }
+  | {
+      type: 'brief_amendment_proposal'
+      proposal: BriefAmendmentProposalParsed
     }
   | {
       type: 'turn_complete'
@@ -466,8 +488,17 @@ export async function* runAgenticTurn(
       // `proposal`, abort the call as an internal invariant violation
       // and surface it via audit_log.
       if (result.ok && isWriteTool(call.name)) {
-        const r = result as { proposal?: unknown; data?: unknown }
-        if (r.data !== undefined || r.proposal === undefined) {
+        const r = result as {
+          proposal?: unknown
+          brief_proposal?: unknown
+          brief_amendment_proposal?: unknown
+          data?: unknown
+        }
+        const hasProposalArtefact =
+          r.proposal !== undefined ||
+          r.brief_proposal !== undefined ||
+          r.brief_amendment_proposal !== undefined
+        if (r.data !== undefined || !hasProposalArtefact) {
           await writeAuditLogEntry({
             event_type: 'h08_violation_write_tool_returned_data',
             severity: 'critical',
@@ -478,6 +509,8 @@ export async function* runAgenticTurn(
               tool: call.name,
               has_data: r.data !== undefined,
               has_proposal: r.proposal !== undefined,
+              has_brief_proposal: r.brief_proposal !== undefined,
+              has_brief_amendment_proposal: r.brief_amendment_proposal !== undefined,
             },
           })
           result = {
@@ -507,7 +540,14 @@ export async function* runAgenticTurn(
       toolResultBlocks.push({
         type: 'tool_result',
         tool_use_id: call.id,
-        content: JSON.stringify(result.ok ? (result as { data?: unknown; proposal?: unknown }).data ?? (result as { proposal?: unknown }).proposal : result),
+        content: JSON.stringify(
+          result.ok
+            ? (result as { data?: unknown }).data ??
+              (result as { proposal?: unknown }).proposal ??
+              (result as { brief_proposal?: unknown }).brief_proposal ??
+              (result as { brief_amendment_proposal?: unknown }).brief_amendment_proposal
+            : result,
+        ),
         is_error: !result.ok,
       })
     }
@@ -558,10 +598,23 @@ export async function* runAgenticTurn(
       continue
     }
 
-    // Any non-tool-use stop reason: parse workflow proposal + exit.
+    // Any non-tool-use stop reason: parse proposal block(s) + exit.
+    // The model emits at most one of three: workflow_proposal,
+    // brief_proposal, or brief_amendment_proposal. Try each; the first
+    // one that parses determines the event yielded.
     workflowProposal = parseWorkflowProposal(accumulatedText)
     if (workflowProposal) {
       yield { type: 'workflow_proposal', proposal: workflowProposal }
+    } else {
+      const briefProposal = parseBriefProposal(accumulatedText)
+      if (briefProposal) {
+        yield { type: 'brief_proposal', proposal: briefProposal }
+      } else {
+        const amendmentProposal = parseBriefAmendmentProposal(accumulatedText)
+        if (amendmentProposal) {
+          yield { type: 'brief_amendment_proposal', proposal: amendmentProposal }
+        }
+      }
     }
     break
   }
@@ -639,8 +692,14 @@ function summariseToolResult(toolName: string, result: ToolResult): string {
     const dataLen = JSON.stringify(result.data).length
     return `${toolName}: returned ${dataLen} chars of data`
   }
-  if ('proposal' in result) {
+  if ('proposal' in result && result.proposal) {
     return `${toolName}: proposal for ${result.proposal.operation_type} on ${result.proposal.target_node_id}`
+  }
+  if ('brief_proposal' in result && result.brief_proposal) {
+    return `${toolName}: brief proposal — ${result.brief_proposal.stages.length} stages`
+  }
+  if ('brief_amendment_proposal' in result && result.brief_amendment_proposal) {
+    return `${toolName}: amendment ${result.brief_amendment_proposal.amendment_type}`
   }
   return `${toolName}: ok`
 }
@@ -684,6 +743,70 @@ export function parseWorkflowProposal(text: string): WorkflowProposalParsed | nu
     return result.data
   } catch (err) {
     console.warn('[director] workflow proposal JSON parse failed', {
+      error: err instanceof Error ? err.message : String(err),
+    })
+    return null
+  }
+}
+
+/**
+ * Locate and parse the <brief_proposal>...</brief_proposal> JSON block.
+ * Same fenced-or-lazy tolerance as parseWorkflowProposal.
+ */
+export function parseBriefProposal(text: string): BriefProposalParsed | null {
+  return parseTaggedJsonBlock<BriefProposalParsed>(text, 'brief_proposal', (obj) => {
+    const r = BriefProposalSchema.safeParse(obj)
+    if (!r.success) {
+      console.warn('[director] brief_proposal failed schema validation', { error: r.error.message })
+      return null
+    }
+    return r.data
+  })
+}
+
+/**
+ * Locate and parse the <brief_amendment_proposal>...</brief_amendment_proposal>
+ * JSON block.
+ */
+export function parseBriefAmendmentProposal(text: string): BriefAmendmentProposalParsed | null {
+  return parseTaggedJsonBlock<BriefAmendmentProposalParsed>(
+    text,
+    'brief_amendment_proposal',
+    (obj) => {
+      const r = BriefAmendmentProposalSchema.safeParse(obj)
+      if (!r.success) {
+        console.warn('[director] brief_amendment_proposal failed schema validation', {
+          error: r.error.message,
+        })
+        return null
+      }
+      return r.data
+    },
+  )
+}
+
+function parseTaggedJsonBlock<T>(
+  text: string,
+  tag: string,
+  validate: (obj: unknown) => T | null,
+): T | null {
+  const fenced = new RegExp(
+    `<${tag}>\\s*(?:\`\`\`json)?\\s*([\\s\\S]*?)\\s*(?:\`\`\`)?\\s*</${tag}>`,
+  )
+  const match = text.match(fenced)
+  if (!match) {
+    const lazy = text.match(new RegExp(`<${tag}>\\s*([\\s\\S]*)$`))
+    if (!lazy) return null
+    try {
+      return validate(JSON.parse(lazy[1].trim()) as unknown)
+    } catch {
+      return null
+    }
+  }
+  try {
+    return validate(JSON.parse(match[1].trim()) as unknown)
+  } catch (err) {
+    console.warn(`[director] ${tag} JSON parse failed`, {
       error: err instanceof Error ? err.message : String(err),
     })
     return null

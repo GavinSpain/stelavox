@@ -29,6 +29,12 @@ interface ConversationThreadProps {
   isThinking?: boolean
   streamingMessageId?: string | null
   renderWorkflowSlot?: (messageId: string, workflowId: string) => ReactNode
+  /**
+   * Render Brief proposal / amendment cards for an assistant message
+   * based on its raw content. Called for every assistant message so the
+   * panel can parse the content and return the appropriate card or null.
+   */
+  renderBriefSlot?: (messageId: string, content: string) => ReactNode
 }
 
 const NEAR_BOTTOM_PX = 40
@@ -38,6 +44,7 @@ export function ConversationThread({
   isThinking = false,
   streamingMessageId = null,
   renderWorkflowSlot,
+  renderBriefSlot,
 }: ConversationThreadProps) {
   const scrollerRef = useRef<HTMLDivElement>(null)
   const [autoFollow, setAutoFollow] = useState(true)
@@ -127,6 +134,7 @@ export function ConversationThread({
                 {m.workflow_id && renderWorkflowSlot
                   ? renderWorkflowSlot(m.id, m.workflow_id)
                   : null}
+                {renderBriefSlot ? renderBriefSlot(m.id, m.content) : null}
               </DirectorMessage>
             ),
           )
