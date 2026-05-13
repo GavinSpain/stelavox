@@ -827,14 +827,16 @@ New component. Read-only view of the current Brief — goal, stages with statuse
 
 | Phase | Content |
 |---|---|
-| V1.x-A | Brief + Stage model; migrations, module, `get_brief_state`, `propose_brief_amendment`, BriefViewer + StageCard |
-| V1.x-B | Scheduler + throttle redesign; queue tables, traffic classes, WFQ, per-user buckets, recovery sweep refinement. Replaces cap=1 |
+| V1.x-A | Brief + Stage model; migrations, module, `get_brief_state`, `propose_brief_amendment`, BriefViewer + StageCard. Director executor unchanged. |
+| V1.x-B | Scheduler + throttle redesign; queue tables, traffic classes, WFQ, per-user buckets, recovery sweep refinement. Replaces cap=1. **Per-iteration Director-turn decomposition (§8.1a)** rides with B: Director turns become scheduler-dispatched single-shot functions on the new queue, sharing the same dispatch surface as agent_jobs. |
 | V1.x-C | Plan + cost meter; subscription columns, `pricing_rates` table, period-renewal cron, pre-call gate, top-up flow, cost meter UI |
 | V1.x-D | UI surfaces; AppShellStatusIndicator, tree lock/state badges, scheduler panel, Stop refinement, mid-turn Resume/Discard UX, AI-changed flag |
 | V1.x-E | Admin dashboard + monitoring; registry-backed live view, `metrics_samples` cron, alerting thresholds, synthetic probes |
 | V1.x-F | Failure-mode UX; five-class user-facing behaviours, `report_capability_limit`, Class-C self-rejection prompt content |
 
 Order is load-bearing first. Brief blocks much of the rest; scheduler depends on Brief for stage scheduling; cost meter depends on scheduler for accurate consumption; UI depends on all three.
+
+**A/B boundary (2026-05-13 decision).** Brief + Stage is additive data-model work — new tables, new tools, new read surfaces; the Director's execution model is untouched. Per-iteration Director-turn decomposition (§8.1a) is a re-architecture of how Director turns are dispatched and recovered, and it requires a scheduler that can dispatch single-shot iteration jobs as Class 1 ahead of background traffic — i.e. the scheduler that V1.x-B builds. Shipping §8.1a in V1.x-A would either (a) land an interim "Class 1 bypass" hack on top of cap=1 that V1.x-B then rips out, or (b) demote Director iterations to cap=1 latency — a UX regression. Both are avoidable by keeping §8.1a in V1.x-B alongside the scheduler/throttle layer it depends on. V1.x-A ships pure substrate; V1.x-B ships one coherent dispatch-layer change.
 
 ### 16.2 Launch-blocker fix-pack (pre-V1.x)
 
@@ -940,6 +942,8 @@ All follow H-12 discipline (no hardcoded operational values; read via `getConfig
 ---
 
 ## Changelog
+
+**v2.0.2 — 2026-05-13** §16.1 scope reassignment: **per-iteration Director-turn decomposition (§8.1a) moves from V1.x-A into V1.x-B.** §16.1 originally listed V1.x-A as Brief + Stage substrate only; the V1.x-LB-shipped session-close memory broadened A to include §8.1a, and TA v2.3 §11's V1.x-A row inherited that broadening. On review at the V1.x-A kickoff, the broader scope was rejected: Brief + Stage is additive data-model work the Director can consume without changing its execution model, but §8.1a requires a scheduler that dispatches Class-1 iteration jobs ahead of background traffic — i.e. the scheduler V1.x-B builds. Shipping §8.1a in A would either land an interim Class-1 bypass hack that B rips out, or serialise Director iterations behind background jobs (UX regression). §16.1 V1.x-B row now explicitly carries §8.1a; new A/B-boundary note added below the table. TA v2.3 §11 will be re-aligned in lockstep. No content in §8.1a itself changes — only its phase assignment.
 
 **v2.0.1 — 2026-05-12** Three follow-on amendments after session-record review:
 
