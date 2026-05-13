@@ -31,7 +31,36 @@ import type {
 type ReadToolReturn = ReadToolResult | ToolErrorResult
 
 // ---------------------------------------------------------------------------
-// get_brief_state (V1.x-A) — the Director's canonical durable memory.
+// get_project_profile (V1.x-A.1) — persistent identity of the document.
+// ---------------------------------------------------------------------------
+
+export async function execGetProjectProfile(
+  _args: Record<string, unknown>,
+  session: DirectorSession,
+): Promise<ReadToolReturn> {
+  const supabase = createServiceRoleClient()
+
+  const { data: doc, error: docErr } = await supabase
+    .from('documents')
+    .select('profile_id, organisation_id')
+    .eq('id', session.document_id)
+    .maybeSingle()
+
+  if (docErr || !doc) return { ok: false, error: 'document_not_found' }
+  if (doc.organisation_id !== session.organisation_id) {
+    return { ok: false, error: 'cross_org_access_denied' }
+  }
+  if (!doc.profile_id) return { ok: false, error: 'profile_not_found' }
+
+  const { getProjectProfile } = await import('@/lib/profile/getProjectProfile')
+  const payload = await getProjectProfile(supabase, doc.profile_id)
+  if (!payload) return { ok: false, error: 'profile_not_found' }
+
+  return { ok: true, data: payload as unknown as Record<string, unknown> }
+}
+
+// ---------------------------------------------------------------------------
+// get_brief_state (V1.x-A.1) — currently-active operation Brief, or null.
 // ---------------------------------------------------------------------------
 
 export async function execGetBriefState(
@@ -40,27 +69,12 @@ export async function execGetBriefState(
 ): Promise<ReadToolReturn> {
   const supabase = createServiceRoleClient()
 
-  const { data: doc, error: docErr } = await supabase
-    .from('documents')
-    .select('brief_id, organisation_id')
-    .eq('id', session.document_id)
-    .maybeSingle()
+  const { getActiveBriefForDocument } = await import('@/lib/brief/getBriefState')
+  const payload = await getActiveBriefForDocument(supabase, session.document_id)
 
-  if (docErr || !doc) return { ok: false, error: 'document_not_found' }
-  if (doc.organisation_id !== session.organisation_id) {
-    return { ok: false, error: 'cross_org_access_denied' }
-  }
-  if (!doc.brief_id) return { ok: false, error: 'brief_not_found' }
-
-  // Delegate to the lib/brief module's reader so the §6.3 payload shape
-  // stays in one place. Pass the service-role client so we bypass RLS
-  // (this executor runs inside the agentic loop, post-validateToolCall —
-  // the org check above is the defence-in-depth gate).
-  const { getBriefState } = await import('@/lib/brief/getBriefState')
-  const payload = await getBriefState(supabase, doc.brief_id)
-  if (!payload) return { ok: false, error: 'brief_not_found' }
-
-  return { ok: true, data: payload as unknown as Record<string, unknown> }
+  // Return ok with `data: null` when no Brief is active — the Director
+  // should be able to distinguish "no Brief" from "tool failed".
+  return { ok: true, data: { active_brief: payload } as Record<string, unknown> }
 }
 
 // ---------------------------------------------------------------------------

@@ -1,37 +1,27 @@
 /**
  * Stage trigger cycle detection (H-19 mitigation).
  *
- * Brief stages can reference other stages via `after_stage` triggers and
- * `compound` triggers that combine after_stage conditions. A cycle in
- * those references would create a stage that can never run — A waits for
- * B, B waits for A.
+ * Brief stages can reference other stages via after_stage triggers and
+ * compound triggers that combine after_stage conditions. A cycle would
+ * create a stage that can never run.
  *
- * V1.x-A doesn't fire stage triggers (that's V1.x-B), but we detect
- * cycles at proposal-validation time so a cyclic Brief never reaches the
- * DB. The check is cheap (DFS over typically 4-10 stages) and prevents a
- * landmine for V1.x-B's scheduler.
- *
- * Returns { ok: true } for a clean DAG, or { ok: false, cycle: [order...] }
- * for a detected cycle (the array of orders forming the cycle).
+ * V1.x-A.1 doesn't fire triggers automatically — that's V1.x-B work —
+ * but we detect cycles at proposal-validation time so a cyclic Brief
+ * never reaches the DB.
  */
 
-import type { BriefProposalStageInput, BriefStageTriggerConfigAfterStage, BriefStageTriggerConfigCompound } from './types'
+import type {
+  BriefProposalStageInput,
+  BriefStageTriggerConfigAfterStage,
+  BriefStageTriggerConfigCompound,
+} from './types'
 
 export type CycleCheckResult = { ok: true } | { ok: false; cycle: number[] }
 
-/**
- * Detect cycles in the after_stage dependency graph implied by `stages`.
- * Stages are referenced by their `order` value (1-indexed).
- */
 export function detectStageTriggerCycles(stages: BriefProposalStageInput[]): CycleCheckResult {
   const dependsOn: Map<number, number[]> = new Map()
+  for (const stage of stages) dependsOn.set(stage.order, extractAfterStageDeps(stage))
 
-  for (const stage of stages) {
-    const deps = extractAfterStageDeps(stage)
-    dependsOn.set(stage.order, deps)
-  }
-
-  // DFS with three-colour marking: 0 = unvisited, 1 = on stack, 2 = done.
   const colour: Map<number, 0 | 1 | 2> = new Map()
   for (const order of dependsOn.keys()) colour.set(order, 0)
 
@@ -72,10 +62,9 @@ function visit(
 
   const deps = graph.get(node) ?? []
   for (const dep of deps) {
-    if (!graph.has(dep)) continue                       // dangling ref — handled separately
+    if (!graph.has(dep)) continue
     const c = colour.get(dep)
     if (c === 1) {
-      // Cycle found. Return the cycle slice starting at dep.
       const idx = stack.indexOf(dep)
       return stack.slice(idx).concat(dep)
     }

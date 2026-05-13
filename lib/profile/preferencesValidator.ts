@@ -1,23 +1,21 @@
 /**
- * Brief preferences validator (H-18 mitigation).
+ * Project Profile preferences validator (H-18 mitigation).
  *
- * The briefs.preferences JSONB column has no enforced schema at the DB
- * layer — over time the Director may generate inconsistent shapes for
- * the same key (e.g. voice as string in one Brief, as object in another).
- * This lightly-typed Zod validator runs at every amendment-write path to
- * keep the shape coherent while still allowing forward-compat extension.
+ * The project_profiles.preferences JSONB column has no enforced schema
+ * at the DB layer — every amendment-write path runs through this
+ * lightly-typed Zod validator to keep the shape coherent over time.
  *
- * Recognised V1.x-A keys: voice (string), constraints (string[]),
+ * Recognised V1.x-A.1 keys: voice (string), constraints (string[]),
  * decisions (string[]), named_entities (Record<string,string>).
  * Unknown top-level keys pass through unchanged.
  */
 
 import { z } from 'zod'
-import type { BriefPreferences } from './types'
+import type { ProjectProfilePreferences } from './types'
 
 const stringArraySchema = z.array(z.string().min(1).max(1000)).max(200)
 
-export const BriefPreferencesSchema = z
+export const ProjectProfilePreferencesSchema = z
   .object({
     voice: z.string().min(1).max(2000).optional(),
     constraints: stringArraySchema.optional(),
@@ -26,25 +24,12 @@ export const BriefPreferencesSchema = z
   })
   .passthrough()
 
-export type ValidatedBriefPreferences = z.infer<typeof BriefPreferencesSchema>
+export type ValidatedProjectProfilePreferences = z.infer<typeof ProjectProfilePreferencesSchema>
 
-/**
- * Validate a preferences object. Returns the parsed shape on success or
- * throws a ZodError. Callers map errors to HTTP 400 / API error envelopes.
- */
-export function validatePreferences(input: unknown): BriefPreferences {
-  return BriefPreferencesSchema.parse(input) as BriefPreferences
+export function validatePreferences(input: unknown): ProjectProfilePreferences {
+  return ProjectProfilePreferencesSchema.parse(input) as ProjectProfilePreferences
 }
 
-/**
- * Validate a single amendment delta. The `target_path` tells us which
- * sub-shape `after` should match. For preferences.<key>, the value should
- * match the type expected at that key.
- *
- * For unknown target paths under preferences.*, falls back to permissive
- * acceptance (passthrough) — the H-18 strategy is "evolved by additive
- * rules", not strict-mode-by-default.
- */
 export function validateAmendmentValue(
   amendmentType: string,
   targetPath: string | undefined,
@@ -76,9 +61,7 @@ export function validateAmendmentValue(
       z.record(z.string().min(1), z.string().min(1).max(500)).parse(after)
       return
     default:
-      // Unknown preferences.* key — permissive passthrough for forward-compat.
-      // The DB write will succeed; the admin dashboard (V1.x-E) surfaces
-      // unrecognised shapes for review.
+      // Unknown preferences.* key — passthrough for forward-compat.
       return
   }
 }

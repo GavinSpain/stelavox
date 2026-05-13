@@ -181,7 +181,10 @@ export const BriefProposalSchema = z.object({
 })
 export type BriefProposalParsed = z.infer<typeof BriefProposalSchema>
 
-export const BriefAmendmentProposalSchema = z.object({
+// V1.x-A.1: BriefAmendmentProposal renamed to ProfileAmendmentProposal.
+// The shape is structurally the same — both validate JSONB preference
+// edits — but the artefact applies to project_profiles, not briefs.
+export const ProfileAmendmentProposalSchema = z.object({
   amendment_type: z.enum([
     'update_goal_text',
     'update_voice',
@@ -196,7 +199,43 @@ export const BriefAmendmentProposalSchema = z.object({
   after: z.unknown(),
   reason: z.string().min(1).max(2_000),
 })
-export type BriefAmendmentProposalParsed = z.infer<typeof BriefAmendmentProposalSchema>
+export type ProfileAmendmentProposalParsed = z.infer<typeof ProfileAmendmentProposalSchema>
+
+// V1.x-A.1: BriefProposal shape is now operation-level. Stage 1's workflow
+// is required; stages 2..N may have workflow:null (just-in-time planning).
+const _ProposalWorkflowStepSchema = z.object({
+  operation_type: z.enum(['expand', 'synthesise', 'refine', 'generate_context', 'comment', 'node_reorder']),
+  target_node_id: z.string().uuid(),
+  description: z.string().min(1).max(2_000),
+  estimated_duration_seconds: z.number().int().nonnegative(),
+  parameters: z.record(z.string(), z.unknown()).optional().default({}),
+  depends_on_step_orders: z.array(z.number().int().positive()).optional(),
+})
+
+const _ProposalWorkflowSchema = z.object({
+  title: z.string().min(1).max(200),
+  description: z.string().max(2_000).optional(),
+  impact_summary: z.string().max(2_000).optional(),
+  estimated_total_minutes: z.number().int().nonnegative().optional(),
+  steps: z.array(_ProposalWorkflowStepSchema).min(1).max(30),
+})
+
+const _ProposalStageSchema = z.object({
+  order: positiveIntSchema,
+  title: z.string().min(1).max(200),
+  description: z.string().max(2_000).optional(),
+  trigger_type: z.enum(['after_stage', 'scheduled_at', 'manual', 'compound']),
+  trigger_config: z.record(z.string(), z.unknown()).optional().default({}),
+  workflow: _ProposalWorkflowSchema.nullable(),
+})
+
+// Operation-level Brief proposal — replaces v2.0's project-level Brief
+// proposal schema.
+export const BriefProposalV1xA1Schema = z.object({
+  goal_text: z.string().min(1).max(2_000),
+  stages: z.array(_ProposalStageSchema).min(1).max(20),
+})
+export type BriefProposalV1xA1Parsed = z.infer<typeof BriefProposalV1xA1Schema>
 
 // ---------------------------------------------------------------------------
 // Tool input schemas — one per registered tool. Used by validateToolCall().
@@ -204,6 +243,7 @@ export type BriefAmendmentProposalParsed = z.infer<typeof BriefAmendmentProposal
 
 export const ToolInputSchemas = {
   // Read tools (7 + 1 V1.x-A)
+  get_project_profile: z.object({}).strict(),
   get_brief_state: z.object({}).strict(),
   get_document_state: z.object({}).strict(),
   get_node: z.object({ node_id: uuidSchema }).strict(),
@@ -315,46 +355,17 @@ export const ToolInputSchemas = {
   // V1.x-A Brief write-proposal tools (2). Validators in
   // lib/brief/proposalBuilder.ts perform additional structural checks
   // (cycle detection, dangling refs, value-shape per amendment_type).
-  propose_brief: z
-    .object({
-      goal_text: z.string().min(1).max(5_000),
-      preferences: z.record(z.string(), z.unknown()),
-      stages: z
-        .array(
-          z.object({
-            order: positiveIntSchema,
-            title: z.string().min(1).max(200),
-            description: z.string().max(2_000).optional(),
-            trigger_type: z.enum(['after_stage', 'scheduled_at', 'manual', 'compound']),
-            trigger_config: z.record(z.string(), z.unknown()).optional(),
-          }),
-        )
-        .min(1)
-        .max(20),
-    })
-    .strict(),
-  propose_brief_amendment: z
-    .object({
-      amendment_type: z.enum([
-        'update_goal_text',
-        'update_voice',
-        'add_constraint',
-        'update_constraints',
-        'add_decision',
-        'update_decisions',
-        'update_named_entities',
-        'generic_preferences_set',
-      ]),
-      target_path: z.string().max(200).optional(),
-      after: z.unknown(),
-      reason: z.string().min(1).max(2_000),
-    })
-    .strict(),
+  // V1.x-A.1: operation-level Brief. Stage 1's workflow is required;
+  // stages 2..N may have workflow:null (just-in-time planning).
+  propose_brief: BriefProposalV1xA1Schema.strict(),
+  // V1.x-A.1: Profile amendment (was propose_brief_amendment in V1.x-A).
+  propose_profile_amendment: ProfileAmendmentProposalSchema.strict(),
 } as const
 
 export type ToolName = keyof typeof ToolInputSchemas
 
 export const READ_TOOL_NAMES: readonly ToolName[] = [
+  'get_project_profile',
   'get_brief_state',
   'get_document_state',
   'get_node',
@@ -373,7 +384,7 @@ export const WRITE_TOOL_NAMES: readonly ToolName[] = [
   'create_comment_step',
   'create_node_reorder_step',
   'propose_brief',
-  'propose_brief_amendment',
+  'propose_profile_amendment',
 ] as const
 
 export function isReadTool(name: string): name is ToolName {

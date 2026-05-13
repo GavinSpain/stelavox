@@ -1,20 +1,17 @@
 'use client'
 
-// Spec: V1.x-A build checklist §3.6 T-6.3 (amendment variant).
+// V1.x-A.1 — renders a <profile_amendment_proposal> artefact in the
+// DirectorPanel conversation thread. Was BriefAmendmentCard in V1.x-A.
 //
-// Renders a <brief_amendment_proposal> artefact in the conversation
-// thread. Smaller than BriefProposalCard — amendments are deltas, not
-// full Brief replacements.
-//
-// Inviolable #2: the Approve button is verdigris use #7.
+// Inviolable #2: Approve button uses verdigris #7 (affirmative-action).
 
 import { useState } from 'react'
 
-import type { BriefAmendmentProposalParsed } from '@/lib/director/schemas'
+import type { ProfileAmendmentProposalParsed } from '@/lib/director/schemas'
 
-interface BriefAmendmentCardProps {
-  briefId: string
-  amendment: BriefAmendmentProposalParsed
+interface ProjectProfileAmendmentCardProps {
+  profileId: string
+  amendment: ProfileAmendmentProposalParsed
   onApproved?: () => void
 }
 
@@ -29,7 +26,7 @@ const TYPE_LABEL: Record<string, string> = {
   generic_preferences_set: 'Set preference',
 }
 
-export function BriefAmendmentCard({ briefId, amendment, onApproved }: BriefAmendmentCardProps) {
+export function ProjectProfileAmendmentCard({ profileId, amendment, onApproved }: ProjectProfileAmendmentCardProps) {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [done, setDone] = useState(false)
@@ -38,10 +35,10 @@ export function BriefAmendmentCard({ briefId, amendment, onApproved }: BriefAmen
     setSubmitting(true)
     setError(null)
     try {
-      const res = await fetch('/api/brief/amendments/approve', {
+      const res = await fetch('/api/profile/amendments/approve', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ brief_id: briefId, amendment }),
+        body: JSON.stringify({ profile_id: profileId, amendment }),
       })
       if (!res.ok) {
         const body = (await res.json().catch(() => null)) as { message?: string; error?: string } | null
@@ -59,61 +56,33 @@ export function BriefAmendmentCard({ briefId, amendment, onApproved }: BriefAmen
 
   if (done) {
     return (
-      <div
-        data-testid="brief-amendment-card"
-        data-state="approved"
-        style={{ ...cardStyle, padding: '10px 14px' }}
-      >
-        <span style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>Brief amendment approved.</span>
+      <div data-testid="profile-amendment-card" data-state="approved" style={{ ...cardStyle, padding: '10px 14px' }}>
+        <span style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>Profile amendment approved.</span>
       </div>
     )
   }
 
   return (
-    <div data-testid="brief-amendment-card" data-state="draft" style={cardStyle}>
+    <div data-testid="profile-amendment-card" data-state="draft" style={cardStyle}>
       <div style={headerStyle}>
-        Proposed Brief Amendment — {TYPE_LABEL[amendment.amendment_type] ?? amendment.amendment_type}
+        Proposed Profile Amendment — {TYPE_LABEL[amendment.amendment_type] ?? amendment.amendment_type}
       </div>
 
       <div style={{ padding: '12px 14px' }}>
         {amendment.target_path ? (
-          <Row label="Path">
-            <code style={codeStyle}>{amendment.target_path}</code>
-          </Row>
+          <Row label="Path"><code style={codeStyle}>{amendment.target_path}</code></Row>
         ) : null}
         <Row label="New value">
-          <pre
-            style={{
-              ...codeStyle,
-              padding: '6px 8px',
-              maxHeight: 160,
-              overflow: 'auto',
-              whiteSpace: 'pre-wrap',
-              wordBreak: 'break-word',
-            }}
-          >
+          <pre style={{ ...codeStyle, padding: '6px 8px', maxHeight: 160, overflow: 'auto', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
             {formatAfter(amendment.after)}
           </pre>
         </Row>
         <Row label="Reason">
-          <span style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>
-            {amendment.reason}
-          </span>
+          <span style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>{amendment.reason}</span>
         </Row>
 
         {error ? (
-          <div
-            role="alert"
-            style={{
-              marginTop: 10,
-              padding: '8px 12px',
-              background: 'rgba(184,48,48,0.08)',
-              border: '1px solid rgba(184,48,48,0.25)',
-              borderRadius: 4,
-              fontSize: 12,
-              color: 'var(--color-text-primary)',
-            }}
-          >
+          <div role="alert" style={{ marginTop: 10, padding: '8px 12px', background: 'rgba(184,48,48,0.08)', border: '1px solid rgba(184,48,48,0.25)', borderRadius: 4, fontSize: 12, color: 'var(--color-text-primary)' }}>
             {error}
           </div>
         ) : null}
@@ -121,7 +90,7 @@ export function BriefAmendmentCard({ briefId, amendment, onApproved }: BriefAmen
         <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
           <button
             type="button"
-            data-testid="brief-amendment-approve"
+            data-testid="profile-amendment-approve"
             disabled={submitting}
             onClick={() => void approve()}
             style={{
@@ -148,17 +117,7 @@ export function BriefAmendmentCard({ briefId, amendment, onApproved }: BriefAmen
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div style={{ display: 'flex', gap: 12, marginBottom: 6, alignItems: 'flex-start' }}>
-      <span
-        style={{
-          minWidth: 80,
-          fontSize: 11,
-          color: 'var(--color-text-muted)',
-          paddingTop: 2,
-          fontFamily: 'var(--font-inter), Inter, sans-serif',
-        }}
-      >
-        {label}
-      </span>
+      <span style={{ minWidth: 80, fontSize: 11, color: 'var(--color-text-muted)', paddingTop: 2, fontFamily: 'var(--font-inter), Inter, sans-serif' }}>{label}</span>
       <div style={{ flex: 1, minWidth: 0 }}>{children}</div>
     </div>
   )
@@ -176,7 +135,6 @@ const cardStyle: React.CSSProperties = {
   borderRadius: 8,
   margin: '8px 0',
 }
-
 const headerStyle: React.CSSProperties = {
   padding: '10px 14px',
   borderBottom: '1px solid var(--color-border-subtle)',
@@ -184,7 +142,6 @@ const headerStyle: React.CSSProperties = {
   fontSize: 12,
   color: 'var(--color-text-secondary)',
 }
-
 const codeStyle: React.CSSProperties = {
   fontFamily: 'var(--font-mono), ui-monospace, monospace',
   fontSize: 11,

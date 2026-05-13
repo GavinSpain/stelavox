@@ -29,7 +29,7 @@ import { DirectorInput } from './DirectorInput'
 import { PlanCard } from './PlanCard'
 import { ExecutionCard } from './ExecutionCard'
 import { BriefProposalCard } from './BriefProposalCard'
-import { BriefAmendmentCard } from './BriefAmendmentCard'
+import { ProjectProfileAmendmentCard } from './ProjectProfileAmendmentCard'
 import { ConversationClearButton } from './ConversationClearButton'
 import { streamDirectorMessage } from '@/lib/director/streamMessage'
 import { parseMessageProposals } from '@/lib/director/parse-message-proposals'
@@ -37,7 +37,7 @@ import { parseMessageProposals } from '@/lib/director/parse-message-proposals'
 interface DirectorPanelProps {
   documentId: string
   documentName: string
-  briefId?: string | null
+  profileId?: string | null
   onClose?: () => void
 }
 
@@ -53,7 +53,7 @@ interface StreamingState {
 export function DirectorPanel({
   documentId,
   documentName,
-  briefId,
+  profileId,
   onClose,
 }: DirectorPanelProps) {
   const {
@@ -211,29 +211,28 @@ export function DirectorPanel({
 
   const renderBriefSlot = useCallback(
     (_messageId: string, content: string) => {
-      if (!briefId) return null
-      const { briefProposal, briefAmendmentProposal } = parseMessageProposals(content)
+      const { briefProposal, profileAmendmentProposal } = parseMessageProposals(content)
       if (briefProposal) {
         return (
           <BriefProposalCard
-            briefId={briefId}
+            documentId={documentId}
             proposal={briefProposal}
             onApproved={() => void refresh()}
           />
         )
       }
-      if (briefAmendmentProposal) {
+      if (profileAmendmentProposal && profileId) {
         return (
-          <BriefAmendmentCard
-            briefId={briefId}
-            amendment={briefAmendmentProposal}
+          <ProjectProfileAmendmentCard
+            profileId={profileId}
+            amendment={profileAmendmentProposal}
             onApproved={() => void refresh()}
           />
         )
       }
       return null
     },
-    [briefId, refresh],
+    [documentId, profileId, refresh],
   )
 
   const showThinking = !!streaming && streaming.isThinking

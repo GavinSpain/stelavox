@@ -489,56 +489,6 @@ export type Database = {
           },
         ]
       }
-      brief_amendments: {
-        Row: {
-          after: Json
-          amendment_type: string
-          approved_at: string
-          approved_by_user_id: string | null
-          before: Json
-          brief_id: string
-          created_at: string
-          id: string
-          proposed_by: string
-          reason: string | null
-          target_path: string | null
-        }
-        Insert: {
-          after: Json
-          amendment_type: string
-          approved_at?: string
-          approved_by_user_id?: string | null
-          before?: Json
-          brief_id: string
-          created_at?: string
-          id?: string
-          proposed_by: string
-          reason?: string | null
-          target_path?: string | null
-        }
-        Update: {
-          after?: Json
-          amendment_type?: string
-          approved_at?: string
-          approved_by_user_id?: string | null
-          before?: Json
-          brief_id?: string
-          created_at?: string
-          id?: string
-          proposed_by?: string
-          reason?: string | null
-          target_path?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "brief_amendments_brief_id_fkey"
-            columns: ["brief_id"]
-            isOneToOne: false
-            referencedRelation: "briefs"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       brief_stages: {
         Row: {
           brief_id: string
@@ -552,6 +502,7 @@ export type Database = {
           title: string
           trigger_config: Json
           trigger_type: string
+          workflow_id: string | null
         }
         Insert: {
           brief_id: string
@@ -565,6 +516,7 @@ export type Database = {
           title: string
           trigger_config?: Json
           trigger_type: string
+          workflow_id?: string | null
         }
         Update: {
           brief_id?: string
@@ -578,6 +530,7 @@ export type Database = {
           title?: string
           trigger_config?: Json
           trigger_type?: string
+          workflow_id?: string | null
         }
         Relationships: [
           {
@@ -587,44 +540,54 @@ export type Database = {
             referencedRelation: "briefs"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "brief_stages_workflow_id_fkey"
+            columns: ["workflow_id"]
+            isOneToOne: false
+            referencedRelation: "workflows"
+            referencedColumns: ["id"]
+          },
         ]
       }
       briefs: {
         Row: {
+          approved_at: string | null
+          cancelled_at: string | null
           completed_at: string | null
           created_at: string
           current_stage_id: string | null
           document_id: string
-          goal_text: string | null
+          goal_text: string
           id: string
           organisation_id: string
-          preferences: Json
+          started_at: string | null
           status: string
-          updated_at: string
         }
         Insert: {
+          approved_at?: string | null
+          cancelled_at?: string | null
           completed_at?: string | null
           created_at?: string
           current_stage_id?: string | null
           document_id: string
-          goal_text?: string | null
+          goal_text: string
           id?: string
           organisation_id: string
-          preferences?: Json
+          started_at?: string | null
           status?: string
-          updated_at?: string
         }
         Update: {
+          approved_at?: string | null
+          cancelled_at?: string | null
           completed_at?: string | null
           created_at?: string
           current_stage_id?: string | null
           document_id?: string
-          goal_text?: string | null
+          goal_text?: string
           id?: string
           organisation_id?: string
-          preferences?: Json
+          started_at?: string | null
           status?: string
-          updated_at?: string
         }
         Relationships: [
           {
@@ -637,7 +600,7 @@ export type Database = {
           {
             foreignKeyName: "briefs_document_id_fkey"
             columns: ["document_id"]
-            isOneToOne: true
+            isOneToOne: false
             referencedRelation: "documents"
             referencedColumns: ["id"]
           },
@@ -815,7 +778,6 @@ export type Database = {
       documents: {
         Row: {
           authors: string[] | null
-          brief_id: string
           created_at: string
           description: string | null
           director_config_id: string | null
@@ -825,6 +787,7 @@ export type Database = {
           layer_stack_id: string | null
           name: string
           organisation_id: string
+          profile_id: string
           project_id: string
           root_node_id: string | null
           status: string
@@ -832,7 +795,6 @@ export type Database = {
         }
         Insert: {
           authors?: string[] | null
-          brief_id: string
           created_at?: string
           description?: string | null
           director_config_id?: string | null
@@ -842,6 +804,7 @@ export type Database = {
           layer_stack_id?: string | null
           name: string
           organisation_id: string
+          profile_id: string
           project_id: string
           root_node_id?: string | null
           status?: string
@@ -849,7 +812,6 @@ export type Database = {
         }
         Update: {
           authors?: string[] | null
-          brief_id?: string
           created_at?: string
           description?: string | null
           director_config_id?: string | null
@@ -859,19 +821,13 @@ export type Database = {
           layer_stack_id?: string | null
           name?: string
           organisation_id?: string
+          profile_id?: string
           project_id?: string
           root_node_id?: string | null
           status?: string
           updated_at?: string
         }
         Relationships: [
-          {
-            foreignKeyName: "documents_brief_id_fk"
-            columns: ["brief_id"]
-            isOneToOne: false
-            referencedRelation: "briefs"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "documents_director_config_id_fkey"
             columns: ["director_config_id"]
@@ -891,6 +847,13 @@ export type Database = {
             columns: ["organisation_id"]
             isOneToOne: false
             referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "documents_profile_id_fk"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "project_profiles"
             referencedColumns: ["id"]
           },
           {
@@ -1662,6 +1625,101 @@ export type Database = {
         }
         Relationships: []
       }
+      profile_amendments: {
+        Row: {
+          after: Json
+          amendment_type: string
+          approved_at: string
+          approved_by_user_id: string | null
+          before: Json
+          created_at: string
+          id: string
+          profile_id: string
+          proposed_by: string
+          reason: string | null
+          target_path: string | null
+        }
+        Insert: {
+          after: Json
+          amendment_type: string
+          approved_at?: string
+          approved_by_user_id?: string | null
+          before?: Json
+          created_at?: string
+          id?: string
+          profile_id: string
+          proposed_by: string
+          reason?: string | null
+          target_path?: string | null
+        }
+        Update: {
+          after?: Json
+          amendment_type?: string
+          approved_at?: string
+          approved_by_user_id?: string | null
+          before?: Json
+          created_at?: string
+          id?: string
+          profile_id?: string
+          proposed_by?: string
+          reason?: string | null
+          target_path?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profile_amendments_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "project_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      project_profiles: {
+        Row: {
+          created_at: string
+          document_id: string
+          goal_text: string | null
+          id: string
+          organisation_id: string
+          preferences: Json
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          document_id: string
+          goal_text?: string | null
+          id?: string
+          organisation_id: string
+          preferences?: Json
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          document_id?: string
+          goal_text?: string | null
+          id?: string
+          organisation_id?: string
+          preferences?: Json
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_profiles_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: true
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_profiles_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       projects: {
         Row: {
           created_at: string
@@ -2129,25 +2187,22 @@ export type Database = {
           out_node_id: string
         }[]
       }
-      apply_brief_amendment: {
+      accept_brief: {
+        Args: { p_document_id: string; p_goal_text: string; p_stages: Json }
+        Returns: Json
+      }
+      apply_profile_amendment: {
         Args: {
           p_after: Json
           p_amendment_type: string
-          p_brief_id: string
+          p_profile_id: string
           p_reason: string
           p_target_path: string
         }
         Returns: Json
       }
-      apply_brief_proposal: {
-        Args: {
-          p_brief_id: string
-          p_goal_text: string
-          p_preferences: Json
-          p_stages: Json
-        }
-        Returns: Json
-      }
+      cancel_brief: { Args: { p_brief_id: string }; Returns: Json }
+      complete_brief_stage: { Args: { p_stage_id: string }; Returns: Json }
       create_document_with_layer_stack: {
         Args: {
           p_authors: string[]

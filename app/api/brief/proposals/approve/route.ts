@@ -1,17 +1,13 @@
 /**
  * POST /api/brief/proposals/approve
  *
- * Source: V1.x-A build checklist §3.5 T-5.2.
+ * V1.x-A.1 — approves a Director-proposed <brief_proposal>. Creates
+ * briefs + brief_stages rows atomically via accept_brief RPC. Stage 1's
+ * workflow is then created as a workflow row + workflow_steps rows, and
+ * stage 1's workflow_id is updated to point at it.
  *
- * Approves a Director-proposed <brief_proposal> artefact for a document
- * with an empty Brief. The proposal JSON arrives in the request body
- * (parsed from the conversation_messages content by the UI). The route
- * runs the structural validator and dispatches the apply_brief_proposal
- * RPC.
- *
- * H-08 discipline: the RPC is the only path that mutates briefs +
- * brief_stages + brief_amendments — the route delegates rather than
- * writing directly.
+ * H-08: the RPC is the only write path that touches briefs / brief_stages
+ * directly. Workflow creation reuses existing Phase 5b workflow tables.
  */
 
 import 'server-only'
@@ -21,57 +17,93 @@ import { z } from 'zod'
 
 import { apiError, isUuid } from '@/lib/director/route-helpers'
 import { ProposeBriefInputSchema, buildBriefProposal } from '@/lib/brief/proposalBuilder'
-import { applyBriefProposal, RpcError } from '@/lib/brief/applyProposal'
+import { acceptBrief, BriefRpcError } from '@/lib/brief/rpcWrappers'
+import { createServiceRoleClient } from '@/lib/supabase/service'
 import { createClient } from '@/lib/supabase/server'
 
 const ApproveRequestSchema = z.object({
-  brief_id: z.string().uuid(),
+  document_id: z.string().uuid(),
   proposal: ProposeBriefInputSchema,
 })
 
 export async function POST(req: NextRequest): Promise<Response> {
   const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const { data: { user } } = await supabase.auth.getUser()
   if (!user) return apiError(401, 'unauthenticated')
 
   let body: unknown
-  try {
-    body = await req.json()
-  } catch {
-    return apiError(400, 'invalid_json')
-  }
+  try { body = await req.json() } catch { return apiError(400, 'invalid_json') }
 
   const parsed = ApproveRequestSchema.safeParse(body)
-  if (!parsed.success) {
-    return apiError(400, 'invalid_body', parsed.error.message)
-  }
+  if (!parsed.success) return apiError(400, 'invalid_body', parsed.error.message)
+  if (!isUuid(parsed.data.document_id)) return apiError(400, 'invalid_uuid')
 
-  if (!isUuid(parsed.data.brief_id)) {
-    return apiError(400, 'invalid_uuid')
-  }
-
-  // Structural validation (cycles, dangling refs, preference shape).
   let validated
   try {
     validated = buildBriefProposal(parsed.data.proposal)
-  } catch (e) {
+  } catch (e: unknown) {
     return apiError(400, 'invalid_proposal', e instanceof Error ? e.message : String(e))
   }
 
   try {
-    const result = await applyBriefProposal(supabase, parsed.data.brief_id, validated)
+    const result = await acceptBrief(supabase, parsed.data.document_id, validated)
+
+    // After Brief + Stages created, create the workflow for stage 1 and
+    // attach it via brief_stages.workflow_id. Stage 2..N have null workflow
+    // until just-in-time planning kicks in.
+    const firstStageInput = validated.stages.find((s) => s.order === 1)
+    const firstStageRow = result.stages.find((s) => s.order === 1)
+    if (firstStageInput?.workflow && firstStageRow) {
+      const service = createServiceRoleClient()
+      const { data: workflow, error: wfErr } = await service
+        .from('workflows')
+        .insert({
+          organisation_id: result.brief.organisation_id,
+          document_id: result.brief.document_id,
+          title: firstStageInput.workflow.title,
+          description: firstStageInput.workflow.description ?? null,
+          impact_summary: firstStageInput.workflow.impact_summary ?? null,
+          estimated_total_minutes: firstStageInput.workflow.estimated_total_minutes ?? null,
+          status: 'approved',
+          approved_at: new Date().toISOString(),
+        })
+        .select()
+        .single()
+      if (wfErr) {
+        return apiError(500, 'workflow_create_failed', wfErr.message)
+      }
+
+      const stepRows = firstStageInput.workflow.steps.map((step, idx) => ({
+        workflow_id: workflow!.id,
+        order: idx + 1,
+        operation_type: step.operation_type,
+        target_node_id: step.target_node_id,
+        parameters: step.parameters ?? {},
+        description: step.description,
+        estimated_duration_seconds: step.estimated_duration_seconds,
+        depends_on_step_orders: step.depends_on_step_orders ?? [],
+        status: 'pending',
+      }))
+
+      const { error: stepsErr } = await service.from('workflow_steps').insert(stepRows)
+      if (stepsErr) {
+        return apiError(500, 'workflow_steps_create_failed', stepsErr.message)
+      }
+
+      // Attach workflow to stage 1.
+      await service
+        .from('brief_stages')
+        .update({ workflow_id: workflow!.id })
+        .eq('id', firstStageRow.id)
+    }
+
     return NextResponse.json(result)
-  } catch (e) {
-    if (e instanceof RpcError) {
-      const code = e.message.includes('brief_not_found')
-        ? 404
-        : e.message.includes('brief_already_populated')
-          ? 409
-          : e.message.includes('forbidden')
-            ? 403
-            : 400
+  } catch (e: unknown) {
+    if (e instanceof BriefRpcError) {
+      const code = e.message.includes('another_brief_active') ? 409
+        : e.message.includes('document_not_found') ? 404
+        : e.message.includes('forbidden') ? 403
+        : 400
       return apiError(code, e.message)
     }
     const msg = e instanceof Error ? e.message : 'internal_error'

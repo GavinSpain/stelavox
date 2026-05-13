@@ -263,40 +263,40 @@ export async function execCreateNodeReorderStep(
 }
 
 // ---------------------------------------------------------------------------
-// propose_brief (V1.x-A) — initial Brief for an empty project.
+// propose_brief (V1.x-A.1) — operation-level Brief proposal.
 // ---------------------------------------------------------------------------
 
 export async function execProposeBrief(
   args: Record<string, unknown>,
   session: DirectorSession,
 ): Promise<WriteToolReturn> {
-  // Verify the Brief is empty before allowing a propose_brief. If the
-  // Brief already has goal_text, the Director should propose an amendment
-  // instead. This is a defence-in-depth check — the system prompt also
-  // instructs the Director on the rule.
   const supabase = createServiceRoleClient()
+
+  // Confirm caller's org owns the document.
   const { data: doc } = await supabase
     .from('documents')
-    .select('brief_id, organisation_id')
+    .select('id, organisation_id')
     .eq('id', session.document_id)
     .maybeSingle()
   if (!doc || doc.organisation_id !== session.organisation_id) {
     return { ok: false, error: 'document_not_found' }
   }
-  if (!doc.brief_id) {
-    return { ok: false, error: 'brief_not_found' }
-  }
-  const { data: brief } = await supabase
+
+  // V1.x-A.1: one active Brief at a time. Block planning-time conflicts
+  // with a clear error before the model invests in a proposal.
+  const { count: activeBriefCount } = await supabase
     .from('briefs')
-    .select('goal_text')
-    .eq('id', doc.brief_id)
-    .maybeSingle()
-  if (!brief) return { ok: false, error: 'brief_not_found' }
-  if (brief.goal_text !== null) {
-    return { ok: false, error: 'brief_already_populated', reason: 'use propose_brief_amendment for delta changes' }
+    .select('id', { count: 'exact', head: true })
+    .eq('document_id', session.document_id)
+    .in('status', ['planned', 'active'])
+  if ((activeBriefCount ?? 0) > 0) {
+    return {
+      ok: false,
+      error: 'another_brief_active',
+      reason: 'V1.x-A.1 enforces one active Brief per document. Cancel the existing Brief before proposing a new one.',
+    }
   }
 
-  // Validate the proposed Brief shape (preferences, stages, cycles, refs).
   const { buildBriefProposal } = await import('@/lib/brief/proposalBuilder')
   try {
     const proposal = buildBriefProposal(args)
@@ -304,17 +304,28 @@ export async function execProposeBrief(
       ok: true,
       brief_proposal: {
         goal_text: proposal.goal_text,
-        preferences: proposal.preferences as Record<string, unknown>,
+        // The legacy WriteToolResult.brief_proposal artefact shape carries
+        // preferences (V1.x-A); for V1.x-A.1 the operation Brief has no
+        // preferences — they belong to the Profile. Pass an empty object
+        // for backwards compatibility with the executor's parsing layer.
+        preferences: {},
         stages: proposal.stages.map((s) => ({
           order: s.order,
           title: s.title,
           description: s.description,
           trigger_type: s.trigger_type,
           trigger_config: s.trigger_config as Record<string, unknown>,
+          // workflow attached via separate field below in the actual
+          // <brief_proposal> JSON the model emits; the WriteToolResult
+          // shape only needs to round-trip the structural skeleton.
         })),
       },
-    }
-  } catch (e) {
+      // Store the full validated proposal (including workflows) for the
+      // model's tool_result so it can emit the matching <brief_proposal>
+      // block. The executor serialises this onto tool_result.content.
+      brief_proposal_full: proposal as unknown as Record<string, unknown>,
+    } as WriteToolReturn
+  } catch (e: unknown) {
     return {
       ok: false,
       error: 'invalid_brief_proposal',
@@ -324,51 +335,42 @@ export async function execProposeBrief(
 }
 
 // ---------------------------------------------------------------------------
-// propose_brief_amendment (V1.x-A) — delta change to a populated Brief.
+// propose_profile_amendment (V1.x-A.1) — durable preference promotion.
 // ---------------------------------------------------------------------------
 
-export async function execProposeBriefAmendment(
+export async function execProposeProfileAmendment(
   args: Record<string, unknown>,
   session: DirectorSession,
 ): Promise<WriteToolReturn> {
   const supabase = createServiceRoleClient()
   const { data: doc } = await supabase
     .from('documents')
-    .select('brief_id, organisation_id')
+    .select('profile_id, organisation_id')
     .eq('id', session.document_id)
     .maybeSingle()
   if (!doc || doc.organisation_id !== session.organisation_id) {
     return { ok: false, error: 'document_not_found' }
   }
-  if (!doc.brief_id) {
-    return { ok: false, error: 'brief_not_found' }
-  }
-  const { data: brief } = await supabase
-    .from('briefs')
-    .select('goal_text')
-    .eq('id', doc.brief_id)
-    .maybeSingle()
-  if (!brief) return { ok: false, error: 'brief_not_found' }
-  if (brief.goal_text === null) {
-    return { ok: false, error: 'brief_empty', reason: 'use propose_brief for the initial Brief' }
+  if (!doc.profile_id) {
+    return { ok: false, error: 'profile_not_found' }
   }
 
-  const { buildBriefAmendmentProposal } = await import('@/lib/brief/proposalBuilder')
+  const { buildProfileAmendmentProposal } = await import('@/lib/profile/proposalBuilder')
   try {
-    const proposal = buildBriefAmendmentProposal(args)
+    const proposal = buildProfileAmendmentProposal(args)
     return {
       ok: true,
-      brief_amendment_proposal: {
+      profile_amendment_proposal: {
         amendment_type: proposal.amendment_type,
         target_path: proposal.target_path,
         after: proposal.after,
         reason: proposal.reason,
       },
-    }
-  } catch (e) {
+    } as WriteToolReturn
+  } catch (e: unknown) {
     return {
       ok: false,
-      error: 'invalid_brief_amendment_proposal',
+      error: 'invalid_profile_amendment_proposal',
       reason: e instanceof Error ? e.message : String(e),
     }
   }

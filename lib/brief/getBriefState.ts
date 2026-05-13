@@ -1,66 +1,67 @@
 import 'server-only'
 
 /**
- * Server-side reader for the Brief state.
+ * Server-side reader for the currently-active Brief on a document.
  *
- * Returns the flattened payload defined in V2 doc §6.3 by joining
- * briefs + brief_stages + the most recent brief_amendments.
- *
- * RLS-gated via the standard server Supabase client — only org members
- * see the Brief. Returns null if the Brief is not found or not visible
- * to the caller; the API route maps that to a 404.
- *
- * No caching — the Brief is read fresh on every Director turn that
- * touches it. Brief reads are 1-5 KB, cheap.
+ * V1.x-A.1: returns the single active Brief (status IN ('planned','active'))
+ * or null if none. Multi-Brief concurrency is V1.x-B.
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js'
-import type { BriefStatePayload, BriefStage, BriefAmendment, Brief } from './types'
+import type { Brief, BriefStage, BriefStatePayload } from './types'
 
-const RECENT_AMENDMENTS_LIMIT = 5
+export async function getActiveBriefForDocument(
+  supabase: SupabaseClient,
+  documentId: string,
+): Promise<BriefStatePayload | null> {
+  const { data: briefs, error } = await supabase
+    .from('briefs')
+    .select('id, document_id, organisation_id, goal_text, status, current_stage_id, created_at, approved_at, started_at, completed_at, cancelled_at')
+    .eq('document_id', documentId)
+    .in('status', ['planned', 'active'])
+    .order('created_at', { ascending: false })
+    .limit(1)
+  if (error) throw error
+  const brief = (briefs ?? [])[0] as unknown as Brief | undefined
+  if (!brief) return null
 
-export async function getBriefState(
+  return assembleBriefStatePayload(supabase, brief)
+}
+
+/** Look up a specific Brief by id and return its state payload. */
+export async function getBriefById(
   supabase: SupabaseClient,
   briefId: string,
 ): Promise<BriefStatePayload | null> {
-  const briefQ = supabase
+  const { data, error } = await supabase
     .from('briefs')
-    .select('id, document_id, organisation_id, status, goal_text, preferences, current_stage_id, created_at, updated_at, completed_at')
+    .select('id, document_id, organisation_id, goal_text, status, current_stage_id, created_at, approved_at, started_at, completed_at, cancelled_at')
     .eq('id', briefId)
     .maybeSingle()
+  if (error) throw error
+  if (!data) return null
+  return assembleBriefStatePayload(supabase, data as unknown as Brief)
+}
 
-  const { data: brief, error: briefErr } = await briefQ
-  if (briefErr) throw briefErr
-  if (!brief) return null
+async function assembleBriefStatePayload(
+  supabase: SupabaseClient,
+  brief: Brief,
+): Promise<BriefStatePayload> {
+  const { data: stagesData } = await supabase
+    .from('brief_stages')
+    .select('id, brief_id, order, title, description, trigger_type, trigger_config, status, workflow_id, started_at, completed_at, created_at')
+    .eq('brief_id', brief.id)
+    .order('order', { ascending: true })
 
-  const [stagesResult, amendmentsResult] = await Promise.all([
-    supabase
-      .from('brief_stages')
-      .select('id, brief_id, order, title, description, trigger_type, trigger_config, status, started_at, completed_at, created_at')
-      .eq('brief_id', briefId)
-      .order('order', { ascending: true }),
-    supabase
-      .from('brief_amendments')
-      .select('id, brief_id, proposed_by, amendment_type, target_path, before, after, approved_at, approved_by_user_id, reason, created_at')
-      .eq('brief_id', briefId)
-      .order('approved_at', { ascending: false })
-      .limit(RECENT_AMENDMENTS_LIMIT),
-  ])
-
-  if (stagesResult.error) throw stagesResult.error
-  if (amendmentsResult.error) throw amendmentsResult.error
-
-  const stages = (stagesResult.data ?? []) as unknown as BriefStage[]
-  const amendments = (amendmentsResult.data ?? []) as unknown as BriefAmendment[]
-  const briefRow = brief as unknown as Brief
-
-  const currentStage = briefRow.current_stage_id
-    ? stages.find((s) => s.id === briefRow.current_stage_id) ?? null
+  const stages = (stagesData ?? []) as unknown as BriefStage[]
+  const currentStage = brief.current_stage_id
+    ? stages.find((s) => s.id === brief.current_stage_id) ?? null
     : null
 
   return {
-    goal_text: briefRow.goal_text,
-    status: briefRow.status,
+    brief_id: brief.id,
+    goal_text: brief.goal_text,
+    status: brief.status,
     current_stage: currentStage
       ? { order: currentStage.order, title: currentStage.title, status: currentStage.status }
       : null,
@@ -69,34 +70,9 @@ export async function getBriefState(
       title: s.title,
       description: s.description,
       trigger_type: s.trigger_type,
+      trigger_config: s.trigger_config,
       status: s.status,
-    })),
-    preferences: briefRow.preferences ?? {},
-    recent_amendments: amendments.map((a) => ({
-      amendment_type: a.amendment_type,
-      target_path: a.target_path,
-      reason: a.reason,
-      approved_at: a.approved_at,
-      proposed_by: a.proposed_by,
+      workflow_id: s.workflow_id,
     })),
   }
-}
-
-/**
- * Convenience: look up a Brief by document_id (1:1) and return its state.
- * Used by the Director executor when assembling the get_brief_state tool
- * result — the Director knows the document_id, not the brief_id.
- */
-export async function getBriefStateByDocumentId(
-  supabase: SupabaseClient,
-  documentId: string,
-): Promise<BriefStatePayload | null> {
-  const { data, error } = await supabase
-    .from('briefs')
-    .select('id')
-    .eq('document_id', documentId)
-    .maybeSingle()
-  if (error) throw error
-  if (!data) return null
-  return getBriefState(supabase, (data as { id: string }).id)
 }

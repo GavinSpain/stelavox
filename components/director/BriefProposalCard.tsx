@@ -1,21 +1,22 @@
 'use client'
 
-// Spec: V1.x-A build checklist §3.6 T-6.3
-//       Director Architecture v2.0 §6 (BriefProposal artefact)
-//
+// V1.x-A.1 — operation-level Brief proposal.
 // Renders a <brief_proposal> artefact in the DirectorPanel conversation
-// thread. Analogous to PlanCard but for project-level Brief proposals.
+// thread. The proposal shape now includes:
+//   - goal_text (operation description)
+//   - stages (1+, n=1 is trivial)
+//     - stage 1's workflow is fully specified
+//     - stages 2..N have workflow:null (just-in-time planning)
 //
-// Inviolable #2: the Approve button uses --color-accent as use #7
-// (affirmative-action trigger). No other accent uses in this file.
+// Inviolable #2: Approve button = verdigris #7 (affirmative-action).
 
 import { useState } from 'react'
 
-import type { BriefProposalParsed } from '@/lib/director/schemas'
+import type { BriefProposalV1xA1Parsed } from '@/lib/director/schemas'
 
 interface BriefProposalCardProps {
-  briefId: string
-  proposal: BriefProposalParsed
+  documentId: string
+  proposal: BriefProposalV1xA1Parsed
   onApproved?: () => void
 }
 
@@ -26,7 +27,7 @@ const TRIGGER_LABEL: Record<string, string> = {
   compound: 'Compound',
 }
 
-export function BriefProposalCard({ briefId, proposal, onApproved }: BriefProposalCardProps) {
+export function BriefProposalCard({ documentId, proposal, onApproved }: BriefProposalCardProps) {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [done, setDone] = useState(false)
@@ -38,7 +39,7 @@ export function BriefProposalCard({ briefId, proposal, onApproved }: BriefPropos
       const res = await fetch('/api/brief/proposals/approve', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ brief_id: briefId, proposal }),
+        body: JSON.stringify({ document_id: documentId, proposal }),
       })
       if (!res.ok) {
         const body = (await res.json().catch(() => null)) as { message?: string; error?: string } | null
@@ -56,128 +57,67 @@ export function BriefProposalCard({ briefId, proposal, onApproved }: BriefPropos
 
   if (done) {
     return (
-      <div
-        data-testid="brief-proposal-card"
-        data-state="approved"
-        style={{ ...cardStyle, padding: '10px 14px' }}
-      >
+      <div data-testid="brief-proposal-card" data-state="approved" style={{ ...cardStyle, padding: '10px 14px' }}>
         <span style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>Brief approved.</span>
       </div>
     )
   }
 
-  const voice = typeof proposal.preferences.voice === 'string' ? proposal.preferences.voice : null
-  const constraints = (proposal.preferences.constraints as unknown[] | undefined)?.filter(
-    (s): s is string => typeof s === 'string',
-  )
-  const decisions = (proposal.preferences.decisions as unknown[] | undefined)?.filter(
-    (s): s is string => typeof s === 'string',
-  )
+  const trivial = proposal.stages.length === 1
+  const stage1 = proposal.stages.find((s) => s.order === 1)
 
   return (
-    <div data-testid="brief-proposal-card" data-state="draft" style={cardStyle}>
-      <div style={headerStyle}>Proposed Project Brief</div>
+    <div data-testid="brief-proposal-card" data-state="draft" data-stage-count={proposal.stages.length} style={cardStyle}>
+      <div style={headerStyle}>{trivial ? 'Proposed Brief (single stage)' : `Proposed Brief — ${proposal.stages.length} stages`}</div>
 
       <div style={{ padding: '12px 14px' }}>
         <SectionLabel>Goal</SectionLabel>
-        <div
-          style={{
-            fontSize: 14,
-            color: 'var(--color-text-primary)',
-            lineHeight: 1.5,
-            marginBottom: 12,
-          }}
-        >
+        <div style={{ fontSize: 14, color: 'var(--color-text-primary)', lineHeight: 1.5, marginBottom: 12 }}>
           {proposal.goal_text}
         </div>
 
-        {(voice || (constraints && constraints.length) || (decisions && decisions.length)) ? (
-          <div style={{ marginBottom: 12 }}>
-            <SectionLabel>Preferences</SectionLabel>
-            {voice ? <Row label="Voice">{voice}</Row> : null}
-            {constraints && constraints.length ? (
-              <Row label="Constraints">
-                <ul style={{ margin: 0, paddingLeft: 16 }}>
-                  {constraints.map((c, i) => <li key={i}>{c}</li>)}
-                </ul>
-              </Row>
-            ) : null}
-            {decisions && decisions.length ? (
-              <Row label="Decisions">
-                <ul style={{ margin: 0, paddingLeft: 16 }}>
-                  {decisions.map((d, i) => <li key={i}>{d}</li>)}
-                </ul>
-              </Row>
-            ) : null}
-          </div>
-        ) : null}
-
-        <SectionLabel>Stages ({proposal.stages.length})</SectionLabel>
-        <ol style={{ margin: 0, padding: 0, listStyle: 'none', marginBottom: 12 }}>
-          {proposal.stages.map((s) => (
-            <li
-              key={s.order}
-              data-testid="brief-proposal-stage"
-              style={{
-                padding: '6px 8px',
-                fontSize: 12,
-                color: 'var(--color-text-primary)',
-                display: 'flex',
-                gap: 8,
-                borderBottom: '1px solid var(--color-border-subtle)',
-              }}
-            >
-              <span
-                aria-hidden
-                style={{
-                  minWidth: 18,
-                  color: 'var(--color-text-muted)',
-                }}
-              >
-                {s.order}.
-              </span>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontWeight: 500 }}>{s.title}</div>
-                {s.description ? (
-                  <div
-                    style={{
-                      fontSize: 11,
-                      color: 'var(--color-text-secondary)',
-                      lineHeight: 1.4,
-                    }}
-                  >
-                    {s.description}
+        {trivial && stage1?.workflow ? (
+          <>
+            <SectionLabel>Steps ({stage1.workflow.steps.length})</SectionLabel>
+            <ol style={{ margin: 0, padding: 0, listStyle: 'none', marginBottom: 12 }}>
+              {stage1.workflow.steps.map((step, idx) => (
+                <li key={idx} data-testid="brief-proposal-step" style={stepStyle}>
+                  <span style={{ minWidth: 22, fontSize: 11, color: 'var(--color-text-muted)' }}>{idx + 1}.</span>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 500, fontSize: 13 }}>{step.operation_type}</div>
+                    <div style={{ fontSize: 11, color: 'var(--color-text-secondary)', lineHeight: 1.4 }}>{step.description}</div>
                   </div>
-                ) : null}
-                <div
-                  style={{
-                    marginTop: 2,
-                    fontSize: 10,
-                    color: 'var(--color-text-muted)',
-                  }}
-                >
-                  {TRIGGER_LABEL[s.trigger_type] ?? s.trigger_type}
-                </div>
-              </div>
-            </li>
-          ))}
-        </ol>
+                </li>
+              ))}
+            </ol>
+          </>
+        ) : (
+          <>
+            <SectionLabel>Stages ({proposal.stages.length})</SectionLabel>
+            <ol style={{ margin: 0, padding: 0, listStyle: 'none', marginBottom: 12 }}>
+              {proposal.stages.map((s) => (
+                <li key={s.order} data-testid="brief-proposal-stage" style={stageStyle}>
+                  <span style={{ minWidth: 22, fontSize: 11, color: 'var(--color-text-muted)' }}>{s.order}.</span>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 500, fontSize: 13 }}>{s.title}</div>
+                    {s.description ? (
+                      <div style={{ fontSize: 11, color: 'var(--color-text-secondary)', lineHeight: 1.4 }}>{s.description}</div>
+                    ) : null}
+                    <div style={{ marginTop: 2, fontSize: 10, color: 'var(--color-text-muted)' }}>
+                      {TRIGGER_LABEL[s.trigger_type] ?? s.trigger_type}
+                      {s.order === 1
+                        ? ` · ${s.workflow ? `${s.workflow.steps.length} steps planned` : 'workflow planned'}`
+                        : ' · workflow planned just-in-time when this stage activates'}
+                    </div>
+                  </div>
+                </li>
+              ))}
+            </ol>
+          </>
+        )}
 
         {error ? (
-          <div
-            role="alert"
-            style={{
-              padding: '8px 12px',
-              background: 'rgba(184,48,48,0.08)',
-              border: '1px solid rgba(184,48,48,0.25)',
-              borderRadius: 4,
-              fontSize: 12,
-              color: 'var(--color-text-primary)',
-              marginBottom: 10,
-            }}
-          >
-            {error}
-          </div>
+          <div role="alert" style={errorStyle}>{error}</div>
         ) : null}
 
         <div style={{ display: 'flex', gap: 8 }}>
@@ -209,27 +149,8 @@ export function BriefProposalCard({ briefId, proposal, onApproved }: BriefPropos
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
-    <div
-      style={{
-        fontFamily: 'var(--font-inter), Inter, sans-serif',
-        fontWeight: 500,
-        fontSize: 11,
-        textTransform: 'uppercase',
-        letterSpacing: 0.6,
-        color: 'var(--color-text-muted)',
-        marginBottom: 6,
-      }}
-    >
+    <div style={{ fontFamily: 'var(--font-inter), Inter, sans-serif', fontWeight: 500, fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.6, color: 'var(--color-text-muted)', marginBottom: 6 }}>
       {children}
-    </div>
-  )
-}
-
-function Row({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div style={{ display: 'flex', gap: 12, marginBottom: 4, alignItems: 'baseline' }}>
-      <span style={{ minWidth: 90, fontSize: 11, color: 'var(--color-text-muted)' }}>{label}</span>
-      <span style={{ flex: 1, fontSize: 13, color: 'var(--color-text-primary)' }}>{children}</span>
     </div>
   )
 }
@@ -241,7 +162,6 @@ const cardStyle: React.CSSProperties = {
   borderRadius: 8,
   margin: '8px 0',
 }
-
 const headerStyle: React.CSSProperties = {
   padding: '10px 14px',
   borderBottom: '1px solid var(--color-border-subtle)',
@@ -250,4 +170,29 @@ const headerStyle: React.CSSProperties = {
   textTransform: 'uppercase',
   letterSpacing: 0.6,
   color: 'var(--color-text-secondary)',
+}
+const stageStyle: React.CSSProperties = {
+  display: 'flex',
+  gap: 8,
+  padding: '8px 8px',
+  borderBottom: '1px solid var(--color-border-subtle)',
+  fontSize: 12,
+  color: 'var(--color-text-primary)',
+}
+const stepStyle: React.CSSProperties = {
+  display: 'flex',
+  gap: 8,
+  padding: '6px 8px',
+  borderBottom: '1px solid var(--color-border-subtle)',
+  fontSize: 12,
+  color: 'var(--color-text-primary)',
+}
+const errorStyle: React.CSSProperties = {
+  padding: '8px 12px',
+  background: 'rgba(184,48,48,0.08)',
+  border: '1px solid rgba(184,48,48,0.25)',
+  borderRadius: 4,
+  fontSize: 12,
+  color: 'var(--color-text-primary)',
+  marginBottom: 10,
 }
