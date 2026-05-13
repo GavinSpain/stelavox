@@ -157,12 +157,54 @@ export const WorkflowProposalSchema = z.object({
 
 export type WorkflowProposalParsed = z.infer<typeof WorkflowProposalSchema>
 
+// V1.x-A — Brief proposal artefacts emitted in <brief_proposal> and
+// <brief_amendment_proposal> content blocks. Loose-shape schemas here
+// (the structural validation — cycle detection, dangling refs, value
+// shapes per amendment_type — lives in lib/brief/proposalBuilder.ts and
+// runs at tool-call time, so by the time a parsed block reaches end-of-
+// turn the contents are already validated).
+export const BriefProposalSchema = z.object({
+  goal_text: z.string().min(1).max(5_000),
+  preferences: z.record(z.string(), z.unknown()),
+  stages: z
+    .array(
+      z.object({
+        order: positiveIntSchema,
+        title: z.string().min(1).max(200),
+        description: z.string().max(2_000).optional(),
+        trigger_type: z.enum(['after_stage', 'scheduled_at', 'manual', 'compound']),
+        trigger_config: z.record(z.string(), z.unknown()).optional(),
+      }),
+    )
+    .min(1)
+    .max(20),
+})
+export type BriefProposalParsed = z.infer<typeof BriefProposalSchema>
+
+export const BriefAmendmentProposalSchema = z.object({
+  amendment_type: z.enum([
+    'update_goal_text',
+    'update_voice',
+    'add_constraint',
+    'update_constraints',
+    'add_decision',
+    'update_decisions',
+    'update_named_entities',
+    'generic_preferences_set',
+  ]),
+  target_path: z.string().max(200).optional(),
+  after: z.unknown(),
+  reason: z.string().min(1).max(2_000),
+})
+export type BriefAmendmentProposalParsed = z.infer<typeof BriefAmendmentProposalSchema>
+
 // ---------------------------------------------------------------------------
 // Tool input schemas — one per registered tool. Used by validateToolCall().
 // ---------------------------------------------------------------------------
 
 export const ToolInputSchemas = {
-  // Read tools (7)
+  // Read tools (7 + 1 V1.x-A)
+  get_brief_state: z.object({}).strict(),
   get_document_state: z.object({}).strict(),
   get_node: z.object({ node_id: uuidSchema }).strict(),
   get_nodes_by_layer: z
@@ -269,11 +311,51 @@ export const ToolInputSchemas = {
       estimated_duration_seconds: nonNegativeIntSchema,
     })
     .strict(),
+
+  // V1.x-A Brief write-proposal tools (2). Validators in
+  // lib/brief/proposalBuilder.ts perform additional structural checks
+  // (cycle detection, dangling refs, value-shape per amendment_type).
+  propose_brief: z
+    .object({
+      goal_text: z.string().min(1).max(5_000),
+      preferences: z.record(z.string(), z.unknown()),
+      stages: z
+        .array(
+          z.object({
+            order: positiveIntSchema,
+            title: z.string().min(1).max(200),
+            description: z.string().max(2_000).optional(),
+            trigger_type: z.enum(['after_stage', 'scheduled_at', 'manual', 'compound']),
+            trigger_config: z.record(z.string(), z.unknown()).optional(),
+          }),
+        )
+        .min(1)
+        .max(20),
+    })
+    .strict(),
+  propose_brief_amendment: z
+    .object({
+      amendment_type: z.enum([
+        'update_goal_text',
+        'update_voice',
+        'add_constraint',
+        'update_constraints',
+        'add_decision',
+        'update_decisions',
+        'update_named_entities',
+        'generic_preferences_set',
+      ]),
+      target_path: z.string().max(200).optional(),
+      after: z.unknown(),
+      reason: z.string().min(1).max(2_000),
+    })
+    .strict(),
 } as const
 
 export type ToolName = keyof typeof ToolInputSchemas
 
 export const READ_TOOL_NAMES: readonly ToolName[] = [
+  'get_brief_state',
   'get_document_state',
   'get_node',
   'get_nodes_by_layer',
@@ -290,6 +372,8 @@ export const WRITE_TOOL_NAMES: readonly ToolName[] = [
   'create_context_step',
   'create_comment_step',
   'create_node_reorder_step',
+  'propose_brief',
+  'propose_brief_amendment',
 ] as const
 
 export function isReadTool(name: string): name is ToolName {

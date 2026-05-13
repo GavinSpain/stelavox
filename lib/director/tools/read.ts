@@ -31,6 +31,39 @@ import type {
 type ReadToolReturn = ReadToolResult | ToolErrorResult
 
 // ---------------------------------------------------------------------------
+// get_brief_state (V1.x-A) — the Director's canonical durable memory.
+// ---------------------------------------------------------------------------
+
+export async function execGetBriefState(
+  _args: Record<string, unknown>,
+  session: DirectorSession,
+): Promise<ReadToolReturn> {
+  const supabase = createServiceRoleClient()
+
+  const { data: doc, error: docErr } = await supabase
+    .from('documents')
+    .select('brief_id, organisation_id')
+    .eq('id', session.document_id)
+    .maybeSingle()
+
+  if (docErr || !doc) return { ok: false, error: 'document_not_found' }
+  if (doc.organisation_id !== session.organisation_id) {
+    return { ok: false, error: 'cross_org_access_denied' }
+  }
+  if (!doc.brief_id) return { ok: false, error: 'brief_not_found' }
+
+  // Delegate to the lib/brief module's reader so the §6.3 payload shape
+  // stays in one place. Pass the service-role client so we bypass RLS
+  // (this executor runs inside the agentic loop, post-validateToolCall —
+  // the org check above is the defence-in-depth gate).
+  const { getBriefState } = await import('@/lib/brief/getBriefState')
+  const payload = await getBriefState(supabase, doc.brief_id)
+  if (!payload) return { ok: false, error: 'brief_not_found' }
+
+  return { ok: true, data: payload as unknown as Record<string, unknown> }
+}
+
+// ---------------------------------------------------------------------------
 // get_document_state
 // ---------------------------------------------------------------------------
 
