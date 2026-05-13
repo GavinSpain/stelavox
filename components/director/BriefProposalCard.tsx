@@ -8,9 +8,16 @@
 //     - stage 1's workflow is fully specified
 //     - stages 2..N have workflow:null (just-in-time planning)
 //
+// On mount the card asks the server whether a Brief has already been
+// created from this proposal (matched by goal_text per
+// GET /api/documents/[id]/brief-for-proposal). If so, it renders the
+// Brief's current state instead of an Approve button — closes the bug
+// where re-rendering the conversation thread (e.g. after a page reload)
+// showed an Approve button on already-approved proposals.
+//
 // Inviolable #2: Approve button = verdigris #7 (affirmative-action).
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
 import type { BriefProposalV1xA1Parsed } from '@/lib/director/schemas'
 
@@ -27,10 +34,48 @@ const TRIGGER_LABEL: Record<string, string> = {
   compound: 'Compound',
 }
 
+const STATUS_LABEL: Record<string, string> = {
+  planned: 'Planned',
+  active: 'Active',
+  completed: 'Completed',
+  cancelled: 'Cancelled',
+}
+
+interface ExistingBrief {
+  id: string
+  status: 'planned' | 'active' | 'completed' | 'cancelled'
+  current_stage: { order: number; title: string; status: string } | null
+}
+
 export function BriefProposalCard({ documentId, proposal, onApproved }: BriefProposalCardProps) {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [done, setDone] = useState(false)
+  const [existingBrief, setExistingBrief] = useState<ExistingBrief | null>(null)
+  const [lookupLoading, setLookupLoading] = useState(true)
+
+  // On mount, ask the server whether a Brief has already been created
+  // from this proposal. If so, render the Brief's current state instead
+  // of the Approve button.
+  useEffect(() => {
+    let cancelled = false
+    void (async () => {
+      try {
+        const url = `/api/documents/${documentId}/brief-for-proposal?goal_text=${encodeURIComponent(proposal.goal_text)}`
+        const res = await fetch(url)
+        if (cancelled) return
+        if (res.ok) {
+          const body = (await res.json()) as { brief: ExistingBrief | null }
+          if (!cancelled) setExistingBrief(body.brief)
+        }
+      } catch {
+        // Network error — fall through; card renders as draft (allow user to retry approval)
+      } finally {
+        if (!cancelled) setLookupLoading(false)
+      }
+    })()
+    return () => { cancelled = true }
+  }, [documentId, proposal.goal_text])
 
   async function approve() {
     setSubmitting(true)
@@ -55,10 +100,43 @@ export function BriefProposalCard({ documentId, proposal, onApproved }: BriefPro
     }
   }
 
-  if (done) {
+  // Loading state — keep card minimal until we know whether to show
+  // Approve button or the approved state. Prevents flicker.
+  if (lookupLoading) {
     return (
-      <div data-testid="brief-proposal-card" data-state="approved" style={{ ...cardStyle, padding: '10px 14px' }}>
-        <span style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>Brief approved.</span>
+      <div data-testid="brief-proposal-card" data-state="loading" style={{ ...cardStyle, padding: '10px 14px' }}>
+        <span style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>Loading Brief state…</span>
+      </div>
+    )
+  }
+
+  // If a Brief was already created from this proposal, render its
+  // current state instead of an Approve button.
+  if (existingBrief || done) {
+    const status = existingBrief?.status ?? 'active'
+    const currentStage = existingBrief?.current_stage
+    return (
+      <div
+        data-testid="brief-proposal-card"
+        data-state={status}
+        data-brief-id={existingBrief?.id}
+        style={cardStyle}
+      >
+        <div style={headerStyle}>Brief — {STATUS_LABEL[status]}</div>
+        <div style={{ padding: '12px 14px' }}>
+          <div style={{ fontSize: 13, color: 'var(--color-text-primary)', marginBottom: 8 }}>
+            {proposal.goal_text}
+          </div>
+          {currentStage ? (
+            <div style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>
+              Current stage: <strong>{currentStage.order}. {currentStage.title}</strong> — {currentStage.status}
+            </div>
+          ) : status === 'completed' ? (
+            <div style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>All stages completed.</div>
+          ) : status === 'cancelled' ? (
+            <div style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>Brief cancelled.</div>
+          ) : null}
+        </div>
       </div>
     )
   }
