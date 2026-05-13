@@ -323,6 +323,12 @@ export async function POST(req: NextRequest): Promise<Response> {
               validation_result: event.validation_result,
               result_summary: event.result_summary,
               executed_at: new Date().toISOString(),
+              // V1.x-A.1 (v1.6): forward proposal_artefact so the
+              // finalised tool_calls row carries the data the UI uses to
+              // re-render BriefProposalCard / ProjectProfileAmendmentCard.
+              ...(event.proposal_artefact !== undefined
+                ? { proposal_artefact: event.proposal_artefact }
+                : {}),
             })
           } else if (event.type === 'turn_complete') {
             accumulator.usage = event.usage

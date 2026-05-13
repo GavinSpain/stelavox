@@ -170,6 +170,15 @@ export type TurnEvent =
       name: string
       validation_result: 'allowed' | string
       result_summary: string
+      /**
+       * V1.x-A.1 (v1.6): validated proposal artefact for write tools that
+       * emit Brief / Profile proposals. Empty for read tools and for write
+       * tools whose proposals aren't artefact-based (e.g. workflow-step
+       * tools). Flows through to the API route's accumulator so the
+       * tool_calls row written via finaliseAssistantMessage carries the
+       * artefact for UI re-render.
+       */
+      proposal_artefact?: unknown
     }
   | {
       type: 'workflow_proposal'
@@ -572,6 +581,7 @@ export async function* runAgenticTurn(
         name: call.name,
         validation_result: 'allowed',
         result_summary: summary,
+        ...(artefact !== undefined ? { proposal_artefact: artefact } : {}),
       }
       toolResultBlocks.push({
         type: 'tool_result',
