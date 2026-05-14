@@ -9,7 +9,9 @@
  * time; one active at a time during V1.x-A.1.
  */
 
-export type BriefStatus = 'planned' | 'active' | 'completed' | 'cancelled'
+export type BriefStatus = 'planned' | 'queued' | 'active' | 'completed' | 'cancelled'
+
+export type BriefCause = 'user_initial' | 'sequence_promotion'
 
 export type BriefStageTriggerType =
   | 'after_stage'
@@ -54,6 +56,10 @@ export interface Brief {
   organisation_id: string
   goal_text: string
   status: BriefStatus
+  /** V1.x-B.1.1 — per-document queue ordering (0 = active, 1+ = queued). */
+  sequence_position: number
+  /** V1.x-B.1.1 — activation cause for audit + future template work. */
+  cause: BriefCause
   current_stage_id: string | null
   created_at: string
   approved_at: string | null
@@ -83,20 +89,58 @@ export interface BriefStage {
 // ---------------------------------------------------------------------------
 
 /**
- * Flattened response of get_brief_state. Returns the currently-active
- * Brief, or null when no Brief is active (V1.x-A.1: at most one at a time).
- * Source: V2.1 §6.2.3.
+ * Flattened response shape for an individual Brief. Returned by
+ * getBriefById and used as the `active` field inside BriefQueueState.
+ * Source: V2.1 §6.2.3 + V1.x-B.1.1 build checklist §3.3 T-3.5.
  */
 export interface BriefStatePayload {
   brief_id: string
   goal_text: string
   status: BriefStatus
+  sequence_position: number
+  cause: BriefCause
   current_stage: Pick<BriefStage, 'order' | 'title' | 'status'> | null
   stages: Array<
     Pick<BriefStage, 'order' | 'title' | 'description' | 'trigger_type' | 'status' | 'workflow_id'> & {
       trigger_config: BriefStageTriggerConfig
     }
   >
+}
+
+/**
+ * Lite shape for queued Briefs — surfaced inside BriefQueueState.queue.
+ * No full stage list (Director sees `goal_text` + position; can call
+ * get_brief_state with a specific brief_id if it needs detail).
+ */
+export interface BriefStateLite {
+  brief_id: string
+  goal_text: string
+  status: BriefStatus
+  sequence_position: number
+  cause: BriefCause
+  stage_count: number
+  created_at: string
+}
+
+/**
+ * V1.x-B.1.1 — get_brief_state shape. Returns the document's active
+ * Brief (or null) plus an ordered queue of approved-but-waiting Briefs.
+ *
+ * Director sees: at most one active; queue ordered by sequence_position;
+ * empty queue when nothing waiting. The Director's queue-vs-pivot
+ * decision happens here (system prompt v1.7).
+ */
+export interface BriefQueueState {
+  active: BriefStatePayload | null
+  queue: BriefStateLite[]
+}
+
+/** V1.x-B.1.1 — cancel_brief RPC return shape. */
+export interface CancelBriefResult {
+  brief_id: string
+  cancelled_count: number
+  completed_count: number
+  promoted_brief_id: string | null
 }
 
 // ---------------------------------------------------------------------------

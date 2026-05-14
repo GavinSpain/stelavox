@@ -335,6 +335,98 @@ export async function execProposeBrief(
 }
 
 // ---------------------------------------------------------------------------
+// cancel_brief (V1.x-B.1.1) — destructive proposal-only.
+// ---------------------------------------------------------------------------
+// Per H-08, write tools never execute. The Director recommends cancelling
+// a specific Brief; the user approves via BriefCancellationProposalCard
+// before the cancel_brief RPC fires.
+//
+// The executor reads the Brief's current status + computes a cascade
+// preview (pending vs completed stages, whether a queued Brief will
+// promote) so the approval card surfaces accurate impact. The actual
+// cancel_brief RPC at approval time computes its own definitive summary.
+
+export async function execCancelBrief(
+  args: Record<string, unknown>,
+  session: DirectorSession,
+): Promise<WriteToolReturn> {
+  const supabase = createServiceRoleClient()
+
+  const briefId = typeof args.brief_id === 'string' ? args.brief_id : null
+  const reason = typeof args.reason === 'string' ? args.reason : null
+  if (!briefId) {
+    return { ok: false, error: 'invalid_brief_id', reason: 'brief_id is required' }
+  }
+  if (!reason || reason.trim().length === 0) {
+    return { ok: false, error: 'invalid_reason', reason: 'reason is required' }
+  }
+
+  // Confirm the Brief exists, belongs to the caller's org, and lives on
+  // the session's document. Cross-document or cross-org cancellation is
+  // denied at the planning surface.
+  const { data: brief } = await supabase
+    .from('briefs')
+    .select('id, document_id, organisation_id, status')
+    .eq('id', briefId)
+    .maybeSingle()
+
+  if (!brief) {
+    return { ok: false, error: 'brief_not_found' }
+  }
+  if (brief.organisation_id !== session.organisation_id) {
+    return { ok: false, error: 'cross_org_access_denied' }
+  }
+  if (brief.document_id !== session.document_id) {
+    return { ok: false, error: 'cross_document_access_denied' }
+  }
+  if (!['planned', 'queued', 'active'].includes(brief.status)) {
+    return {
+      ok: false,
+      error: 'invalid_status',
+      reason: `Cannot cancel a Brief in status "${brief.status}".`,
+    }
+  }
+
+  // Cascade preview — pending vs completed stages.
+  const { data: stages } = await supabase
+    .from('brief_stages')
+    .select('status')
+    .eq('brief_id', briefId)
+
+  const stageRows = (stages ?? []) as Array<{ status: string }>
+  const pendingStages = stageRows.filter(
+    (s) => !['completed', 'skipped', 'cancelled'].includes(s.status),
+  ).length
+  const completedStages = stageRows.filter((s) => s.status === 'completed').length
+
+  // Will a queued Brief promote? Only if the cancellation target is the
+  // active one AND there's a queued Brief on the document.
+  let queuedBriefWillPromote = false
+  if (brief.status === 'active') {
+    const { count: queuedCount } = await supabase
+      .from('briefs')
+      .select('id', { count: 'exact', head: true })
+      .eq('document_id', brief.document_id)
+      .eq('status', 'queued')
+    queuedBriefWillPromote = (queuedCount ?? 0) > 0
+  }
+
+  return {
+    ok: true,
+    brief_cancellation_proposal: {
+      brief_id: briefId,
+      reason,
+      brief_status_at_proposal: brief.status as 'planned' | 'queued' | 'active',
+      cascade_preview: {
+        pending_stages: pendingStages,
+        completed_stages: completedStages,
+        queued_brief_will_promote: queuedBriefWillPromote,
+      },
+    },
+  } as WriteToolReturn
+}
+
+// ---------------------------------------------------------------------------
 // propose_profile_amendment (V1.x-A.1) — durable preference promotion.
 // ---------------------------------------------------------------------------
 

@@ -9,5 +9,21 @@ export { detectStageTriggerCycles } from './cycleDetector'
 export type { CycleCheckResult } from './cycleDetector'
 export { buildBriefProposal, ProposeBriefInputSchema } from './proposalBuilder'
 export type { ProposeBriefInput, BriefProposalStepInput } from './proposalBuilder'
-export { getActiveBriefForDocument, getBriefById } from './getBriefState'
-export { acceptBrief, completeBriefStage, cancelBrief, BriefRpcError } from './rpcWrappers'
+export {
+  getActiveBriefForDocument,
+  getBriefById,
+  getBriefQueueStateForDocument,
+} from './getBriefState'
+export {
+  acceptBrief,
+  completeBriefStage,
+  cancelBrief,
+  completeBriefStageWorkflow,
+  propagateBriefCompletion,
+  promoteNextQueuedBrief,
+  BriefRpcError,
+} from './rpcWrappers'
+export type {
+  CompleteBriefStageWorkflowResult,
+  PropagateBriefCompletionResult,
+} from './rpcWrappers'

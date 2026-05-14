@@ -1,8 +1,13 @@
 /**
  * POST /api/brief/[briefId]/cancel
  *
- * V1.x-A.1 — cancel a planned or active Brief. Releases the partial
- * unique index slot for a new active Brief.
+ * V1.x-B.1.1 — cancel a planned, queued, or active Brief. Cascade-cancels
+ * non-terminal stages, emits cancel_cascade system event, auto-promotes
+ * the next queued Brief if the cancelled one was active. Returns the
+ * cascade summary jsonb.
+ *
+ * Optional body: { reason?: string } — logged in the system event payload
+ * (default 'user_cancelled').
  */
 
 import 'server-only'
@@ -14,7 +19,7 @@ import { cancelBrief, BriefRpcError } from '@/lib/brief/rpcWrappers'
 import { createClient } from '@/lib/supabase/server'
 
 export async function POST(
-  _req: NextRequest,
+  req: NextRequest,
   context: { params: Promise<{ briefId: string }> },
 ): Promise<Response> {
   const { briefId } = await context.params
@@ -24,9 +29,19 @@ export async function POST(
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return apiError(401, 'unauthenticated')
 
+  let reason = 'user_cancelled'
   try {
-    const brief = await cancelBrief(supabase, briefId)
-    return NextResponse.json(brief)
+    const body = await req.json().catch(() => ({}))
+    if (body && typeof body === 'object' && typeof (body as { reason?: unknown }).reason === 'string') {
+      reason = (body as { reason: string }).reason
+    }
+  } catch {
+    // Empty body is fine — keep the default reason.
+  }
+
+  try {
+    const result = await cancelBrief(supabase, briefId, reason)
+    return NextResponse.json(result)
   } catch (e: unknown) {
     if (e instanceof BriefRpcError) {
       const code = e.message.includes('brief_not_found') ? 404

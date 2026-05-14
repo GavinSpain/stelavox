@@ -36,6 +36,7 @@ import {
   execGetWorkflowHistory,
 } from '@/lib/director/tools/read'
 import {
+  execCancelBrief,
   execCreateCommentStep,
   execCreateContextStep,
   execCreateExpandStep,
@@ -63,7 +64,7 @@ const readTools: DirectorToolDefinition[] = [
     name: 'get_brief_state',
     kind: 'read',
     description:
-      "Get the currently-active Brief for this document (or `active_brief: null` if none is in flight). Returns the Brief's goal_text, current_stage, full stage list with statuses and trigger config. V1.x-A.1 enforces ONE active Brief at a time per document — if non-null, the user's next request likely extends or continues that work. Call this immediately after get_project_profile.",
+      "Get the document's Brief queue: {active, queue}. `active` is the currently-running Brief (or null if none) — full goal_text, current_stage, full stage list with statuses and trigger config. `queue` is an ordered list of approved-but-waiting Briefs (lite shape — goal_text + sequence_position + stage_count) sorted by sequence_position. At most one ACTIVE Brief per document; new approved Briefs queue behind it and auto-promote when the active one completes or is cancelled. Call this immediately after get_project_profile to decide whether the user's request extends the active Brief, queues a new one, or warrants a cancel_brief proposal first.",
     input_schema: toolInputSchemaFor('get_brief_state'),
   },
   {
@@ -168,7 +169,7 @@ const writeTools: DirectorToolDefinition[] = [
     name: 'propose_brief',
     kind: 'write',
     description:
-      "Propose a Brief — the operation plan for ANY unit of work the author has asked for. Required fields: goal_text (operation description) + stages (one or more). Stage 1's workflow must be fully specified (concrete steps with target_node_ids); stages 2..N may pass workflow:null (their workflows are planned just-in-time when their stage activates, typically because they depend on outputs from earlier stages). The trivial n=1 case (one stage with one workflow with one step) is just a degenerate Brief — propose it the same way as a multi-stage Brief. V1.x-A.1 enforces one active Brief per document; if get_brief_state shows a non-null active Brief, do not propose another (extend the existing or propose to cancel it first).",
+      "Propose a Brief — the operation plan for ANY unit of work the author has asked for. Required fields: goal_text (operation description) + stages (one or more). Stage 1's workflow must be fully specified (concrete steps with target_node_ids); stages 2..N may pass workflow:null (their workflows are planned just-in-time when their stage activates, typically because they depend on outputs from earlier stages). The trivial n=1 case (one stage with one workflow with one step) is just a degenerate Brief — propose it the same way as a multi-stage Brief. V1.x-B.1.1 admits multiple Briefs per document: if get_brief_state shows a non-null active Brief, the new Brief automatically queues behind it (sequence_position = next) and starts when the active one completes. To pivot away from the active Brief, propose cancel_brief on it first.",
     input_schema: toolInputSchemaFor('propose_brief'),
   },
   {
@@ -177,6 +178,13 @@ const writeTools: DirectorToolDefinition[] = [
     description:
       "Propose a delta change to the Project Profile — promote a durable voice rule / constraint / named decision / named entity / goal_text that the author stated in conversation. amendment_type ∈ {update_goal_text, update_voice, add_constraint, update_constraints, add_decision, update_decisions, update_named_entities, generic_preferences_set}. target_path is the dotted JSONB path (e.g. 'preferences.constraints'); omitted for update_goal_text. Nothing writes until the author approves the ProfileAmendmentCard.",
     input_schema: toolInputSchemaFor('propose_profile_amendment'),
+  },
+  {
+    name: 'cancel_brief',
+    kind: 'write',
+    description:
+      "V1.x-B.1.1 — propose cancellation of an active, queued, or planned Brief. Required: brief_id (the Brief to cancel) + reason (one sentence explaining why; surfaces in the cancel_cascade audit event). Destructive: cascade-cancels the Brief's non-terminal stages and any in-flight workflows; auto-promotes the next queued Brief if the cancelled one was active. Per H-08 this tool produces a proposal — the user approves via BriefCancellationProposalCard before the cancel_brief RPC fires. Use when: the user explicitly requests cancellation; the user pivots scope dramatically and you're about to propose a replacement (cancel first, then a new Brief on the user's next message); you recognise a stuck Brief the user is working around. NOT for pausing a workflow (that's the scheduler's Stop action — direct manipulation, not yours to propose) or for reordering the queue.",
+    input_schema: toolInputSchemaFor('cancel_brief'),
   },
 ]
 
@@ -215,6 +223,7 @@ const TOOL_EXECUTORS: Record<string, ToolExecutor> = {
   create_node_reorder_step: execCreateNodeReorderStep as ToolExecutor,
   propose_brief: execProposeBrief as ToolExecutor,
   propose_profile_amendment: execProposeProfileAmendment as ToolExecutor,
+  cancel_brief: execCancelBrief as ToolExecutor,
 }
 
 export function getToolByName(name: string): DirectorToolDefinition | undefined {
