@@ -2424,6 +2424,7 @@ export type Database = {
         }
         Returns: Json
       }
+      evaluate_ready_stage_triggers: { Args: never; Returns: number }
       move_node: {
         Args: { p_node_id: string; p_parent_id: string; p_position: number }
         Returns: Json

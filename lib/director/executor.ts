@@ -79,6 +79,9 @@ import type {
   DirectorSession,
   ToolResult,
 } from '@/lib/director/types'
+// V1.x-B.1.1 session 3b — atom-size guardrail integration.
+import { preflightCheck } from '@/lib/constraints/preflight'
+import { recordViolation } from '@/lib/constraints/recordViolation'
 import type {
   AssembledContentBlock,
   AssembledMessage,
@@ -610,20 +613,54 @@ export async function* runAgenticTurn(
         result_summary: summary,
         ...(artefact !== undefined ? { proposal_artefact: artefact } : {}),
       }
+      // V1.x-B.1.1 session 3b — atom-size guardrail integration.
+      // Compute the would-be tool_result content size; if it exceeds
+      // constraints.max_tool_result_bytes, replace the content with a
+      // structured Class D failure (so the model sees the failure not
+      // the oversized payload) and log to constraint_violations for
+      // capability-tuning telemetry. Per design record §8 + Director
+      // Architecture v2.0 §10.4.
+      const serialisedToolResult = JSON.stringify(
+        result.ok
+          ? (result as { data?: unknown }).data ??
+            (result as { proposal?: unknown }).proposal ??
+            (result as { brief_proposal_full?: unknown }).brief_proposal_full ??
+            (result as { brief_proposal?: unknown }).brief_proposal ??
+            (result as { profile_amendment_proposal?: unknown }).profile_amendment_proposal ??
+            (result as { brief_cancellation_proposal?: unknown }).brief_cancellation_proposal
+          : result,
+      )
+
+      let toolResultContent = serialisedToolResult
+      let toolResultIsError = !result.ok
+
+      const sizeBytes = new TextEncoder().encode(serialisedToolResult).length
+      const preflight = await preflightCheck('tool_result_size_exceeded', sizeBytes)
+      if (!preflight.ok) {
+        await recordViolation({
+          type: 'tool_result_size_exceeded',
+          attempted_value: sizeBytes,
+          configured_cap: preflight.violation.configured_cap,
+          context: {
+            organisation_id: session.organisation_id,
+            user_id: session.user_id,
+            document_id: session.document_id,
+            tool_name: call.name,
+          },
+        })
+        toolResultContent = JSON.stringify({
+          ok: false,
+          error: 'tool_result_size_exceeded',
+          reason: preflight.violation.message,
+        })
+        toolResultIsError = true
+      }
+
       toolResultBlocks.push({
         type: 'tool_result',
         tool_use_id: call.id,
-        content: JSON.stringify(
-          result.ok
-            ? (result as { data?: unknown }).data ??
-              (result as { proposal?: unknown }).proposal ??
-              (result as { brief_proposal_full?: unknown }).brief_proposal_full ??
-              (result as { brief_proposal?: unknown }).brief_proposal ??
-              (result as { profile_amendment_proposal?: unknown }).profile_amendment_proposal ??
-              (result as { brief_cancellation_proposal?: unknown }).brief_cancellation_proposal
-            : result,
-        ),
-        is_error: !result.ok,
+        content: toolResultContent,
+        is_error: toolResultIsError,
       })
     }
 

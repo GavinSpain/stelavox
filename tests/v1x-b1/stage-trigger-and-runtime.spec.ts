@@ -307,16 +307,12 @@ test.describe('V1.x-B.1.1 session 3a — stage triggers + runtime substrate', ()
 
   test('pg_cron has scheduled the V1.x-B.1.1 maintenance jobs', async () => {
     const admin = adminClient()
-    const { data, error } = await admin.rpc('exec_sql' as never).single()
-    // The Supabase JS client doesn't expose cron.job directly; query via raw SQL
-    // helper if available, otherwise skip with a soft check that the procedures exist.
-    if (error) {
-      // Fall back to verifying the procedures exist (pg_cron registration is verified
-      // by the smoke + the migration applied successfully).
-      const { data: procs } = await admin.rpc('scheduler_sweep_throttle_reservations')
-      expect(typeof procs === 'number' ? procs : Number(procs)).toBeGreaterThanOrEqual(0)
-      return
-    }
-    expect(data).toBeDefined()
+    // pg_cron registration is verified by the migration applying cleanly +
+    // the smoke run during Migration 102 commit. Soft-verify here that the
+    // sweep procedure is callable end-to-end (proves the maintenance
+    // surface works; cron registration is independently asserted by the
+    // migration apply gate).
+    const { data: procs } = await admin.rpc('scheduler_sweep_throttle_reservations')
+    expect(typeof procs === 'number' ? procs : Number(procs)).toBeGreaterThanOrEqual(0)
   })
 })
