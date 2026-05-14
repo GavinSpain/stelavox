@@ -69,12 +69,23 @@ export async function execGetBriefState(
 ): Promise<ReadToolReturn> {
   const supabase = createServiceRoleClient()
 
-  const { getActiveBriefForDocument } = await import('@/lib/brief/getBriefState')
-  const payload = await getActiveBriefForDocument(supabase, session.document_id)
+  // V1.x-B.1.1 — return {active, queue} shape. `active` is the full
+  // BriefStatePayload (with stages); `queue` is the ordered list of
+  // approved-but-waiting Briefs as lite shapes.
+  const { getBriefQueueStateForDocument } = await import('@/lib/brief/getBriefState')
+  const state = await getBriefQueueStateForDocument(supabase, session.document_id)
 
-  // Return ok with `data: null` when no Brief is active — the Director
-  // should be able to distinguish "no Brief" from "tool failed".
-  return { ok: true, data: { active_brief: payload } as Record<string, unknown> }
+  return {
+    ok: true,
+    data: {
+      active: state.active,
+      queue: state.queue,
+      // active_brief retained as alias for any in-flight V1.x-A.1 callers
+      // that read this field directly. Safe to drop after V1.x-B.1.1
+      // shipment confirms no caller depends on it.
+      active_brief: state.active,
+    } as Record<string, unknown>,
+  }
 }
 
 // ---------------------------------------------------------------------------

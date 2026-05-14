@@ -34,6 +34,7 @@ import {
   BriefProposalV1xA1Schema,
   ProfileAmendmentProposalSchema,
 } from '@/lib/director/schemas'
+import type { BriefCancellationProposalArtefact } from '@/lib/director/types'
 
 const SUPPRESSED_TAGS = [
   'plan',
@@ -109,18 +110,27 @@ interface ToolCallEntry {
 export interface ToolCallProposals {
   briefProposal: BriefProposalV1xA1Parsed | null
   profileAmendmentProposal: ProfileAmendmentProposalParsed | null
+  /** V1.x-B.1.1 — destructive Brief cancellation proposal. */
+  briefCancellationProposal: BriefCancellationProposalArtefact | null
 }
 
 /**
  * Scan a conversation_messages.tool_calls array for a Director-proposed
- * Brief or Profile amendment. Returns the most recent of each kind.
+ * Brief, Profile amendment, or Brief cancellation. Returns the most
+ * recent of each kind. The UI uses these to re-render the matching
+ * proposal card after a page reload.
  */
 export function findProposalInToolCalls(toolCalls: unknown): ToolCallProposals {
-  const empty: ToolCallProposals = { briefProposal: null, profileAmendmentProposal: null }
+  const empty: ToolCallProposals = {
+    briefProposal: null,
+    profileAmendmentProposal: null,
+    briefCancellationProposal: null,
+  }
   if (!Array.isArray(toolCalls)) return empty
 
   let briefProposal: BriefProposalV1xA1Parsed | null = null
   let profileAmendmentProposal: ProfileAmendmentProposalParsed | null = null
+  let briefCancellationProposal: BriefCancellationProposalArtefact | null = null
 
   for (const raw of toolCalls) {
     if (!raw || typeof raw !== 'object') continue
@@ -133,8 +143,23 @@ export function findProposalInToolCalls(toolCalls: unknown): ToolCallProposals {
     } else if (entry.name === 'propose_profile_amendment') {
       const r = ProfileAmendmentProposalSchema.safeParse(entry.proposal_artefact)
       if (r.success) profileAmendmentProposal = r.data
+    } else if (entry.name === 'cancel_brief') {
+      // The artefact is server-validated at execCancelBrief time; the
+      // shape is the BriefCancellationProposalArtefact contract.
+      // No re-validation here — server is the source of truth.
+      const a = entry.proposal_artefact as BriefCancellationProposalArtefact
+      if (
+        a &&
+        typeof a === 'object' &&
+        typeof a.brief_id === 'string' &&
+        typeof a.reason === 'string' &&
+        a.cascade_preview &&
+        typeof a.cascade_preview === 'object'
+      ) {
+        briefCancellationProposal = a
+      }
     }
   }
 
-  return { briefProposal, profileAmendmentProposal }
+  return { briefProposal, profileAmendmentProposal, briefCancellationProposal }
 }

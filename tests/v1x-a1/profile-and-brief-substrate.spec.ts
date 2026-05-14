@@ -122,16 +122,17 @@ test.describe('V1.x-A.1 Profile + Brief substrate', () => {
     expect(amendments![0].amendment_type).toBe('add_constraint')
   })
 
-  test('CK-4 + CK-3: accept_brief creates a Brief; second concurrent Brief rejected', async () => {
+  test('CK-4 + CK-3 (V1.x-B.1.1 contract): accept_brief creates active; second queues', async () => {
+    // V1.x-B.1.1 superseded the V1.x-A.1 "second-Brief-rejected" behaviour:
+    // sequential multi-Brief now QUEUES the second Brief instead of erroring.
     // No active Brief at first.
     const { count: before } = await adminClient()
       .from('briefs')
       .select('id', { count: 'exact', head: true })
       .eq('document_id', documentId)
-      .in('status', ['planned', 'active'])
+      .in('status', ['active', 'queued'])
     expect(before ?? 0).toBe(0)
 
-    // Trivial n=1 Brief.
     const stages = [
       {
         order: 1,
@@ -147,36 +148,51 @@ test.describe('V1.x-A.1 Profile + Brief substrate', () => {
       p_stages: stages,
     })
     expect(firstErr).toBeNull()
-    const r1 = first as { brief: { id: string; status: string } }
+    const r1 = first as { brief: { id: string; status: string }; initial_status: string; queue_position: number }
     expect(r1.brief.status).toBe('active')
+    expect(r1.initial_status).toBe('active')
+    expect(r1.queue_position).toBe(0)
 
-    // Second concurrent Brief — should be rejected by the partial unique index.
-    const { error: secondErr } = await adminClient().rpc('accept_brief', {
+    // Second Brief — V1.x-B.1.1 queues it (sequence_position 1).
+    const { data: second, error: secondErr } = await adminClient().rpc('accept_brief', {
       p_document_id: documentId,
       p_goal_text: 'Test Brief 2',
       p_stages: stages,
     })
-    expect(secondErr).not.toBeNull()
-    expect(secondErr!.message).toMatch(/another_brief_active/)
+    expect(secondErr).toBeNull()
+    const r2 = second as { brief: { status: string }; initial_status: string; queue_position: number }
+    expect(r2.brief.status).toBe('queued')
+    expect(r2.initial_status).toBe('queued')
+    expect(r2.queue_position).toBe(1)
   })
 
-  test('CK-7: cancel_brief releases the slot', async () => {
-    // Find the active Brief from previous test.
+  test('CK-7 (V1.x-B.1.1 contract): cancel_brief returns cascade summary + auto-promotes queued', async () => {
+    // V1.x-B.1.1 cancel_brief returns CancelBriefResult cascade summary
+    // (was: Brief row in V1.x-A.1). Auto-promotes the next queued Brief
+    // instead of just clearing the slot.
     const { data: active } = await adminClient()
       .from('briefs')
       .select('id')
       .eq('document_id', documentId)
-      .in('status', ['planned', 'active'])
+      .eq('status', 'active')
       .single()
     expect(active).not.toBeNull()
 
-    const { error: cancelErr } = await adminClient().rpc('cancel_brief', { p_brief_id: active!.id })
+    const { data: cascade, error: cancelErr } = await adminClient().rpc('cancel_brief', {
+      p_brief_id: active!.id,
+      p_reason: 'V1.x-B.1.1 contract test',
+    })
     expect(cancelErr).toBeNull()
+    const r = cascade as { brief_id: string; cancelled_count: number; promoted_brief_id: string | null }
+    expect(r.brief_id).toBe(active!.id)
+    expect(typeof r.cancelled_count).toBe('number')
+    // Brief 2 (created in the previous test) should auto-promote.
+    expect(r.promoted_brief_id).not.toBeNull()
 
-    // Now a new Brief can be created.
+    // Active is now Brief 2; further accept_brief queues again.
     const { data: nextBrief, error: nextErr } = await adminClient().rpc('accept_brief', {
       p_document_id: documentId,
-      p_goal_text: 'Test Brief 2 (after cancel)',
+      p_goal_text: 'Test Brief 3 (after cancel)',
       p_stages: [
         {
           order: 1,
@@ -188,28 +204,36 @@ test.describe('V1.x-A.1 Profile + Brief substrate', () => {
       ],
     })
     expect(nextErr).toBeNull()
-    const r = nextBrief as { brief: { goal_text: string } }
-    expect(r.brief.goal_text).toBe('Test Brief 2 (after cancel)')
+    const n = nextBrief as { brief: { goal_text: string }; initial_status: string }
+    expect(n.brief.goal_text).toBe('Test Brief 3 (after cancel)')
+    expect(n.initial_status).toBe('queued')
   })
 
-  test('Director config v1.6 is production with 16 tools', async () => {
+  test('Director config v1.8 is production with 17 tools (V1.x-B.1.1 session 3a + FU-2)', async () => {
+    // V1.x-B.1.1 session 3a (Migration 102) deprecated v1.7 and made
+    // v1.8 production. v1.8 adds the trigger_config example block under
+    // "Brief structure" — surgical insertion only; tool_suite + model
+    // unchanged from v1.7 (still 17 tools including cancel_brief).
     const { data } = await adminClient()
       .from('director_configs')
       .select('version_number, status, tool_suite, system_prompt')
       .eq('status', 'production')
       .single()
-    expect(data!.version_number).toBe('1.6')
+    expect(data!.version_number).toBe('1.8')
     const tools = data!.tool_suite as string[]
-    expect(tools).toHaveLength(16)
+    expect(tools).toHaveLength(17)
     expect(tools).toContain('get_project_profile')
     expect(tools).toContain('get_brief_state')
     expect(tools).toContain('propose_brief')
     expect(tools).toContain('propose_profile_amendment')
+    expect(tools).toContain('cancel_brief')
     expect(tools).not.toContain('propose_brief_amendment')
-    // v1.6 — verifies the prompt mentions <plan> scratchpad pattern
-    // and the "tool call IS the proposal" framing.
     expect(data!.system_prompt).toContain('<plan>')
     expect(data!.system_prompt).toContain('tool call IS the proposal')
+    expect(data!.system_prompt).toContain('cancel_brief')
+    // v1.8 FU-2 amendment: trigger_config example block.
+    expect(data!.system_prompt).toContain('after_stage_order')
+    expect(data!.system_prompt).toContain('"scheduled_at": "<ISO 8601 timestamp>"')
   })
 
   test('platform_config has the rolling-window key', async () => {

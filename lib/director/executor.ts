@@ -58,11 +58,30 @@ import {
   type ProfileAmendmentProposalParsed,
   isWriteTool,
 } from '@/lib/director/schemas'
+
+/**
+ * V1.x-B.1.1 — shape of the brief_cancellation_proposal artefact event
+ * the executor yields. Mirrors BriefCancellationProposalArtefact from
+ * lib/director/types but typed inline to avoid a circular import here.
+ */
+export interface BriefCancellationProposalArtefactEvent {
+  brief_id: string
+  reason: string
+  brief_status_at_proposal: 'planned' | 'queued' | 'active'
+  cascade_preview: {
+    pending_stages: number
+    completed_stages: number
+    queued_brief_will_promote: boolean
+  }
+}
 import type {
   DirectorConfig,
   DirectorSession,
   ToolResult,
 } from '@/lib/director/types'
+// V1.x-B.1.1 session 3b — atom-size guardrail integration.
+import { preflightCheck } from '@/lib/constraints/preflight'
+import { recordViolation } from '@/lib/constraints/recordViolation'
 import type {
   AssembledContentBlock,
   AssembledMessage,
@@ -191,6 +210,10 @@ export type TurnEvent =
   | {
       type: 'profile_amendment_proposal'
       proposal: ProfileAmendmentProposalParsed
+    }
+  | {
+      type: 'brief_cancellation_proposal'
+      proposal: BriefCancellationProposalArtefactEvent
     }
   | {
       type: 'turn_complete'
@@ -524,12 +547,14 @@ export async function* runAgenticTurn(
           proposal?: unknown
           brief_proposal?: unknown
           profile_amendment_proposal?: unknown
+          brief_cancellation_proposal?: unknown
           data?: unknown
         }
         const hasProposalArtefact =
           r.proposal !== undefined ||
           r.brief_proposal !== undefined ||
-          r.profile_amendment_proposal !== undefined
+          r.profile_amendment_proposal !== undefined ||
+          r.brief_cancellation_proposal !== undefined
         if (r.data !== undefined || !hasProposalArtefact) {
           await writeAuditLogEntry({
             event_type: 'h08_violation_write_tool_returned_data',
@@ -543,6 +568,7 @@ export async function* runAgenticTurn(
               has_proposal: r.proposal !== undefined,
               has_brief_proposal: r.brief_proposal !== undefined,
               has_profile_amendment_proposal: r.profile_amendment_proposal !== undefined,
+              has_brief_cancellation_proposal: r.brief_cancellation_proposal !== undefined,
             },
           })
           result = {
@@ -563,9 +589,13 @@ export async function* runAgenticTurn(
       const r = result as {
         brief_proposal_full?: unknown
         profile_amendment_proposal?: unknown
+        brief_cancellation_proposal?: unknown
       }
       const artefact =
-        r.brief_proposal_full ?? r.profile_amendment_proposal ?? undefined
+        r.brief_proposal_full ??
+        r.profile_amendment_proposal ??
+        r.brief_cancellation_proposal ??
+        undefined
       accumulatedToolCalls.push({
         id: call.id,
         name: call.name,
@@ -583,19 +613,54 @@ export async function* runAgenticTurn(
         result_summary: summary,
         ...(artefact !== undefined ? { proposal_artefact: artefact } : {}),
       }
+      // V1.x-B.1.1 session 3b — atom-size guardrail integration.
+      // Compute the would-be tool_result content size; if it exceeds
+      // constraints.max_tool_result_bytes, replace the content with a
+      // structured Class D failure (so the model sees the failure not
+      // the oversized payload) and log to constraint_violations for
+      // capability-tuning telemetry. Per design record §8 + Director
+      // Architecture v2.0 §10.4.
+      const serialisedToolResult = JSON.stringify(
+        result.ok
+          ? (result as { data?: unknown }).data ??
+            (result as { proposal?: unknown }).proposal ??
+            (result as { brief_proposal_full?: unknown }).brief_proposal_full ??
+            (result as { brief_proposal?: unknown }).brief_proposal ??
+            (result as { profile_amendment_proposal?: unknown }).profile_amendment_proposal ??
+            (result as { brief_cancellation_proposal?: unknown }).brief_cancellation_proposal
+          : result,
+      )
+
+      let toolResultContent = serialisedToolResult
+      let toolResultIsError = !result.ok
+
+      const sizeBytes = new TextEncoder().encode(serialisedToolResult).length
+      const preflight = await preflightCheck('tool_result_size_exceeded', sizeBytes)
+      if (!preflight.ok) {
+        await recordViolation({
+          type: 'tool_result_size_exceeded',
+          attempted_value: sizeBytes,
+          configured_cap: preflight.violation.configured_cap,
+          context: {
+            organisation_id: session.organisation_id,
+            user_id: session.user_id,
+            document_id: session.document_id,
+            tool_name: call.name,
+          },
+        })
+        toolResultContent = JSON.stringify({
+          ok: false,
+          error: 'tool_result_size_exceeded',
+          reason: preflight.violation.message,
+        })
+        toolResultIsError = true
+      }
+
       toolResultBlocks.push({
         type: 'tool_result',
         tool_use_id: call.id,
-        content: JSON.stringify(
-          result.ok
-            ? (result as { data?: unknown }).data ??
-              (result as { proposal?: unknown }).proposal ??
-              (result as { brief_proposal_full?: unknown }).brief_proposal_full ??
-              (result as { brief_proposal?: unknown }).brief_proposal ??
-              (result as { profile_amendment_proposal?: unknown }).profile_amendment_proposal
-            : result,
-        ),
-        is_error: !result.ok,
+        content: toolResultContent,
+        is_error: toolResultIsError,
       })
     }
 
@@ -657,9 +722,10 @@ export async function* runAgenticTurn(
       yield { type: 'workflow_proposal', proposal: workflowProposal }
     }
 
-    // Find the most recent propose_brief / propose_profile_amendment
-    // tool call with a proposal_artefact attached; yield the
-    // corresponding event.
+    // Find the most recent propose_brief / propose_profile_amendment /
+    // cancel_brief tool call with a proposal_artefact attached; yield the
+    // corresponding event. At most one proposal per turn (precedence:
+    // brief_proposal > profile_amendment_proposal > brief_cancellation_proposal).
     const briefCall = [...accumulatedToolCalls]
       .reverse()
       .find((c) => c.name === 'propose_brief' && c.proposal_artefact !== undefined)
@@ -686,6 +752,22 @@ export async function* runAgenticTurn(
           console.warn('[director] propose_profile_amendment artefact failed end-of-turn schema check', {
             error: r.error.message,
           })
+        }
+      } else {
+        // V1.x-B.1.1 — cancel_brief proposal artefact.
+        const cancelCall = [...accumulatedToolCalls]
+          .reverse()
+          .find((c) => c.name === 'cancel_brief' && c.proposal_artefact !== undefined)
+        if (cancelCall) {
+          // The artefact is already validated server-side at execCancelBrief
+          // time (cross-org / cross-document / status checks); the shape is
+          // stable so we can cast directly. The downstream UI re-renders
+          // BriefCancellationProposalCard from the proposal_artefact stored
+          // on the tool_calls audit row.
+          yield {
+            type: 'brief_cancellation_proposal',
+            proposal: cancelCall.proposal_artefact as BriefCancellationProposalArtefactEvent,
+          }
         }
       }
     }
@@ -773,6 +855,10 @@ function summariseToolResult(toolName: string, result: ToolResult): string {
   }
   if ('profile_amendment_proposal' in result && result.profile_amendment_proposal) {
     return `${toolName}: profile amendment ${result.profile_amendment_proposal.amendment_type}`
+  }
+  if ('brief_cancellation_proposal' in result && result.brief_cancellation_proposal) {
+    const c = result.brief_cancellation_proposal
+    return `${toolName}: cancel proposal — brief ${c.brief_id} (${c.cascade_preview.pending_stages} pending, ${c.cascade_preview.completed_stages} completed${c.cascade_preview.queued_brief_will_promote ? ', queued promote' : ''})`
   }
   return `${toolName}: ok`
 }

@@ -37,12 +37,14 @@ export type Database = {
       agent_jobs: {
         Row: {
           batch_id: string | null
+          cause: string | null
           completed_at: string | null
           context_snapshot: Json | null
           cost_usd: number | null
           created_at: string
           document_id: string | null
           error_message: string | null
+          execution_intent: string
           id: string
           job_progress: Json | null
           last_heartbeat_at: string | null
@@ -53,6 +55,7 @@ export type Database = {
           organisation_id: string
           profile_id: string | null
           provider: string | null
+          reservation_id: string | null
           result_child_nodes: Json | null
           result_metadata: Json | null
           result_notes: string | null
@@ -60,6 +63,8 @@ export type Database = {
           result_report_id: string | null
           result_summary: string | null
           result_summary_text: string | null
+          route: string
+          scheduled_at: string | null
           started_at: string | null
           status: string
           target_node_version_at_capture: number | null
@@ -67,16 +72,19 @@ export type Database = {
           tokens_cache_write: number | null
           tokens_input: number | null
           tokens_output: number | null
+          traffic_class: number
           triggered_by: string
         }
         Insert: {
           batch_id?: string | null
+          cause?: string | null
           completed_at?: string | null
           context_snapshot?: Json | null
           cost_usd?: number | null
           created_at?: string
           document_id?: string | null
           error_message?: string | null
+          execution_intent?: string
           id?: string
           job_progress?: Json | null
           last_heartbeat_at?: string | null
@@ -87,6 +95,7 @@ export type Database = {
           organisation_id: string
           profile_id?: string | null
           provider?: string | null
+          reservation_id?: string | null
           result_child_nodes?: Json | null
           result_metadata?: Json | null
           result_notes?: string | null
@@ -94,6 +103,8 @@ export type Database = {
           result_report_id?: string | null
           result_summary?: string | null
           result_summary_text?: string | null
+          route?: string
+          scheduled_at?: string | null
           started_at?: string | null
           status?: string
           target_node_version_at_capture?: number | null
@@ -101,16 +112,19 @@ export type Database = {
           tokens_cache_write?: number | null
           tokens_input?: number | null
           tokens_output?: number | null
+          traffic_class?: number
           triggered_by: string
         }
         Update: {
           batch_id?: string | null
+          cause?: string | null
           completed_at?: string | null
           context_snapshot?: Json | null
           cost_usd?: number | null
           created_at?: string
           document_id?: string | null
           error_message?: string | null
+          execution_intent?: string
           id?: string
           job_progress?: Json | null
           last_heartbeat_at?: string | null
@@ -121,6 +135,7 @@ export type Database = {
           organisation_id?: string
           profile_id?: string | null
           provider?: string | null
+          reservation_id?: string | null
           result_child_nodes?: Json | null
           result_metadata?: Json | null
           result_notes?: string | null
@@ -128,6 +143,8 @@ export type Database = {
           result_report_id?: string | null
           result_summary?: string | null
           result_summary_text?: string | null
+          route?: string
+          scheduled_at?: string | null
           started_at?: string | null
           status?: string
           target_node_version_at_capture?: number | null
@@ -135,6 +152,7 @@ export type Database = {
           tokens_cache_write?: number | null
           tokens_input?: number | null
           tokens_output?: number | null
+          traffic_class?: number
           triggered_by?: string
         }
         Relationships: [
@@ -171,6 +189,13 @@ export type Database = {
             columns: ["profile_id"]
             isOneToOne: false
             referencedRelation: "agent_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_jobs_reservation_id_fk"
+            columns: ["reservation_id"]
+            isOneToOne: false
+            referencedRelation: "throttle_reservations"
             referencedColumns: ["id"]
           },
         ]
@@ -553,6 +578,7 @@ export type Database = {
         Row: {
           approved_at: string | null
           cancelled_at: string | null
+          cause: string
           completed_at: string | null
           created_at: string
           current_stage_id: string | null
@@ -560,12 +586,14 @@ export type Database = {
           goal_text: string
           id: string
           organisation_id: string
+          sequence_position: number
           started_at: string | null
           status: string
         }
         Insert: {
           approved_at?: string | null
           cancelled_at?: string | null
+          cause?: string
           completed_at?: string | null
           created_at?: string
           current_stage_id?: string | null
@@ -573,12 +601,14 @@ export type Database = {
           goal_text: string
           id?: string
           organisation_id: string
+          sequence_position?: number
           started_at?: string | null
           status?: string
         }
         Update: {
           approved_at?: string | null
           cancelled_at?: string | null
+          cause?: string
           completed_at?: string | null
           created_at?: string
           current_stage_id?: string | null
@@ -586,6 +616,7 @@ export type Database = {
           goal_text?: string
           id?: string
           organisation_id?: string
+          sequence_position?: number
           started_at?: string | null
           status?: string
         }
@@ -613,13 +644,57 @@ export type Database = {
           },
         ]
       }
+      constraint_violations: {
+        Row: {
+          attempted_value: number
+          configured_cap: number
+          context: Json
+          created_at: string
+          id: string
+          organisation_id: string | null
+          user_id: string | null
+          violation_type: string
+        }
+        Insert: {
+          attempted_value: number
+          configured_cap: number
+          context?: Json
+          created_at?: string
+          id?: string
+          organisation_id?: string | null
+          user_id?: string | null
+          violation_type: string
+        }
+        Update: {
+          attempted_value?: number
+          configured_cap?: number
+          context?: Json
+          created_at?: string
+          id?: string
+          organisation_id?: string | null
+          user_id?: string | null
+          violation_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "constraint_violations_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       conversation_messages: {
         Row: {
           author_user_id: string | null
+          cause: string | null
           content: string
           conversation_id: string
           cost_usd: number | null
           created_at: string
+          event_payload: Json | null
+          event_type: string | null
           id: string
           role: string
           sequence: number
@@ -633,10 +708,13 @@ export type Database = {
         }
         Insert: {
           author_user_id?: string | null
+          cause?: string | null
           content: string
           conversation_id: string
           cost_usd?: number | null
           created_at?: string
+          event_payload?: Json | null
+          event_type?: string | null
           id?: string
           role: string
           sequence: number
@@ -650,10 +728,13 @@ export type Database = {
         }
         Update: {
           author_user_id?: string | null
+          cause?: string | null
           content?: string
           conversation_id?: string
           cost_usd?: number | null
           created_at?: string
+          event_payload?: Json | null
+          event_type?: string | null
           id?: string
           role?: string
           sequence?: number
@@ -774,6 +855,68 @@ export type Database = {
           version_number?: string
         }
         Relationships: []
+      }
+      director_iterations: {
+        Row: {
+          accumulated_proposals: Json
+          completed_at: string | null
+          cost_credits: number | null
+          created_at: string
+          failure_class: string | null
+          failure_message: string | null
+          id: string
+          iteration_number: number
+          last_heartbeat_at: string | null
+          messages_snapshot: Json
+          started_at: string | null
+          status: string
+          tokens_in: number | null
+          tokens_out: number | null
+          turn_id: string
+        }
+        Insert: {
+          accumulated_proposals?: Json
+          completed_at?: string | null
+          cost_credits?: number | null
+          created_at?: string
+          failure_class?: string | null
+          failure_message?: string | null
+          id?: string
+          iteration_number: number
+          last_heartbeat_at?: string | null
+          messages_snapshot?: Json
+          started_at?: string | null
+          status?: string
+          tokens_in?: number | null
+          tokens_out?: number | null
+          turn_id: string
+        }
+        Update: {
+          accumulated_proposals?: Json
+          completed_at?: string | null
+          cost_credits?: number | null
+          created_at?: string
+          failure_class?: string | null
+          failure_message?: string | null
+          id?: string
+          iteration_number?: number
+          last_heartbeat_at?: string | null
+          messages_snapshot?: Json
+          started_at?: string | null
+          status?: string
+          tokens_in?: number | null
+          tokens_out?: number | null
+          turn_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "director_iterations_turn_id_fkey"
+            columns: ["turn_id"]
+            isOneToOne: false
+            referencedRelation: "agent_jobs"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       documents: {
         Row: {
@@ -1877,6 +2020,56 @@ export type Database = {
           },
         ]
       }
+      throttle_reservations: {
+        Row: {
+          consumed_at: string | null
+          created_at: string
+          expires_at: string
+          id: string
+          organisation_id: string | null
+          released_at: string | null
+          route: string
+          slots_reserved: number
+          tokens_reserved: number
+          traffic_class: number | null
+          user_id: string | null
+        }
+        Insert: {
+          consumed_at?: string | null
+          created_at?: string
+          expires_at: string
+          id?: string
+          organisation_id?: string | null
+          released_at?: string | null
+          route: string
+          slots_reserved?: number
+          tokens_reserved?: number
+          traffic_class?: number | null
+          user_id?: string | null
+        }
+        Update: {
+          consumed_at?: string | null
+          created_at?: string
+          expires_at?: string
+          id?: string
+          organisation_id?: string | null
+          released_at?: string | null
+          route?: string
+          slots_reserved?: number
+          tokens_reserved?: number
+          traffic_class?: number | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "throttle_reservations_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       usage_records: {
         Row: {
           id: string
@@ -2171,6 +2364,16 @@ export type Database = {
       }
     }
     Functions: {
+      _emit_system_event: {
+        Args: {
+          p_cause: string
+          p_content: string
+          p_document_id: string
+          p_event_payload: Json
+          p_event_type: string
+        }
+        Returns: string
+      }
       accept_agent_job: {
         Args: {
           p_actor_id: string
@@ -2201,8 +2404,15 @@ export type Database = {
         }
         Returns: Json
       }
-      cancel_brief: { Args: { p_brief_id: string }; Returns: Json }
+      cancel_brief: {
+        Args: { p_brief_id: string; p_reason?: string }
+        Returns: Json
+      }
       complete_brief_stage: { Args: { p_stage_id: string }; Returns: Json }
+      complete_brief_stage_workflow: {
+        Args: { p_workflow_id: string }
+        Returns: Json
+      }
       create_document_with_layer_stack: {
         Args: {
           p_authors: string[]
@@ -2214,10 +2424,24 @@ export type Database = {
         }
         Returns: Json
       }
+      evaluate_ready_stage_triggers: { Args: never; Returns: number }
       move_node: {
         Args: { p_node_id: string; p_parent_id: string; p_position: number }
         Returns: Json
       }
+      promote_next_queued_brief: {
+        Args: { p_document_id: string }
+        Returns: string
+      }
+      propagate_brief_completion: {
+        Args: { p_brief_id: string }
+        Returns: Json
+      }
+      scheduler_sweep_interrupted_iterations: {
+        Args: { p_stale_threshold_seconds?: number }
+        Returns: number
+      }
+      scheduler_sweep_throttle_reservations: { Args: never; Returns: number }
     }
     Enums: {
       [_ in never]: never

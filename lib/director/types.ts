@@ -87,6 +87,8 @@ export interface WriteToolResult {
   /** Full validated Brief proposal — serialised onto tool_result.content. */
   brief_proposal_full?: Record<string, unknown>
   profile_amendment_proposal?: ProfileAmendmentProposalArtefact
+  /** V1.x-B.1.1 — destructive Brief cancellation proposal (H-08: propose-only). */
+  brief_cancellation_proposal?: BriefCancellationProposalArtefact
 }
 
 /** Re-exports from lib/brief — kept here to avoid a circular import. */
@@ -107,6 +109,28 @@ export type ProfileAmendmentProposalArtefact = {
   target_path?: string
   after: unknown
   reason: string
+}
+
+/**
+ * V1.x-B.1.1 — Brief cancellation proposal artefact.
+ * The Director recommends cancelling a specific Brief; the user approves
+ * via BriefCancellationProposalCard before cancel_brief RPC fires.
+ *
+ * `brief_status_at_proposal` and `cascade_preview` are computed
+ * server-side at proposal time so the user sees an accurate cascade
+ * summary on the approval card. The actual cancel_brief RPC computes
+ * its own definitive cascade summary at execution time (which may
+ * differ slightly if more steps complete between proposal and approval).
+ */
+export type BriefCancellationProposalArtefact = {
+  brief_id: string
+  reason: string
+  brief_status_at_proposal: 'planned' | 'queued' | 'active'
+  cascade_preview: {
+    pending_stages: number
+    completed_stages: number
+    queued_brief_will_promote: boolean
+  }
 }
 
 export interface ToolErrorResult {

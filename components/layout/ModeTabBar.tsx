@@ -13,7 +13,10 @@
 // --color-bg-surface; the Director-running pulse dot uses
 // --color-agent-running, NOT --color-accent.
 
+import { useEffect, useState } from 'react'
 import { useMode, type AppMode } from './ModeContext'
+import { useSidebarProject } from './AppShell'
+import { createClient } from '@/lib/supabase/client'
 
 const TABS: ReadonlyArray<{ id: AppMode | 'focus'; label: string; selectable: boolean }> = [
   { id: 'edit',     label: 'Edit',     selectable: true  },
@@ -23,6 +26,8 @@ const TABS: ReadonlyArray<{ id: AppMode | 'focus'; label: string; selectable: bo
 
 export function ModeTabBar() {
   const { mode, setMode, enabled } = useMode()
+  const { state: { documentId } } = useSidebarProject()
+  const hasPending = useDirectorPendingForDocument(documentId)
 
   // SU-J12-6 (Mars-drive 2026-05-09): on non-document routes
   // (dashboard, project list, settings) the tab bar previously
@@ -76,9 +81,70 @@ export function ModeTabBar() {
             }}
           >
             {tab.label}
+            {tab.id === 'director' && hasPending && tab.id !== mode ? (
+              <span
+                data-testid="director-tab-badge"
+                aria-label="Director has pending attention"
+                style={{
+                  display: 'inline-block',
+                  marginLeft: 6,
+                  width: 6,
+                  height: 6,
+                  borderRadius: 999,
+                  background: 'rgba(208, 153, 50, 0.95)',  // attention-amber, not verdigris
+                  verticalAlign: 'middle',
+                }}
+              />
+            ) : null}
           </button>
         )
       })}
     </div>
   )
+}
+
+/**
+ * V1.x-B.1.1 — small hook polling /api/status/document/[id]/pending-director.
+ * Refreshes on conversation_messages + briefs realtime events for the
+ * current document. Kept inline to ModeTabBar to avoid a one-call lib
+ * file (single-call surface) — promote to lib/hooks if a second consumer
+ * appears.
+ */
+function useDirectorPendingForDocument(documentId: string | null): boolean {
+  const [pending, setPending] = useState(false)
+
+  useEffect(() => {
+    if (!documentId) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setPending(false)
+      return
+    }
+    let cancelled = false
+    const refresh = async () => {
+      try {
+        const res = await fetch(`/api/status/document/${documentId}/pending-director`, { cache: 'no-store' })
+        if (!cancelled && res.ok) {
+          const body = (await res.json()) as { has_pending?: boolean }
+          setPending(!!body.has_pending)
+        }
+      } catch {
+        // network error — keep last known
+      }
+    }
+    void refresh()
+
+    const supabase = createClient()
+    const channel = supabase
+      .channel(`director-tab:${documentId}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'conversation_messages' }, () => void refresh())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'briefs', filter: `document_id=eq.${documentId}` }, () => void refresh())
+      .subscribe()
+
+    return () => {
+      cancelled = true
+      void supabase.removeChannel(channel)
+    }
+  }, [documentId])
+
+  return pending
 }

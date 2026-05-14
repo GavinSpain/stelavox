@@ -201,6 +201,15 @@ export const ProfileAmendmentProposalSchema = z.object({
 })
 export type ProfileAmendmentProposalParsed = z.infer<typeof ProfileAmendmentProposalSchema>
 
+// V1.x-B.1.1: BriefCancellationProposal — destructive write tool.
+// Per H-08 the Director never executes; it proposes. The user approves
+// via BriefCancellationProposalCard before the cancel_brief RPC runs.
+export const BriefCancellationProposalSchema = z.object({
+  brief_id: uuidSchema,
+  reason: z.string().min(1).max(2_000),
+})
+export type BriefCancellationProposalParsed = z.infer<typeof BriefCancellationProposalSchema>
+
 // V1.x-A.1: BriefProposal shape is now operation-level. Stage 1's workflow
 // is required; stages 2..N may have workflow:null (just-in-time planning).
 const _ProposalWorkflowStepSchema = z.object({
@@ -360,6 +369,8 @@ export const ToolInputSchemas = {
   propose_brief: BriefProposalV1xA1Schema.strict(),
   // V1.x-A.1: Profile amendment (was propose_brief_amendment in V1.x-A).
   propose_profile_amendment: ProfileAmendmentProposalSchema.strict(),
+  // V1.x-B.1.1: cancel_brief — destructive proposal-only.
+  cancel_brief: BriefCancellationProposalSchema.strict(),
 } as const
 
 export type ToolName = keyof typeof ToolInputSchemas
@@ -385,6 +396,7 @@ export const WRITE_TOOL_NAMES: readonly ToolName[] = [
   'create_node_reorder_step',
   'propose_brief',
   'propose_profile_amendment',
+  'cancel_brief',
 ] as const
 
 export function isReadTool(name: string): name is ToolName {
