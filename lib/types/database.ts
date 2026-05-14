@@ -36,16 +36,28 @@ export type Database = {
     Tables: {
       agent_jobs: {
         Row: {
+          actual_input_tokens: number | null
+          actual_output_tokens: number | null
           batch_id: string | null
+          bucket_wait_ms: number | null
           cause: string | null
           completed_at: string | null
           context_snapshot: Json | null
+          cost_credits: number | null
           cost_usd: number | null
+          crashed_at: string | null
           created_at: string
+          dependency_wait_ms: number | null
+          director_turn_id: string | null
+          dispatched_at: string | null
+          dispatcher_skips_count: number
           document_id: string | null
           error_message: string | null
           execution_intent: string
+          failure_class: string | null
           id: string
+          iteration_number: number | null
+          iteration_state: Json | null
           job_progress: Json | null
           last_heartbeat_at: string | null
           model_id: string | null
@@ -53,8 +65,11 @@ export type Database = {
           operation_class: string
           operation_type: string
           organisation_id: string
+          parent_iteration_id: string | null
           profile_id: string | null
           provider: string | null
+          queue_status: string
+          queued_at: string
           reservation_id: string | null
           result_child_nodes: Json | null
           result_metadata: Json | null
@@ -74,18 +89,31 @@ export type Database = {
           tokens_output: number | null
           traffic_class: number
           triggered_by: string
+          wfq_vft_at_dispatch: number | null
         }
         Insert: {
+          actual_input_tokens?: number | null
+          actual_output_tokens?: number | null
           batch_id?: string | null
+          bucket_wait_ms?: number | null
           cause?: string | null
           completed_at?: string | null
           context_snapshot?: Json | null
+          cost_credits?: number | null
           cost_usd?: number | null
+          crashed_at?: string | null
           created_at?: string
+          dependency_wait_ms?: number | null
+          director_turn_id?: string | null
+          dispatched_at?: string | null
+          dispatcher_skips_count?: number
           document_id?: string | null
           error_message?: string | null
           execution_intent?: string
+          failure_class?: string | null
           id?: string
+          iteration_number?: number | null
+          iteration_state?: Json | null
           job_progress?: Json | null
           last_heartbeat_at?: string | null
           model_id?: string | null
@@ -93,8 +121,11 @@ export type Database = {
           operation_class?: string
           operation_type: string
           organisation_id: string
+          parent_iteration_id?: string | null
           profile_id?: string | null
           provider?: string | null
+          queue_status?: string
+          queued_at?: string
           reservation_id?: string | null
           result_child_nodes?: Json | null
           result_metadata?: Json | null
@@ -114,18 +145,31 @@ export type Database = {
           tokens_output?: number | null
           traffic_class?: number
           triggered_by: string
+          wfq_vft_at_dispatch?: number | null
         }
         Update: {
+          actual_input_tokens?: number | null
+          actual_output_tokens?: number | null
           batch_id?: string | null
+          bucket_wait_ms?: number | null
           cause?: string | null
           completed_at?: string | null
           context_snapshot?: Json | null
+          cost_credits?: number | null
           cost_usd?: number | null
+          crashed_at?: string | null
           created_at?: string
+          dependency_wait_ms?: number | null
+          director_turn_id?: string | null
+          dispatched_at?: string | null
+          dispatcher_skips_count?: number
           document_id?: string | null
           error_message?: string | null
           execution_intent?: string
+          failure_class?: string | null
           id?: string
+          iteration_number?: number | null
+          iteration_state?: Json | null
           job_progress?: Json | null
           last_heartbeat_at?: string | null
           model_id?: string | null
@@ -133,8 +177,11 @@ export type Database = {
           operation_class?: string
           operation_type?: string
           organisation_id?: string
+          parent_iteration_id?: string | null
           profile_id?: string | null
           provider?: string | null
+          queue_status?: string
+          queued_at?: string
           reservation_id?: string | null
           result_child_nodes?: Json | null
           result_metadata?: Json | null
@@ -154,8 +201,16 @@ export type Database = {
           tokens_output?: number | null
           traffic_class?: number
           triggered_by?: string
+          wfq_vft_at_dispatch?: number | null
         }
         Relationships: [
+          {
+            foreignKeyName: "agent_jobs_director_turn_id_fkey"
+            columns: ["director_turn_id"]
+            isOneToOne: false
+            referencedRelation: "director_turns"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "agent_jobs_document_id_fkey"
             columns: ["document_id"]
@@ -182,6 +237,13 @@ export type Database = {
             columns: ["organisation_id"]
             isOneToOne: false
             referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_jobs_parent_iteration_id_fkey"
+            columns: ["parent_iteration_id"]
+            isOneToOne: false
+            referencedRelation: "agent_jobs"
             referencedColumns: ["id"]
           },
           {
@@ -856,64 +918,56 @@ export type Database = {
         }
         Relationships: []
       }
-      director_iterations: {
+      director_turns: {
         Row: {
-          accumulated_proposals: Json
           completed_at: string | null
-          cost_credits: number | null
-          created_at: string
-          failure_class: string | null
-          failure_message: string | null
+          conversation_id: string
           id: string
-          iteration_number: number
-          last_heartbeat_at: string | null
-          messages_snapshot: Json
-          started_at: string | null
+          iteration_count: number
+          started_at: string
           status: string
-          tokens_in: number | null
-          tokens_out: number | null
-          turn_id: string
+          total_cost_credits: number
+          total_input_tokens: number
+          total_output_tokens: number
+          user_message_id: string | null
         }
         Insert: {
-          accumulated_proposals?: Json
           completed_at?: string | null
-          cost_credits?: number | null
-          created_at?: string
-          failure_class?: string | null
-          failure_message?: string | null
+          conversation_id: string
           id?: string
-          iteration_number: number
-          last_heartbeat_at?: string | null
-          messages_snapshot?: Json
-          started_at?: string | null
+          iteration_count?: number
+          started_at?: string
           status?: string
-          tokens_in?: number | null
-          tokens_out?: number | null
-          turn_id: string
+          total_cost_credits?: number
+          total_input_tokens?: number
+          total_output_tokens?: number
+          user_message_id?: string | null
         }
         Update: {
-          accumulated_proposals?: Json
           completed_at?: string | null
-          cost_credits?: number | null
-          created_at?: string
-          failure_class?: string | null
-          failure_message?: string | null
+          conversation_id?: string
           id?: string
-          iteration_number?: number
-          last_heartbeat_at?: string | null
-          messages_snapshot?: Json
-          started_at?: string | null
+          iteration_count?: number
+          started_at?: string
           status?: string
-          tokens_in?: number | null
-          tokens_out?: number | null
-          turn_id?: string
+          total_cost_credits?: number
+          total_input_tokens?: number
+          total_output_tokens?: number
+          user_message_id?: string | null
         }
         Relationships: [
           {
-            foreignKeyName: "director_iterations_turn_id_fkey"
-            columns: ["turn_id"]
+            foreignKeyName: "director_turns_conversation_id_fkey"
+            columns: ["conversation_id"]
             isOneToOne: false
-            referencedRelation: "agent_jobs"
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "director_turns_user_message_id_fkey"
+            columns: ["user_message_id"]
+            isOneToOne: false
+            referencedRelation: "conversation_messages"
             referencedColumns: ["id"]
           },
         ]
@@ -1985,6 +2039,50 @@ export type Database = {
           },
         ]
       }
+      stop_requests: {
+        Row: {
+          cascade_count: number | null
+          completed_at: string | null
+          id: string
+          organisation_id: string
+          reason: string | null
+          requested_at: string
+          requested_by: string
+          target_id: string
+          target_kind: string
+        }
+        Insert: {
+          cascade_count?: number | null
+          completed_at?: string | null
+          id?: string
+          organisation_id: string
+          reason?: string | null
+          requested_at?: string
+          requested_by: string
+          target_id: string
+          target_kind: string
+        }
+        Update: {
+          cascade_count?: number | null
+          completed_at?: string | null
+          id?: string
+          organisation_id?: string
+          reason?: string | null
+          requested_at?: string
+          requested_by?: string
+          target_id?: string
+          target_kind?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stop_requests_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       subscription_events: {
         Row: {
           created_at: string
@@ -2434,6 +2532,15 @@ export type Database = {
       cancel_brief: {
         Args: { p_brief_id: string; p_reason?: string }
         Returns: Json
+      }
+      classify_failure: {
+        Args: {
+          p_error_code: string
+          p_http_status: number
+          p_operation_type: string
+          p_retry_count: number
+        }
+        Returns: string
       }
       complete_brief_stage: { Args: { p_stage_id: string }; Returns: Json }
       complete_brief_stage_workflow: {

@@ -30,3 +30,20 @@ export type { EvaluateStageTriggersResult } from './stageTriggers'
 export { evaluateReadyStageTriggers } from './stageTriggers'
 
 export { sweepInterruptedIterations } from './recoverySweep'
+
+// V1.x-B.2.1 — dispatcher + listener + stop-request substrate.
+export type { DispatcherTickResult } from './dispatcher'
+export { runDispatcherTick } from './dispatcher'
+
+export type { ListenerHandle, ListenerOptions, CompletionPayload } from './listener'
+export { startSchedulerListener } from './listener'
+
+export type { ClassifyFailureInput } from './failure-classifier'
+export { classifyFailure, isAutoRetryable, requiresUserSurface } from './failure-classifier'
+
+export type { InsertStopRequestInput, InsertStopRequestResult } from './stopRequests'
+export {
+  insertStopRequest,
+  computeStopCascade,
+  isDirectorTurnStopRequested,
+} from './stopRequests'

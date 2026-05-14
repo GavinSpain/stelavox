@@ -241,36 +241,29 @@ test.describe('V1.x-B.1.1 session 3a — stage triggers + runtime substrate', ()
     await admin.from('throttle_reservations').delete().eq('id', expiredId)
   })
 
-  test('scheduler_sweep_interrupted_iterations marks stale-heartbeat rows', async () => {
+  test('scheduler_sweep_interrupted_iterations marks stale agent_jobs (V1.x-B.2.1 redirect)', async () => {
+    // V1.x-B.2.1 (M-107) drops director_iterations and redirects this
+    // sweep procedure to UPDATE agent_jobs WHERE queue_status IN
+    // ('dispatched','running') AND last_heartbeat_at is stale. Same
+    // procedure signature so M-102's pg_cron schedule keeps calling it
+    // unchanged. Verifies the v2 contract.
     const admin = adminClient()
 
-    // Create a fake agent_jobs turn parent to satisfy director_iterations.turn_id FK.
-    const { data: parentJob } = await admin
+    const staleHb = new Date(Date.now() - 90_000).toISOString()
+    const { data: job } = await admin
       .from('agent_jobs')
       .insert({
         organisation_id: orgA,
-        operation_type: 'director_turn',
+        operation_type: 'director_iteration',
         status: 'running',
+        queue_status: 'running',
         triggered_by: 'integration-test',
-      })
-      .select('id')
-      .single()
-    const turnId = parentJob!.id
-
-    // Insert a director_iterations row with a stale heartbeat (90s ago — past the 60s threshold).
-    const staleHb = new Date(Date.now() - 90_000).toISOString()
-    const { data: iter } = await admin
-      .from('director_iterations')
-      .insert({
-        turn_id: turnId,
-        iteration_number: 1,
-        status: 'running',
         last_heartbeat_at: staleHb,
         started_at: staleHb,
       })
       .select('id')
       .single()
-    const iterId = iter!.id
+    const jobId = job!.id
 
     const { data: sweptCount } = await admin.rpc('scheduler_sweep_interrupted_iterations', {
       p_stale_threshold_seconds: 60,
@@ -278,17 +271,18 @@ test.describe('V1.x-B.1.1 session 3a — stage triggers + runtime substrate', ()
     expect(typeof sweptCount === 'number' ? sweptCount : Number(sweptCount)).toBeGreaterThanOrEqual(1)
 
     const { data: after } = await admin
-      .from('director_iterations')
-      .select('status, failure_class, failure_message')
-      .eq('id', iterId)
+      .from('agent_jobs')
+      .select('queue_status, status, failure_class, error_message, crashed_at')
+      .eq('id', jobId)
       .single()
-    expect(after!.status).toBe('interrupted')
+    expect(after!.queue_status).toBe('crashed')
+    expect(after!.status).toBe('failed')
     expect(after!.failure_class).toBe('B')
-    expect(after!.failure_message).toContain('heartbeat stale')
+    expect(after!.error_message).toContain('heartbeat stale')
+    expect(after!.crashed_at).not.toBeNull()
 
     // Cleanup.
-    await admin.from('director_iterations').delete().eq('id', iterId)
-    await admin.from('agent_jobs').delete().eq('id', turnId)
+    await admin.from('agent_jobs').delete().eq('id', jobId)
   })
 
   test('Director config v1.8 production with trigger_config example block (FU-2)', async () => {

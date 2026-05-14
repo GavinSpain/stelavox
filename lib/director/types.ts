@@ -155,6 +155,110 @@ export type ValidationDenialReason =
   | 'unknown_tool'
   | 'invalid_parameters'
 
+// ---------------------------------------------------------------------------
+// V1.x-B.2.1 — per-iteration execution model
+// ---------------------------------------------------------------------------
+
+/**
+ * Five-class failure taxonomy (Director Architecture v2.0 §10).
+ *   A — TRANSIENT (auto-retry; HTTP 429/5xx, network reset)
+ *   B — INTERRUPTED (resumable; crash, Stop, manual cancel)
+ *   C — CAPACITY (throttled; Anthropic concurrent limit, bucket exhaustion)
+ *   D — VALIDATION (fail hard, user-surfaced; canary leak, malformed JSON)
+ *   E — HARD SYSTEM (fail hard, operator action; missing config/migration)
+ */
+export type FailureClass = 'A' | 'B' | 'C' | 'D' | 'E'
+
+/**
+ * Queue lifecycle (M-106). Distinct from agent_jobs.status (business outcome).
+ *   queued → dispatched → running → completed | failed | crashed | cancelled
+ *   skipped is a transient state used by the dispatcher when capacity is
+ *   absent — collapsed into 'queued' with dispatcher_skips_count++.
+ */
+export type QueueStatus =
+  | 'queued'
+  | 'dispatched'
+  | 'running'
+  | 'completed'
+  | 'failed'
+  | 'crashed'
+  | 'cancelled'
+  | 'skipped'
+
+/**
+ * Director turn — the unit of user-perceived interaction (one user
+ * message in, response out). Owns the iteration sequence via
+ * agent_jobs.director_turn_id.
+ */
+export interface DirectorTurn {
+  id: string
+  conversation_id: string
+  user_message_id: string | null
+  started_at: string
+  completed_at: string | null
+  status: 'in_progress' | 'completed' | 'cancelled' | 'failed'
+  iteration_count: number
+  total_input_tokens: number
+  total_output_tokens: number
+  total_cost_credits: number
+}
+
+/**
+ * Iteration state JSONB carried on agent_jobs for director_iteration
+ * rows. Versioned via __schema_version (H-21 mitigation).
+ *
+ * The runner reads __schema_version, applies any in-memory migration if
+ * older than current, never persists in mixed shape.
+ */
+export interface IterationStateV1 {
+  __schema_version: 1
+  /** Running messages-array protocol body (text + tool_use content blocks). */
+  assistant_messages: Array<{
+    role: 'assistant'
+    content: Array<unknown>
+  }>
+  /** tool_result blocks awaiting next iteration's user message. */
+  pending_tool_results: Array<{
+    tool_use_id: string
+    content: string
+    is_error?: boolean
+  }>
+  /** Original user message that started the turn. */
+  user_message: { role: 'user'; content: string }
+  /** Director system prompt version frozen at turn start. */
+  system_prompt_version: string
+  /** Model id frozen at turn start. */
+  model: string
+}
+
+export type IterationState = IterationStateV1
+
+/**
+ * Stop request — durable record. Inserted by the Stop API routes,
+ * consumed by the dispatcher and per-iteration runner.
+ */
+export interface StopRequest {
+  id: string
+  requested_by: string
+  requested_at: string
+  target_kind: 'director_turn' | 'workflow' | 'brief'
+  target_id: string
+  reason: string | null
+  cascade_count: number | null
+  completed_at: string | null
+  organisation_id: string
+}
+
+/**
+ * Cascade summary returned by Stop endpoints — surfaces the count of
+ * tickets that will be cancelled to the user before they confirm.
+ */
+export interface StopCascadeSummary {
+  in_flight_count: number
+  queued_count: number
+  total: number
+}
+
 /** Director config row resolved at session start. */
 export interface DirectorConfig {
   id: string
