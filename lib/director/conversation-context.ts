@@ -227,7 +227,7 @@ export async function buildConversationContext(
 
   let q = supabase
     .from('conversation_messages')
-    .select('role, content, sequence, turn_state')
+    .select('role, content, sequence, turn_state, event_type, event_payload, cause')
     .eq('conversation_id', conversationId)
     .in('turn_state', ['final'])
     .order('sequence')
@@ -251,6 +251,17 @@ export async function buildConversationContext(
   for (const m of messages ?? []) {
     if (m.role === 'user' || m.role === 'assistant') {
       result.push({ role: m.role, content: m.content })
+    } else if (m.role === 'system' && m.event_type) {
+      // V1.x-B.1.1 — surface system events to the Director (Anthropic
+      // messages-array doesn't admit a 'system' role inside the array,
+      // so we synthesise as a user message with a [SYSTEM EVENT:] prefix
+      // that the v1.7+ system prompt's "System-initiated turns" section
+      // teaches the model to recognise as a planning prompt rather than
+      // a user instruction).
+      result.push({
+        role: 'user',
+        content: renderSystemEventForContext(m as SystemEventRow),
+      })
     }
   }
 
@@ -276,6 +287,34 @@ export async function buildConversationContext(
   }
 
   return result
+}
+
+/**
+ * V1.x-B.1.1 — renderer for system event rows in the Director's
+ * conversation context. Emitted as `user`-role messages with a
+ * `[SYSTEM EVENT: …]` prefix that the v1.7+ system prompt teaches
+ * the model to recognise.
+ *
+ * Format chosen to make event_type machine-recognisable to the model
+ * (per the v1.7 prompt's enumeration of system events) and to surface
+ * the load-bearing payload fields inline so the Director doesn't need
+ * an extra tool call to read them.
+ */
+interface SystemEventRow {
+  event_type: string | null
+  event_payload: Record<string, unknown> | null
+  cause: string | null
+  content: string
+}
+
+function renderSystemEventForContext(row: SystemEventRow): string {
+  const eventType = row.event_type ?? 'unknown'
+  const payload = row.event_payload ?? {}
+  const payloadJson = Object.keys(payload).length > 0
+    ? ` payload=${JSON.stringify(payload)}`
+    : ''
+  const causeStr = row.cause ? ` cause=${row.cause}` : ''
+  return `[SYSTEM EVENT: ${eventType}${causeStr}${payloadJson}] ${row.content}`
 }
 
 async function readWindowTurns(supabase: SupabaseClient): Promise<number> {

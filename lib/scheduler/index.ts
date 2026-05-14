@@ -21,3 +21,12 @@ export type {
 } from './throttleInterface'
 
 export { mayDispatch } from './throttleInterface'
+
+// V1.x-B.1.1 session 3a — runtime substrate.
+export type { ReservationInput, ReservationHandle } from './reservation'
+export { reserve, consume, release, sweepExpired } from './reservation'
+
+export type { EvaluateStageTriggersResult } from './stageTriggers'
+export { evaluateReadyStageTriggers } from './stageTriggers'
+
+export { sweepInterruptedIterations } from './recoverySweep'

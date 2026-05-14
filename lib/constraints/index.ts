@@ -8,3 +8,5 @@
 
 export type { ViolationType, PreflightResult, ViolationContext } from './types'
 export { getCap, preflightCheck } from './preflight'
+export type { RecordViolationInput } from './recordViolation'
+export { recordViolation } from './recordViolation'
