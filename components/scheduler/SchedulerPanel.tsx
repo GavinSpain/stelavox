@@ -87,6 +87,7 @@ export function SchedulerPanel({ projectId, documentId, documentName }: Schedule
 
   // First-paint hydrate.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void refresh()
   }, [refresh])
 

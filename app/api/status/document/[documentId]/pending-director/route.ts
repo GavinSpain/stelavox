@@ -63,9 +63,9 @@ export async function GET(
     .limit(50)
 
   const types = new Set<string>()
-  let activeBriefIds: string[] = []
-  let proposedBriefGoals: string[] = []
-  let proposedAmendmentTimes: string[] = []
+  const activeBriefIds: string[] = []
+  const proposedBriefGoals: string[] = []
+  const proposedAmendmentTimes: string[] = []
 
   for (const m of messages ?? []) {
     const toolCalls = Array.isArray(m.tool_calls) ? m.tool_calls : []

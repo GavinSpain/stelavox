@@ -115,6 +115,7 @@ function useDirectorPendingForDocument(documentId: string | null): boolean {
 
   useEffect(() => {
     if (!documentId) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setPending(false)
       return
     }
