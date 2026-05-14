@@ -2117,6 +2117,33 @@ export type Database = {
           },
         ]
       }
+      user_anthropic_keys: {
+        Row: {
+          created_at: string
+          id: string
+          last_four: string
+          last_validated_at: string
+          user_id: string
+          vault_secret_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          last_four: string
+          last_validated_at: string
+          user_id: string
+          vault_secret_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          last_four?: string
+          last_validated_at?: string
+          user_id?: string
+          vault_secret_id?: string
+        }
+        Relationships: []
+      }
       workflow_steps: {
         Row: {
           agent_job_id: string | null
@@ -2424,7 +2451,13 @@ export type Database = {
         }
         Returns: Json
       }
+      delete_user_anthropic_key: { Args: never; Returns: Json }
       evaluate_ready_stage_triggers: { Args: never; Returns: number }
+      get_user_anthropic_key_for_byok_call: {
+        Args: { p_user_id: string }
+        Returns: string
+      }
+      get_user_anthropic_key_status: { Args: never; Returns: Json }
       move_node: {
         Args: { p_node_id: string; p_parent_id: string; p_position: number }
         Returns: Json
@@ -2435,6 +2468,10 @@ export type Database = {
       }
       propagate_brief_completion: {
         Args: { p_brief_id: string }
+        Returns: Json
+      }
+      save_user_anthropic_key: {
+        Args: { p_key: string; p_validation_completed_at: string }
         Returns: Json
       }
       scheduler_sweep_interrupted_iterations: {

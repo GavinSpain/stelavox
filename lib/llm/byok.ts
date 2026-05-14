@@ -38,9 +38,50 @@ const BYOK_PLAN_NAMES = new Set(['byok_solo', 'byok_team', 'byok_enterprise'])
  * BYOK and the other not) is treated as BYOK. The audit's concern was
  * that the two checks could DISAGREE; this helper makes that impossible
  * for callers because they all flow through the single function.
+ *
+ * V1.x-B.1.2: the per-org BYOK columns (`organisations.byok_*`) remain
+ * the V2 path. The V1.x-B.1.2 BYOK substrate uses per-user keys via
+ * `userHasByokKey()` below; per-org columns are left in place but
+ * unused (V2 deprecation candidate). Both checks coexist for now.
  */
 export function isByok(org: ByokSignals): boolean {
   if (org.byok_enabled === true) return true
   if (typeof org.plan === 'string' && BYOK_PLAN_NAMES.has(org.plan)) return true
   return false
+}
+
+/**
+ * V1.x-B.1.2 — does this user have a BYOK key on file?
+ *
+ * Wraps `get_user_anthropic_key_status` RPC. Read-only — never returns
+ * the key value. Used by `lib/llm/factory.ts` to decide whether to
+ * route via the BYOK Edge Function or via the platform AnthropicProvider.
+ *
+ * Caller passes a Supabase service-role client (so we can read any
+ * user's status from server-side dispatch paths). The RPC itself is
+ * authenticated-only; for service-role callers we use a small bypass
+ * pattern: check user_anthropic_keys directly via a service-role SELECT.
+ *
+ * No caching — keep the read fresh so a key add/delete on the same
+ * request lifetime is reflected immediately.
+ */
+
+import 'server-only'
+import type { SupabaseClient } from '@supabase/supabase-js'
+
+export async function userHasByokKey(
+  supabase: SupabaseClient,
+  userId: string,
+): Promise<boolean> {
+  // Use the service-role client to bypass the authenticated-only RPC
+  // (server-side dispatch paths don't have the user's session).
+  const { count, error } = await supabase
+    .from('user_anthropic_keys')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', userId)
+  if (error) {
+    console.warn('[lib/llm/byok] userHasByokKey query failed:', error.message)
+    return false
+  }
+  return (count ?? 0) > 0
 }

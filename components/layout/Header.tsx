@@ -14,6 +14,7 @@
 // Supabase client. Inviolable #2 / Phase 2 verdigris audit: `--color-accent`
 // MUST NOT appear in this file.
 
+import Link from 'next/link'
 import SignOutButton from '@/components/auth/SignOutButton'
 import { ModeTabBar } from './ModeTabBar'
 
@@ -64,6 +65,19 @@ export function Header({ userEmail }: HeaderProps) {
         <span style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-secondary)' }}>
           {userEmail}
         </span>
+        <Link
+          href="/settings"
+          data-testid="header-settings-link"
+          style={{
+            fontSize: 'var(--text-sm)',
+            color: 'var(--color-text-secondary)',
+            textDecoration: 'none',
+            padding: '4px 8px',
+            borderRadius: 4,
+          }}
+        >
+          Settings
+        </Link>
         <SignOutButton />
       </div>
     </header>

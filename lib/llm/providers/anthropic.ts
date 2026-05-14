@@ -118,7 +118,11 @@ function modelSupportsExtendedThinking(model: string): boolean {
 const EXTENDED_THINKING_BUDGET_TOKENS = 4096
 
 export class AnthropicProvider implements LLMProvider {
-  private client: Anthropic
+  // V1.x-B.1.2: changed from `private` to `protected` so ByokProvider
+  // can construct the SDK client with a custom baseURL + fetch (routing
+  // through the BYOK Edge Function). Otherwise this class works as
+  // before — the platform-key path is unchanged.
+  protected client: Anthropic
 
   constructor(apiKey: string) {
     this.client = new Anthropic({ apiKey })
