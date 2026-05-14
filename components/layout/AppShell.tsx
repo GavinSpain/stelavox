@@ -44,6 +44,7 @@ import { Header } from './Header'
 import { Sidebar } from './Sidebar'
 import { PanelResizer } from './PanelResizer'
 import { ModeProvider } from './ModeContext'
+import { AppShellStatusIndicator } from './AppShellStatusIndicator'
 import { createClient } from '@/lib/supabase/client'
 import { useAgentJobsRealtime } from '@/lib/hooks/useAgentJobsRealtime'
 
@@ -275,6 +276,9 @@ function AppShellInner({ userEmail, children }: AppShellProps) {
           )}
         </div>
       </div>
+      {/* V1.x-B.1.1 — persistent bottom-right status indicator. Fixed-position;
+          non-blocking; visible from every screen (CS v2.10 §17.1). */}
+      <AppShellStatusIndicator />
       </div>
     </RightSlotContext.Provider>
     </SidebarProjectContext.Provider>
