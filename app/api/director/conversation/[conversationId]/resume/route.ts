@@ -146,10 +146,13 @@ export async function POST(
     )
   }
   const directorConfig = configRow as unknown as DirectorConfig
+  // V1.x-B.1.2 — pass user.id so the factory routes via the BYOK Edge
+  // Function when the user has a per-user Anthropic key on file.
   const { provider, modelId } = await getProvider(
     { id: conversation.organisation_id },
     'director',
     directorConfig.model_id,
+    user.id,
   )
   directorConfig.model_id = modelId
 
