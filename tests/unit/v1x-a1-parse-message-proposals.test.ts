@@ -73,13 +73,16 @@ describe('parseMessageProposals (V1.x-A.1 v1.6)', () => {
 
 describe('findProposalInToolCalls (V1.x-A.1 v1.6)', () => {
   it('returns nulls when tool_calls is not an array', () => {
+    // V1.x-B.1.1 — shape extended with briefCancellationProposal.
     expect(findProposalInToolCalls(null)).toEqual({
       briefProposal: null,
       profileAmendmentProposal: null,
+      briefCancellationProposal: null,
     })
     expect(findProposalInToolCalls({})).toEqual({
       briefProposal: null,
       profileAmendmentProposal: null,
+      briefCancellationProposal: null,
     })
   })
 
@@ -91,6 +94,7 @@ describe('findProposalInToolCalls (V1.x-A.1 v1.6)', () => {
     expect(findProposalInToolCalls(toolCalls)).toEqual({
       briefProposal: null,
       profileAmendmentProposal: null,
+      briefCancellationProposal: null,
     })
   })
 
