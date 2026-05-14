@@ -209,15 +209,17 @@ test.describe('V1.x-A.1 Profile + Brief substrate', () => {
     expect(n.initial_status).toBe('queued')
   })
 
-  test('Director config v1.7 is production with 17 tools (V1.x-B.1.1)', async () => {
-    // V1.x-B.1.1 deprecated v1.6 and made v1.7 production with the
-    // cancel_brief tool added (16 → 17 tools).
+  test('Director config v1.8 is production with 17 tools (V1.x-B.1.1 session 3a + FU-2)', async () => {
+    // V1.x-B.1.1 session 3a (Migration 102) deprecated v1.7 and made
+    // v1.8 production. v1.8 adds the trigger_config example block under
+    // "Brief structure" — surgical insertion only; tool_suite + model
+    // unchanged from v1.7 (still 17 tools including cancel_brief).
     const { data } = await adminClient()
       .from('director_configs')
       .select('version_number, status, tool_suite, system_prompt')
       .eq('status', 'production')
       .single()
-    expect(data!.version_number).toBe('1.7')
+    expect(data!.version_number).toBe('1.8')
     const tools = data!.tool_suite as string[]
     expect(tools).toHaveLength(17)
     expect(tools).toContain('get_project_profile')
@@ -226,10 +228,12 @@ test.describe('V1.x-A.1 Profile + Brief substrate', () => {
     expect(tools).toContain('propose_profile_amendment')
     expect(tools).toContain('cancel_brief')
     expect(tools).not.toContain('propose_brief_amendment')
-    // v1.7 retains the v1.6 <plan> scratchpad pattern and adds queue framing.
     expect(data!.system_prompt).toContain('<plan>')
     expect(data!.system_prompt).toContain('tool call IS the proposal')
     expect(data!.system_prompt).toContain('cancel_brief')
+    // v1.8 FU-2 amendment: trigger_config example block.
+    expect(data!.system_prompt).toContain('after_stage_order')
+    expect(data!.system_prompt).toContain('"scheduled_at": "<ISO 8601 timestamp>"')
   })
 
   test('platform_config has the rolling-window key', async () => {
