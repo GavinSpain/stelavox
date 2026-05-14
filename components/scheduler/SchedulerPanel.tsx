@@ -43,6 +43,13 @@ interface AgentJobRow {
   route: 'platform' | 'byok'
   created_at: string
   completed_at: string | null
+  // FU-1 enrichment from /api/scheduler/queue (V1.x-B.1.1 phase close-out).
+  target_node_name?: string | null
+  target_node_type?: string | null
+  workflow_id?: string | null
+  workflow_title?: string | null
+  step_order?: number | null
+  step_total?: number | null
 }
 
 interface QueuePayload {
@@ -327,17 +334,39 @@ function JobRow({ job, onChange }: { job: AgentJobRow; onChange: () => void }) {
     }
   }
 
+  // FU-1 — disambiguate jobs visually. Headline: operation + target node
+  // name + node_type. Sub-line: workflow context (step N of M of "title")
+  // when the job is part of a workflow. Meta-line: dispatch parameters +
+  // timestamps.
+  const target = job.target_node_name
+    ? `${job.operation_type} · ${job.target_node_type ?? 'node'} "${job.target_node_name}"`
+    : job.operation_type
+  const workflowSuffix = job.workflow_title
+    ? job.step_order !== null && job.step_order !== undefined && job.step_total
+      ? `step ${job.step_order} of ${job.step_total} · "${job.workflow_title}"`
+      : `"${job.workflow_title}"`
+    : null
+  const createdAtRelative = relativeTime(job.created_at)
+  const completedAtRelative = job.completed_at ? relativeTime(job.completed_at) : null
+
   return (
     <div data-testid="scheduler-job-row" data-status={job.status} data-job-id={job.id} style={rowStyle}>
       <div style={{ flex: 1 }}>
         <div style={{ fontSize: 13 }}>
-          <span style={{ fontWeight: 500 }}>{job.operation_type}</span>
+          <span style={{ fontWeight: 500 }} data-testid="job-headline">{target}</span>
           <span style={{ marginLeft: 8, color: JOB_STATUS_COLOUR[job.status] ?? 'var(--color-text-secondary)' }}>{job.status}</span>
         </div>
+        {workflowSuffix ? (
+          <div style={{ fontSize: 11, color: 'var(--color-text-secondary)', marginTop: 2 }} data-testid="job-workflow-context">
+            {workflowSuffix}
+          </div>
+        ) : null}
         <div style={{ fontSize: 11, color: 'var(--color-text-muted)', marginTop: 2 }}>
           intent: {job.execution_intent} · class {job.traffic_class} · route {job.route}
           {job.scheduled_at ? ` · scheduled ${new Date(job.scheduled_at).toLocaleString()}` : null}
           {job.cause ? ` · cause: ${job.cause}` : null}
+          {' · created '}{createdAtRelative}
+          {completedAtRelative ? ` · completed ${completedAtRelative}` : null}
         </div>
       </div>
       <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
@@ -405,4 +434,22 @@ const selectStyle: React.CSSProperties = {
   borderRadius: 4,
   fontSize: 12,
   fontFamily: 'var(--font-inter), Inter, sans-serif',
+}
+
+// FU-1 — small relative-time formatter for job created_at / completed_at.
+// Cheap heuristic; reaches for date-fns / Intl.RelativeTimeFormat would
+// be more correct but adds a dependency for marginal benefit at this
+// scale. Acceptable for B.1.1 substrate.
+function relativeTime(iso: string): string {
+  const ms = Date.now() - new Date(iso).getTime()
+  if (!Number.isFinite(ms) || ms < 0) return new Date(iso).toLocaleString()
+  const sec = Math.floor(ms / 1000)
+  if (sec < 60) return `${sec}s ago`
+  const min = Math.floor(sec / 60)
+  if (min < 60) return `${min}m ago`
+  const hr = Math.floor(min / 60)
+  if (hr < 24) return `${hr}h ago`
+  const days = Math.floor(hr / 24)
+  if (days < 7) return `${days}d ago`
+  return new Date(iso).toLocaleDateString()
 }

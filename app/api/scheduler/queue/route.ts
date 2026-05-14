@@ -81,14 +81,94 @@ export async function GET(req: NextRequest): Promise<Response> {
   const { data: jobsRaw, error: jobsErr, count } = await jobsQuery
   if (jobsErr) return apiError(500, 'jobs_query_failed', jobsErr.message)
 
+  // FU-1 enrichment (V1.x-B.1.1 phase close-out): for each job, attach
+  // the target node's name + node_type and the workflow context (title +
+  // step ordering) when the job is dispatched as part of a workflow_step.
+  // The user's manual-test feedback was that multiple expand jobs
+  // targeting different nodes all looked identical; this enrichment
+  // disambiguates them at the API layer so SchedulerPanel can render
+  // human-readable detail without per-row N+1 fetches.
+  const jobs = jobsRaw ?? []
+  const nodeIds = Array.from(new Set(jobs.map((j) => j.node_id).filter((x): x is string => !!x)))
+  const jobIds = jobs.map((j) => j.id)
+
+  const [nodeMap, stepMap] = await Promise.all([
+    nodeIds.length > 0
+      ? supabase
+          .from('nodes')
+          .select('id, name, node_type')
+          .in('id', nodeIds)
+          .then(({ data }) => new Map((data ?? []).map((n) => [n.id, { name: n.name, node_type: n.node_type }])))
+      : Promise.resolve(new Map<string, { name: string; node_type: string }>()),
+    jobIds.length > 0
+      ? supabase
+          .from('workflow_steps')
+          .select('agent_job_id, workflow_id, order, workflows(title)')
+          .in('agent_job_id', jobIds)
+          .then(({ data }) =>
+            new Map(
+              (data ?? []).map((s) => {
+                const workflows = s.workflows as unknown as { title: string } | null
+                return [
+                  s.agent_job_id as string,
+                  {
+                    workflow_id: s.workflow_id as string,
+                    workflow_title: workflows?.title ?? null,
+                    step_order: s.order as number,
+                  },
+                ]
+              }),
+            ),
+          )
+      : Promise.resolve(
+          new Map<
+            string,
+            { workflow_id: string; workflow_title: string | null; step_order: number }
+          >(),
+        ),
+  ])
+
+  // Attach detail per row + count total steps in each workflow so the UI
+  // can render "step N of M".
+  const workflowIds = Array.from(new Set(Array.from(stepMap.values()).map((s) => s.workflow_id)))
+  const workflowStepCounts = workflowIds.length > 0
+    ? await supabase
+        .from('workflow_steps')
+        .select('workflow_id', { count: 'exact', head: false })
+        .in('workflow_id', workflowIds)
+        .then(({ data }) => {
+          const counts = new Map<string, number>()
+          for (const row of data ?? []) {
+            const id = (row as { workflow_id: string }).workflow_id
+            counts.set(id, (counts.get(id) ?? 0) + 1)
+          }
+          return counts
+        })
+    : new Map<string, number>()
+
+  const enrichedJobs = jobs.map((j) => {
+    const node = j.node_id ? nodeMap.get(j.node_id) : null
+    const step = stepMap.get(j.id) ?? null
+    const totalSteps = step ? workflowStepCounts.get(step.workflow_id) ?? null : null
+    return {
+      ...j,
+      target_node_name: node?.name ?? null,
+      target_node_type: node?.node_type ?? null,
+      workflow_id: step?.workflow_id ?? null,
+      workflow_title: step?.workflow_title ?? null,
+      step_order: step?.step_order ?? null,
+      step_total: totalSteps,
+    }
+  })
+
   return NextResponse.json({
     document_id: documentId,
     brief: briefState,
-    jobs: jobsRaw ?? [],
+    jobs: enrichedJobs,
     pagination: {
       limit,
       offset,
-      returned: jobsRaw?.length ?? 0,
+      returned: enrichedJobs.length,
       total: count ?? null,
     },
   })
