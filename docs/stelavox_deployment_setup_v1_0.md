@@ -712,6 +712,22 @@ npm run dev
 Open http://localhost:3000 and confirm the application runs against your local database. All data layer, auth, agent, and Director work happens in this environment. Reset freely with `supabase db reset` as needed.
 
 ```
+Step 6a — (BYOK only) Serve the BYOK Edge Function
+```
+
+If you plan to test the V1.x-B.1.2 BYOK substrate (per-user Anthropic API keys via `/settings/api-keys`), the `byok-llm-call` Edge Function must be running locally. **`supabase start` does NOT auto-serve individual functions** — they need an explicit `supabase functions serve` invocation in a separate terminal:
+
+```powershell
+supabase functions serve byok-llm-call
+```
+
+Without this, Director conversations from a user with a saved BYOK key will fail with a `ByokEdgeFunctionUnavailableError` (the `ByokProvider` detects the 404 from the Edge Function URL and surfaces a self-explaining error message).
+
+Skip this step if you're not testing BYOK. Director conversations still work via the platform `ANTHROPIC_API_KEY` for users without a BYOK key on file.
+
+Cloud rollout (Step 7+): Supabase Cloud auto-deploys functions from `supabase/functions/` on push, so this gotcha is local-dev only.
+
+```
 Step 7 — Push code to GitHub
 ```
 ```powershell

@@ -32,6 +32,27 @@ export interface ByokProviderConfig {
   userId: string
 }
 
+/**
+ * Thrown by the BYOK custom fetch when Supabase returns 404 for the
+ * Edge Function URL. The most common cause is the user has BYOK keys
+ * configured but hasn't run `supabase functions serve byok-llm-call`
+ * locally — `supabase start` doesn't auto-serve individual functions.
+ *
+ * The error is self-explaining so the user sees a clear next step
+ * instead of a generic "Function not found" 404.
+ */
+export class ByokEdgeFunctionUnavailableError extends Error {
+  constructor(public edgeFunctionUrl: string) {
+    super(
+      `BYOK Edge Function unreachable at ${edgeFunctionUrl} (Supabase returned 404). ` +
+        `Local dev: run \`supabase functions serve byok-llm-call\` in a separate terminal ` +
+        `(supabase start does not auto-serve individual functions). ` +
+        `Cloud: ensure the function is deployed via \`supabase functions deploy byok-llm-call\`.`,
+    )
+    this.name = 'ByokEdgeFunctionUnavailableError'
+  }
+}
+
 export class ByokProvider extends AnthropicProvider {
   constructor(config: ByokProviderConfig) {
     // The base class constructor runs `new Anthropic({ apiKey })`. We
@@ -51,7 +72,33 @@ export class ByokProvider extends AnthropicProvider {
       // sets the real BYOK key when it forwards. Leaving the placeholder
       // here would be cosmetic but might confuse the Edge Function.
       headers.delete('x-api-key')
-      return fetch(input, { ...init, headers })
+
+      const response = await fetch(input, { ...init, headers })
+
+      // Pre-flight 404 detection: if the Edge Function URL itself
+      // returns 404 (Supabase "Function not found"), throw a
+      // self-explaining error instead of letting the SDK surface a
+      // confusing "Director - 404 Function not found" to the user.
+      // We check status + content-type to avoid false positives — a
+      // 404 from Anthropic itself (e.g. unknown model) would have
+      // application/json + an error envelope, not Supabase's plain
+      // text "Function not found".
+      if (response.status === 404) {
+        const contentType = response.headers.get('content-type') ?? ''
+        // Clone before reading so the SDK can still consume the body
+        // if we don't end up throwing.
+        const cloned = response.clone()
+        const bodyText = await cloned.text().catch(() => '')
+        const looksLikeSupabaseFunctionMissing =
+          /function.*not.*found/i.test(bodyText) ||
+          (!contentType.includes('application/json') && bodyText.length < 200)
+        if (looksLikeSupabaseFunctionMissing) {
+          const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
+          throw new ByokEdgeFunctionUnavailableError(url)
+        }
+      }
+
+      return response
     }
 
     this.client = new Anthropic({

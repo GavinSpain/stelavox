@@ -1,20 +1,27 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+This is the Stelavox Next.js application. Full setup + spec library lives under `docs/` (start with `docs/stelavox_deployment_setup_v1_0.md` for environment setup, then the project `CLAUDE.md` for build context).
 
-## Getting Started
+## Local development
 
-First, run the development server:
+Three processes need to be running:
 
 ```bash
+# 1. Local Supabase stack (DB + Auth + Realtime + Edge Functions runtime)
+supabase start
+
+# 2. Next.js dev server
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+
+# 3. (BYOK only) BYOK Edge Function — required if you have a per-user
+#    Anthropic API key saved at /settings/api-keys. supabase start does
+#    NOT auto-serve individual Edge Functions.
+supabase functions serve byok-llm-call
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) once steps 1 + 2 are running.
+
+If you save a BYOK key at `/settings/api-keys` and try a Director conversation **without** running step 3, you'll see a `ByokEdgeFunctionUnavailableError` with the exact `supabase functions serve` command to run. The error is self-explaining; this README is the secondary surface.
+
+See `docs/stelavox_deployment_setup_v1_0.md` Step 6a for the full BYOK Edge Function context.
 
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
