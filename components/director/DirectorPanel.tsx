@@ -29,6 +29,7 @@ import { DirectorInput } from './DirectorInput'
 import { PlanCard } from './PlanCard'
 import { ExecutionCard } from './ExecutionCard'
 import { BriefProposalCard } from './BriefProposalCard'
+import { BriefCancellationProposalCard } from './BriefCancellationProposalCard'
 import { ProjectProfileAmendmentCard } from './ProjectProfileAmendmentCard'
 import { ConversationClearButton } from './ConversationClearButton'
 import { streamDirectorMessage } from '@/lib/director/streamMessage'
@@ -217,9 +218,8 @@ export function DirectorPanel({
       // propose_profile_amendment tool_call entry.
       const message = messages.find((m) => m.id === messageId)
       if (!message) return null
-      const { briefProposal, profileAmendmentProposal } = findProposalInToolCalls(
-        message.tool_calls,
-      )
+      const { briefProposal, profileAmendmentProposal, briefCancellationProposal } =
+        findProposalInToolCalls(message.tool_calls)
       if (briefProposal) {
         return (
           <BriefProposalCard
@@ -234,6 +234,14 @@ export function DirectorPanel({
           <ProjectProfileAmendmentCard
             profileId={profileId}
             amendment={profileAmendmentProposal}
+            onApproved={() => void refresh()}
+          />
+        )
+      }
+      if (briefCancellationProposal) {
+        return (
+          <BriefCancellationProposalCard
+            proposal={briefCancellationProposal}
             onApproved={() => void refresh()}
           />
         )
