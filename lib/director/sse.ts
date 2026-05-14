@@ -17,7 +17,19 @@
 
 import 'server-only'
 
-import type { TurnEvent } from '@/lib/director/executor'
+import type { IterationEvent } from '@/lib/director/iteration-runner'
+
+/**
+ * V1.x-B.2.1 — IterationEvent supersedes the legacy TurnEvent emitted by
+ * the now-removed runAgenticTurn async generator. The shape of the
+ * client-visible SSE wire is unchanged for the events the client
+ * already handled (text_delta, tool_use_start, tool_use_complete,
+ * workflow_proposal, error). `iteration_done` is server-side
+ * bookkeeping — the route handler synthesises one
+ * `assistant_message_complete` event after the LAST iteration
+ * (turn_complete=true), not per-iteration.
+ */
+export type TurnEvent = IterationEvent
 
 const ENC = new TextEncoder()
 
@@ -61,25 +73,21 @@ export function turnEventToSse(
         name: 'workflow_proposal',
         payload: { proposal: event.proposal },
       }
-    case 'turn_complete':
-      return {
-        name: 'assistant_message_complete',
-        payload: {
-          assistant_message_id: event.assistant_message_id,
-          stop_reason: event.stop_reason,
-          tokens_input: event.usage.tokens_input,
-          tokens_output: event.usage.tokens_output,
-          tokens_cache_read: event.usage.tokens_cache_read,
-          tokens_cache_write: event.usage.tokens_cache_write,
-          cost_usd: event.cost_usd,
-        },
-      }
     case 'error':
       return {
         name: 'error',
         payload: { error: event.error, message: event.message },
       }
+    // The following events are server-side bookkeeping under the
+    // V1.x-B.2.1 per-iteration model — not surfaced to the client wire.
+    // assistant_message_complete is synthesised by the route handler
+    // after the LAST iteration completes (it accumulates totals across
+    // all iterations of a turn).
     case 'iteration_boundary':
+    case 'iteration_done':
+    case 'brief_proposal':
+    case 'profile_amendment_proposal':
+    case 'brief_cancellation_proposal':
       return null
     default:
       return null

@@ -15,7 +15,7 @@ export interface DirectorStreamRequest {
 }
 
 export interface DirectorStreamHandlers {
-  onStart?:    (data: { conversation_id: string; user_message_id: string }) => void
+  onStart?:    (data: { conversation_id: string; user_message_id: string; turn_id?: string }) => void
   onTextDelta: (delta: string) => void
   onToolUseStart?:    (data: { tool_call_id: string; name: string; arguments_partial: unknown }) => void
   onToolUseComplete?: (data: { tool_call_id: string; validation_result: string; result_summary?: string }) => void

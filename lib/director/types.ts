@@ -209,26 +209,49 @@ export interface DirectorTurn {
  *
  * The runner reads __schema_version, applies any in-memory migration if
  * older than current, never persists in mixed shape.
+ *
+ * Shape rationale: the agentic-loop messages array must alternate
+ * assistant↔user with each tool_use immediately followed by its
+ * tool_result (Anthropic API protocol). Storing the full alternating
+ * array directly is simpler than separating assistant_messages from
+ * pending_tool_results — the latter shape made it easy to lose the
+ * per-iteration pairing when iteration 3+ rebuilt the prompt.
+ *
+ * The full array also has a `conversation_context` head pinned at
+ * turn-start time so mid-turn system events don't shift context.
  */
 export interface IterationStateV1 {
   __schema_version: 1
-  /** Running messages-array protocol body (text + tool_use content blocks). */
-  assistant_messages: Array<{
-    role: 'assistant'
-    content: Array<unknown>
+  /**
+   * Conversation context pinned at turn-start time. Prior user/assistant
+   * pairs from the same conversation, in order. Replayed first in every
+   * iteration's prompt.
+   */
+  conversation_context: Array<{ role: 'user' | 'assistant'; content: string }>
+  /**
+   * Full agentic-loop messages array as it grows across iterations.
+   * Iteration 1 starts as [{ role:'user', content:user_message }]. After
+   * iteration N completes with tool_use, the runner appends
+   * { role:'assistant', content:[text + tool_use blocks] } and
+   * { role:'user', content:[tool_result blocks] }. Iteration N+1 reads
+   * this array directly + prepends conversation_context.
+   *
+   * `content` is `Array<AssembledContentBlock> | string`; serialised as
+   * `unknown` here to keep types JSON-friendly without a runtime
+   * dependency on the LLM-provider types.
+   */
+  messages: Array<{
+    role: 'user' | 'assistant'
+    content: string | Array<unknown>
   }>
-  /** tool_result blocks awaiting next iteration's user message. */
-  pending_tool_results: Array<{
-    tool_use_id: string
-    content: string
-    is_error?: boolean
-  }>
-  /** Original user message that started the turn. */
+  /** Original user message that started the turn (kept for diagnostic / reset). */
   user_message: { role: 'user'; content: string }
   /** Director system prompt version frozen at turn start. */
   system_prompt_version: string
   /** Model id frozen at turn start. */
   model: string
+  /** mentioned_node_ids carried for stable-block hint reproducibility. */
+  mentioned_node_ids?: string[]
 }
 
 export type IterationState = IterationStateV1

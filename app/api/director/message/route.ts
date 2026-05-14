@@ -31,8 +31,8 @@ import { getConfigInt } from '@/lib/config/platform-config'
 import { getProvider } from '@/lib/llm/factory'
 import { computeCostUsd } from '@/lib/llm/cost'
 import { checkTokenBudget } from '@/lib/llm/token-budget'
-import { runAgenticTurn, type TurnEvent } from '@/lib/director/executor'
-import { persistDraftWorkflow } from '@/lib/director/workflow-executor'
+import { startDirectorTurn } from '@/lib/director/executor'
+import { runIteration, type IterationEvent } from '@/lib/director/iteration-runner'
 import {
   appendUserMessage,
   buildConversationContext,
@@ -279,11 +279,66 @@ export async function POST(req: NextRequest): Promise<Response> {
         writeRaw(encodeSse(name, payload))
       }
 
-      // Initial 'start' event with conversation_id + assistant message id.
+      // ----------------------------------------------------------------
+      // V1.x-B.2.1 — per-iteration Director model.
+      //
+      // 1. startDirectorTurn creates the director_turns row + first
+      //    agent_jobs row of operation_type='director_iteration'.
+      // 2. The route handler loops: runIteration(currentJobId) is an
+      //    async generator yielding IterationEvent items; the route maps
+      //    them to SSE wire events. iteration_done carries the
+      //    next_iteration_job_id (or null if turn complete).
+      // 3. On final iteration, the route synthesises an
+      //    assistant_message_complete event with accumulated usage and
+      //    finalises the conversation_messages row.
+      //
+      // Wire format unchanged for the events the client already handles
+      // (text_delta, tool_use_start, tool_use_complete, workflow_proposal,
+      // error, assistant_message_complete, done). turn_id is added to
+      // the start event so the client can mount the StopButton.
+      // ----------------------------------------------------------------
+
+      let turnId: string | null = null
+      let firstIterationJobId: string | null = null
+      try {
+        const start = await startDirectorTurn({
+          supabase: service,
+          conversationId: conversation.id,
+          userMessageId: assistantRow.id, // assistant interim row; user_message_id reused for the link
+          assistantMessageId: assistantRow.id,
+          userMessageContent: content,
+          mentionedNodeIds: mentioned_node_ids,
+          conversationContext,
+          config: directorConfig,
+          organisationId,
+          documentId: document_id,
+        })
+        turnId = start.turnId
+        firstIterationJobId = start.firstIterationJobId
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'startDirectorTurn failed'
+        writeEvent('start', {
+          conversation_id: conversation.id,
+          user_message_id: undefined,
+          assistant_message_id: assistantRow.id,
+        })
+        writeEvent('error', { error: 'start_turn_failed', message: msg })
+        await markAssistantInterrupted(service, assistantRow.id)
+        try {
+          controller.close()
+        } catch {
+          /* already closed */
+        }
+        return
+      }
+
+      // Initial 'start' event — now carries turn_id so the client can
+      // wire the StopButton to /api/director/turns/[turnId]/stop.
       writeEvent('start', {
         conversation_id: conversation.id,
         user_message_id: undefined,
         assistant_message_id: assistantRow.id,
+        turn_id: turnId,
       })
 
       // Heartbeat every 10s during silence (I-10).
@@ -293,90 +348,89 @@ export async function POST(req: NextRequest): Promise<Response> {
         }
       }, 5_000)
 
-      const accumulator: { content: string; toolCalls: unknown[]; usage: { tokens_input: number; tokens_output: number; tokens_cache_read: number; tokens_cache_write: number }; cost: number | null } = {
-        content: '',
-        toolCalls: [],
-        usage: { tokens_input: 0, tokens_output: 0, tokens_cache_read: 0, tokens_cache_write: 0 },
-        cost: null,
-      }
+      // Accumulators for the synthesised assistant_message_complete +
+      // finaliseAssistantMessage call after the LAST iteration.
+      const totalUsage = { tokens_input: 0, tokens_output: 0, tokens_cache_read: 0, tokens_cache_write: 0 }
+      let totalCost = 0
+      let stopReasonFinal = 'unknown'
       let cleanExit = false
 
       try {
-        const turnGen = runAgenticTurn({
-          session,
-          config: directorConfig,
-          provider,
-          conversationContext,
-          userMessageContent: content,
-          mentionedNodeIds: mentioned_node_ids,
-          assistantMessageId: assistantRow.id,
-          supabase: service,
-        })
+        let currentJobId: string | null = firstIterationJobId
+        while (currentJobId && !aborted) {
+          const gen = runIteration(currentJobId)
+          let outcome: Extract<IterationEvent, { type: 'iteration_done' }> | null = null
 
-        for await (const event of turnGen as AsyncGenerator<TurnEvent>) {
-          if (aborted) break
+          for await (const event of gen) {
+            if (aborted) break
 
-          // Track accumulator for finalisation.
-          if (event.type === 'text_delta') {
-            accumulator.content += event.delta
-          } else if (event.type === 'tool_use_complete') {
-            accumulator.toolCalls.push({
-              id: event.tool_call_id,
-              name: event.name,
-              validation_result: event.validation_result,
-              result_summary: event.result_summary,
-              executed_at: new Date().toISOString(),
-              // V1.x-A.1 (v1.6): forward proposal_artefact so the
-              // finalised tool_calls row carries the data the UI uses to
-              // re-render BriefProposalCard / ProjectProfileAmendmentCard.
-              ...(event.proposal_artefact !== undefined
-                ? { proposal_artefact: event.proposal_artefact }
-                : {}),
-            })
-          } else if (event.type === 'turn_complete') {
-            accumulator.usage = event.usage
-            accumulator.cost = await computeCostUsd(event.usage, modelId).catch(() => null)
-          } else if (event.type === 'workflow_proposal') {
-            // Persist the draft workflow now so the assistant message
-            // it accompanies has a corresponding workflow_id to link to.
-            try {
-              const workflowId = await persistDraftWorkflow({
-                supabase: service,
-                organisationId,
-                documentId: document_id,
-                conversationId: conversation.id,
-                proposal: event.proposal,
-              })
-              // Link the workflow id back onto the assistant message row
-              // so the UI can render the PlanCard inline (Phase 5b §2.13).
-              await service
-                .from('conversation_messages')
-                .update({ workflow_id: workflowId })
-                .eq('id', assistantRow.id)
-            } catch (err) {
-              console.error('[director-message] persistDraftWorkflow failed', {
-                conversation: conversation.id,
-                error: err instanceof Error ? err.message : String(err),
-              })
+            if (event.type === 'iteration_done') {
+              outcome = event
+              continue
             }
+
+            const sse = turnEventToSse(event)
+            if (sse) writeEvent(sse.name, sse.payload)
           }
 
-          const sse = turnEventToSse(event)
-          if (sse) writeEvent(sse.name, sse.payload)
-        }
+          if (!outcome) {
+            // The runner exited without yielding iteration_done. This
+            // happens when an early-return path (e.g. provider error,
+            // missing config, turn already cancelled) yielded an error
+            // event but no terminal event. Surface to the client.
+            writeEvent('error', { error: 'iteration_runner_exited', message: 'Director iteration ended without a terminal event.' })
+            break
+          }
 
-        if (!aborted) {
-          // Finalise the assistant message row (Phase 5b I-12).
-          await finaliseAssistantMessage(
-            service,
-            assistantRow.id,
-            accumulator.content,
-            accumulator.toolCalls,
-            accumulator.usage,
-            accumulator.cost,
-          )
-          writeEvent('done', {})
-          cleanExit = true
+          totalUsage.tokens_input += outcome.usage.tokens_input
+          totalUsage.tokens_output += outcome.usage.tokens_output
+          totalUsage.tokens_cache_read += outcome.usage.tokens_cache_read
+          totalUsage.tokens_cache_write += outcome.usage.tokens_cache_write
+          if (outcome.cost_usd !== null) totalCost += outcome.cost_usd
+          stopReasonFinal = outcome.stop_reason
+
+          if (outcome.cancelled) {
+            // Stop fired mid-turn — director_turns + the iteration row
+            // were already updated by the runner. Surface and exit.
+            writeEvent('error', { error: 'turn_cancelled', message: 'Director turn cancelled.' })
+            cleanExit = true
+            break
+          }
+
+          if (outcome.turn_complete || !outcome.next_iteration_job_id) {
+            // Final iteration. Synthesise assistant_message_complete +
+            // finalise the conversation_messages row.
+            writeEvent('assistant_message_complete', {
+              assistant_message_id: outcome.assistant_message_id,
+              stop_reason: stopReasonFinal,
+              tokens_input: totalUsage.tokens_input,
+              tokens_output: totalUsage.tokens_output,
+              tokens_cache_read: totalUsage.tokens_cache_read,
+              tokens_cache_write: totalUsage.tokens_cache_write,
+              cost_usd: totalCost,
+            })
+
+            // Re-read the running accumulator (iteration-runner UPDATEd
+            // content + tool_calls per iteration) and finalise the row.
+            const { data: finalMsg } = await service
+              .from('conversation_messages')
+              .select('content, tool_calls')
+              .eq('id', assistantRow.id)
+              .single()
+            await finaliseAssistantMessage(
+              service,
+              assistantRow.id,
+              (finalMsg?.content as string) ?? '',
+              (finalMsg?.tool_calls as unknown[]) ?? [],
+              totalUsage,
+              totalCost,
+            )
+            writeEvent('done', {})
+            cleanExit = true
+            break
+          }
+
+          currentJobId = outcome.next_iteration_job_id
         }
       } catch (err) {
         if (err instanceof SecurityViolationError) {

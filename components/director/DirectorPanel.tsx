@@ -32,6 +32,7 @@ import { BriefProposalCard } from './BriefProposalCard'
 import { BriefCancellationProposalCard } from './BriefCancellationProposalCard'
 import { ProjectProfileAmendmentCard } from './ProjectProfileAmendmentCard'
 import { ConversationClearButton } from './ConversationClearButton'
+import { StopButton } from './StopButton'
 import { streamDirectorMessage } from '@/lib/director/streamMessage'
 import { findProposalInToolCalls } from '@/lib/director/parse-message-proposals'
 
@@ -47,6 +48,8 @@ interface StreamingState {
   userMessageId: string
   assistantMessageId: string
   conversationId: string | null
+  /** V1.x-B.2.1 — director_turn id surfaced for the StopButton wiring. */
+  turnId: string | null
   text: string
   isThinking: boolean // true between start and first text_delta
 }
@@ -100,6 +103,7 @@ export function DirectorPanel({
         userMessageId: localUserId,
         assistantMessageId: localAssistantId,
         conversationId: conversation?.id ?? null,
+        turnId: null,
         text: '',
         isThinking: true,
       })
@@ -118,7 +122,7 @@ export function DirectorPanel({
             onStart: (d) => {
               setStreaming((s) =>
                 s
-                  ? { ...s, conversationId: d.conversation_id, isThinking: true }
+                  ? { ...s, conversationId: d.conversation_id, turnId: d.turn_id ?? null, isThinking: true }
                   : s,
               )
             },
@@ -272,6 +276,12 @@ export function DirectorPanel({
         conversationId={conversation?.id ?? null}
         onClose={onClose}
         onCleared={() => void refresh()}
+        activeTurnId={streaming?.turnId ?? null}
+        onTurnStopped={() => {
+          // Stop API marks the turn cancelled; abort the in-flight SSE
+          // so the UI exits the streaming state and refreshes.
+          abortRef.current?.abort()
+        }}
       />
 
       {error || streamError ? (
@@ -333,11 +343,16 @@ function DirectorHeader({
   conversationId,
   onClose,
   onCleared,
+  activeTurnId,
+  onTurnStopped,
 }: {
   documentName: string
   conversationId: string | null
   onClose?: () => void
   onCleared?: () => void
+  /** V1.x-B.2.1 — Director turn id for the StopButton. Null when no turn in flight. */
+  activeTurnId?: string | null
+  onTurnStopped?: () => void
 }) {
   return (
     <header
@@ -388,6 +403,9 @@ function DirectorHeader({
       </span>
 
       <div style={{ marginLeft: 'auto', display: 'inline-flex', gap: 8 }}>
+        {activeTurnId ? (
+          <StopButton turnId={activeTurnId} onStopped={onTurnStopped} />
+        ) : null}
         {conversationId ? (
           <ConversationClearButton
             conversationId={conversationId}

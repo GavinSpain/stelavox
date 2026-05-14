@@ -316,20 +316,45 @@ async function bumpDispatcherSkip(
 // ---------------------------------------------------------------------------
 
 /**
- * Route a claimed ticket to the appropriate runner. B.2.1 ships the
- * substrate (logging only); the actual director_iteration runner lands
- * in B.2.1 session 2 alongside the executor rewrite. The agent_jobs
- * runner (workflow_step / expand / synthesise / refine /
- * generate_context) continues to be invoked through the existing API
- * route paths (waitUntil(runAgentJob)) — the dispatcher is not yet on
- * those routes.
+ * Route a claimed ticket to the appropriate runner.
+ *   - operation_type='director_iteration' → runIteration(jobId).
+ *     The dispatcher consumes the iteration generator with no consumer
+ *     (events are discarded — when the dispatcher is the dispatch source,
+ *     the route handler isn't there to consume SSE; future polish will
+ *     wire a Realtime-channel broadcaster into the runner so the client
+ *     receives events even when dispatched async).
+ *   - else → runAgentJob(jobId) (existing background runner from
+ *     V1.x-A / Phase 5).
  *
- * Once the executor rewrite lands, this function dispatches:
- *   - operation_type='director_iteration' → runIteration(jobId)
- *   - other operation types → runAgentJob(jobId)
+ * In B.2.1 the route handler still drives Director iterations inline
+ * (preserves the SSE wire). The dispatcher's handoff is the path used
+ * by V1.x-B.2 push-model triggers + future "return-202" cutover.
  */
 async function handoffToRunner(cand: DispatchableRow): Promise<void> {
-  // B.2.1 substrate: log only. The executor rewrite (B.2.1 session 2)
-  // wires this to the real runners.
-  console.log(`[dispatcher] handoff stub: ${cand.operation_type} job ${cand.id}`)
+  if (cand.operation_type === 'director_iteration') {
+    const { runIteration } = await import('@/lib/director/iteration-runner')
+    void (async () => {
+      try {
+        const gen = runIteration(cand.id)
+        // Drain the generator. Events are not surfaced to a client here;
+        // the iteration_state + agent_jobs status updates are the
+        // observable side-effects.
+        for await (const _ev of gen) void _ev
+      } catch (err) {
+        console.error('[dispatcher] runIteration failed', { jobId: cand.id, error: err instanceof Error ? err.message : String(err) })
+      }
+    })()
+    return
+  }
+  // For agent_jobs operation_types (expand / synthesise / refine /
+  // generate_context / workflow_step), invoke the existing background
+  // runner.
+  const { runAgentJob } = await import('@/lib/agent/runner')
+  void (async () => {
+    try {
+      await runAgentJob(cand.id)
+    } catch (err) {
+      console.error('[dispatcher] runAgentJob failed', { jobId: cand.id, error: err instanceof Error ? err.message : String(err) })
+    }
+  })()
 }

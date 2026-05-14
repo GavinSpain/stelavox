@@ -238,8 +238,11 @@ test.describe('V1.x-B.2.1 — M-107 director_iterations dropped + iteration_stat
     const admin = adminClient()
     const stateBlob = {
       __schema_version: 1,
-      assistant_messages: [{ role: 'assistant', content: [{ type: 'text', text: 'hello' }] }],
-      pending_tool_results: [{ tool_use_id: 't1', content: 'ok' }],
+      conversation_context: [],
+      messages: [
+        { role: 'user', content: 'do thing' },
+        { role: 'assistant', content: [{ type: 'text', text: 'hello' }] },
+      ],
       user_message: { role: 'user', content: 'do thing' },
       system_prompt_version: 'v1.8',
       model: 'claude-haiku-4-5',
