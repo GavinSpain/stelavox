@@ -1,7 +1,7 @@
 # Stelavox — Component Specification
-## Version 2.10
+## Version 2.11
 
-> **Director V2 components:** Section 10 (added in this version) introduces new components for the V1.x phased roadmap — `AppShellStatusIndicator`, `BriefViewer`, `StageCard`, `SchedulerPanel`, `AdminDashboard`, `CostMeter` — plus extensions to existing components (`PlanCard` simplification, `NodeRow` / `NodeStatusBadge` lifecycle states + AI-changed flag, Stop-button refinement, Conversation Clear). Architectural source: `docs/stelavox_director_architecture_v2_0.md` (Tier-A canonical).
+> **V1.x-B.2 absorption (2026-05-16):** §5.14 NEW `StopButton` (destructive-token confirm dialog; mounts in DirectorPanel header when an active director_turn exists; uses `--color-text-primary` background NOT verdigris). BriefProposalCard §A.7 extended with "Auto-approve subsequent stages" checkbox (multi-stage Briefs only; verdigris ONLY in checked state — falls under existing Inviolable #2 use #7 affirmative-action triggers family without broadening the count). SchedulerPanel Stop control per row deferred to V1.x-D polish. Filename intentionally retained at `v2_10.md` (the spec library indexes by filename + version-bumps in-place — the canonical version stamp is the file's `## Version 2.11` header). **Director V2 components:** Section 10 introduces components for the V1.x phased roadmap — `AppShellStatusIndicator`, `BriefViewer`, `StageCard`, `SchedulerPanel`, `AdminDashboard`, `CostMeter` — plus extensions to existing components. Architectural source: `docs/stelavox_director_architecture_v2_0.md` (now v2.2 — Tier-A canonical).
 
 ### Purpose
 

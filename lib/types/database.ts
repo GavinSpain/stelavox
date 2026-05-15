@@ -1337,6 +1337,30 @@ export type Database = {
           },
         ]
       }
+      metrics_minute_buckets: {
+        Row: {
+          bucket_started_at: string
+          dimensions: Json
+          metric_kind: string
+          sample_count: number
+          value: number
+        }
+        Insert: {
+          bucket_started_at: string
+          dimensions: Json
+          metric_kind: string
+          sample_count: number
+          value: number
+        }
+        Update: {
+          bucket_started_at?: string
+          dimensions?: Json
+          metric_kind?: string
+          sample_count?: number
+          value?: number
+        }
+        Relationships: []
+      }
       node_attachments: {
         Row: {
           created_at: string
@@ -2834,9 +2858,14 @@ export type Database = {
         Args: { p_brief_id: string }
         Returns: Json
       }
+      purge_raw_metric_samples: { Args: never; Returns: Json }
       request_batch_poll: { Args: never; Returns: undefined }
       request_dispatcher_tick: { Args: never; Returns: undefined }
       request_route_capacity_sample: { Args: never; Returns: undefined }
+      rollup_metrics_minute: {
+        Args: { p_bucket_started_at?: string }
+        Returns: number
+      }
       save_user_anthropic_key: {
         Args: { p_key: string; p_validation_completed_at: string }
         Returns: Json
