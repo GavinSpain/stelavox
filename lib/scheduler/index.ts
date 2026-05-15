@@ -47,3 +47,44 @@ export {
   computeStopCascade,
   isDirectorTurnStopRequested,
 } from './stopRequests'
+
+// V1.x-B.2.2 — WFQ + buckets + reserved slots + metrics samplers.
+export type {
+  WfqWeights,
+  WfqClassState,
+  WfqCandidate,
+  WfqPick,
+} from './wfq'
+export {
+  computeVft,
+  applyAgingPromotion,
+  pickByMinVft,
+  readWfqState,
+  updateWfqStateAfterDispatch,
+  readWfqClassWeights,
+  readAgingThresholdMs,
+  DEFAULT_TICKET_COST,
+} from './wfq'
+
+export type { BucketSnapshot, ReservationOutcome } from './buckets'
+export {
+  lazyRefill,
+  checkAndReserve,
+  reconcile,
+  refundExpired,
+  poolKeyFor,
+} from './buckets'
+
+export type { ClaimOutcome } from './reserved-slots'
+export {
+  claimClass1Slot,
+  releaseClass1Slot,
+  readSlotsInUse,
+} from './reserved-slots'
+
+export type { DispatcherTickSample } from './metrics-samplers'
+export {
+  recordDispatcherTickSample,
+  recordRouteCapacitySamples,
+  readDispatcherSampleSnapshot,
+} from './metrics-samplers'

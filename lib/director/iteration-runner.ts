@@ -54,7 +54,6 @@ import {
 import { validateToolCall } from '@/lib/security/tool-validator'
 import { writeAuditLogEntry } from '@/lib/security/audit'
 import {
-  WorkflowProposalSchema,
   type WorkflowProposalParsed,
   BriefProposalV1xA1Schema,
   type BriefProposalV1xA1Parsed,

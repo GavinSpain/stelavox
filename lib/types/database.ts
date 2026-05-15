@@ -706,6 +706,24 @@ export type Database = {
           },
         ]
       }
+      class_1_reserved_slots: {
+        Row: {
+          id: number
+          in_use: number
+          total_slots: number
+        }
+        Insert: {
+          id?: number
+          in_use?: number
+          total_slots: number
+        }
+        Update: {
+          id?: number
+          in_use?: number
+          total_slots?: number
+        }
+        Relationships: []
+      }
       constraint_violations: {
         Row: {
           attempted_value: number
@@ -971,6 +989,63 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      dispatcher_tick_samples: {
+        Row: {
+          active_throttle_reservations_count: number
+          class_1_reserved_slots_in_use: number
+          duration_ms: number
+          id: number
+          queue_depth_class_1: number
+          queue_depth_class_2: number
+          queue_depth_class_3: number
+          queue_depth_class_4: number
+          tick_started_at: string
+          tickets_considered: number
+          tickets_dispatched: number
+          tickets_skipped_no_capacity: number
+          tickets_skipped_no_dependency: number
+          tickets_skipped_stop_requested: number
+          tickets_skipped_wrong_route: number
+          virtual_clock: number
+        }
+        Insert: {
+          active_throttle_reservations_count: number
+          class_1_reserved_slots_in_use: number
+          duration_ms: number
+          id?: number
+          queue_depth_class_1: number
+          queue_depth_class_2: number
+          queue_depth_class_3: number
+          queue_depth_class_4: number
+          tick_started_at: string
+          tickets_considered: number
+          tickets_dispatched: number
+          tickets_skipped_no_capacity: number
+          tickets_skipped_no_dependency: number
+          tickets_skipped_stop_requested: number
+          tickets_skipped_wrong_route: number
+          virtual_clock: number
+        }
+        Update: {
+          active_throttle_reservations_count?: number
+          class_1_reserved_slots_in_use?: number
+          duration_ms?: number
+          id?: number
+          queue_depth_class_1?: number
+          queue_depth_class_2?: number
+          queue_depth_class_3?: number
+          queue_depth_class_4?: number
+          tick_started_at?: string
+          tickets_considered?: number
+          tickets_dispatched?: number
+          tickets_skipped_no_capacity?: number
+          tickets_skipped_no_dependency?: number
+          tickets_skipped_stop_requested?: number
+          tickets_skipped_wrong_route?: number
+          virtual_clock?: number
+        }
+        Relationships: []
       }
       documents: {
         Row: {
@@ -1958,6 +2033,36 @@ export type Database = {
           },
         ]
       }
+      route_capacity_samples: {
+        Row: {
+          active_concurrent_calls: number
+          bucket_size: number
+          current_tokens: number
+          id: number
+          pool_key: string
+          refill_rate: number
+          sampled_at: string
+        }
+        Insert: {
+          active_concurrent_calls: number
+          bucket_size: number
+          current_tokens: number
+          id?: number
+          pool_key: string
+          refill_rate: number
+          sampled_at?: string
+        }
+        Update: {
+          active_concurrent_calls?: number
+          bucket_size?: number
+          current_tokens?: number
+          id?: number
+          pool_key?: string
+          refill_rate?: number
+          sampled_at?: string
+        }
+        Relationships: []
+      }
       scheduled_jobs: {
         Row: {
           created_at: string
@@ -2239,6 +2344,66 @@ export type Database = {
           last_validated_at?: string
           user_id?: string
           vault_secret_id?: string
+        }
+        Relationships: []
+      }
+      user_throttle_buckets: {
+        Row: {
+          bucket_size: number
+          created_at: string
+          current_tokens: number
+          last_refill_at: string
+          pool_key: string
+          refill_rate: number
+          updated_at: string
+        }
+        Insert: {
+          bucket_size: number
+          created_at?: string
+          current_tokens: number
+          last_refill_at?: string
+          pool_key: string
+          refill_rate: number
+          updated_at?: string
+        }
+        Update: {
+          bucket_size?: number
+          created_at?: string
+          current_tokens?: number
+          last_refill_at?: string
+          pool_key?: string
+          refill_rate?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      wfq_state: {
+        Row: {
+          class_1_last_vft: number
+          class_2_last_vft: number
+          class_3_last_vft: number
+          class_4_last_vft: number
+          id: number
+          updated_at: string
+          virtual_clock: number
+        }
+        Insert: {
+          class_1_last_vft?: number
+          class_2_last_vft?: number
+          class_3_last_vft?: number
+          class_4_last_vft?: number
+          id?: number
+          updated_at?: string
+          virtual_clock?: number
+        }
+        Update: {
+          class_1_last_vft?: number
+          class_2_last_vft?: number
+          class_3_last_vft?: number
+          class_4_last_vft?: number
+          id?: number
+          updated_at?: string
+          virtual_clock?: number
         }
         Relationships: []
       }
