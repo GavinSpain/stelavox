@@ -623,14 +623,16 @@ async function dispatchAgentJobForStep(
   // B5.5 (round-3 audit F-124): expand the SELECT to include max_tokens
   // so the budget gate below can size its estimate per-operation rather
   // than using a single global default.
+  // V1.x-C.2: also pull model_id so the gate can convert tokens → credits
+  // via the active pricing_rates row for the profile's model.
   const { data: candidates } = await supabase
     .from('agent_profiles')
-    .select('id, name, node_type, max_tokens')
+    .select('id, name, node_type, max_tokens, model_id')
     .eq('is_system_profile', true)
     .eq('operation_type', step.operation_type)
     .eq('node_type', profileNodeType)
 
-  let profile: { id: string; name: string; max_tokens?: number } | null = null
+  let profile: { id: string; name: string; max_tokens?: number; model_id: string } | null = null
 
   if (candidates && candidates.length > 0) {
     if (candidates.length === 1) {
@@ -652,7 +654,7 @@ async function dispatchAgentJobForStep(
   if (!profile && step.operation_type === 'refine') {
     const { data: fallback } = await supabase
       .from('agent_profiles')
-      .select('id, name, max_tokens')
+      .select('id, name, max_tokens, model_id')
       .eq('is_system_profile', true)
       .eq('operation_type', 'refine')
       .is('node_type', null)
@@ -710,6 +712,7 @@ async function dispatchAgentJobForStep(
   const budgetOk = await checkTokenBudget(
     { id: org.id, plan: org.plan ?? 'trial', current_period_start: org.current_period_start },
     stepEstimate,
+    profile.model_id,
   )
   if (!budgetOk) {
     await supabase

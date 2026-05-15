@@ -449,6 +449,45 @@ export type Database = {
         }
         Relationships: []
       }
+      anthropic_pricing: {
+        Row: {
+          cache_read_dollars_per_million: number | null
+          cache_write_dollars_per_million: number | null
+          created_at: string
+          effective_from: string
+          effective_until: string | null
+          id: number
+          input_dollars_per_million: number
+          model_id: string
+          note: string | null
+          output_dollars_per_million: number
+        }
+        Insert: {
+          cache_read_dollars_per_million?: number | null
+          cache_write_dollars_per_million?: number | null
+          created_at?: string
+          effective_from: string
+          effective_until?: string | null
+          id?: number
+          input_dollars_per_million: number
+          model_id: string
+          note?: string | null
+          output_dollars_per_million: number
+        }
+        Update: {
+          cache_read_dollars_per_million?: number | null
+          cache_write_dollars_per_million?: number | null
+          created_at?: string
+          effective_from?: string
+          effective_until?: string | null
+          id?: number
+          input_dollars_per_million?: number
+          model_id?: string
+          note?: string | null
+          output_dollars_per_million?: number
+        }
+        Relationships: []
+      }
       audit_log: {
         Row: {
           conversation_id: string | null
@@ -2004,6 +2043,8 @@ export type Database = {
           stripe_customer_id: string | null
           stripe_subscription_id: string | null
           subscription_status: string
+          token_allocation_credits: number | null
+          token_usage_credits: number
           updated_at: string
         }
         Insert: {
@@ -2021,6 +2062,8 @@ export type Database = {
           stripe_customer_id?: string | null
           stripe_subscription_id?: string | null
           subscription_status?: string
+          token_allocation_credits?: number | null
+          token_usage_credits?: number
           updated_at?: string
         }
         Update: {
@@ -2038,6 +2081,8 @@ export type Database = {
           stripe_customer_id?: string | null
           stripe_subscription_id?: string | null
           subscription_status?: string
+          token_allocation_credits?: number | null
+          token_usage_credits?: number
           updated_at?: string
         }
         Relationships: []
@@ -2066,6 +2111,45 @@ export type Database = {
           updated_by?: string | null
           value?: Json
           value_type?: string
+        }
+        Relationships: []
+      }
+      pricing_rates: {
+        Row: {
+          cache_read_credits_per_million: number | null
+          cache_write_credits_per_million: number | null
+          created_at: string
+          effective_from: string
+          effective_until: string | null
+          id: number
+          input_credits_per_million: number
+          model_id: string
+          note: string | null
+          output_credits_per_million: number
+        }
+        Insert: {
+          cache_read_credits_per_million?: number | null
+          cache_write_credits_per_million?: number | null
+          created_at?: string
+          effective_from: string
+          effective_until?: string | null
+          id?: number
+          input_credits_per_million: number
+          model_id: string
+          note?: string | null
+          output_credits_per_million: number
+        }
+        Update: {
+          cache_read_credits_per_million?: number | null
+          cache_write_credits_per_million?: number | null
+          created_at?: string
+          effective_from?: string
+          effective_until?: string | null
+          id?: number
+          input_credits_per_million?: number
+          model_id?: string
+          note?: string | null
+          output_credits_per_million?: number
         }
         Relationships: []
       }
@@ -2885,6 +2969,28 @@ export type Database = {
         Args: { p_workflow_id: string }
         Returns: Json
       }
+      compute_anthropic_dollars: {
+        Args: {
+          p_cache_read?: number
+          p_cache_write?: number
+          p_completed_at: string
+          p_model_id: string
+          p_tokens_input: number
+          p_tokens_output: number
+        }
+        Returns: number
+      }
+      compute_cost_credits: {
+        Args: {
+          p_cache_read?: number
+          p_cache_write?: number
+          p_completed_at: string
+          p_model_id: string
+          p_tokens_input: number
+          p_tokens_output: number
+        }
+        Returns: number
+      }
       create_document_with_layer_stack: {
         Args: {
           p_authors: string[]
@@ -3067,4 +3173,3 @@ export const Constants = {
     Enums: {},
   },
 } as const
-
