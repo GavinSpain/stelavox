@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stelavox — Plan Panel Wireframe & Specification v1.0</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500&family=Cormorant+Garamond:ital,wght@1,300&family=Inter:wght@200;300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --ink:#0d1014; --deep:#131820; --surface:#1a2030; --hover:#1e2838; --selected:#1f2d45;
+  --border-s:#1e2535; --border-d:#253045; --border-str:#3a4a62;
+  --text-p:#ecf0f5; --text-s:#8aa0b8; --text-m:#4a6080; --text-dis:#2a3850;
+  --verd:#3d7858; --verd-h:#5aa87a; --verd-m:#1a3028;
+  --ag-run:#2e5a90; --st-rev:#b87030; --destr:#b83838;
+  --spec-bg:#0a0d12; --spec-pan:#111520; --callout:#e8b840;
+}
+
+body { background: var(--spec-bg); color: var(--text-p); font-family: 'Inter', sans-serif; font-size: 13px; line-height: 1.5; }
+
+.doc-header { background: var(--spec-pan); border-bottom: 1px solid var(--border-d); padding: 24px 48px; display:flex; align-items:baseline; justify-content:space-between; }
+.wm-s { font-family:'Cinzel',serif; font-size:14px; font-weight:500; letter-spacing:.18em; color:var(--text-p); }
+.wm-v { font-family:'Cormorant Garamond',serif; font-style:italic; font-weight:300; font-size:16px; letter-spacing:.08em; color:var(--text-p); opacity:.82; }
+.doc-meta { font-size:11px; font-weight:300; letter-spacing:.2em; text-transform:uppercase; color:var(--text-m); }
+
+.section { padding: 40px 48px 0; }
+.slabel { font-size:9px; font-weight:400; letter-spacing:.45em; text-transform:uppercase; color:var(--text-m); margin-bottom:20px; padding-bottom:12px; border-bottom:1px solid var(--border-s); }
+.sub-label { font-size:9px; font-weight:400; letter-spacing:.38em; text-transform:uppercase; color:var(--text-m); padding:8px 0; }
+
+.cn { display:inline-flex; align-items:center; justify-content:center; width:18px; height:18px; background:var(--callout); color:#0a0800; border-radius:50%; font-size:10px; font-weight:700; font-family:'Inter',sans-serif; flex-shrink:0; position:absolute; z-index:20; }
+
+.page-shell { background: var(--ink); max-width:720px; margin:0 auto; padding:24px 32px; position:relative; border:1px solid var(--border-s); border-radius:8px; }
+.back-link { font-size:12px; color:var(--text-s); text-decoration:none; display:inline-block; margin-bottom:16px; }
+.page-h1 { font-size:22px; font-weight:500; color:var(--text-p); margin-bottom:6px; }
+.page-sub { font-size:12px; color:var(--text-m); margin-bottom:20px; }
+
+.card { background: var(--deep); border:1px solid var(--border-s); border-radius:8px; padding:20px 24px; position:relative; }
+.card + .card { margin-top: 16px; }
+.card-title-row { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:12px; }
+.card-title { font-size:14px; font-weight:500; color:var(--text-p); }
+.card-sub { font-size:11px; color:var(--text-m); }
+
+/* Current-plan banner */
+.current-plan {
+  border: 1px solid var(--border-str);
+}
+.current-plan .current-badge {
+  display:inline-block; padding:2px 8px; font-size:10px; letter-spacing:.18em; text-transform:uppercase;
+  background: var(--surface); border-radius:3px; color:var(--text-s); margin-right:10px;
+}
+.current-plan .plan-name { font-size:18px; font-weight:500; color:var(--text-p); }
+.current-plan .plan-price { font-size:13px; color:var(--text-s); margin-top:4px; }
+
+/* Tier card */
+.tier-card {
+  display:grid; grid-template-columns: 1fr auto; align-items:start; gap:16px;
+  padding:16px 18px;
+  background: var(--deep);
+  border: 1px solid var(--border-s);
+  border-radius:6px;
+  margin-bottom: 10px;
+  position: relative;
+}
+.tier-card.current { border-color: var(--border-str); background: var(--hover); }
+.tier-name { font-size:14px; font-weight:500; color:var(--text-p); margin-bottom:4px; display:flex; align-items:center; gap:8px; }
+.tier-name .tier-badge { font-size:9px; letter-spacing:.18em; text-transform:uppercase; padding:1px 6px; background:var(--surface); color:var(--text-s); border-radius:3px; font-weight:400; }
+.tier-desc { font-size:12px; color:var(--text-s); line-height:1.5; }
+.tier-price-block { text-align:right; min-width:120px; }
+.tier-price { font-size:15px; font-weight:500; color:var(--text-p); }
+.tier-price-sub { font-size:11px; color:var(--text-m); margin-top:2px; }
+.tier-allocation { font-size:11px; color:var(--text-m); margin-top:6px; }
+
+/* Inline "current" marker on a tier */
+.tier-current-marker {
+  position: absolute;
+  top: -8px;
+  left: 12px;
+  background: var(--ink);
+  padding: 0 8px;
+  font-size: 9px;
+  letter-spacing: .25em;
+  text-transform: uppercase;
+  color: var(--verd-h);
+}
+
+/* Group label */
+.tier-group-label {
+  font-size:9px; font-weight:400; letter-spacing:.4em; text-transform:uppercase; color:var(--text-m);
+  margin: 18px 0 10px;
+}
+
+/* Disabled CTA - V1 read-only */
+.disabled-cta {
+  margin-top: 16px;
+  padding: 12px 14px;
+  background: var(--surface);
+  border: 1px dashed var(--border-d);
+  border-radius: 6px;
+  font-size: 12px;
+  color: var(--text-s);
+}
+.disabled-cta .ct-title { color: var(--text-p); font-weight: 500; margin-bottom: 4px; font-size: 13px; }
+.disabled-cta .ct-note { color: var(--text-m); font-style: italic; }
+
+/* Two-up frames */
+.two-up { padding: 40px 48px; display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+
+/* Annotations */
+.annotations { padding: 0 48px 80px; }
+.ann-grid { display:grid; grid-template-columns:1fr 1fr; gap: 28px 36px; margin-top:20px; }
+.ann-item { display:flex; gap:14px; }
+.ann-num { width:22px; height:22px; background:var(--callout); color:#0a0800; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; flex-shrink:0; }
+.ann-body { flex:1; }
+.ann-title { font-size:13px; font-weight:500; color:var(--text-p); margin-bottom:4px; }
+.ann-ref { font-size:10px; font-weight:300; color:var(--text-m); margin-bottom:8px; font-style:italic; }
+.ann-desc { font-size:12px; color:var(--text-s); line-height:1.6; }
+.ann-desc code { font-family:'Inter',monospace; background:var(--surface); padding:1px 5px; border-radius:3px; font-size:11px; color:var(--text-p); }
+.ann-desc .critical { color: var(--st-rev); font-weight: 500; }
+.ann-desc .inviolable { color: var(--verd-h); font-weight: 500; }
+</style>
+</head>
+<body>
+
+<!-- Doc header -->
+<div class="doc-header">
+  <div>
+    <div style="display:flex;align-items:baseline;"><span class="wm-s">Stela</span><span class="wm-v">vox</span></div>
+    <div style="margin-top:6px;font-size:11px;font-weight:300;letter-spacing:.2em;text-transform:uppercase;color:var(--text-m);">
+      Plan Panel — Annotated Wireframe & Specification · v1.0
+    </div>
+  </div>
+  <div class="doc-meta">Companion: Component Spec §17.7 ext · Product Spec v1.11 §3.1 · V1.x-D scope</div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════
+     SECTION 1 — /settings/plan as read-only V1 surface · Writer-tier user
+     ══════════════════════════════════════════════════════════════ -->
+<div class="section"><div class="slabel">01 — /settings/plan · current Writer-tier user · all V1 tiers visible read-only</div></div>
+
+<div style="padding:40px 48px;">
+  <div class="page-shell">
+    <span class="cn" style="top:24px;right:32px;">1</span>
+
+    <a href="#" class="back-link">← Settings</a>
+    <h1 class="page-h1">Plan</h1>
+    <div class="page-sub">Subscriptions, allocations and BYOK eligibility. Read-only in V1 — upgrades through Stripe arrive in V2.</div>
+
+    <!-- Current plan banner -->
+    <div class="card current-plan">
+      <span class="cn" style="top:14px;right:14px;">2</span>
+      <div style="display:flex;align-items:baseline;">
+        <span class="current-badge">Current</span>
+        <span class="plan-name">Writer</span>
+      </div>
+      <div class="plan-price">$20 / month · $192 / year (20% discount)</div>
+      <div style="font-size:11px;color:var(--text-m);margin-top:10px;">
+        1,000,000 credits per 30-day period · resets May 30, 2026
+      </div>
+    </div>
+
+    <!-- Platform tiers -->
+    <div class="tier-group-label">Platform tiers</div>
+    <div style="position:relative;">
+      <span class="cn" style="top:-8px;right:8px;z-index:25;">3</span>
+
+      <div class="tier-card">
+        <div>
+          <div class="tier-name">Trial <span class="tier-badge">free</span></div>
+          <div class="tier-desc">Full access for 30 days. No card required.</div>
+          <div class="tier-allocation">1,000,000 credits · full period</div>
+        </div>
+        <div class="tier-price-block">
+          <div class="tier-price">Free</div>
+          <div class="tier-price-sub">30-day trial</div>
+        </div>
+      </div>
+
+      <div class="tier-card current">
+        <span class="tier-current-marker">● Current plan</span>
+        <div>
+          <div class="tier-name">Writer</div>
+          <div class="tier-desc">Regular short-form or occasional long-form work.</div>
+          <div class="tier-allocation">1,000,000 credits / month</div>
+        </div>
+        <div class="tier-price-block">
+          <div class="tier-price">$20<span style="font-size:11px;color:var(--text-m);font-weight:400;">/mo</span></div>
+          <div class="tier-price-sub">$192/yr (–20%)</div>
+        </div>
+      </div>
+
+      <div class="tier-card">
+        <div>
+          <div class="tier-name">Author</div>
+          <div class="tier-desc">Intensive long-form work; a full novel in active writing mode.</div>
+          <div class="tier-allocation">4,000,000 credits / month</div>
+        </div>
+        <div class="tier-price-block">
+          <div class="tier-price">$50<span style="font-size:11px;color:var(--text-m);font-weight:400;">/mo</span></div>
+          <div class="tier-price-sub">$480/yr (–20%)</div>
+        </div>
+      </div>
+
+      <div class="tier-card">
+        <div>
+          <div class="tier-name">Pro</div>
+          <div class="tier-desc">Heavy daily use across multiple active projects.</div>
+          <div class="tier-allocation">16,000,000 credits / month</div>
+        </div>
+        <div class="tier-price-block">
+          <div class="tier-price">$120<span style="font-size:11px;color:var(--text-m);font-weight:400;">/mo</span></div>
+          <div class="tier-price-sub">$1,152/yr (–20%)</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- BYOK tiers -->
+    <div class="tier-group-label">BYOK tiers · bring your own LLM provider key</div>
+    <div style="position:relative;">
+      <span class="cn" style="top:-8px;right:8px;z-index:25;">4</span>
+
+      <div class="tier-card">
+        <div>
+          <div class="tier-name">BYOK Solo</div>
+          <div class="tier-desc">Use your own Anthropic or other provider API key. Stelavox charges only for platform access; your provider bills you for usage. No platform credit cap.</div>
+          <div class="tier-allocation">Single user · unlimited (provider rate limits govern)</div>
+        </div>
+        <div class="tier-price-block">
+          <div class="tier-price">$15<span style="font-size:11px;color:var(--text-m);font-weight:400;">/mo</span></div>
+          <div class="tier-price-sub">$144/yr (–20%)</div>
+        </div>
+      </div>
+
+      <div class="tier-card">
+        <div>
+          <div class="tier-name">BYOK Team</div>
+          <div class="tier-desc">Same BYOK model, multi-seat. Each seat counts toward the per-seat rate.</div>
+          <div class="tier-allocation">2+ seats · per-seat pricing</div>
+        </div>
+        <div class="tier-price-block">
+          <div class="tier-price">$35<span style="font-size:11px;color:var(--text-m);font-weight:400;">/seat / mo</span></div>
+          <div class="tier-price-sub">$336/seat/yr (–20%)</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Disabled CTA - V1 read-only -->
+    <div class="disabled-cta">
+      <span class="cn" style="top:8px;right:10px;">5</span>
+      <div class="ct-title">Switching plans</div>
+      <div>Plan changes — including BYOK enablement — arrive with V2's Stripe integration. To change your subscription in V1, contact support.</div>
+      <div class="ct-note" style="margin-top:6px;">No Stripe Checkout in V1; this page is informational only.</div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════
+     SECTION 2 — Variants: Trial user / BYOK Solo user
+     ══════════════════════════════════════════════════════════════ -->
+<div class="section"><div class="slabel">02 — Variants · who's looking at the page</div></div>
+
+<div class="two-up">
+
+  <div>
+    <div class="sub-label">A · Trial user · day 7 of 30</div>
+    <div class="page-shell" style="max-width:none;">
+      <a href="#" class="back-link">← Settings</a>
+      <h1 class="page-h1">Plan</h1>
+      <div class="card current-plan">
+        <div style="display:flex;align-items:baseline;">
+          <span class="current-badge">Current</span>
+          <span class="plan-name">Trial</span>
+        </div>
+        <div class="plan-price">Free · 23 days remaining</div>
+        <div style="font-size:11px;color:var(--text-m);margin-top:10px;">
+          1,000,000 credits for the full 30-day period · no monthly reset within the trial
+        </div>
+      </div>
+      <div style="font-size:11px;color:var(--text-m);margin-top:14px;padding:12px 14px;background:var(--surface);border:1px dashed var(--border-d);border-radius:6px;">
+        <span class="cn" style="top:6px;right:10px;">6</span>
+        Your trial expires on Jun 8, 2026. To keep writing afterwards, switch to a paid plan or BYOK tier. Switching arrives in V2.
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <div class="sub-label">B · BYOK Solo user · no allocation gate</div>
+    <div class="page-shell" style="max-width:none;">
+      <a href="#" class="back-link">← Settings</a>
+      <h1 class="page-h1">Plan</h1>
+      <div class="card current-plan">
+        <div style="display:flex;align-items:baseline;">
+          <span class="current-badge">Current</span>
+          <span class="plan-name">BYOK Solo</span>
+        </div>
+        <div class="plan-price">$15 / month · $144 / year (20% discount)</div>
+        <div style="font-size:11px;color:var(--text-m);margin-top:10px;">
+          <span class="cn" style="top:4px;right:10px;">7</span>
+          Provider key on file · last validated 2h ago. Your provider's rate limits govern usage. See <a href="#" style="color:var(--text-s);border-bottom:1px dotted var(--text-m);text-decoration:none;">Usage &amp; Billing →</a> for tokens consumed this period.
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════
+     SECTION 3 — ANNOTATIONS
+     ══════════════════════════════════════════════════════════════ -->
+<div class="section"><div class="slabel">03 — Annotations</div></div>
+<div class="annotations">
+  <div class="ann-grid">
+
+    <div class="ann-item">
+      <div class="ann-num">1</div>
+      <div class="ann-body">
+        <div class="ann-title">Mount + page shell</div>
+        <div class="ann-ref">Component Spec §1.x · matches /settings/api-keys + /settings/usage shell</div>
+        <div class="ann-desc">
+          Routes at <code>/settings/plan</code>. Same shell as the other Settings pages: max-width 720px, centred, <code>← Settings</code> back-link, Inter 22px/500 h1. Settings index (V1.x-B.1.2 row) gains a fourth row "Plan" pointing here. The page is read-only in V1; V2 lights up Stripe Checkout for paid-tier changes and Vault upload for BYOK enable.
+        </div>
+      </div>
+    </div>
+
+    <div class="ann-item">
+      <div class="ann-num">2</div>
+      <div class="ann-body">
+        <div class="ann-title">Current-plan banner</div>
+        <div class="ann-ref">Product Spec v1.11 §3.1 · GET /api/usage/current-period (V1.x-C.4)</div>
+        <div class="ann-desc">
+          Sits at the top of the page as the unambiguous "what plan am I on" surface. Pulls plan slug, monthly/annual prices, allocation, and next reset date from <code>platform_config</code> (plan keys) + the org row's <code>current_period_start</code>. Realtime-subscribed to the organisations row so a plan change (V2) reflects immediately. Border uses <code>--border-str</code> to distinguish from the comparison tier cards below.
+        </div>
+      </div>
+    </div>
+
+    <div class="ann-item">
+      <div class="ann-num">3</div>
+      <div class="ann-body">
+        <div class="ann-title">Platform tiers list</div>
+        <div class="ann-ref">Product Spec v1.9 §3.1 Platform Tiers · seeded in platform_config v1.x-C.2 M-134</div>
+        <div class="ann-desc">
+          Four rows: Trial, Writer, Author, Pro. Prices read from <code>price.<plan>.monthly_cents</code> and converted client-side; allocations from <code>plan.<plan>_token_allocation_credits</code>. Current-plan row gets a verdigris dot + "Current plan" marker (use #4 family — "agent-complete / approved" status indicator; <span class="inviolable">passive status, not affirmative action</span>) and elevated background <code>--hover</code>. Other rows are neutral. Sort order matches pricing ladder.
+        </div>
+      </div>
+    </div>
+
+    <div class="ann-item">
+      <div class="ann-num">4</div>
+      <div class="ann-body">
+        <div class="ann-title">BYOK tiers list</div>
+        <div class="ann-ref">Product Spec v1.9 §3.1 BYOK Tiers · BYOK-eligible plans locked V1.x-C.3</div>
+        <div class="ann-desc">
+          Two rows: BYOK Solo, BYOK Team. The descriptions note multi-provider potential ("Anthropic or other provider") in line with the provider-neutral stance locked in CostMeter (no dollar surfacing). "Eligibility" is the V1.x-C.3 rule: only orgs on <code>byok_solo</code> / <code>byok_team</code> can upload a key via the M-137 RPCs. The PlanPanel doesn't enforce switching — switching happens through Stripe in V2 — but it shows the price and capability so the user knows what to ask for.
+        </div>
+      </div>
+    </div>
+
+    <div class="ann-item">
+      <div class="ann-num">5</div>
+      <div class="ann-body">
+        <div class="ann-title">Switching-plans CTA — read-only in V1</div>
+        <div class="ann-ref">Inviolable #2 use #8 reserved for TrialExpiryModal · this is informational, not the upgrade trigger</div>
+        <div class="ann-desc">
+          Dashed-border informational block; explicitly NOT verdigris. The "contact support" affordance is plain text — V1 has no in-app billing operations. <span class="critical">Open decision:</span> whether to include a <code>mailto:</code> or a support-portal link here. Recommendation: bare "contact support" copy in V1 with the email visible elsewhere in the app (existing support flow); a CTA link is misleading without a working portal.
+        </div>
+      </div>
+    </div>
+
+    <div class="ann-item">
+      <div class="ann-num">6</div>
+      <div class="ann-body">
+        <div class="ann-title">Trial-expiry note (Trial variant)</div>
+        <div class="ann-ref">Product Spec v1.9 §3.1 Trial · 30-day window</div>
+        <div class="ann-desc">
+          Trial users see a soft note below the current-plan banner counting down to expiry. This is informational — the formal trial-expiry experience is the existing <code>TrialExpiryModal</code> which fires on day 30 (Inviolable #2 use #8 lives there with its verdigris primary CTA). This PlanPanel note is dashed-border + muted; not a CTA, just countdown awareness.
+        </div>
+      </div>
+    </div>
+
+    <div class="ann-item">
+      <div class="ann-num">7</div>
+      <div class="ann-body">
+        <div class="ann-title">BYOK user · status + Usage cross-link</div>
+        <div class="ann-ref">Component Spec §17.6 (CostMeter) cross-link</div>
+        <div class="ann-desc">
+          BYOK users get one extra line under the current-plan price: provider-key status + a cross-link to <code>/settings/usage</code> (CostMeter full form, tokens-only). This is the navigational continuation between "what plan am I on" and "what have I used". No dollar amount surfaced here — provider-neutral as locked elsewhere. Key-status line mirrors the OrgAnthropicKeyPanel status pattern.
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════
+     SECTION 4 — SETTLED + OPEN DECISIONS
+     ══════════════════════════════════════════════════════════════ -->
+<div class="section"><div class="slabel">04 — Settled &amp; open decisions</div></div>
+<div style="padding: 0 48px 80px;">
+
+  <div class="card" style="max-width:none;">
+    <div class="card-title" style="margin-bottom:12px;">Settled (these flow from earlier decisions)</div>
+    <ul style="margin-left:18px;color:var(--text-s);font-size:13px;line-height:1.7;">
+      <li><strong>V1 is read-only.</strong> No Stripe / no in-app plan switching. Stripe arrives in V2 per Product Spec v1.9 §3.4.</li>
+      <li><strong>Plan slugs are the locked Product Spec v1.9 §3.1 list:</strong> trial / writer / author / pro (Platform) + byok_solo / byok_team (BYOK). The build-checklist's earlier proposed enum (starter/pro/enterprise) is not used; CostMeter wireframe annotation already records this.</li>
+      <li><strong>BYOK-eligible plans</strong> are byok_solo + byok_team only (V1.x-C.3 decision). PlanPanel reflects this in the BYOK section; the OrgAnthropicKeyPanel admin surface is the operational counterpart.</li>
+      <li><strong>"View plans →" link from CostMeter</strong> routes here (per V1.x-D CostMeter open-decision resolution).</li>
+    </ul>
+  </div>
+
+  <div class="card" style="max-width:none;">
+    <div class="card-title" style="margin-bottom:12px;">Open decisions before build</div>
+    <ol style="margin-left:18px;color:var(--text-s);font-size:13px;line-height:1.7;">
+      <li><strong>"Contact support" affordance.</strong> Bare copy vs <code>mailto:</code> vs link to support portal. Recommendation: bare copy in V1 (no working portal yet); revisit when Stripe + support flows land.</li>
+      <li><strong>Trial-expiry note thresholds.</strong> Always-visible to trial users, or only when ≤7 days remaining? Recommendation: always-visible — trial users benefit from countdown awareness throughout; reduces day-30 surprise.</li>
+      <li><strong>Yearly price toggle.</strong> Wireframe shows monthly + annual on the same line. Alternative: a toggle pill that switches the entire grid between monthly and annual displays. Recommendation: inline display (current draft) — keeps the surface simple; toggle adds an interaction with no V1 commit path behind it.</li>
+      <li><strong>Trial-only orgs viewing BYOK rows.</strong> Should the BYOK section be hidden until the user is on a paid plan? Recommendation: keep visible — informational transparency about the full pricing menu. Trial users want to know their options.</li>
+    </ol>
+  </div>
+
+</div>
+
+</body>
+</html>

@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stelavox — Concurrent-Brief Surfaces Wireframe & Specification v1.0</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500&family=Cormorant+Garamond:ital,wght@1,300&family=Inter:wght@200;300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --ink:#0d1014; --deep:#131820; --surface:#1a2030; --hover:#1e2838; --selected:#1f2d45;
+  --border-s:#1e2535; --border-d:#253045; --border-str:#3a4a62;
+  --text-p:#ecf0f5; --text-s:#8aa0b8; --text-m:#4a6080; --text-dis:#2a3850;
+  --verd:#3d7858; --verd-h:#5aa87a; --verd-m:#1a3028;
+  --ag-run:#2e5a90; --st-rev:#b87030; --destr:#b83838;
+  --info:#3c7891;
+  --spec-bg:#0a0d12; --spec-pan:#111520; --callout:#e8b840;
+}
+
+body { background: var(--spec-bg); color: var(--text-p); font-family: 'Inter', sans-serif; font-size: 13px; line-height: 1.5; }
+
+.doc-header { background: var(--spec-pan); border-bottom: 1px solid var(--border-d); padding: 24px 48px; display:flex; align-items:baseline; justify-content:space-between; }
+.wm-s { font-family:'Cinzel',serif; font-size:14px; font-weight:500; letter-spacing:.18em; color:var(--text-p); }
+.wm-v { font-family:'Cormorant Garamond',serif; font-style:italic; font-weight:300; font-size:16px; letter-spacing:.08em; color:var(--text-p); opacity:.82; }
+.doc-meta { font-size:11px; font-weight:300; letter-spacing:.2em; text-transform:uppercase; color:var(--text-m); }
+
+.section { padding: 40px 48px 0; }
+.slabel { font-size:9px; font-weight:400; letter-spacing:.45em; text-transform:uppercase; color:var(--text-m); margin-bottom:20px; padding-bottom:12px; border-bottom:1px solid var(--border-s); }
+.sub-label { font-size:9px; font-weight:400; letter-spacing:.38em; text-transform:uppercase; color:var(--text-m); padding:8px 0 12px; }
+
+.cn { display:inline-flex; align-items:center; justify-content:center; width:18px; height:18px; background:var(--callout); color:#0a0800; border-radius:50%; font-size:10px; font-weight:700; flex-shrink:0; position:absolute; z-index:20; }
+
+/* BriefViewer simulation */
+.brief-viewer {
+  background: var(--deep);
+  border: 1px solid var(--border-s);
+  border-radius: 8px;
+  width: 720px;
+  padding: 20px 24px;
+  position: relative;
+}
+.brief-header {
+  display:flex; justify-content:space-between; align-items:flex-start; gap:16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border-s);
+  margin-bottom: 16px;
+}
+.brief-title { font-size: 16px; font-weight: 500; color: var(--text-p); margin-bottom: 4px; }
+.brief-subtitle { font-size: 11px; color: var(--text-m); }
+
+/* Active/queued multi-brief switcher */
+.brief-switcher {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--text-s);
+  padding: 4px 10px;
+  background: var(--surface);
+  border-radius: 4px;
+}
+.brief-switcher .pip {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--text-m);
+  margin: 0 1px;
+}
+.brief-switcher .pip.active { background: var(--text-p); }
+.brief-switcher .b-current {
+  font-weight: 500; color: var(--text-p);
+}
+
+/* Concurrent-Brief indicator */
+.concurrent-indicator {
+  margin-top: 12px;
+  padding: 10px 12px;
+  background: var(--surface);
+  border-left: 2px solid var(--info);
+  border-radius: 4px;
+  font-size: 12px;
+  color: var(--text-s);
+  line-height: 1.5;
+  position: relative;
+}
+.concurrent-indicator .ci-title { font-weight: 500; color: var(--text-p); margin-bottom: 2px; }
+
+/* Stage / goal block */
+.brief-goal {
+  font-size: 13px;
+  color: var(--text-p);
+  margin-bottom: 16px;
+  line-height: 1.6;
+}
+.brief-stages {
+  display:flex; flex-direction:column; gap:8px;
+}
+.stage-card {
+  display:grid;
+  grid-template-columns: 22px 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: var(--ink);
+  border: 1px solid var(--border-s);
+  border-radius: 4px;
+  font-size: 12px;
+}
+.stage-card.current { border-color: var(--border-str); background: var(--hover); }
+.stage-glyph { color: var(--text-m); font-size: 13px; text-align: center; }
+.stage-card.done .stage-glyph { color: var(--verd-h); }
+.stage-card.current .stage-glyph { color: var(--ag-run); }
+.stage-title { color: var(--text-p); font-weight: 500; }
+.stage-meta { font-size: 11px; color: var(--text-m); margin-top: 2px; }
+.stage-badge {
+  font-size:9px; font-weight:500; letter-spacing:.08em; text-transform:uppercase;
+  padding:2px 6px; border-radius:2px; background:var(--surface); color:var(--text-s);
+}
+.stage-badge.complete { background: var(--verd-m); color: var(--verd-h); }
+.stage-badge.running { background: rgba(46,90,144,.20); color: #6aa0d0; }
+.stage-badge.planned { background: rgba(74,96,128,.18); color: var(--text-s); }
+
+/* SchedulerPanel simulation */
+.sched-panel {
+  background: var(--ink);
+  border: 1px solid var(--border-s);
+  border-radius: 8px;
+  width: 760px;
+  padding: 20px 24px;
+  position: relative;
+}
+.sched-header { display:flex; justify-content:space-between; align-items:baseline; padding-bottom:12px; border-bottom:1px solid var(--border-s); margin-bottom: 14px; }
+.sched-h1 { font-size:18px; font-weight:500; color:var(--text-p); }
+.sched-sub { font-size:11px; color:var(--text-m); }
+
+.sched-group-label { font-size:9px; font-weight:400; letter-spacing:.32em; text-transform:uppercase; color:var(--text-m); margin: 16px 0 10px; }
+
+.sched-brief-row {
+  display:grid;
+  grid-template-columns: auto 1fr auto auto;
+  gap: 12px;
+  align-items: center;
+  padding: 10px 12px;
+  background: var(--deep);
+  border: 1px solid var(--border-s);
+  border-radius: 4px;
+  margin-bottom: 8px;
+  font-size: 12px;
+}
+.sched-brief-row.active { border-left: 2px solid var(--ag-run); }
+.sched-brief-row .ind {
+  width:10px; height:10px; border-radius:50%;
+}
+.sched-brief-row .ind.active { background: var(--ag-run); animation: pulse 1.6s ease-in-out infinite; }
+.sched-brief-row .ind.queued { background: var(--text-m); }
+@keyframes pulse { 0%,100%{opacity:.5;} 50%{opacity:1;} }
+.sched-brief-row .b-title { color:var(--text-p); font-weight: 500; }
+.sched-brief-row .b-meta { font-size:11px; color:var(--text-m); margin-top:2px; }
+.sched-brief-row .b-progress { font-size:11px; color:var(--text-s); }
+.sched-brief-row .b-actions { display:flex; gap:6px; }
+.sched-brief-row .a-btn {
+  font-size: 11px;
+  padding: 4px 10px;
+  background: transparent;
+  border: 1px solid var(--border-str);
+  color: var(--text-s);
+  border-radius: 3px;
+  cursor: pointer;
+}
+.sched-brief-row .a-btn.destructive {
+  border-color: rgba(184,56,56,.5);
+  color: rgba(184,56,56,.9);
+}
+
+/* BriefProposalCard simulation */
+.prop-card {
+  background: var(--deep);
+  border: 1px solid var(--border-s);
+  border-radius: 6px;
+  padding: 16px 18px;
+  width: 540px;
+  position: relative;
+}
+.prop-card-title { font-size: 13px; font-weight: 500; color: var(--text-p); margin-bottom: 8px; }
+.prop-card-goal { font-size: 12px; color: var(--text-s); line-height: 1.55; margin-bottom: 12px; }
+
+.warning-block {
+  background: rgba(184,112,48,.10);
+  border-left: 2px solid var(--st-rev);
+  border-radius: 4px;
+  padding: 10px 12px;
+  margin: 12px 0;
+  font-size: 12px;
+  color: var(--text-s);
+  line-height: 1.55;
+  position: relative;
+}
+.warning-block .wb-title {
+  color: var(--st-rev); font-weight: 500; margin-bottom: 4px;
+  display: flex; align-items: center; gap: 6px;
+}
+.warning-block .wb-list {
+  margin-top: 6px; padding-left: 12px;
+}
+.warning-block .wb-list li { font-size: 11px; color: var(--text-m); margin-bottom: 2px; }
+.warning-block .wb-list strong { color: var(--text-s); font-weight: 500; }
+
+.prop-actions {
+  display:flex; gap:10px; justify-content:flex-end; margin-top: 16px;
+  padding-top: 12px; border-top: 1px solid var(--border-s);
+}
+.btn-approve {
+  font-size: 12px; font-weight: 500; padding: 7px 18px;
+  background: var(--verd); color: var(--text-p); border: none;
+  border-radius: 4px; cursor: pointer;
+}
+.btn-reject {
+  font-size: 12px; font-weight: 500; padding: 7px 16px;
+  background: transparent; border: 1px solid var(--border-str);
+  color: var(--text-s); border-radius: 4px; cursor: pointer;
+}
+
+/* Layout helpers */
+.two-up { padding: 40px 48px; display:grid; grid-template-columns: 1fr 1fr; gap: 36px; align-items: flex-start; }
+
+/* Annotations */
+.annotations { padding: 0 48px 80px; }
+.ann-grid { display:grid; grid-template-columns:1fr 1fr; gap: 28px 36px; margin-top:20px; }
+.ann-item { display:flex; gap:14px; }
+.ann-num { width:22px; height:22px; background:var(--callout); color:#0a0800; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; flex-shrink:0; }
+.ann-body { flex:1; }
+.ann-title { font-size:13px; font-weight:500; color:var(--text-p); margin-bottom:4px; }
+.ann-ref { font-size:10px; font-weight:300; color:var(--text-m); margin-bottom:8px; font-style:italic; }
+.ann-desc { font-size:12px; color:var(--text-s); line-height:1.6; }
+.ann-desc code { font-family:'Inter',monospace; background:var(--surface); padding:1px 5px; border-radius:3px; font-size:11px; color:var(--text-p); }
+.ann-desc .critical { color: var(--st-rev); font-weight: 500; }
+.ann-desc .inviolable { color: var(--verd-h); font-weight: 500; }
+.card { background: var(--deep); border:1px solid var(--border-s); border-radius:8px; padding:20px 24px; position:relative; }
+.card + .card { margin-top: 16px; }
+.card-title { font-size:14px; font-weight:500; color:var(--text-p); margin-bottom:12px; }
+</style>
+</head>
+<body>
+
+<!-- Doc header -->
+<div class="doc-header">
+  <div>
+    <div style="display:flex;align-items:baseline;"><span class="wm-s">Stela</span><span class="wm-v">vox</span></div>
+    <div style="margin-top:6px;font-size:11px;font-weight:300;letter-spacing:.2em;text-transform:uppercase;color:var(--text-m);">
+      Concurrent-Brief Surfaces — Annotated Wireframe & Specification · v1.0
+    </div>
+  </div>
+  <div class="doc-meta">Companion: Component Spec §17.2 §17.4 §A.7 · V1.x-B.3 carry-overs · V1.x-D scope</div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════
+     SECTION 1 — BriefViewer · concurrent-Brief indicator
+     ══════════════════════════════════════════════════════════════ -->
+<div class="section"><div class="slabel">01 — BriefViewer · concurrent active Briefs indicator (V1.x-B.3 carry-over)</div></div>
+
+<div style="padding:40px 48px;display:flex;justify-content:center;">
+  <div class="brief-viewer">
+    <span class="cn" style="top:-9px;right:-9px;">1</span>
+
+    <div class="brief-header">
+      <div>
+        <div class="brief-title">Draft Act 2 — chapter expansion + scene synthesis</div>
+        <div class="brief-subtitle">Brief · created May 14, 2026 · 4 stages</div>
+      </div>
+      <div class="brief-switcher">
+        <span class="cn" style="top:-12px;right:-9px;">2</span>
+        <span class="b-current">Brief 1 of 2</span>
+        <span style="margin-left:6px;color:var(--text-m);">·</span>
+        <span class="pip active"></span>
+        <span class="pip"></span>
+        <span style="margin-left:6px;cursor:pointer;color:var(--text-s);">▾</span>
+      </div>
+    </div>
+
+    <!-- Concurrent-Brief indicator -->
+    <div class="concurrent-indicator">
+      <span class="cn" style="top:-9px;right:-9px;">3</span>
+      <div class="ci-title">1 other active Brief on this document</div>
+      <div>
+        <strong style="color:var(--text-p);">"Polish Chapter 1 dialogue"</strong> — Stage 2 of 3, running. Switch via the pip selector above, or
+        <a href="#" style="color:var(--text-s);border-bottom:1px dotted var(--text-m);text-decoration:none;">open the scheduler →</a>.
+      </div>
+    </div>
+
+    <div class="brief-goal" style="margin-top:18px;">
+      <em style="color:var(--text-m);font-style:normal;font-size:11px;letter-spacing:.06em;text-transform:uppercase;display:block;margin-bottom:6px;">Goal</em>
+      Build Act 2 from a fresh 6-chapter outline. For each chapter, generate 4–6 scenes; then synthesise prose for every beat. Maintain the established voice from Act 1; treat Bracket as antagonist throughout.
+    </div>
+
+    <div class="brief-stages">
+      <div class="stage-card done">
+        <div class="stage-glyph">✓</div>
+        <div>
+          <div class="stage-title">Stage 1 · Expand chapters</div>
+          <div class="stage-meta">6 chapters · completed Apr 30</div>
+        </div>
+        <div class="stage-badge complete">Complete</div>
+      </div>
+      <div class="stage-card current">
+        <div class="stage-glyph">⟳</div>
+        <div>
+          <div class="stage-title">Stage 2 · Expand scenes per chapter</div>
+          <div class="stage-meta">4 of 6 chapters processed</div>
+        </div>
+        <div class="stage-badge running">Running</div>
+      </div>
+      <div class="stage-card">
+        <div class="stage-glyph">◌</div>
+        <div>
+          <div class="stage-title">Stage 3 · Synthesise prose</div>
+          <div class="stage-meta">Triggers when Stage 2 completes · auto-approve enabled</div>
+        </div>
+        <div class="stage-badge planned">Planned</div>
+      </div>
+      <div class="stage-card">
+        <div class="stage-glyph">◌</div>
+        <div>
+          <div class="stage-title">Stage 4 · Refine prose pass</div>
+          <div class="stage-meta">Triggers after Stage 3 · awaiting approval</div>
+        </div>
+        <div class="stage-badge planned">Planned</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Variant: no concurrent Briefs -->
+<div class="section"><div class="slabel">01b — BriefViewer · single Brief case · indicator hidden</div></div>
+
+<div style="padding:40px 48px;display:flex;justify-content:center;">
+  <div class="brief-viewer" style="width:560px;">
+    <div class="brief-header">
+      <div>
+        <div class="brief-title">Draft Chapter 5 ending</div>
+        <div class="brief-subtitle">Brief · created May 16, 2026 · 2 stages</div>
+      </div>
+      <div class="brief-switcher">
+        <span class="b-current">Single Brief</span>
+      </div>
+    </div>
+    <!-- No concurrent-indicator block here -->
+    <div class="brief-goal" style="margin-top:8px;font-size:12px;">
+      <em style="color:var(--text-m);font-style:normal;font-size:11px;letter-spacing:.06em;text-transform:uppercase;display:block;margin-bottom:6px;">Goal</em>
+      Resolve the cliffhanger of Chapter 5. Generate 3 closing scenes and synthesise their prose.
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════
+     SECTION 2 — SchedulerPanel · multi-active-Brief listing
+     ══════════════════════════════════════════════════════════════ -->
+<div class="section"><div class="slabel">02 — SchedulerPanel · multi-active-Brief listing</div></div>
+
+<div style="padding:40px 48px;display:flex;justify-content:center;">
+  <div class="sched-panel">
+    <span class="cn" style="top:-9px;right:-9px;">4</span>
+
+    <div class="sched-header">
+      <div>
+        <div class="sched-h1">Scheduler · The November Set</div>
+        <div class="sched-sub">2 active Briefs · 1 queued · 3 running steps · 7 queued steps</div>
+      </div>
+      <div style="font-size:11px;color:var(--text-m);">Realtime ●</div>
+    </div>
+
+    <div class="sched-group-label">Active Briefs · 2</div>
+
+    <div class="sched-brief-row active">
+      <span class="ind active"></span>
+      <div>
+        <div class="b-title">Draft Act 2 — chapter expansion + scene synthesis</div>
+        <div class="b-meta">Stage 2 of 4 running · 4 of 6 chapters processed · 2 running steps</div>
+      </div>
+      <div class="b-progress">~38% complete</div>
+      <div class="b-actions">
+        <button class="a-btn">Open</button>
+        <button class="a-btn destructive">Cancel</button>
+      </div>
+    </div>
+
+    <div class="sched-brief-row active">
+      <span class="cn" style="top:6px;right:-9px;">5</span>
+      <span class="ind active"></span>
+      <div>
+        <div class="b-title">Polish Chapter 1 dialogue</div>
+        <div class="b-meta">Stage 2 of 3 running · 1 running step</div>
+      </div>
+      <div class="b-progress">~50% complete</div>
+      <div class="b-actions">
+        <button class="a-btn">Open</button>
+        <button class="a-btn destructive">Cancel</button>
+      </div>
+    </div>
+
+    <div class="sched-group-label">Queued Briefs · 1</div>
+
+    <div class="sched-brief-row">
+      <span class="ind queued"></span>
+      <div>
+        <div class="b-title">Continuity sweep on character arcs</div>
+        <div class="b-meta">Position 1 in queue · waits behind Brief #1 completing</div>
+      </div>
+      <div class="b-progress">queued</div>
+      <div class="b-actions">
+        <button class="a-btn">Open</button>
+        <button class="a-btn">Reorder ↑↓</button>
+        <button class="a-btn destructive">Cancel</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════
+     SECTION 3 — BriefProposalCard · concurrent-edit-warning
+     ══════════════════════════════════════════════════════════════ -->
+<div class="section"><div class="slabel">03 — BriefProposalCard · concurrent-edit-warning when proposed nodes overlap an active Brief</div></div>
+
+<div class="two-up">
+
+  <!-- Variant A: warning shown -->
+  <div>
+    <div class="sub-label">A · warning shown · proposed nodes overlap an active Brief's stage</div>
+    <div class="prop-card">
+      <span class="cn" style="top:-9px;left:-9px;">6</span>
+      <div class="prop-card-title">Proposed Brief · Refine Chapter 3 dialogue</div>
+      <div class="prop-card-goal">
+        Sweep Chapter 3 (scenes 1–6) for dialogue pacing. Single-stage Brief; 6 refine steps.
+      </div>
+
+      <div class="warning-block">
+        <span class="cn" style="top:6px;right:10px;">7</span>
+        <div class="wb-title">⚠ Concurrent-edit warning</div>
+        <div>This proposal targets nodes also targeted by an active Brief. Approving will queue work that may conflict with results from the other Brief if they run simultaneously.</div>
+        <ul class="wb-list">
+          <li><strong>Scene 1 · The library catalogue</strong> — currently in "Draft Act 2 → Stage 2"</li>
+          <li><strong>Scene 2 · The encrypted archive</strong> — currently in "Draft Act 2 → Stage 2"</li>
+          <li><strong>Scene 4 · The bridge collapse</strong> — currently in "Draft Act 2 → Stage 2"</li>
+        </ul>
+        <div style="margin-top:8px;font-size:11px;color:var(--text-m);">
+          Recommended: wait until "Draft Act 2" finishes Stage 2, or cancel that Brief first.
+        </div>
+      </div>
+
+      <div class="prop-actions">
+        <button class="btn-reject">Reject</button>
+        <button class="btn-approve">Approve anyway</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Variant B: warning suppressed (no overlap) -->
+  <div>
+    <div class="sub-label">B · no warning · proposed nodes do not overlap</div>
+    <div class="prop-card">
+      <span class="cn" style="top:-9px;left:-9px;">8</span>
+      <div class="prop-card-title">Proposed Brief · Generate Chapter 7 context</div>
+      <div class="prop-card-goal">
+        Single-stage Brief: generate the context node for Chapter 7's antagonist motivation. 1 generate_context step.
+      </div>
+
+      <!-- No warning block -->
+
+      <div class="prop-actions">
+        <button class="btn-reject">Reject</button>
+        <button class="btn-approve">Approve</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════
+     SECTION 4 — ANNOTATIONS
+     ══════════════════════════════════════════════════════════════ -->
+<div class="section"><div class="slabel">04 — Annotations</div></div>
+<div class="annotations">
+  <div class="ann-grid">
+
+    <div class="ann-item">
+      <div class="ann-num">1</div>
+      <div class="ann-body">
+        <div class="ann-title">BriefViewer · existing mount, V1.x-D extension</div>
+        <div class="ann-ref">Component Spec §17.2 baseline (V1.x-A.1) · §17.2 extension (V1.x-D)</div>
+        <div class="ann-desc">
+          BriefViewer has shipped since V1.x-A.1 as a read-only project-header surface for the active Brief. V1.x-D extends it for the multi-Brief world that V1.x-B.3 made possible: a switcher pill in the header and a concurrent-Brief indicator. The card content itself (goal + stages) is unchanged from the V1.x-A.1 baseline.
+        </div>
+      </div>
+    </div>
+
+    <div class="ann-item">
+      <div class="ann-num">2</div>
+      <div class="ann-body">
+        <div class="ann-title">Brief switcher · pip-style multi-Brief selector</div>
+        <div class="ann-ref">Component Spec §17.2 extension · V1.x-B.3 carry-over</div>
+        <div class="ann-desc">
+          Compact pill in the header. When only one Brief exists, shows <code>Single Brief</code> in muted text (no interaction). When multiple Briefs are active, shows <code>Brief N of M</code> with one pip per Brief; the active pip is filled, others empty. Click ▾ to dropdown a list with each Brief's title + status. The dropdown swaps which Brief the BriefViewer renders; the URL doesn't change (the page is still the same document).
+        </div>
+      </div>
+    </div>
+
+    <div class="ann-item">
+      <div class="ann-num">3</div>
+      <div class="ann-body">
+        <div class="ann-title">Concurrent-Brief indicator · informational only</div>
+        <div class="ann-ref">Component Spec §17.2 extension · V1.x-B.3 carry-over</div>
+        <div class="ann-desc">
+          Renders only when 2+ active Briefs exist on the document. Left border <code>--info</code> (neutral teal — same token as AI-changed flag and Stop honesty block; consistent "informational, not alarm" cue). Names the other Brief(s), summarises its stage, links to scheduler. <span class="inviolable">No verdigris</span>. Not interactive itself (read-only); links inside route the user to the scheduler or the alternate Brief view.
+        </div>
+      </div>
+    </div>
+
+    <div class="ann-item">
+      <div class="ann-num">4</div>
+      <div class="ann-body">
+        <div class="ann-title">SchedulerPanel · multi-active extension</div>
+        <div class="ann-ref">Component Spec §17.4 baseline (V1.x-B.1.1) · §17.4 extension (V1.x-D)</div>
+        <div class="ann-desc">
+          SchedulerPanel has shipped since V1.x-B.1.1 with single-active-Brief assumption (the V1.x-B.1.1 era had the strict-one-active partial unique index). V1.x-B.3 dropped that constraint; V1.x-D's extension is the multi-row "Active Briefs · N" group plus per-row indicators + actions. Each row is a Brief, not a workflow step (a Brief contains many workflows; expanding a row drills into its stages).
+        </div>
+      </div>
+    </div>
+
+    <div class="ann-item">
+      <div class="ann-num">5</div>
+      <div class="ann-body">
+        <div class="ann-title">Per-row actions on active Briefs</div>
+        <div class="ann-ref">Component Spec §17.4 · existing per-row Cancel + Open from B.1.1</div>
+        <div class="ann-desc">
+          Each active Brief row shows Open + Cancel. Open routes to the BriefViewer focused on that Brief (the dropdown switcher's target). Cancel uses destructive token + cascade-confirmation modal (existing V1.x-B.1.1 pattern, unchanged). Queued Briefs additionally get Reorder ↑↓ for queue-priority changes — existing affordance unchanged.
+        </div>
+      </div>
+    </div>
+
+    <div class="ann-item">
+      <div class="ann-num">6</div>
+      <div class="ann-body">
+        <div class="ann-title">BriefProposalCard · existing affordance, new warning</div>
+        <div class="ann-ref">Component Spec §A.7 (PlanCard family) · V1.x-B.3 detectConcurrentEditWarning lib call</div>
+        <div class="ann-desc">
+          BriefProposalCard renders inline in the DirectorPanel conversation thread when the Director proposes a Brief. The card itself (title + goal + stages + Approve / Reject) is unchanged. V1.x-D extension is the warning block that renders ONLY when the proposal's target_node_ids overlap nodes currently in another active Brief's running or planned stage. The data source for the warning is the V1.x-B.3 <code>detectConcurrentEditWarning(documentId, proposedTargetNodeIds)</code> helper which already exists.
+        </div>
+      </div>
+    </div>
+
+    <div class="ann-item">
+      <div class="ann-num">7</div>
+      <div class="ann-body">
+        <div class="ann-title">Concurrent-edit warning block</div>
+        <div class="ann-ref">Component Spec §A.7 extension · V1.x-D</div>
+        <div class="ann-desc">
+          Attention-amber left border + light amber background. Lists the overlapping nodes by name and the active Brief + Stage each is currently part of. Recommendation line names two paths (wait / cancel the other Brief). The Approve button copy changes from "Approve" to <strong>"Approve anyway"</strong> when the warning is shown — explicit acknowledgement that the user is opting into a potentially conflicting state. <span class="inviolable">Approve button remains verdigris use #7</span> — affirmative-action triggers family, unchanged.
+        </div>
+      </div>
+    </div>
+
+    <div class="ann-item">
+      <div class="ann-num">8</div>
+      <div class="ann-body">
+        <div class="ann-title">No-overlap variant · clean card</div>
+        <div class="ann-ref">Component Spec §A.7</div>
+        <div class="ann-desc">
+          When the proposal targets nodes that don't overlap any active Brief, no warning block renders. Approve button reads the normal "Approve". This is the most common path — V1.x-D's warning is a guardrail for the cases where concurrent Briefs would step on each other, not a routine surface.
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════
+     SECTION 5 — INVIOLABLE AUDIT + OPEN DECISIONS
+     ══════════════════════════════════════════════════════════════ -->
+<div class="section"><div class="slabel">05 — Inviolable audit &amp; open decisions</div></div>
+
+<div style="padding: 0 48px 80px;">
+
+  <div class="card" style="max-width:none;">
+    <div class="card-title">Inviolable #2 audit · no new verdigris</div>
+    <div style="color:var(--text-s);font-size:13px;line-height:1.7;">
+      <p>All three V1.x-D extensions reuse existing tokens. Concurrent-Brief indicator: <code>--info</code> (same as Stop refinement honesty block + AI-changed flag — informational neutral). SchedulerPanel multi-active rows: <code>--ag-run</code> active pulse + neutral row background. BriefProposalCard concurrent-edit-warning: <code>--st-rev</code> attention-amber (existing in-review status token). Approve button: <code>--verd</code> existing use #7. Verdigris-use count remains <strong>nine</strong>.</p>
+    </div>
+  </div>
+
+  <div class="card" style="max-width:none;">
+    <div class="card-title">Open decisions before build</div>
+    <ol style="margin-left:18px;color:var(--text-s);font-size:13px;line-height:1.7;">
+      <li><strong>Brief switcher placement.</strong> Drawn top-right of BriefViewer header. Alternative: a horizontal tab strip above the Brief title showing all active Briefs as tabs. Recommendation: keep the pill + dropdown — tabs would steal vertical space and most documents will have ≤2 active Briefs, so a full tab strip is overkill.</li>
+      <li><strong>Concurrent-Brief indicator visibility threshold.</strong> Drawn as "renders when 2+ active Briefs exist". Alternative: only when the OTHER Brief currently has a running step (filter by activity). Recommendation: keep the simpler rule — any 2+ active Briefs trigger the indicator; explaining "Brief is currently idle" adds confusion.</li>
+      <li><strong>"Approve anyway" copy.</strong> Drawn as a label swap when the warning shows. Alternative: keep "Approve" with a small modal confirmation when the warning is present. Recommendation: label swap is more honest at the affordance level; modal adds friction without adding clarity.</li>
+      <li><strong>Queued Brief auto-promote behaviour.</strong> Currently a queued Brief promotes when the first active Brief completes (V1.x-B.3 dropped the auto-promote behaviour; queue position is informational). Open: should the scheduler also surface "promote now" as an explicit user action on queued rows? Recommendation: defer to V2 — V1's queue model is "first-come first-served, manual reorder only". Auto-promote-now adds a path that can collide with the multi-active world.</li>
+      <li><strong>Cascade-confirmation copy on Cancel of an active Brief with concurrent siblings.</strong> Existing V1.x-B.1.1 cascade copy mentions pending stages cancelled / completed retained. Open: should it also mention "the sibling Brief X continues unaffected"? Recommendation: yes — explicit reassurance helps when the author worries that cancelling one Brief might break another. One-line addition to the existing copy.</li>
+    </ol>
+  </div>
+
+</div>
+
+</body>
+</html>

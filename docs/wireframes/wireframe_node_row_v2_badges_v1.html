@@ -1,0 +1,731 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stelavox — NodeRow V2 Badges Wireframe & Specification v1.0</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500&family=Cormorant+Garamond:ital,wght@1,300&family=Inter:wght@200;300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --ink:#0d1014; --deep:#131820; --surface:#1a2030; --hover:#1e2838; --selected:#1f2d45;
+  --border-s:#1e2535; --border-d:#253045; --border-str:#3a4a62;
+  --text-p:#ecf0f5; --text-s:#8aa0b8; --text-m:#4a6080; --text-dis:#2a3850;
+  --verd:#3d7858; --verd-h:#5aa87a; --verd-m:#1a3028;
+  --ag-run:#2e5a90; --st-rev:#b87030; --destr:#b83838;
+  --info:#3c7891;
+  --spec-bg:#0a0d12; --spec-pan:#111520; --callout:#e8b840;
+}
+
+body { background: var(--spec-bg); color: var(--text-p); font-family: 'Inter', sans-serif; font-size: 13px; line-height: 1.5; }
+
+.doc-header { background: var(--spec-pan); border-bottom: 1px solid var(--border-d); padding: 24px 48px; display:flex; align-items:baseline; justify-content:space-between; }
+.wm-s { font-family:'Cinzel',serif; font-size:14px; font-weight:500; letter-spacing:.18em; color:var(--text-p); }
+.wm-v { font-family:'Cormorant Garamond',serif; font-style:italic; font-weight:300; font-size:16px; letter-spacing:.08em; color:var(--text-p); opacity:.82; }
+.doc-meta { font-size:11px; font-weight:300; letter-spacing:.2em; text-transform:uppercase; color:var(--text-m); }
+
+.section { padding: 40px 48px 0; }
+.slabel { font-size:9px; font-weight:400; letter-spacing:.45em; text-transform:uppercase; color:var(--text-m); margin-bottom:20px; padding-bottom:12px; border-bottom:1px solid var(--border-s); }
+.sub-label { font-size:9px; font-weight:400; letter-spacing:.38em; text-transform:uppercase; color:var(--text-m); padding:8px 0 12px; }
+
+.cn { display:inline-flex; align-items:center; justify-content:center; width:18px; height:18px; background:var(--callout); color:#0a0800; border-radius:50%; font-size:10px; font-weight:700; flex-shrink:0; position:absolute; z-index:20; }
+
+/* Sidebar simulation - 220px width matches existing layout */
+.tree-frame {
+  background: var(--ink);
+  border: 1px solid var(--border-s);
+  border-radius: 6px;
+  width: 320px;
+  padding: 12px 0;
+  position: relative;
+}
+
+/* NodeRow primitive */
+.node-row {
+  display: grid;
+  grid-template-columns: 16px 14px 1fr auto;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 14px 0 0;
+  font-size: 12px;
+  color: var(--text-s);
+  cursor: pointer;
+  position: relative;
+  border-left: 2px solid transparent;
+}
+.node-row:hover { background: var(--hover); color: var(--text-p); }
+.node-row.active {
+  border-left-color: var(--verd);  /* Inviolable #2 use #9 */
+  background: var(--selected);
+  color: var(--text-p);
+}
+.node-row.depth-1 { padding-left: 16px; }
+.node-row.depth-2 { padding-left: 32px; }
+.node-row.depth-3 { padding-left: 48px; }
+.node-row.depth-4 { padding-left: 64px; }
+
+.tw {  /* twisty */
+  font-size: 9px;
+  color: var(--text-m);
+  text-align: center;
+}
+.glyph { font-size: 13px; color: var(--text-m); }
+.label {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Trailing badge cluster - right-aligned */
+.badges {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-left: auto;
+}
+
+/* Existing badges (V1.x baseline — referenced) */
+.b-status {
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 1px 5px;
+  border-radius: 2px;
+  background: var(--surface);
+  color: var(--text-m);
+}
+.b-status.draft { background: rgba(74,96,128,.18); color: var(--text-s); }
+.b-status.in-review { background: rgba(184,112,48,.16); color: var(--st-rev); }
+.b-status.approved { background: var(--verd-m); color: var(--verd-h); }  /* Inviolable #2 use #5 */
+.b-status.agent-complete { background: var(--verd-m); color: var(--verd-h); }  /* Inviolable #2 use #4 */
+
+/* V1.x-D NEW: lifecycle status badges */
+.b-status.scheduled { background: rgba(74,96,128,.18); color: var(--text-s); }
+.b-status.queued { background: rgba(74,96,128,.25); color: var(--text-s); }
+.b-status.executing { background: rgba(46,90,144,.20); color: #6aa0d0; }
+.b-status.completed-pending-review { background: rgba(184,112,48,.16); color: var(--st-rev); }
+
+/* Lock icon — V1 baseline (user-initiated lock) */
+.b-lock {
+  font-size: 11px;
+  color: var(--text-s);
+}
+
+/* V1.x-D NEW: Auto-lock icon (system-initiated) */
+.b-auto-lock {
+  font-size: 11px;
+  color: var(--info);   /* distinct from user-lock so they're visually separable */
+  position: relative;
+}
+.b-auto-lock::after {
+  /* tiny clock-glyph overlay to differentiate from user-lock */
+  content: '◷';
+  position: absolute;
+  font-size: 7px;
+  bottom: -1px;
+  right: -3px;
+  color: var(--info);
+  background: var(--ink);
+  border-radius: 50%;
+  padding: 0 1px;
+  line-height: 1;
+}
+
+/* V1.x-D NEW: AI-changed flag */
+.b-ai-changed {
+  width: 6px;
+  height: 6px;
+  background: var(--info);
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* V1.x-D NEW: Stage membership indicator (optional) */
+.b-stage {
+  font-size: 9px;
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  padding: 1px 5px;
+  border-radius: 2px;
+  background: var(--surface);
+  color: var(--text-m);
+  border: 1px solid var(--border-d);
+}
+
+/* AgentActivityIndicator - existing */
+.b-agent-running {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--ag-run);
+  flex-shrink: 0;
+  animation: pulse 1.6s ease-in-out infinite;
+}
+@keyframes pulse { 0%,100% { opacity: 0.6; } 50% { opacity: 1; } }
+
+/* Word count bar at end — for leaf nodes */
+.b-wc {
+  font-size: 9px;
+  color: var(--text-m);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Side-by-side wireframe layouts */
+.two-up { padding: 40px 48px; display: grid; grid-template-columns: auto auto; gap: 36px; align-items:flex-start; }
+.three-up { padding: 40px 48px; display: grid; grid-template-columns: repeat(3, auto); gap: 32px; align-items:flex-start; }
+
+/* Annotations */
+.annotations { padding: 0 48px 80px; }
+.ann-grid { display:grid; grid-template-columns:1fr 1fr; gap: 28px 36px; margin-top:20px; }
+.ann-item { display:flex; gap:14px; }
+.ann-num { width:22px; height:22px; background:var(--callout); color:#0a0800; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; flex-shrink:0; }
+.ann-body { flex:1; }
+.ann-title { font-size:13px; font-weight:500; color:var(--text-p); margin-bottom:4px; }
+.ann-ref { font-size:10px; font-weight:300; color:var(--text-m); margin-bottom:8px; font-style:italic; }
+.ann-desc { font-size:12px; color:var(--text-s); line-height:1.6; }
+.ann-desc code { font-family:'Inter',monospace; background:var(--surface); padding:1px 5px; border-radius:3px; font-size:11px; color:var(--text-p); }
+.ann-desc .critical { color: var(--st-rev); font-weight: 500; }
+.ann-desc .inviolable { color: var(--verd-h); font-weight: 500; }
+.card { background: var(--deep); border:1px solid var(--border-s); border-radius:8px; padding:20px 24px; position:relative; }
+.card + .card { margin-top: 16px; }
+.card-title { font-size:14px; font-weight:500; color:var(--text-p); margin-bottom:12px; }
+
+/* Legend */
+.legend { display:grid; grid-template-columns: 1fr 1fr; gap:14px 24px; margin-top:14px; font-size:12px; color:var(--text-s); }
+.legend-item { display:flex; align-items:center; gap:10px; }
+.legend-item .l-sample { display:inline-flex; align-items:center; min-width: 56px; }
+</style>
+</head>
+<body>
+
+<!-- Doc header -->
+<div class="doc-header">
+  <div>
+    <div style="display:flex;align-items:baseline;"><span class="wm-s">Stela</span><span class="wm-v">vox</span></div>
+    <div style="margin-top:6px;font-size:11px;font-weight:300;letter-spacing:.2em;text-transform:uppercase;color:var(--text-m);">
+      NodeRow V2 — Tree Badges & Status Extensions — Annotated Wireframe & Specification · v1.0
+    </div>
+  </div>
+  <div class="doc-meta">Companion: Component Spec §17.8 · §4.2 §4.4 · TA v2.6 · V1.x-D scope</div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════
+     SECTION 1 — BASELINE NodeRow states (V1) vs V2 EXTENSIONS
+     ══════════════════════════════════════════════════════════════ -->
+<div class="section"><div class="slabel">01 — Baseline V1 states (reference) · existing tokens unchanged</div></div>
+
+<div style="padding:40px 48px;">
+  <div class="sub-label">V1 baseline · Component Spec §4.2 + §4.4 · unchanged by V1.x-D</div>
+  <div class="tree-frame">
+
+    <!-- Header label simulating Act -->
+    <div class="node-row depth-0" style="height:32px;">
+      <div class="tw">▾</div>
+      <div class="glyph">▣</div>
+      <div class="label" style="color:var(--text-p);font-weight:500;">Act 1: The Approach</div>
+      <div class="badges"><span class="b-status approved">APP</span></div>
+    </div>
+
+    <div class="node-row depth-1">
+      <div class="tw">▾</div>
+      <div class="glyph">◆</div>
+      <div class="label" style="color:var(--text-p);">Chapter 1: The Accusation</div>
+      <div class="badges"><span class="b-status agent-complete">DONE</span></div>
+    </div>
+
+    <div class="node-row depth-2">
+      <div class="tw">▾</div>
+      <div class="glyph">◇</div>
+      <div class="label">Scene 1: The notebook is gone</div>
+      <div class="badges"><span class="b-status draft">DRAFT</span></div>
+    </div>
+
+    <div class="node-row depth-3 active">
+      <div class="tw"></div>
+      <div class="glyph">●</div>
+      <div class="label" style="color:var(--text-p);">Beat 1: Elena finds the empty drawer</div>
+      <div class="badges"><span class="b-wc">340 / 350</span></div>
+    </div>
+
+    <div class="node-row depth-3">
+      <div class="tw"></div>
+      <div class="glyph">●</div>
+      <div class="label">Beat 2: She rifles the desk</div>
+      <div class="badges"><span class="b-wc">298 / 350</span></div>
+    </div>
+
+    <div class="node-row depth-3">
+      <div class="tw"></div>
+      <div class="glyph">●</div>
+      <div class="label">Beat 3: The letter is gone</div>
+      <div class="badges">
+        <span class="b-agent-running"></span>
+      </div>
+    </div>
+
+    <div class="node-row depth-3">
+      <div class="tw"></div>
+      <div class="glyph">●</div>
+      <div class="label" style="color:var(--text-m);text-decoration:line-through;text-decoration-color:rgba(255,255,255,.18);">Beat 4: Locked beat (user lock)</div>
+      <div class="badges">
+        <span class="b-lock">🔒</span>
+        <span class="b-status in-review">REV</span>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="card" style="margin-top:20px;max-width:none;">
+    <div class="card-title">Baseline badge inventory (V1)</div>
+    <div class="legend">
+      <div class="legend-item"><span class="l-sample"><span class="b-status draft">DRAFT</span></span> Draft status — pre-author-review</div>
+      <div class="legend-item"><span class="l-sample"><span class="b-status in-review">REV</span></span> In-review status — author flagged for revisit</div>
+      <div class="legend-item"><span class="l-sample"><span class="b-status approved">APP</span></span> Approved status — verdigris use #5</div>
+      <div class="legend-item"><span class="l-sample"><span class="b-status agent-complete">DONE</span></span> Agent-complete — verdigris use #4</div>
+      <div class="legend-item"><span class="l-sample"><span class="b-lock">🔒</span></span> User lock — author-initiated lock on subtree</div>
+      <div class="legend-item"><span class="l-sample"><span class="b-agent-running"></span></span> AgentActivityIndicator — agent running on node</div>
+      <div class="legend-item"><span class="l-sample"><span class="b-wc">298 / 350</span></span> WordCount on leaf nodes</div>
+      <div class="legend-item"><span class="l-sample"><span style="border-left:2px solid var(--verd);padding-left:6px;color:var(--text-p);">Active</span></span> 2px verdigris left border — use #9</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════
+     SECTION 2 — V1.x-D NEW BADGES
+     ══════════════════════════════════════════════════════════════ -->
+<div class="section"><div class="slabel">02 — V1.x-D new badges · Component Spec §17.8</div></div>
+
+<div style="padding:40px 48px;">
+  <div class="sub-label">V1.x-D additions overlaid on the existing tree</div>
+  <div class="tree-frame">
+
+    <!-- Header label -->
+    <div class="node-row depth-0" style="height:32px;">
+      <div class="tw">▾</div>
+      <div class="glyph">▣</div>
+      <div class="label" style="color:var(--text-p);font-weight:500;">Act 2: The Pursuit</div>
+      <div class="badges">
+        <span class="cn" style="top:-6px;right:-9px;">1</span>
+        <span class="b-stage">stage 2</span>
+      </div>
+    </div>
+
+    <div class="node-row depth-1">
+      <div class="tw">▾</div>
+      <div class="glyph">◆</div>
+      <div class="label" style="color:var(--text-p);">Chapter 3: The Cipher</div>
+      <div class="badges">
+        <span class="cn" style="top:6px;right:-9px;">2</span>
+        <span class="b-stage">stage 2</span>
+        <span class="b-ai-changed" title="AI-changed"></span>
+        <span class="b-status agent-complete">DONE</span>
+      </div>
+    </div>
+
+    <div class="node-row depth-2">
+      <div class="tw">▾</div>
+      <div class="glyph">◇</div>
+      <div class="label">Scene 1: The library catalogue</div>
+      <div class="badges">
+        <span class="cn" style="top:6px;right:-9px;">3</span>
+        <span class="b-stage">stage 2</span>
+        <span class="b-status scheduled">SCHED</span>
+      </div>
+    </div>
+
+    <div class="node-row depth-3">
+      <div class="tw"></div>
+      <div class="glyph">●</div>
+      <div class="label" style="color:var(--text-m);">Beat 1: Marsh skims the index</div>
+      <div class="badges">
+        <span class="b-stage">stage 2</span>
+        <span class="b-auto-lock" title="Locked — scheduled for AI work">🔒</span>
+        <span class="b-status queued">QUEUED</span>
+      </div>
+    </div>
+
+    <div class="node-row depth-3">
+      <div class="tw"></div>
+      <div class="glyph">●</div>
+      <div class="label" style="color:var(--text-m);">Beat 2: A name catches her eye</div>
+      <div class="badges">
+        <span class="cn" style="top:6px;right:-9px;">4</span>
+        <span class="b-stage">stage 2</span>
+        <span class="b-auto-lock">🔒</span>
+        <span class="b-status executing">RUN</span>
+        <span class="b-agent-running"></span>
+      </div>
+    </div>
+
+    <div class="node-row depth-3">
+      <div class="tw"></div>
+      <div class="glyph">●</div>
+      <div class="label" style="color:var(--text-p);">Beat 3: She copies the volume number</div>
+      <div class="badges">
+        <span class="cn" style="top:6px;right:-9px;">5</span>
+        <span class="b-stage">stage 2</span>
+        <span class="b-ai-changed"></span>
+        <span class="b-status completed-pending-review">NEW</span>
+      </div>
+    </div>
+
+    <div class="node-row depth-3 active">
+      <div class="tw"></div>
+      <div class="glyph">●</div>
+      <div class="label" style="color:var(--text-p);">Beat 4: The page is torn out</div>
+      <div class="badges">
+        <span class="b-stage">stage 2</span>
+        <span class="b-wc">412 / 400</span>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="card" style="margin-top:20px;max-width:none;">
+    <div class="card-title">V1.x-D new badge inventory · §17.8</div>
+    <div class="legend">
+      <div class="legend-item"><span class="l-sample"><span class="b-status scheduled">SCHED</span></span> Scheduled — node is in an approved future workflow not yet running</div>
+      <div class="legend-item"><span class="l-sample"><span class="b-status queued">QUEUED</span></span> Queued — workflow has dispatched but step waits behind throttle</div>
+      <div class="legend-item"><span class="l-sample"><span class="b-status executing">RUN</span></span> Executing — agent_job is in <code>status='running'</code></div>
+      <div class="legend-item"><span class="l-sample"><span class="b-status completed-pending-review">NEW</span></span> Completed pending review — AI-Accepted result waiting for author</div>
+      <div class="legend-item"><span class="l-sample"><span class="b-auto-lock">🔒</span></span> Auto-lock — distinct from user-lock; system-initiated</div>
+      <div class="legend-item"><span class="l-sample"><span class="b-ai-changed"></span></span> AI-changed flag — content modified since author last viewed</div>
+      <div class="legend-item"><span class="l-sample"><span class="b-stage">stage 2</span></span> Stage membership — optional; can be hidden by user pref</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════
+     SECTION 3 — Lifecycle progression on a single beat
+     ══════════════════════════════════════════════════════════════ -->
+<div class="section"><div class="slabel">03 — Lifecycle progression on a single beat · scheduled → queued → executing → completed</div></div>
+
+<div style="padding:40px 48px;">
+
+  <div class="three-up">
+
+    <div>
+      <div class="sub-label">A · Scheduled · in approved workflow</div>
+      <div class="tree-frame">
+        <div class="node-row depth-3">
+          <div class="tw"></div>
+          <div class="glyph">●</div>
+          <div class="label" style="color:var(--text-m);">Beat 7: The bridge collapse</div>
+          <div class="badges">
+            <span class="cn" style="top:6px;right:-9px;">6</span>
+            <span class="b-auto-lock">🔒</span>
+            <span class="b-status scheduled">SCHED</span>
+          </div>
+        </div>
+      </div>
+      <div style="font-size:11px;color:var(--text-m);margin-top:8px;line-height:1.5;">
+        Approved workflow created the agent_job; not yet dispatched. Hover tooltip on auto-lock: <em>"Locked — scheduled for AI work at 14:00"</em>.
+      </div>
+    </div>
+
+    <div>
+      <div class="sub-label">B · Queued · waiting on throttle</div>
+      <div class="tree-frame">
+        <div class="node-row depth-3">
+          <div class="tw"></div>
+          <div class="glyph">●</div>
+          <div class="label" style="color:var(--text-m);">Beat 7: The bridge collapse</div>
+          <div class="badges">
+            <span class="b-auto-lock">🔒</span>
+            <span class="b-status queued">QUEUED</span>
+          </div>
+        </div>
+      </div>
+      <div style="font-size:11px;color:var(--text-m);margin-top:8px;line-height:1.5;">
+        WFQ scheduler holding behind per-pool throttle. Tooltip: <em>"Queued — position 3 in class-2 pool"</em>.
+      </div>
+    </div>
+
+    <div>
+      <div class="sub-label">C · Executing · agent running</div>
+      <div class="tree-frame">
+        <div class="node-row depth-3">
+          <div class="tw"></div>
+          <div class="glyph">●</div>
+          <div class="label" style="color:var(--text-m);">Beat 7: The bridge collapse</div>
+          <div class="badges">
+            <span class="b-auto-lock">🔒</span>
+            <span class="b-status executing">RUN</span>
+            <span class="b-agent-running"></span>
+          </div>
+        </div>
+      </div>
+      <div style="font-size:11px;color:var(--text-m);margin-top:8px;line-height:1.5;">
+        agent_job in <code>status='running'</code>. AgentActivityIndicator pulses. Auto-lock stays on.
+      </div>
+    </div>
+
+    <div>
+      <div class="sub-label">D · Completed pending review · NEW content</div>
+      <div class="tree-frame">
+        <div class="node-row depth-3">
+          <div class="tw"></div>
+          <div class="glyph">●</div>
+          <div class="label" style="color:var(--text-p);">Beat 7: The bridge collapse</div>
+          <div class="badges">
+            <span class="cn" style="top:6px;right:-9px;">7</span>
+            <span class="b-ai-changed"></span>
+            <span class="b-status completed-pending-review">NEW</span>
+          </div>
+        </div>
+      </div>
+      <div style="font-size:11px;color:var(--text-m);margin-top:8px;line-height:1.5;">
+        agent_job completed; auto-lock released. AI-changed dot raised because content differs from last author view. Tooltip on dot: <em>"AI changed this scene; open to review"</em>.
+      </div>
+    </div>
+
+    <div>
+      <div class="sub-label">E · Author opens node · flag clears</div>
+      <div class="tree-frame">
+        <div class="node-row depth-3 active">
+          <div class="tw"></div>
+          <div class="glyph">●</div>
+          <div class="label" style="color:var(--text-p);">Beat 7: The bridge collapse</div>
+          <div class="badges">
+            <span class="b-status completed-pending-review">NEW</span>
+          </div>
+        </div>
+      </div>
+      <div style="font-size:11px;color:var(--text-m);margin-top:8px;line-height:1.5;">
+        Author selects node — verdigris border (#9) lights up; AI-changed dot clears (it's been seen). NEW status remains until author transitions it to <code>approved</code> manually.
+      </div>
+    </div>
+
+    <div>
+      <div class="sub-label">F · Author approves · agent-complete</div>
+      <div class="tree-frame">
+        <div class="node-row depth-3">
+          <div class="tw"></div>
+          <div class="glyph">●</div>
+          <div class="label" style="color:var(--text-p);">Beat 7: The bridge collapse</div>
+          <div class="badges">
+            <span class="b-status agent-complete">DONE</span>
+          </div>
+        </div>
+      </div>
+      <div style="font-size:11px;color:var(--text-m);margin-top:8px;line-height:1.5;">
+        Author moved status to approved/agent-complete. Verdigris-coloured pill (use #4 — passive status). Back into the V1 baseline state from §01.
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════
+     SECTION 4 — User lock vs auto-lock side-by-side
+     ══════════════════════════════════════════════════════════════ -->
+<div class="section"><div class="slabel">04 — User-lock vs auto-lock · disambiguation</div></div>
+
+<div class="two-up">
+  <div>
+    <div class="sub-label">User lock · author intent</div>
+    <div class="tree-frame">
+      <div class="node-row depth-2">
+        <div class="tw">▾</div>
+        <div class="glyph">◇</div>
+        <div class="label" style="color:var(--text-p);">Scene: Act 1 climax</div>
+        <div class="badges">
+          <span class="cn" style="top:6px;right:-9px;">8</span>
+          <span class="b-lock">🔒</span>
+          <span class="b-status approved">APP</span>
+        </div>
+      </div>
+      <div class="node-row depth-3">
+        <div class="tw"></div>
+        <div class="glyph">●</div>
+        <div class="label" style="color:var(--text-m);">Beat 1: locked by ancestor</div>
+        <div class="badges">
+          <span class="b-lock" style="opacity:.5;">🔒</span>
+          <span class="b-status approved">APP</span>
+        </div>
+      </div>
+    </div>
+    <div style="font-size:11px;color:var(--text-m);margin-top:10px;line-height:1.5;padding:8px 12px;background:var(--surface);border-radius:4px;">
+      Author chose to lock — content protected from further AI edits. Lock glyph in <code>--text-s</code>. Hover: <em>"Locked by you — Apr 28"</em>.
+    </div>
+  </div>
+
+  <div>
+    <div class="sub-label">Auto-lock · system intent</div>
+    <div class="tree-frame">
+      <div class="node-row depth-2">
+        <div class="tw">▾</div>
+        <div class="glyph">◇</div>
+        <div class="label" style="color:var(--text-s);">Scene: queued for AI work</div>
+        <div class="badges">
+          <span class="cn" style="top:6px;right:-9px;">9</span>
+          <span class="b-auto-lock">🔒</span>
+          <span class="b-status scheduled">SCHED</span>
+        </div>
+      </div>
+      <div class="node-row depth-3">
+        <div class="tw"></div>
+        <div class="glyph">●</div>
+        <div class="label" style="color:var(--text-m);">Beat 1: ancestor auto-locked</div>
+        <div class="badges">
+          <span class="b-auto-lock" style="opacity:.5;">🔒</span>
+          <span class="b-status scheduled">SCHED</span>
+        </div>
+      </div>
+    </div>
+    <div style="font-size:11px;color:var(--text-m);margin-top:10px;line-height:1.5;padding:8px 12px;background:var(--surface);border-radius:4px;">
+      Scheduled or running agent_job holds the lock. Lock glyph in <code>--info</code> (distinct blue-teal) with a small ◷ clock overlay. Hover: <em>"Locked — scheduled for AI work at 14:00. Release when complete."</em>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════
+     SECTION 5 — ANNOTATIONS
+     ══════════════════════════════════════════════════════════════ -->
+<div class="section"><div class="slabel">05 — Annotations</div></div>
+<div class="annotations">
+  <div class="ann-grid">
+
+    <div class="ann-item">
+      <div class="ann-num">1</div>
+      <div class="ann-body">
+        <div class="ann-title">Stage membership indicator (optional)</div>
+        <div class="ann-ref">Component Spec §17.8 · §A user-pref to hide</div>
+        <div class="ann-desc">
+          Compact "stage N" pill on nodes that belong to a Brief Stage. Uses a thin border + <code>--surface</code> background to stay quiet — many nodes will carry one and they shouldn't dominate the row. Optional: a user preference (<code>tree.show_stage_membership</code>) can hide them globally. Click routes to the stage detail in BriefViewer (§17.2 + concurrent-Brief wireframe).
+        </div>
+      </div>
+    </div>
+
+    <div class="ann-item">
+      <div class="ann-num">2</div>
+      <div class="ann-body">
+        <div class="ann-title">AI-changed flag · attention without alarm</div>
+        <div class="ann-ref">Component Spec §17.8 · §10 (failure UX) explicitly NOT this</div>
+        <div class="ann-desc">
+          Small dot in <code>--info</code> (blue-teal). Indicates AI has changed this node's content since the author last opened it. Cleared on next view of the node (selected → cleared). <span class="inviolable">No verdigris</span> — this is attention not affirmation. <span class="inviolable">No attention-amber</span> either — this isn't a failure/warning, it's positive information ("there's something new"). Tooltip: <em>"AI changed this scene; open to review"</em>.
+        </div>
+      </div>
+    </div>
+
+    <div class="ann-item">
+      <div class="ann-num">3</div>
+      <div class="ann-body">
+        <div class="ann-title">Lifecycle status badges · new V1.x-D states</div>
+        <div class="ann-ref">Component Spec §17.8 · §4.4 NodeStatusBadge extension · TA v2.6 agent_jobs.status</div>
+        <div class="ann-desc">
+          Four new states extend the existing draft / in-review / approved / agent-complete badge set: <code>scheduled</code>, <code>queued</code>, <code>executing</code>, <code>completed-pending-review</code>. Each uses a neutral or informational token — none use verdigris (only approved + agent-complete are verdigris uses #4/#5). Lifecycle order: <code>scheduled → queued → executing → completed-pending-review</code> on an AI-driven path; transitions to <code>approved/agent-complete</code> on author commit.
+        </div>
+      </div>
+    </div>
+
+    <div class="ann-item">
+      <div class="ann-num">4</div>
+      <div class="ann-body">
+        <div class="ann-title">Executing badge + AgentActivityIndicator co-existence</div>
+        <div class="ann-ref">Component Spec §17.8 + existing AgentActivityIndicator §4.5</div>
+        <div class="ann-desc">
+          During execution both the RUN badge and the existing pulsing dot indicator render. They're complementary — the badge declares state at-a-glance scan; the dot is the live "heartbeat" feedback. Visual stacking: <code>[stage] [auto-lock] [RUN] [●pulse]</code>. The pulse uses <code>--ag-run</code> (blue) — established convention from B.2.1.
+        </div>
+      </div>
+    </div>
+
+    <div class="ann-item">
+      <div class="ann-num">5</div>
+      <div class="ann-body">
+        <div class="ann-title">"Completed pending review" — interim state before author Approve</div>
+        <div class="ann-ref">Component Spec §17.8 · §17.11 Director completion acknowledgement</div>
+        <div class="ann-desc">
+          When an agent_job completes successfully, the node enters <code>completed-pending-review</code> (NEW badge in <code>--st-rev</code>) and the AI-changed dot raises. This is the post-completion-pre-author-approve state — the author has not yet seen or approved the result. <span class="critical">Important:</span> this state is distinct from the existing <code>agent-complete</code> badge (verdigris use #4). agent-complete is the post-approve state; this NEW state is pre-approve. Avoids visual conflation between "AI is done" and "author is done".
+        </div>
+      </div>
+    </div>
+
+    <div class="ann-item">
+      <div class="ann-num">6</div>
+      <div class="ann-body">
+        <div class="ann-title">Lifecycle progression A → F · narrative</div>
+        <div class="ann-ref">§03 timeline</div>
+        <div class="ann-desc">
+          Reads left-to-right, top-to-bottom: (A) workflow approved, agent_job created; (B) waiting on WFQ throttle; (C) agent running; (D) job completed, author hasn't looked; (E) author opens the node, attention dot clears, NEW persists until manual approve; (F) author approves, transitions to agent-complete (verdigris use #4). Important: the NEW badge does NOT auto-clear on view — clearing requires an explicit author action ("Approve" or moving to a different status). This forces an intentional acknowledgement on AI-generated content.
+        </div>
+      </div>
+    </div>
+
+    <div class="ann-item">
+      <div class="ann-num">7</div>
+      <div class="ann-body">
+        <div class="ann-title">AI-changed dot vs NEW badge — overlapping signals</div>
+        <div class="ann-ref">Component Spec §17.8 · disambiguation</div>
+        <div class="ann-desc">
+          The two new V1.x-D signals are independent: <strong>AI-changed dot</strong> = "AI changed this; you haven't looked yet" (cleared on next view). <strong>NEW badge</strong> = "post-AI, pre-approve" (cleared on explicit author action). Common case: both fire after a successful agent_job, then the dot clears on view, the badge stays until approve. This is intentional — viewing-but-not-approving keeps the surface honest about author commitment.
+        </div>
+      </div>
+    </div>
+
+    <div class="ann-item">
+      <div class="ann-num">8</div>
+      <div class="ann-body">
+        <div class="ann-title">User lock — existing pattern preserved</div>
+        <div class="ann-ref">Component Spec §4.4 · existing V1 behaviour</div>
+        <div class="ann-desc">
+          Author-initiated lock unchanged: 🔒 in <code>--text-s</code>, hover tooltip names the locker + date. Descendants of a locked subtree inherit the lock visually (50% opacity glyph). User-locked subtrees refuse agent_job dispatch (existing M-008 + scheduler rule).
+        </div>
+      </div>
+    </div>
+
+    <div class="ann-item">
+      <div class="ann-num">9</div>
+      <div class="ann-body">
+        <div class="ann-title">Auto-lock — V1.x-D new pattern</div>
+        <div class="ann-ref">Component Spec §17.8 · TA v2.6 scheduled/queued/executing scheduler state</div>
+        <div class="ann-desc">
+          System-initiated lock from the scheduler. Visual: same 🔒 glyph but coloured in <code>--info</code> (distinct blue-teal) with a small ◷ clock overlay in the bottom-right corner. Released automatically when the holding agent_job transitions to a terminal state (completed / cancelled / failed). Hover tooltip names the upcoming or running work + ETA when known. Important: an author CAN override an auto-lock manually (e.g. cancel the scheduled job from SchedulerPanel) — auto-lock is not adversarial, it's protective.
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════
+     SECTION 6 — INVIOLABLE AUDIT + OPEN DECISIONS
+     ══════════════════════════════════════════════════════════════ -->
+<div class="section"><div class="slabel">06 — Inviolable audit &amp; open decisions</div></div>
+
+<div style="padding: 0 48px 80px;">
+
+  <div class="card" style="max-width:none;">
+    <div class="card-title">Inviolable #2 audit · verdigris use count after V1.x-D NodeRow extensions</div>
+    <div style="color:var(--text-s);font-size:13px;line-height:1.7;">
+      <p>The four new V1.x-D badges (scheduled / queued / executing / completed-pending-review) and the AI-changed dot + auto-lock <span class="inviolable">introduce zero new verdigris uses</span>. All states are passive or informational; verdigris stays reserved for affirmative-action triggers (#7) and the two passive status uses already in place (agent-complete #4 + approved #5). Verdigris-use count remains <strong>nine</strong>.</p>
+      <p style="margin-top:8px;">Token choices:</p>
+      <ul style="margin-left:18px;margin-top:4px;">
+        <li><code>--info</code> (new neutral teal) for AI-changed dot and auto-lock — chosen so the new attention-without-alarm signal doesn't conflict with the attention-amber (<code>--st-rev</code>) used for failures or with verdigris (positive state). If <code>--info</code> doesn't exist in tokens.css yet, V1.x-D adds it.</li>
+        <li><code>--ag-run</code> for executing-state pulse — existing convention from B.2.1.</li>
+        <li><code>--st-rev</code> for completed-pending-review badge — attention-amber matches the convention for "needs your action" without escalating to destructive.</li>
+        <li>Neutral surface tones for scheduled / queued — these are operational states the author doesn't have to act on.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="card" style="max-width:none;">
+    <div class="card-title">Open decisions before build</div>
+    <ol style="margin-left:18px;color:var(--text-s);font-size:13px;line-height:1.7;">
+      <li><strong>Stage membership default-on or default-off?</strong> Drawn as on. Long-form authors may find it noisy. Recommendation: default-on with a single global toggle in <code>/settings/tree</code>; advanced users can hide. Alternative: default-off until Director starts using Stages routinely.</li>
+      <li><strong>AI-changed dot clear-on-view vs explicit-dismiss.</strong> Drawn as clear-on-view (read receipt model). Alternative: explicit "Mark seen" so the author can deliberately leave it "unread" while they investigate other nodes. Recommendation: clear-on-view — matches GitHub-style notification dot, lowest friction.</li>
+      <li><strong>NEW badge auto-clear on approve action vs persistence.</strong> Drawn as cleared only on explicit author Approve. Alternative: clear after N hours of last-viewed. Recommendation: explicit action only — forces intentional commitment to AI-generated content (matches Inviolable §1 author-origin discipline).</li>
+      <li><strong>Auto-lock override behaviour.</strong> User can cancel the holding agent_job (releases lock) but can't manually override the lock while the job runs. Drawn this way. Alternative: allow author to force-unlock + cancel in one action. Recommendation: keep two-step — accidental force-unlocks would orphan in-flight work.</li>
+      <li><strong>Multiple Stage memberships on one node.</strong> A node might belong to multiple active Briefs' Stages in V1.x-B.3 concurrent-Brief world. Drawn as a single "stage N" pill. Open: show stacked pills, or show count "+2 stages"? Recommendation: count if &gt; 1 with hover for breakdown. Wireframe for concurrent-Brief surfaces (separate v1xd file) covers this case.</li>
+    </ol>
+  </div>
+
+</div>
+
+</body>
+</html>

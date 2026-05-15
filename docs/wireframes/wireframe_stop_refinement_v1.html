@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stelavox — Stop Refinement Wireframe & Specification v1.0</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500&family=Cormorant+Garamond:ital,wght@1,300&family=Inter:wght@200;300;400;500;600;700&family=Lora:ital,wght@0,400&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --ink:#0d1014; --deep:#131820; --surface:#1a2030; --hover:#1e2838; --selected:#1f2d45;
+  --border-s:#1e2535; --border-d:#253045; --border-str:#3a4a62;
+  --text-p:#ecf0f5; --text-s:#8aa0b8; --text-m:#4a6080; --text-dis:#2a3850;
+  --verd:#3d7858; --verd-h:#5aa87a; --verd-m:#1a3028;
+  --ag-run:#2e5a90; --st-rev:#b87030; --destr:#b83838;
+  --info:#3c7891;
+  --spec-bg:#0a0d12; --spec-pan:#111520; --callout:#e8b840;
+}
+
+body { background: var(--spec-bg); color: var(--text-p); font-family: 'Inter', sans-serif; font-size: 13px; line-height: 1.5; }
+
+.doc-header { background: var(--spec-pan); border-bottom: 1px solid var(--border-d); padding: 24px 48px; display:flex; align-items:baseline; justify-content:space-between; }
+.wm-s { font-family:'Cinzel',serif; font-size:14px; font-weight:500; letter-spacing:.18em; color:var(--text-p); }
+.wm-v { font-family:'Cormorant Garamond',serif; font-style:italic; font-weight:300; font-size:16px; letter-spacing:.08em; color:var(--text-p); opacity:.82; }
+.doc-meta { font-size:11px; font-weight:300; letter-spacing:.2em; text-transform:uppercase; color:var(--text-m); }
+
+.section { padding: 40px 48px 0; }
+.slabel { font-size:9px; font-weight:400; letter-spacing:.45em; text-transform:uppercase; color:var(--text-m); margin-bottom:20px; padding-bottom:12px; border-bottom:1px solid var(--border-s); }
+.sub-label { font-size:9px; font-weight:400; letter-spacing:.38em; text-transform:uppercase; color:var(--text-m); padding:8px 0 12px; }
+
+.cn { display:inline-flex; align-items:center; justify-content:center; width:18px; height:18px; background:var(--callout); color:#0a0800; border-radius:50%; font-size:10px; font-weight:700; flex-shrink:0; position:absolute; z-index:20; }
+
+/* Director panel sim (580px wide preferred per Component Spec §7.1) */
+.dir-panel {
+  background: var(--deep);
+  border: 1px solid var(--border-s);
+  border-radius: 6px;
+  width: 540px;
+  position: relative;
+  overflow: hidden;
+}
+.dir-header {
+  background: var(--ink);
+  border-bottom: 1px solid var(--border-s);
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.dir-header-title { font-size: 13px; font-weight: 500; color: var(--text-p); display:flex; align-items:center; gap:8px; }
+.dir-icon { color: var(--text-s); font-size: 14px; }
+
+/* Stop button - destructive token */
+.stop-btn {
+  font-size: 11px;
+  font-weight: 500;
+  padding: 5px 12px;
+  background: transparent;
+  border: 1px solid rgba(184,56,56,.6);
+  color: rgba(184,56,56,.95);
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+/* Conversation thread sim */
+.dir-body { padding: 16px; max-height: 380px; overflow-y: auto; }
+.msg { margin-bottom: 14px; }
+.msg-role { font-size: 10px; font-weight: 500; letter-spacing: .14em; text-transform: uppercase; color: var(--text-m); margin-bottom: 4px; }
+.msg-content { font-size: 13px; color: var(--text-p); line-height: 1.55; }
+.msg-content.assistant { color: var(--text-s); }
+
+/* Running indicator inline */
+.running-line {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 12px; color: var(--text-m); padding: 8px 12px;
+  background: var(--surface);
+  border-radius: 4px;
+  margin-bottom: 12px;
+}
+.running-line .pulse {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--ag-run);
+  animation: pulse 1.6s ease-in-out infinite;
+}
+@keyframes pulse { 0%,100%{opacity:.6;} 50%{opacity:1;} }
+
+/* PlanCard sim - running */
+.plan-card {
+  border: 1px solid var(--border-d);
+  border-radius: 6px;
+  padding: 12px 14px;
+  font-size: 12px;
+  color: var(--text-s);
+  background: var(--ink);
+  margin-top: 8px;
+}
+.plan-step {
+  display: grid;
+  grid-template-columns: 14px 1fr;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  font-size: 12px;
+}
+.plan-step .step-glyph { color: var(--text-m); text-align: center; }
+.plan-step.done .step-glyph { color: var(--verd-h); }
+.plan-step.running .step-glyph { color: var(--ag-run); }
+.plan-step.pending { color: var(--text-m); }
+
+/* Modal overlay */
+.modal-backdrop {
+  background: rgba(10,13,18,0.78);
+  border: 1px dashed var(--border-d);
+  border-radius: 6px;
+  padding: 60px 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.modal {
+  background: var(--deep);
+  border: 1px solid var(--border-str);
+  border-radius: 8px;
+  width: 480px;
+  padding: 24px 28px;
+  position: relative;
+}
+.modal-title { font-size: 16px; font-weight: 500; color: var(--text-p); margin-bottom: 12px; }
+.modal-body { font-size: 13px; color: var(--text-s); line-height: 1.6; margin-bottom: 8px; }
+.modal-honesty {
+  background: var(--surface);
+  border-left: 2px solid var(--info);
+  padding: 12px 14px;
+  margin: 14px 0;
+  font-size: 12px;
+  color: var(--text-s);
+  line-height: 1.6;
+}
+.modal-honesty .h-line { display: block; }
+.modal-honesty .h-line strong { color: var(--text-p); font-weight: 500; }
+.modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 18px; }
+.btn {
+  font-size: 12px;
+  font-weight: 500;
+  padding: 7px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: 'Inter', sans-serif;
+}
+.btn-ghost { background: transparent; border: 1px solid var(--border-str); color: var(--text-s); }
+.btn-destructive { background: transparent; border: 1px solid rgba(184,56,56,.6); color: rgba(184,56,56,.95); }
+.btn-primary { background: var(--text-p); color: var(--ink); border: none; }  /* neutral primary - not verdigris */
+
+/* Follow-on stopped state */
+.stopped-banner {
+  background: var(--ink);
+  border: 1px solid var(--border-d);
+  border-left: 3px solid var(--st-rev);
+  border-radius: 6px;
+  padding: 14px 16px;
+  margin-bottom: 14px;
+}
+.stopped-title { font-size: 13px; font-weight: 500; color: var(--text-p); margin-bottom: 4px; }
+.stopped-summary { font-size: 12px; color: var(--text-s); line-height: 1.5; }
+
+/* Three-way follow-on action bar */
+.follow-on {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 8px;
+  margin-top: 12px;
+}
+.fo-card {
+  background: var(--surface);
+  border: 1px solid var(--border-d);
+  border-radius: 6px;
+  padding: 12px 14px;
+  cursor: pointer;
+}
+.fo-card:hover { border-color: var(--border-str); background: var(--hover); }
+.fo-card .fo-label { font-size: 12px; font-weight: 500; color: var(--text-p); margin-bottom: 4px; display: flex; align-items: center; gap: 6px; }
+.fo-card .fo-desc { font-size: 11px; color: var(--text-m); line-height: 1.5; }
+.fo-card.destructive .fo-label { color: rgba(184,56,56,.95); }
+.fo-card.destructive { border-color: rgba(184,56,56,.3); }
+
+/* Two-up */
+.two-up { padding: 40px 48px; display:grid; grid-template-columns: 1fr 1fr; gap: 36px; align-items: flex-start; }
+
+/* Annotations */
+.annotations { padding: 0 48px 80px; }
+.ann-grid { display:grid; grid-template-columns:1fr 1fr; gap: 28px 36px; margin-top:20px; }
+.ann-item { display:flex; gap:14px; }
+.ann-num { width:22px; height:22px; background:var(--callout); color:#0a0800; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; flex-shrink:0; }
+.ann-body { flex:1; }
+.ann-title { font-size:13px; font-weight:500; color:var(--text-p); margin-bottom:4px; }
+.ann-ref { font-size:10px; font-weight:300; color:var(--text-m); margin-bottom:8px; font-style:italic; }
+.ann-desc { font-size:12px; color:var(--text-s); line-height:1.6; }
+.ann-desc code { font-family:'Inter',monospace; background:var(--surface); padding:1px 5px; border-radius:3px; font-size:11px; color:var(--text-p); }
+.ann-desc .critical { color: var(--st-rev); font-weight: 500; }
+.ann-desc .inviolable { color: var(--verd-h); font-weight: 500; }
+.card { background: var(--deep); border:1px solid var(--border-s); border-radius:8px; padding:20px 24px; position:relative; }
+.card + .card { margin-top: 16px; }
+.card-title { font-size:14px; font-weight:500; color:var(--text-p); margin-bottom:12px; }
+</style>
+</head>
+<body>
+
+<!-- Doc header -->
+<div class="doc-header">
+  <div>
+    <div style="display:flex;align-items:baseline;"><span class="wm-s">Stela</span><span class="wm-v">vox</span></div>
+    <div style="margin-top:6px;font-size:11px;font-weight:300;letter-spacing:.2em;text-transform:uppercase;color:var(--text-m);">
+      Stop Refinement — Annotated Wireframe & Specification · v1.0
+    </div>
+  </div>
+  <div class="doc-meta">Companion: Component Spec §17.9 · §5.14 StopButton baseline · Director Arch v2.3 §10 · V1.x-D scope</div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════
+     SECTION 1 — Step 1: Running Director turn with Stop in header
+     ══════════════════════════════════════════════════════════════ -->
+<div class="section"><div class="slabel">01 — Step 1 · Director running · Stop button mounted in header</div></div>
+
+<div style="padding:40px 48px;display:flex;justify-content:center;">
+  <div class="dir-panel">
+    <span class="cn" style="top:-9px;right:-9px;">1</span>
+
+    <div class="dir-header">
+      <div class="dir-header-title">
+        <span class="dir-icon">◆</span>
+        Director
+      </div>
+      <button class="stop-btn">Stop</button>
+    </div>
+
+    <div class="dir-body">
+      <div class="msg">
+        <div class="msg-role">You</div>
+        <div class="msg-content">Expand Act 2 into 6 chapters and draft scene-by-scene for each.</div>
+      </div>
+
+      <div class="msg">
+        <div class="msg-role">Director</div>
+        <div class="msg-content assistant">Here's the plan I propose. I'll create 6 chapters first, then for each chapter break it into 4–6 scenes.</div>
+        <div class="plan-card">
+          <div style="font-size:11px;color:var(--text-m);margin-bottom:8px;">12 steps · approved · in flight</div>
+          <div class="plan-step done"><div class="step-glyph">✓</div><div>Expand Act 2 → Chapter 1</div></div>
+          <div class="plan-step done"><div class="step-glyph">✓</div><div>Expand Act 2 → Chapter 2</div></div>
+          <div class="plan-step done"><div class="step-glyph">✓</div><div>Expand Act 2 → Chapter 3</div></div>
+          <div class="plan-step done"><div class="step-glyph">✓</div><div>Expand Act 2 → Chapter 4</div></div>
+          <div class="plan-step running"><div class="step-glyph">⟳</div><div>Expand Act 2 → Chapter 5 <span style="font-style:italic;color:var(--text-m);"> · in flight</span></div></div>
+          <div class="plan-step pending"><div class="step-glyph">◌</div><div>Expand Act 2 → Chapter 6</div></div>
+          <div class="plan-step pending"><div class="step-glyph">◌</div><div>Synthesise scenes for Chapter 1</div></div>
+        </div>
+      </div>
+
+      <div class="running-line">
+        <span class="pulse"></span>
+        <span>Step 5 of 12 · Director thinking…</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════
+     SECTION 2 — Step 2: Stop confirmation modal
+     ══════════════════════════════════════════════════════════════ -->
+<div class="section"><div class="slabel">02 — Step 2 · Stop pressed · confirmation modal with side-effect honesty</div></div>
+
+<div style="padding:40px 48px;display:flex;justify-content:center;">
+  <div class="modal-backdrop" style="width:540px;">
+    <div class="modal">
+      <span class="cn" style="top:-9px;right:-9px;">2</span>
+
+      <div class="modal-title">Stop the Director?</div>
+      <div class="modal-body">
+        The turn is mid-flight. Stopping halts the current LLM call and pauses any pending steps.
+      </div>
+
+      <div class="modal-honesty">
+        <span class="cn" style="top:8px;right:10px;">3</span>
+        <span class="h-line"><strong>4 of 12 steps complete.</strong> Stop will keep these and pause the remaining 8.</span>
+        <span class="h-line" style="margin-top:6px;color:var(--text-m);font-style:italic;">Director state preserves on Stop — you can Resume later.</span>
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn btn-ghost">Keep going</button>
+        <button class="btn btn-destructive">Stop</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════
+     SECTION 3 — Step 3: Post-stop state with three-way follow-on
+     ══════════════════════════════════════════════════════════════ -->
+<div class="section"><div class="slabel">03 — Step 3 · Stopped · three follow-on choices</div></div>
+
+<div style="padding:40px 48px;display:flex;justify-content:center;">
+  <div class="dir-panel">
+    <div class="dir-header">
+      <div class="dir-header-title">
+        <span class="dir-icon">◆</span>
+        Director
+      </div>
+      <span style="font-size:11px;color:var(--text-m);">Stopped</span>
+    </div>
+
+    <div class="dir-body">
+
+      <div class="stopped-banner">
+        <span class="cn" style="top:8px;right:10px;">4</span>
+        <div class="stopped-title">Director stopped</div>
+        <div class="stopped-summary">Halted mid-step 5. 4 of 12 steps complete (Chapters 1–4 expanded). 8 steps remaining are paused; state preserved.</div>
+
+        <div class="follow-on">
+          <span class="cn" style="top:-6px;left:8px;">5</span>
+          <div class="fo-card">
+            <div class="fo-label"><span style="color:var(--verd-h);">▶</span> Resume</div>
+            <div class="fo-desc">Continue from the persisted state. Step 5 re-runs from scratch.</div>
+          </div>
+          <div class="fo-card destructive">
+            <div class="fo-label">✕ Cancel</div>
+            <div class="fo-desc">Abandon the remaining 8 steps. Completed work stays.</div>
+          </div>
+          <div class="fo-card">
+            <div class="fo-label">⊟ View what was done</div>
+            <div class="fo-desc">Browse the 4 completed step outputs before deciding.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="msg">
+        <div class="msg-role">You</div>
+        <div class="msg-content">Expand Act 2 into 6 chapters and draft scene-by-scene for each.</div>
+      </div>
+
+      <div class="msg">
+        <div class="msg-role">Director</div>
+        <div class="msg-content assistant">Here's the plan I propose. I'll create 6 chapters first, then for each chapter break it into 4–6 scenes.</div>
+        <div class="plan-card">
+          <div style="font-size:11px;color:var(--text-m);margin-bottom:8px;">12 steps · stopped at step 5</div>
+          <div class="plan-step done"><div class="step-glyph">✓</div><div>Expand Act 2 → Chapter 1</div></div>
+          <div class="plan-step done"><div class="step-glyph">✓</div><div>Expand Act 2 → Chapter 2</div></div>
+          <div class="plan-step done"><div class="step-glyph">✓</div><div>Expand Act 2 → Chapter 3</div></div>
+          <div class="plan-step done"><div class="step-glyph">✓</div><div>Expand Act 2 → Chapter 4</div></div>
+          <div class="plan-step pending"><div class="step-glyph" style="color:var(--st-rev);">⏸</div><div style="color:var(--st-rev);">Expand Act 2 → Chapter 5 · paused</div></div>
+          <div class="plan-step pending"><div class="step-glyph">◌</div><div>Expand Act 2 → Chapter 6</div></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════
+     SECTION 4 — Variants on Stop modal
+     ══════════════════════════════════════════════════════════════ -->
+<div class="section"><div class="slabel">04 — Variants · single step vs no-completed-work edge case</div></div>
+
+<div class="two-up">
+
+  <div>
+    <div class="sub-label">A · Stopping a single-step Director turn</div>
+    <div class="modal" style="margin:0;">
+      <div class="modal-title">Stop the Director?</div>
+      <div class="modal-body">The current LLM call is in flight.</div>
+      <div class="modal-honesty">
+        <span class="cn" style="top:8px;right:10px;">6</span>
+        <span class="h-line"><strong>0 of 1 step complete.</strong> Stopping halts the in-flight call; no partial output retained.</span>
+        <span class="h-line" style="margin-top:6px;color:var(--text-m);font-style:italic;">Resume re-runs the call from scratch.</span>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost">Keep going</button>
+        <button class="btn btn-destructive">Stop</button>
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <div class="sub-label">B · Stopping with no completed steps yet</div>
+    <div class="modal" style="margin:0;">
+      <div class="modal-title">Stop the Director?</div>
+      <div class="modal-body">The turn just started; no steps have completed yet.</div>
+      <div class="modal-honesty">
+        <span class="cn" style="top:8px;right:10px;">7</span>
+        <span class="h-line"><strong>0 of 8 steps complete.</strong> Stopping cancels all 8.</span>
+        <span class="h-line" style="margin-top:6px;color:var(--text-m);font-style:italic;">Nothing to keep — this is effectively a Cancel. Resume restarts from step 1.</span>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost">Keep going</button>
+        <button class="btn btn-destructive">Stop</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════
+     SECTION 5 — ANNOTATIONS
+     ══════════════════════════════════════════════════════════════ -->
+<div class="section"><div class="slabel">05 — Annotations</div></div>
+<div class="annotations">
+  <div class="ann-grid">
+
+    <div class="ann-item">
+      <div class="ann-num">1</div>
+      <div class="ann-body">
+        <div class="ann-title">Stop button — destructive token, NOT verdigris</div>
+        <div class="ann-ref">Component Spec §5.14 baseline (V1.x-B.2) · §17.9 refinement (this wireframe)</div>
+        <div class="ann-desc">
+          Shipped in V1.x-B.2 as a single-action button in the DirectorPanel header. <span class="inviolable">Uses destructive token (red border + red text), NOT verdigris</span> — Inviolable #2 unchanged. V1.x-D refinement = add the confirmation modal + the three-way follow-on after stop. Button itself stays the same.
+        </div>
+      </div>
+    </div>
+
+    <div class="ann-item">
+      <div class="ann-num">2</div>
+      <div class="ann-body">
+        <div class="ann-title">Confirmation modal — required before Stop fires</div>
+        <div class="ann-ref">Component Spec §17.9 · Director Arch v2.3 §10 honesty principle</div>
+        <div class="ann-desc">
+          Pre-V1.x-D the Stop button fired immediately on click. V1.x-D adds a small confirmation step because Stop has real side-effects: it halts an in-flight LLM call (wastes any tokens already spent on the current step) and pauses subsequent steps. The modal makes those side-effects visible so the author can decide deliberately, not reflexively.
+        </div>
+      </div>
+    </div>
+
+    <div class="ann-item">
+      <div class="ann-num">3</div>
+      <div class="ann-body">
+        <div class="ann-title">Side-effect honesty block</div>
+        <div class="ann-ref">Component Spec §17.9 · Director Arch v2.3 §10 · simplified 2026-05-17</div>
+        <div class="ann-desc">
+          The blue-bordered block makes two honesty statements: (1) what's already done and will be kept (proportional, not numerical — "N of M steps complete"); (2) reassurance that state preserves on Stop. <span class="inviolable">Brand voice rule:</span> direct, complete, no alarm. <span class="inviolable">No token or credit savings number</span> — per user direction 2026-05-17, quantification of savings doesn't change the user's stop decision (proportion does), conflicts with the platform-credits vs BYOK-tokens unit split, and gives false precision against a rough estimate. Dollar values also not surfaced (provider-neutral, same rationale as CostMeter). Consumption detail lives in CostMeter — every other surface defers there.
+        </div>
+      </div>
+    </div>
+
+    <div class="ann-item">
+      <div class="ann-num">4</div>
+      <div class="ann-body">
+        <div class="ann-title">Stopped banner — orange left border</div>
+        <div class="ann-ref">Component Spec §17.9 · attention-amber convention</div>
+        <div class="ann-desc">
+          Persists in the conversation thread until the author makes a follow-on choice. Left border uses <code>--st-rev</code> (attention-amber) — same convention as in-review status badges. <span class="inviolable">No verdigris</span> — Stop isn't a positive completion; it's a paused state awaiting author decision. Banner stays in-thread (not floating overlay) so the conversation history reflects what happened.
+        </div>
+      </div>
+    </div>
+
+    <div class="ann-item">
+      <div class="ann-num">5</div>
+      <div class="ann-body">
+        <div class="ann-title">Three-way follow-on · Resume / Cancel / View</div>
+        <div class="ann-ref">Component Spec §17.9 · Director Arch v2.3 §10</div>
+        <div class="ann-desc">
+          Three distinct affordances rather than a single "OK what next" dialog: <strong>Resume</strong> (continues from persisted state; runs step N from scratch on re-entry); <strong>Cancel</strong> (destructive token — abandons remaining steps but keeps completed work); <strong>View what was done</strong> (read-only browse of the 4 completed outputs before committing to a Resume or Cancel decision). The author can View first, then come back and choose. The Cancel card uses destructive border to signal irreversibility. The Resume affordance uses a small green triangle as a "go" glyph — <span class="inviolable">not verdigris fill</span>, just a glyph colour cue.
+        </div>
+      </div>
+    </div>
+
+    <div class="ann-item">
+      <div class="ann-num">6</div>
+      <div class="ann-body">
+        <div class="ann-title">Single-step Stop variant</div>
+        <div class="ann-ref">§04 Variant A · Component Spec §17.9 honesty per turn-shape</div>
+        <div class="ann-desc">
+          When the running turn has only one step (typical for a quick refine), the honesty block shortens to a single-step statement. No "N of M complete" line because there's nothing to keep — "0 of 1" with a one-liner about resume re-running from scratch. The three-way follow-on after stop collapses: Resume + Cancel only (no View — nothing to view).
+        </div>
+      </div>
+    </div>
+
+    <div class="ann-item">
+      <div class="ann-num">7</div>
+      <div class="ann-body">
+        <div class="ann-title">No-completed-work Stop variant</div>
+        <div class="ann-ref">§04 Variant B · semantic alignment with Cancel</div>
+        <div class="ann-desc">
+          When Stop fires before any step has completed, the modal copy acknowledges that this is effectively a Cancel — there's no "keep" half. <span class="critical">Open question:</span> in this case, should the button label change from "Stop" to "Cancel" to be honest about what's happening? Or stay "Stop" with the explanatory subtitle? Recommendation: stay "Stop" — the user pressed Stop, they expect their press to do what it says; the subtitle handles the disambiguation.
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════
+     SECTION 6 — INVIOLABLE AUDIT + OPEN DECISIONS
+     ══════════════════════════════════════════════════════════════ -->
+<div class="section"><div class="slabel">06 — Inviolable audit &amp; open decisions</div></div>
+
+<div style="padding: 0 48px 80px;">
+
+  <div class="card" style="max-width:none;">
+    <div class="card-title">Inviolable #2 audit · no new verdigris</div>
+    <div style="color:var(--text-s);font-size:13px;line-height:1.7;">
+      <p>The Stop refinement introduces no new verdigris uses. Stop button + Cancel card stay on destructive token (red). Resume affordance uses a small green triangle as a glyph — a 1-character colour cue, not a fill — and the affordance card background stays neutral <code>--surface</code>. The honesty block's left border uses <code>--info</code> (informational neutral). The stopped banner's left border uses <code>--st-rev</code> (attention-amber). Verdigris-use count remains <strong>nine</strong>.</p>
+      <p style="margin-top:8px;">Modal primary action uses the neutral <code>btn-primary</code> (white-on-black) — no verdigris because Stop is destructive, not affirmative. Inviolable #2 use #7 (affirmative-action triggers) does not apply.</p>
+    </div>
+  </div>
+
+  <div class="card" style="max-width:none;">
+    <div class="card-title">Open decisions before build</div>
+    <ol style="margin-left:18px;color:var(--text-s);font-size:13px;line-height:1.7;">
+      <li><strong>Numerical savings line.</strong> <span style="color:var(--verd-h);">SETTLED 2026-05-17 — dropped.</span> The proportional "N of M complete" line is sufficient signal; a token/credit number creates a unit problem (credits for platform, tokens for BYOK), gives false precision against a rough estimate, and competes with CostMeter (the dedicated consumption surface). The qualitative statement carries the decision-relevant content.</li>
+      <li><strong>Resume re-runs step N from scratch.</strong> The persisted state preserves at iteration boundary, so step N restarts. Acceptable? Recommendation: yes for V1; partial-step resume (continue from mid-LLM-call) is complex and rare. V2 candidate if users ask.</li>
+      <li><strong>View affordance.</strong> Drawn as a separate card. Alternative: just expand the PlanCard inline since it already shows completed-step outputs. Recommendation: keep separate — explicit "View what was done" is clearer than expecting the author to know they can scroll through PlanCard.</li>
+      <li><strong>Stop button while NOT running.</strong> What if the user clicks Stop after the turn already completed (race condition)? Recommendation: button greys out + becomes inert when the turn finishes; if a stale press fires, the modal explains "Director already finished. Nothing to stop." No-op exit.</li>
+      <li><strong>Stop on a queued (not running) workflow step.</strong> Different from Stop on a live Director turn. Open: same modal or different? Recommendation: the SchedulerPanel already exposes Cancel per row; Stop is reserved for the live turn surface. The Stop button in the Director header only appears when an active director_turn exists.</li>
+    </ol>
+  </div>
+
+</div>
+
+</body>
+</html>
