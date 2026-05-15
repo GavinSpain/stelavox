@@ -3,33 +3,36 @@
  *
  * Source: stelavox_technical_architecture_v1_8.md §7.2. Build Checklist T-2.2.
  *         V1.x-B.1.2: per-user BYOK routing landed.
+ *         V1.x-C.3: per-org BYOK Option A retarget landed.
  *
  * Per TA §3.1:
  *   "Components and API routes must never call the Anthropic SDK or Vercel
  *    AI SDK directly. All LLM calls go through getProvider()."
  *
- * V1.x-B.1.2 — when a userId is provided AND that user has a BYOK key on
- * file, returns ByokProvider (routes via supabase/functions/byok-llm-call
- * Edge Function with the user's Vault-encrypted key). Otherwise returns
- * AnthropicProvider with process.env.ANTHROPIC_API_KEY.
+ * V1.x-C.3 Option A precedence for the provider:
+ *   1. Per-org BYOK — if `organisation.byok_enabled=true` AND the org row
+ *      has `byok_api_key_vault_id` set, route via ByokProvider(orgId).
+ *   2. Per-user BYOK (transition window) — if a userId is supplied AND
+ *      that user has a non-deprecated `user_anthropic_keys` row, route
+ *      via ByokProvider(userId). This path will deprecate fully in V2.
+ *   3. Platform key — AnthropicProvider with process.env.ANTHROPIC_API_KEY.
  *
- * Existing call sites that don't yet pass a userId fall back to the
- * platform AnthropicProvider — no behaviour change. Director route
- * handlers (`/api/director/message` + `/api/director/conversation/[id]/resume`)
- * pass userId from session in V1.x-B.1.2; agent runner integration is
- * a follow-up (V1.x-B.2 alongside the dispatcher refactor).
+ * Existing call sites that don't yet pass a userId fall back through to
+ * platform; org BYOK is checked unconditionally when the org row is
+ * passed in.
  */
 
 import 'server-only'
 
 import { getConfigString } from '@/lib/config/platform-config'
-import { isByok, userHasByokKey } from '@/lib/llm/byok'
+import { orgHasByokKey } from '@/lib/byok/orgKey'
+import { userHasByokKey } from '@/lib/llm/byok'
 import { AnthropicProvider } from '@/lib/llm/providers/anthropic'
 import { ByokProvider } from '@/lib/llm/providers/byok'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import type { LLMProvider } from '@/lib/llm/types'
 
-/** Subset of organisations row needed by the factory. V2 expands. */
+/** Subset of organisations row needed by the factory. */
 export interface ProviderResolutionOrg {
   id: string
   plan?: string | null
@@ -44,17 +47,15 @@ export interface ProviderResolutionOrg {
  *
  * Resolution order for model_id:
  *   1. organisation.preferred_model_overrides[operationType] if set (V2 work)
- *   2. profileModelId from agent_profiles.model_id (Migration 027 seeds
- *      these from platform_config.model.<operation>)
+ *   2. profileModelId from agent_profiles.model_id
  *
- * Resolution order for provider:
- *   1. V1.x-B.1.2 — if `userId` provided AND user has BYOK key →
- *      ByokProvider (routes via Edge Function).
- *   2. AnthropicProvider with platform key from env.
+ * Resolution order for provider (V1.x-C.3 Option A):
+ *   1. Per-org BYOK if org has it enabled + has a vault key → ByokProvider(orgId)
+ *   2. Per-user BYOK if userId provided AND user has a key → ByokProvider(userId)
+ *   3. Platform key from env → AnthropicProvider
  *
  * `userId` is optional for backwards compatibility — call sites that
- * don't yet pass it (agent runner background path, etc.) get the
- * platform key. Director route handlers pass it from session.
+ * don't pass it can still get org BYOK if the org row has it enabled.
  */
 export async function getProvider(
   organisation: ProviderResolutionOrg,
@@ -65,32 +66,63 @@ export async function getProvider(
   const modelId =
     organisation.preferred_model_overrides?.[operationType] ?? profileModelId
 
-  // V1.x-B.1.2 — per-user BYOK routing.
-  if (userId) {
-    const supabase = createServiceRoleClient()
-    if (await userHasByokKey(supabase, userId)) {
-      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-      const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-      if (!supabaseUrl || !serviceRoleKey) {
-        throw new Error(
-          'BYOK provider requires NEXT_PUBLIC_SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY env vars.',
-        )
-      }
-      return {
-        provider: new ByokProvider({
-          supabaseUrl,
-          serviceRoleKey,
-          userId,
-        }),
-        modelId,
-        route: 'byok',
-      }
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+
+  const supabase = createServiceRoleClient()
+
+  // V1.x-C.3 — Option A precedence layer 1: per-org BYOK.
+  // The cheapest signal is on the passed-in org row itself; check it
+  // first to skip the DB round-trip when the row hasn't been hydrated
+  // with byok columns.
+  const orgRowSignalsByok =
+    organisation.byok_enabled === true && Boolean(organisation.byok_api_key_vault_id)
+
+  // Defensive re-check via DB when the caller might be passing a stale
+  // or partial org snapshot (most callers SELECT a narrow column list
+  // for cost-meter purposes and may not include byok_*).
+  const orgRouteEligible =
+    orgRowSignalsByok || (await orgHasByokKey(supabase, organisation.id))
+
+  if (orgRouteEligible) {
+    if (!supabaseUrl || !serviceRoleKey) {
+      throw new Error(
+        'BYOK provider requires NEXT_PUBLIC_SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY env vars.',
+      )
+    }
+    return {
+      provider: new ByokProvider({
+        supabaseUrl,
+        serviceRoleKey,
+        orgId: organisation.id,
+      }),
+      modelId,
+      route: 'byok',
     }
   }
 
-  // Per-org BYOK columns remain V2 — see lib/llm/byok.ts isByok().
-  // V1.x-B.1.2 doesn't use them; per-user keys are the V1 mechanism.
+  // V1.x-B.1.2 — Option A precedence layer 2: per-user BYOK (transition
+  // window). The `userHasByokKey` helper filters out deprecated rows
+  // post-M-138 migration, so this layer fires only when the user still
+  // has an active per-user key the org-level migration hasn't absorbed.
+  if (userId && (await userHasByokKey(supabase, userId))) {
+    if (!supabaseUrl || !serviceRoleKey) {
+      throw new Error(
+        'BYOK provider requires NEXT_PUBLIC_SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY env vars.',
+      )
+    }
+    return {
+      provider: new ByokProvider({
+        supabaseUrl,
+        serviceRoleKey,
+        userId,
+      }),
+      modelId,
+      route: 'byok',
+    }
+  }
 
+  // Layer 3: platform key.
   const apiKey = process.env.ANTHROPIC_API_KEY
   if (!apiKey) {
     throw new Error(

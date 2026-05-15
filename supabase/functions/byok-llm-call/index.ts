@@ -70,28 +70,43 @@ serve(async (req: Request) => {
     })
   }
 
+  // V1.x-C.3 — accept EITHER x-stelavox-org-id (preferred) OR
+  // x-stelavox-user-id (legacy V1.x-B.1.2 transition window). The
+  // factory's Option A precedence picks org over user when both apply,
+  // so we never receive both headers in practice; if both are present,
+  // org wins (defence-in-depth).
+  const orgId = req.headers.get('x-stelavox-org-id') ?? ''
   const userId = req.headers.get('x-stelavox-user-id') ?? ''
-  if (!userId) {
-    return new Response(JSON.stringify({ error: 'missing_x_stelavox_user_id_header' }), {
-      status: 400,
-      headers: { 'content-type': 'application/json' },
-    })
+
+  if (!orgId && !userId) {
+    return new Response(
+      JSON.stringify({ error: 'missing_byok_target_header', message: 'Set x-stelavox-org-id or x-stelavox-user-id.' }),
+      { status: 400, headers: { 'content-type': 'application/json' } },
+    )
   }
 
-  // Fetch the decrypted key from Vault.
+  // Fetch the decrypted key from Vault — pick the matching RPC.
   const supabase = createClient(supabaseUrl, supabaseServiceRoleKey, {
     auth: { persistSession: false },
   })
 
-  const { data: keyData, error: keyErr } = await supabase.rpc(
-    'get_user_anthropic_key_for_byok_call',
-    { p_user_id: userId },
-  )
+  let keyData: unknown = null
+  let keyErr: { message?: string } | null = null
+  if (orgId) {
+    const r = await supabase.rpc('get_org_anthropic_key_for_byok_call', { p_org_id: orgId })
+    keyData = r.data
+    keyErr = r.error
+  } else {
+    const r = await supabase.rpc('get_user_anthropic_key_for_byok_call', { p_user_id: userId })
+    keyData = r.data
+    keyErr = r.error
+  }
+
   if (keyErr || typeof keyData !== 'string' || keyData.length === 0) {
-    return new Response(JSON.stringify({ error: 'no_byok_key_for_user' }), {
-      status: 404,
-      headers: { 'content-type': 'application/json' },
-    })
+    return new Response(
+      JSON.stringify({ error: orgId ? 'no_byok_key_for_org' : 'no_byok_key_for_user' }),
+      { status: 404, headers: { 'content-type': 'application/json' } },
+    )
   }
 
   // Hold the key only in this scoped variable.

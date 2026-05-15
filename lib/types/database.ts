@@ -2029,6 +2029,8 @@ export type Database = {
       }
       organisations: {
         Row: {
+          byok_api_key_last_four: string | null
+          byok_api_key_last_validated_at: string | null
           byok_api_key_vault_id: string | null
           byok_enabled: boolean
           byok_provider: string | null
@@ -2048,6 +2050,8 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          byok_api_key_last_four?: string | null
+          byok_api_key_last_validated_at?: string | null
           byok_api_key_vault_id?: string | null
           byok_enabled?: boolean
           byok_provider?: string | null
@@ -2067,6 +2071,8 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          byok_api_key_last_four?: string | null
+          byok_api_key_last_validated_at?: string | null
           byok_api_key_vault_id?: string | null
           byok_enabled?: boolean
           byok_provider?: string | null
@@ -2579,6 +2585,7 @@ export type Database = {
       user_anthropic_keys: {
         Row: {
           created_at: string
+          deprecated_at: string | null
           id: string
           last_four: string
           last_validated_at: string
@@ -2587,6 +2594,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          deprecated_at?: string | null
           id?: string
           last_four: string
           last_validated_at: string
@@ -2595,6 +2603,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          deprecated_at?: string | null
           id?: string
           last_four?: string
           last_validated_at?: string
@@ -3002,13 +3011,25 @@ export type Database = {
         }
         Returns: Json
       }
+      delete_org_anthropic_key: { Args: { p_org_id: string }; Returns: Json }
       delete_user_anthropic_key: { Args: never; Returns: Json }
+      disable_org_byok: { Args: { p_org_id: string }; Returns: Json }
+      enable_org_byok: { Args: { p_org_id: string }; Returns: Json }
       evaluate_ready_stage_triggers: { Args: never; Returns: number }
+      get_org_anthropic_key_for_byok_call: {
+        Args: { p_org_id: string }
+        Returns: string
+      }
+      get_org_anthropic_key_status: {
+        Args: { p_org_id: string }
+        Returns: Json
+      }
       get_user_anthropic_key_for_byok_call: {
         Args: { p_user_id: string }
         Returns: string
       }
       get_user_anthropic_key_status: { Args: never; Returns: Json }
+      migrate_per_user_keys_to_org: { Args: never; Returns: Json }
       move_node: {
         Args: { p_node_id: string; p_parent_id: string; p_position: number }
         Returns: Json
@@ -3028,6 +3049,14 @@ export type Database = {
       rollup_metrics_minute: {
         Args: { p_bucket_started_at?: string }
         Returns: number
+      }
+      save_org_anthropic_key: {
+        Args: {
+          p_key: string
+          p_org_id: string
+          p_validation_completed_at: string
+        }
+        Returns: Json
       }
       save_user_anthropic_key: {
         Args: { p_key: string; p_validation_completed_at: string }
@@ -3173,3 +3202,4 @@ export const Constants = {
     Enums: {},
   },
 } as const
+

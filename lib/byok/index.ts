@@ -16,3 +16,19 @@ export { saveUserAnthropicKey, SaveKeyError } from './saveUserKey'
 export type { SaveUserKeyOutcome } from './saveUserKey'
 export { getUserKeyStatus } from './getUserKeyStatus'
 export { deleteUserKey } from './deleteUserKey'
+
+// V1.x-C.3 — per-org BYOK helpers (Option A retarget).
+export {
+  saveOrgAnthropicKey,
+  SaveOrgKeyError,
+  getOrgKeyStatus,
+  deleteOrgKey,
+  orgHasByokKey,
+} from './orgKey'
+export type {
+  OrgKeyStatus,
+  OrgKeyStatusPresent,
+  OrgKeyStatusAbsent,
+  SaveOrgKeyResult,
+  SaveOrgKeyOutcome,
+} from './orgKey'
