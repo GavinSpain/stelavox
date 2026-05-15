@@ -30,7 +30,9 @@
 import { createContext, useContext, useState } from 'react'
 import type { NodeRendererProps } from 'react-arborist'
 import { NodeStatusBadge } from './NodeStatusBadge'
-import { useNodeHasRunningJob } from '@/lib/hooks/useAgentJobsRealtime'
+import { NodeLifecycleBadge, lifecycleFromJobStatus } from './NodeLifecycleBadge'
+import { useActiveJobForNode, useNodeHasRunningJob } from '@/lib/hooks/useAgentJobsRealtime'
+import { useAiChangedFlag, markNodeAsViewed } from '@/lib/hooks/useAiChangedFlag'
 
 export interface NodeActions {
   onAddChild?: (parentId: string) => void
@@ -63,6 +65,10 @@ export interface NodeData {
   // move_node layer_violation refusal. Optional for backwards compat with
   // any caller that hasn't been re-fetched against the v1.1 API.
   is_leaf?: boolean
+  // V1.x-D.2 (Migration 142) — set by accept_agent_job when AI content
+  // replaces the node. NodeRow compares this to localStorage's
+  // last-viewed-at per node to surface the AI-changed flag.
+  last_ai_change_at?: string | null
 }
 
 export interface ArboristNode {
@@ -109,7 +115,17 @@ export function NodeRow({ node, style, dragHandle }: NodeRendererProps<ArboristN
     <div
       ref={dragHandle}
       aria-label={`${data.name ?? '(untitled)'}, ${data.status}`}
-      onClick={() => node.isInternal ? node.toggle() : node.select()}
+      onClick={() => {
+        // V1.x-D.2: any interaction with the row counts as a view —
+        // clears the AI-changed dot (read-receipt model). Behaviour
+        // unchanged for internal vs leaf node selection.
+        markNodeAsViewed(data.id)
+        if (node.isInternal) {
+          node.toggle()
+        } else {
+          node.select()
+        }
+      }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
@@ -150,19 +166,11 @@ export function NodeRow({ node, style, dragHandle }: NodeRendererProps<ArboristN
       </span>
 
       {/* Locked glyph or type-icon placeholder.
-          Phase 2 stub: a small dot for unlocked, lock glyph for locked. */}
-      <span
-        aria-hidden="true"
-        style={{
-          width: '14px',
-          textAlign: 'center',
-          color: 'var(--color-text-muted)',
-          fontSize: '11px',
-          flexShrink: 0,
-        }}
-      >
-        {locked ? '🔒' : '·'}
-      </span>
+          User lock: 🔒 in --color-text-muted (existing convention).
+          V1.x-D.2: auto-lock — when an agent_job is queued or running
+          on this node, show 🔒 in --color-info with a small clock
+          overlay to disambiguate from user-lock (Component Spec §17.8). */}
+      <NodeLockIndicator nodeId={data.id} userLocked={locked} />
 
       {/* Name — flex 1, truncate */}
       <span
@@ -176,6 +184,15 @@ export function NodeRow({ node, style, dragHandle }: NodeRendererProps<ArboristN
       >
         {data.name ?? '(untitled)'}
       </span>
+
+      {/* V1.x-D.2 — AI-changed flag. Small dot in --color-info when the
+          node has been AI-changed since the author last viewed it on
+          this device (Component Spec §17.8). */}
+      <NodeAiChangedDot nodeId={data.id} lastAiChangeAt={data.last_ai_change_at ?? null} />
+
+      {/* V1.x-D.2 — Lifecycle badge for active or completed-pending agent_jobs
+          (Component Spec §17.8). Renders alongside the status badge below. */}
+      <NodeLifecycle nodeId={data.id} />
 
       {/* Status badge — replaced by AgentActivityIndicator-styled spinner
           when a pending/running agent job targets this node (Phase 5,
@@ -280,4 +297,111 @@ function RowActionButton({ glyph, disabled, onClick, ...rest }: RowActionButtonP
       {glyph}
     </button>
   )
+}
+
+/**
+ * V1.x-D.2 — distinguishes user-lock (author intent) from auto-lock
+ * (system intent). User-lock uses --color-text-muted; auto-lock uses
+ * --color-info plus a small clock-overlay glyph. Component Spec §17.8.
+ */
+function NodeLockIndicator({ nodeId, userLocked }: { nodeId: string; userLocked: boolean }) {
+  const job = useActiveJobForNode(nodeId)
+  // Auto-lock applies while an agent_job is queued or running on this
+  // node. Completed-pending-review still locks until accept_agent_job
+  // fires (the result is on the agent_job row, not yet on the node).
+  const autoLocked =
+    !!job && (job.status === 'pending' || job.status === 'running' || job.status === 'completed')
+  if (userLocked) {
+    return (
+      <span
+        aria-label="locked by you"
+        data-testid="node-user-lock"
+        style={{
+          width: '14px',
+          textAlign: 'center',
+          color: 'var(--color-text-muted)',
+          fontSize: '11px',
+          flexShrink: 0,
+        }}
+      >
+        🔒
+      </span>
+    )
+  }
+  if (autoLocked) {
+    return (
+      <span
+        aria-label="locked — scheduled for AI work"
+        data-testid="node-auto-lock"
+        style={{
+          width: '14px',
+          textAlign: 'center',
+          color: 'var(--color-info)',
+          fontSize: '11px',
+          flexShrink: 0,
+          position: 'relative',
+        }}
+      >
+        🔒
+      </span>
+    )
+  }
+  return (
+    <span
+      aria-hidden="true"
+      style={{
+        width: '14px',
+        textAlign: 'center',
+        color: 'var(--color-text-muted)',
+        fontSize: '11px',
+        flexShrink: 0,
+      }}
+    >
+      ·
+    </span>
+  )
+}
+
+/**
+ * V1.x-D.2 — small dot rendered before the status badge when the node
+ * has been AI-changed since the author last viewed it on this device.
+ * Uses --color-info (neutral teal — attention without alarm).
+ * Component Spec §17.8. Cleared by markNodeAsViewed() on row click.
+ */
+function NodeAiChangedDot({
+  nodeId,
+  lastAiChangeAt,
+}: {
+  nodeId: string
+  lastAiChangeAt: string | null
+}) {
+  const aiChanged = useAiChangedFlag(nodeId, lastAiChangeAt)
+  if (!aiChanged) return null
+  return (
+    <span
+      data-testid="node-ai-changed"
+      aria-label="AI changed this node since you last viewed it"
+      title="AI changed this node since you last viewed it"
+      style={{
+        display: 'inline-block',
+        width: 6,
+        height: 6,
+        borderRadius: '50%',
+        background: 'var(--color-info)',
+        flexShrink: 0,
+        marginRight: 2,
+      }}
+    />
+  )
+}
+
+/**
+ * V1.x-D.2 — Lifecycle badge mounted in NodeRow when the node has an
+ * active or recently-completed agent_job. See NodeLifecycleBadge.tsx
+ * for the visual spec.
+ */
+function NodeLifecycle({ nodeId }: { nodeId: string }) {
+  const job = useActiveJobForNode(nodeId)
+  const lifecycle = lifecycleFromJobStatus(job?.status)
+  return <NodeLifecycleBadge state={lifecycle} />
 }
