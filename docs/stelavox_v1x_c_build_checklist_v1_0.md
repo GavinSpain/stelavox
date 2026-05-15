@@ -26,11 +26,14 @@ Estimated 4-7 sessions total.
 
 ---
 
-## §2 — Migrations (~10, 129-138)
+## §2 — Migrations (~10, 130-139)
 
-### C.1 (129-131)
+> **Numbering amendment (2026-05-17, V1.x-C.1.a close-out).** V1.x-B.3 claimed M-129 for the Director config v1.9 migration. C.1 + C.2 + C.3 ranges shift +1 to compensate.
+> **Plan-slug amendment (2026-05-17, V1.x-C.2 kickoff).** The proposed plan-enum CHECK in the original M-132 row diverged from [Product Spec v1.9 §3.1](stelavox_product_specification_v1_9.md) — the locked product plan slugs are `trial`, `byok_solo`, `byok_team`, `writer`, `author`, `pro`. C.2 keeps the existing CHECK constraint and seeds per-plan allocation keys for the four non-BYOK plans only (BYOK plans bypass the gate via `isByok()` already). Plan-name rationalisation deferred to V2 Stripe pass.
 
-- **M-129 — `pricing_rates_table`**:
+### C.1 (130-132 — landed; substrate at `e390b6f`, runner integration at `12a5b65`)
+
+- **M-130 — `pricing_rates_table`**:
   ```sql
   CREATE TABLE pricing_rates (
     id BIGSERIAL PRIMARY KEY,
@@ -49,9 +52,9 @@ Estimated 4-7 sessions total.
   ```
   Append-only; daily-granularity; the rate active on a job's `completed_at` date is authoritative (H-20 mitigation). Seed with current rates for Haiku 4.5 / Sonnet 4.6 / Opus 4.7.
 
-- **M-130 — `cost_credits_compute_function`**: SECURITY DEFINER SQL function `compute_cost_credits(p_model_id TEXT, p_completed_at TIMESTAMPTZ, p_tokens_input INTEGER, p_tokens_output INTEGER, p_cache_write INTEGER, p_cache_read INTEGER) RETURNS NUMERIC(20,8)` — looks up the active rate; returns the credit cost. Used by agent runner + iteration runner at completion to populate `agent_jobs.cost_credits` (already a column from B.2.1 M-105).
+- **M-131 — `cost_credits_compute_function`**: SECURITY DEFINER SQL function `compute_cost_credits(p_model_id TEXT, p_completed_at TIMESTAMPTZ, p_tokens_input INTEGER, p_tokens_output INTEGER, p_cache_write INTEGER, p_cache_read INTEGER) RETURNS NUMERIC(20,8)` — looks up the active rate; returns the credit cost. Used by agent runner + iteration runner at completion to populate `agent_jobs.cost_credits` (already a column from B.2.1 M-105).
 
-- **M-131 — `anthropic_pricing_table`** (parallel table for BYOK pricing — Anthropic's actual $-per-token; user sees real dollars not credits):
+- **M-132 — `anthropic_pricing_table`** (parallel table for BYOK pricing — Anthropic's actual $-per-token; user sees real dollars not credits):
   ```sql
   CREATE TABLE anthropic_pricing (
     id BIGSERIAL PRIMARY KEY,
@@ -65,29 +68,30 @@ Estimated 4-7 sessions total.
   );
   ```
 
-### C.2 (132-134)
+### C.2 (133-135)
 
-- **M-132 — `organisations_plan_extension`**: adds `organisations.plan` enum CHECK ('trial', 'starter', 'pro', 'enterprise', 'byok_only'); `organisations.token_allocation_credits NUMERIC(20,8)` (per-period allocation); `organisations.token_usage_credits NUMERIC(20,8) DEFAULT 0` (running counter); `organisations.current_period_start DATE NOT NULL DEFAULT CURRENT_DATE`. Backfill existing rows to 'trial' with default allocation from new platform_config.
+- **M-133 — `organisations_credit_columns`**: adds `organisations.token_allocation_credits NUMERIC(20,8) NULL` (per-period credit allocation) and `organisations.token_usage_credits NUMERIC(20,8) NOT NULL DEFAULT 0` (running counter). The existing `organisations.plan` CHECK is UNTOUCHED (per the 2026-05-17 plan-slug amendment above — see §2 header). `current_period_start TIMESTAMPTZ NULL` already exists from M-001; no shape change.
 
-- **M-133 — `platform_config_plan_keys`**:
-  - `plan.trial_token_allocation_credits` (default 100k)
-  - `plan.starter_token_allocation_credits` (default 1M)
-  - `plan.pro_token_allocation_credits` (default 10M)
-  - `plan.enterprise_token_allocation_credits` (default 100M)
+- **M-134 — `platform_config_plan_credit_keys`**:
+  - `plan.trial_token_allocation_credits` (default 1,000,000 — preserves the existing trial token-budget value as a credit value; values tunable via platform_config post-launch using live metrics from V1.x-E)
+  - `plan.writer_token_allocation_credits` (default 1,000,000)
+  - `plan.author_token_allocation_credits` (default 4,000,000)
+  - `plan.pro_token_allocation_credits` (default 16,000,000)
   - `plan.period_length_days` (default 30)
   - `plan.over_limit_grace_credits` (default 0 — hard cap; future override per org)
+  - Backfill: single UPDATE setting `organisations.token_allocation_credits` per-row from the matching key. BYOK plans (`byok_solo`, `byok_team`) get NULL allocation (the gate's `isByok()` bypass short-circuits before the column is read).
 
-- **M-134 — `usage_tracking_trigger`**: AFTER UPDATE on `agent_jobs` when `cost_credits` becomes non-NULL → atomically increments `organisations.token_usage_credits` by the delta. Atomic counter via `UPDATE … SET token_usage_credits = token_usage_credits + N WHERE id = ?` (no race).
+- **M-135 — `accumulate_cost_credits_trigger`**: SECURITY DEFINER function `accumulate_cost_credits_into_org()` (SET search_path = public per H-13) plus AFTER UPDATE trigger on `agent_jobs` firing WHEN `(OLD.cost_credits IS NULL AND NEW.cost_credits IS NOT NULL)`. Body is a single atomic `UPDATE organisations SET token_usage_credits = token_usage_credits + NEW.cost_credits WHERE id = NEW.organisation_id`. Postgres row-lock serialises concurrent updates (CK-5 concurrency stress).
 
-### C.3 (135-138)
+### C.3 (136-139)
 
-- **M-135 — `organisations_byok_columns_revive`**: `organisations.byok_enabled`, `byok_provider`, `byok_api_key_vault_id` were defined in M-001 but unused. V1.x-C lights them up — adds NOT NULL DEFAULT FALSE on byok_enabled; adds gated GRANT on a SECURITY DEFINER `enable_org_byok(org_id, plan)` RPC that requires plan='enterprise' or 'byok_only'.
+- **M-136 — `organisations_byok_columns_revive`**: `organisations.byok_enabled`, `byok_provider`, `byok_api_key_vault_id` were defined in M-001 but unused. V1.x-C lights them up — adds NOT NULL DEFAULT FALSE on byok_enabled; adds gated GRANT on a SECURITY DEFINER `enable_org_byok(org_id, plan)` RPC that requires plan eligibility per Option A.
 
-- **M-136 — `org_byok_save_rpc`**: `save_org_anthropic_key(p_org_id UUID, p_key TEXT) RETURNS JSONB` SECURITY DEFINER — validates plan eligibility; encrypts via vault.create_secret; updates `organisations.byok_api_key_vault_id`. Mirrors M-104's per-user pattern.
+- **M-137 — `org_byok_save_rpc`**: `save_org_anthropic_key(p_org_id UUID, p_key TEXT) RETURNS JSONB` SECURITY DEFINER — validates plan eligibility; encrypts via vault.create_secret; updates `organisations.byok_api_key_vault_id`. Mirrors M-104's per-user pattern.
 
-- **M-137 — `migrate_per_user_keys_to_org`**: SECURITY DEFINER one-shot migration — for each `user_anthropic_keys` row, if the user's org has plan='enterprise' or 'byok_only' AND the org doesn't yet have BYOK enabled, transfer the user's key to the org. Otherwise, mark the per-user key as `deprecated_at=now()`.
+- **M-138 — `migrate_per_user_keys_to_org`**: SECURITY DEFINER one-shot migration — for each `user_anthropic_keys` row, if the user's org has a BYOK-eligible plan AND the org doesn't yet have BYOK enabled, transfer the user's key to the org. Otherwise, mark the per-user key as `deprecated_at=now()`.
 
-- **M-138 — `byok_get_for_call_rpc_v2`**: `get_org_anthropic_key_for_byok_call(p_org_id UUID) RETURNS TEXT` SECURITY DEFINER service-role-only — returns the decrypted org key from Vault. Mirrors M-104's per-user pattern but org-scoped. The Edge Function `byok-llm-call` accepts EITHER a `x-stelavox-user-id` header (legacy) OR a `x-stelavox-org-id` header (V1.x-C); resolves the key from the appropriate RPC.
+- **M-139 — `byok_get_for_call_rpc_v2`**: `get_org_anthropic_key_for_byok_call(p_org_id UUID) RETURNS TEXT` SECURITY DEFINER service-role-only — returns the decrypted org key from Vault. Mirrors M-104's per-user pattern but org-scoped. The Edge Function `byok-llm-call` accepts EITHER a `x-stelavox-user-id` header (legacy) OR a `x-stelavox-org-id` header (V1.x-C); resolves the key from the appropriate RPC.
 
 ---
 
@@ -100,7 +104,7 @@ Estimated 4-7 sessions total.
 - **MODIFY `lib/director/iteration-runner.ts`** — same pattern for director_iteration agent_jobs; already populates `cost_credits` field (B.2.1).
 
 ### C.2
-- **REWRITE `lib/llm/token-budget.ts`** — `checkTokenBudget(org, estimatedTokens)` now reads `organisations.plan` + `token_allocation_credits` + `token_usage_credits` against the per-plan budget; refuses dispatch when `usage + estimated > allocation + grace`.
+- **REWRITE `lib/llm/token-budget.ts`** — gate signature gains a `modelId: string` param. Caller continues passing its existing token estimate (`profile.max_tokens + headroom` for agent ops; `agent.director_estimated_tokens_per_turn` for Director message). Gate looks up the active `pricing_rates` row for `modelId`, converts tokens → credits using the input-credits-per-million rate as the upper bound (treats the entire estimate as input — conservative; preserves admission safety on output-heavy operations). Reads `organisations.token_allocation_credits` + `token_usage_credits`; refuses when `usage + estimated_credits > allocation + grace`. NULL allocation is treated as "not enforced" (covers BYOK + any unbackfilled rows; BYOK bypass via `isByok()` still fires first).
 
 ### C.3
 - **REWRITE `lib/llm/factory.ts`** — Option A: prefer org BYOK if `organisations.byok_enabled=true`; fall back to per-user BYOK if user has key + org doesn't (transition window); fall back to platform key. Both BYOK paths route through the same Edge Function (different RPC).
@@ -152,5 +156,7 @@ V1.x-C PASSES when CK-1..CK-10 + CK-Inviol green, all gates pass, Test Report PA
 ---
 
 ## Changelog
+
+**v1.1 — 2026-05-17** V1.x-C.2 kickoff amendments. (1) M-numbering shift to 130-139 across all three sub-phases, recording C.1's claim of M-130/131/132 on master-branch-pending `claude/v1x-c-cost-substrate`. (2) Plan-slug amendment in §2 — original M-132 proposed a plan-enum CHECK divergent from Product Spec v1.9 §3.1 (proposed `('trial','starter','pro','enterprise','byok_only')` vs locked `('trial','byok_solo','byok_team','writer','author','pro')`). The locked spec wins; C.2 keeps the existing CHECK, seeds per-plan allocation keys for the four non-BYOK plans only, and defers plan-name rationalisation to a future V2 Stripe pass. (3) Library spec for `checkTokenBudget` updated to clarify the model-aware tokens→credits conversion (model_id added to gate signature; gate-side lookup of pricing_rates).
 
 **v1.0 — 2026-05-16** Initial draft authored alongside B.3/D/E/F.

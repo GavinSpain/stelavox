@@ -38,6 +38,7 @@ import {
   updateUsageRecords,
 } from '@/lib/agent/job-lifecycle'
 import { getConfigInt } from '@/lib/config/platform-config'
+import { computeJobCostCredits } from '@/lib/cost/pricing'
 import { startHeartbeat } from '@/lib/director/heartbeat'
 import { InjectionDetectedError } from '@/lib/llm/context-assembler'
 import { computeCostUsd } from '@/lib/llm/cost'
@@ -140,11 +141,30 @@ export async function runAgentJob(jobId: string): Promise<void> {
       return
     }
 
-    // Compute cost (frozen at this moment) + result columns.
+    // Compute cost (frozen at this moment) + result columns. V1.x-C.1.b
+    // computes BOTH dollars (anthropic_pricing → cost_usd) and credits
+    // (pricing_rates → cost_credits) at completion. Credits lookup is
+    // tolerant: null on missing rate, logged + written as NULL on the
+    // row (matches FinalResultParams contract).
     const costUsd = await computeCostUsd(llmResponse.usage, llmResponse.model)
+    const costCredits = await computeJobCostCredits(
+      supabase,
+      llmResponse.model,
+      new Date(),
+      {
+        input: llmResponse.usage.tokens_input,
+        output: llmResponse.usage.tokens_output,
+        cacheWrite: llmResponse.usage.tokens_cache_write,
+        cacheRead: llmResponse.usage.tokens_cache_read,
+      },
+    )
+    if (costCredits === null) {
+      console.warn('[agent-runner] no pricing_rates row for model', llmResponse.model)
+    }
     let resultColumns: Record<string, unknown>
     let totalUsage = { ...llmResponse.usage }
     let totalCost = costUsd
+    let totalCostCredits: number | null = costCredits
     let finalContent = llmResponse.content
     let finalProvider = llmResponse.provider
     let finalModel = llmResponse.model
@@ -172,6 +192,17 @@ export async function runAgentJob(jobId: string): Promise<void> {
         config: { ...assembled.config, model: modelId },
       })
       const retryCost = await computeCostUsd(retry.usage, retry.model)
+      const retryCredits = await computeJobCostCredits(
+        supabase,
+        retry.model,
+        new Date(),
+        {
+          input: retry.usage.tokens_input,
+          output: retry.usage.tokens_output,
+          cacheWrite: retry.usage.tokens_cache_write,
+          cacheRead: retry.usage.tokens_cache_read,
+        },
+      )
       // Track BOTH calls' usage and cost so the author sees the true spend.
       totalUsage = {
         tokens_input: llmResponse.usage.tokens_input + retry.usage.tokens_input,
@@ -182,6 +213,13 @@ export async function runAgentJob(jobId: string): Promise<void> {
           llmResponse.usage.tokens_cache_read + retry.usage.tokens_cache_read,
       }
       totalCost = costUsd + retryCost
+      // Credits totals: sum when both legs returned a value; preserve
+      // null if either leg missed (forced ambiguity rather than silent
+      // under-count).
+      totalCostCredits =
+        costCredits !== null && retryCredits !== null
+          ? costCredits + retryCredits
+          : null
       finalContent = retry.content
       finalProvider = retry.provider
       finalModel = retry.model
@@ -212,6 +250,7 @@ export async function runAgentJob(jobId: string): Promise<void> {
       modelId: finalModel,
       provider: finalProvider,
       costUsd: totalCost,
+      costCredits: totalCostCredits,
     })
 
     // Update usage_records.
@@ -441,12 +480,27 @@ export async function* runAgentJobInline(
 
     // 10. Compute cost + persist final result.
     const costUsd = await computeCostUsd(usage, modelIdUsed)
+    const costCredits = await computeJobCostCredits(
+      supabase,
+      modelIdUsed,
+      new Date(),
+      {
+        input: usage.tokens_input,
+        output: usage.tokens_output,
+        cacheWrite: usage.tokens_cache_write,
+        cacheRead: usage.tokens_cache_read,
+      },
+    )
+    if (costCredits === null) {
+      console.warn('[agent-runner-inline] no pricing_rates row for model', modelIdUsed)
+    }
     await persistFinalResult(supabase, jobId, {
       resultColumns: result,
       usage,
       modelId: modelIdUsed,
       provider: providerName,
       costUsd,
+      costCredits,
     })
 
     // 11. Update usage records.

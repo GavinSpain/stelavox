@@ -73,15 +73,31 @@ export async function userHasByokKey(
   supabase: SupabaseClient,
   userId: string,
 ): Promise<boolean> {
-  // Use the service-role client to bypass the authenticated-only RPC
-  // (server-side dispatch paths don't have the user's session).
+  // V1.x-C.3 deprecation note: per-user BYOK is in the transition window.
+  // Active rows still resolve as BYOK so the factory's Option A layer 2
+  // can route them. Rows marked `deprecated_at` (by M-138's one-shot
+  // migration to per-org) are excluded so the factory falls through to
+  // the platform key for users whose org migrated.
+  //
+  // Final removal of the per-user path is a V2 cleanup once all V1
+  // orgs are confirmed on the per-org model.
   const { count, error } = await supabase
     .from('user_anthropic_keys')
     .select('id', { count: 'exact', head: true })
     .eq('user_id', userId)
+    .is('deprecated_at', null)
   if (error) {
     console.warn('[lib/llm/byok] userHasByokKey query failed:', error.message)
     return false
   }
-  return (count ?? 0) > 0
+  const hasKey = (count ?? 0) > 0
+  if (hasKey) {
+    console.warn(
+      `[lib/llm/byok] V1.x-C.3 deprecation: per-user BYOK is in the transition window. ` +
+        `User ${userId} has an active per-user key. Migrate to per-org BYOK by upgrading the ` +
+        `user's organisation to plan byok_solo/byok_team and re-uploading the key via the ` +
+        `org settings panel. V2 will remove this layer.`,
+    )
+  }
+  return hasKey
 }

@@ -449,6 +449,45 @@ export type Database = {
         }
         Relationships: []
       }
+      anthropic_pricing: {
+        Row: {
+          cache_read_dollars_per_million: number | null
+          cache_write_dollars_per_million: number | null
+          created_at: string
+          effective_from: string
+          effective_until: string | null
+          id: number
+          input_dollars_per_million: number
+          model_id: string
+          note: string | null
+          output_dollars_per_million: number
+        }
+        Insert: {
+          cache_read_dollars_per_million?: number | null
+          cache_write_dollars_per_million?: number | null
+          created_at?: string
+          effective_from: string
+          effective_until?: string | null
+          id?: number
+          input_dollars_per_million: number
+          model_id: string
+          note?: string | null
+          output_dollars_per_million: number
+        }
+        Update: {
+          cache_read_dollars_per_million?: number | null
+          cache_write_dollars_per_million?: number | null
+          created_at?: string
+          effective_from?: string
+          effective_until?: string | null
+          id?: number
+          input_dollars_per_million?: number
+          model_id?: string
+          note?: string | null
+          output_dollars_per_million?: number
+        }
+        Relationships: []
+      }
       audit_log: {
         Row: {
           conversation_id: string | null
@@ -1990,6 +2029,8 @@ export type Database = {
       }
       organisations: {
         Row: {
+          byok_api_key_last_four: string | null
+          byok_api_key_last_validated_at: string | null
           byok_api_key_vault_id: string | null
           byok_enabled: boolean
           byok_provider: string | null
@@ -2004,9 +2045,13 @@ export type Database = {
           stripe_customer_id: string | null
           stripe_subscription_id: string | null
           subscription_status: string
+          token_allocation_credits: number | null
+          token_usage_credits: number
           updated_at: string
         }
         Insert: {
+          byok_api_key_last_four?: string | null
+          byok_api_key_last_validated_at?: string | null
           byok_api_key_vault_id?: string | null
           byok_enabled?: boolean
           byok_provider?: string | null
@@ -2021,9 +2066,13 @@ export type Database = {
           stripe_customer_id?: string | null
           stripe_subscription_id?: string | null
           subscription_status?: string
+          token_allocation_credits?: number | null
+          token_usage_credits?: number
           updated_at?: string
         }
         Update: {
+          byok_api_key_last_four?: string | null
+          byok_api_key_last_validated_at?: string | null
           byok_api_key_vault_id?: string | null
           byok_enabled?: boolean
           byok_provider?: string | null
@@ -2038,6 +2087,8 @@ export type Database = {
           stripe_customer_id?: string | null
           stripe_subscription_id?: string | null
           subscription_status?: string
+          token_allocation_credits?: number | null
+          token_usage_credits?: number
           updated_at?: string
         }
         Relationships: []
@@ -2066,6 +2117,45 @@ export type Database = {
           updated_by?: string | null
           value?: Json
           value_type?: string
+        }
+        Relationships: []
+      }
+      pricing_rates: {
+        Row: {
+          cache_read_credits_per_million: number | null
+          cache_write_credits_per_million: number | null
+          created_at: string
+          effective_from: string
+          effective_until: string | null
+          id: number
+          input_credits_per_million: number
+          model_id: string
+          note: string | null
+          output_credits_per_million: number
+        }
+        Insert: {
+          cache_read_credits_per_million?: number | null
+          cache_write_credits_per_million?: number | null
+          created_at?: string
+          effective_from: string
+          effective_until?: string | null
+          id?: number
+          input_credits_per_million: number
+          model_id: string
+          note?: string | null
+          output_credits_per_million: number
+        }
+        Update: {
+          cache_read_credits_per_million?: number | null
+          cache_write_credits_per_million?: number | null
+          created_at?: string
+          effective_from?: string
+          effective_until?: string | null
+          id?: number
+          input_credits_per_million?: number
+          model_id?: string
+          note?: string | null
+          output_credits_per_million?: number
         }
         Relationships: []
       }
@@ -2495,6 +2585,7 @@ export type Database = {
       user_anthropic_keys: {
         Row: {
           created_at: string
+          deprecated_at: string | null
           id: string
           last_four: string
           last_validated_at: string
@@ -2503,6 +2594,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          deprecated_at?: string | null
           id?: string
           last_four: string
           last_validated_at: string
@@ -2511,6 +2603,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          deprecated_at?: string | null
           id?: string
           last_four?: string
           last_validated_at?: string
@@ -2885,6 +2978,28 @@ export type Database = {
         Args: { p_workflow_id: string }
         Returns: Json
       }
+      compute_anthropic_dollars: {
+        Args: {
+          p_cache_read?: number
+          p_cache_write?: number
+          p_completed_at: string
+          p_model_id: string
+          p_tokens_input: number
+          p_tokens_output: number
+        }
+        Returns: number
+      }
+      compute_cost_credits: {
+        Args: {
+          p_cache_read?: number
+          p_cache_write?: number
+          p_completed_at: string
+          p_model_id: string
+          p_tokens_input: number
+          p_tokens_output: number
+        }
+        Returns: number
+      }
       create_document_with_layer_stack: {
         Args: {
           p_authors: string[]
@@ -2896,13 +3011,25 @@ export type Database = {
         }
         Returns: Json
       }
+      delete_org_anthropic_key: { Args: { p_org_id: string }; Returns: Json }
       delete_user_anthropic_key: { Args: never; Returns: Json }
+      disable_org_byok: { Args: { p_org_id: string }; Returns: Json }
+      enable_org_byok: { Args: { p_org_id: string }; Returns: Json }
       evaluate_ready_stage_triggers: { Args: never; Returns: number }
+      get_org_anthropic_key_for_byok_call: {
+        Args: { p_org_id: string }
+        Returns: string
+      }
+      get_org_anthropic_key_status: {
+        Args: { p_org_id: string }
+        Returns: Json
+      }
       get_user_anthropic_key_for_byok_call: {
         Args: { p_user_id: string }
         Returns: string
       }
       get_user_anthropic_key_status: { Args: never; Returns: Json }
+      migrate_per_user_keys_to_org: { Args: never; Returns: Json }
       move_node: {
         Args: { p_node_id: string; p_parent_id: string; p_position: number }
         Returns: Json
@@ -2919,9 +3046,18 @@ export type Database = {
       request_batch_poll: { Args: never; Returns: undefined }
       request_dispatcher_tick: { Args: never; Returns: undefined }
       request_route_capacity_sample: { Args: never; Returns: undefined }
+      rollover_org_periods: { Args: never; Returns: Json }
       rollup_metrics_minute: {
         Args: { p_bucket_started_at?: string }
         Returns: number
+      }
+      save_org_anthropic_key: {
+        Args: {
+          p_key: string
+          p_org_id: string
+          p_validation_completed_at: string
+        }
+        Returns: Json
       }
       save_user_anthropic_key: {
         Args: { p_key: string; p_validation_completed_at: string }

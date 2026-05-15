@@ -72,6 +72,7 @@ import { preflightCheck } from '@/lib/constraints/preflight'
 import { recordViolation } from '@/lib/constraints/recordViolation'
 import { getProvider } from '@/lib/llm/factory'
 import { computeCostUsd } from '@/lib/llm/cost'
+import { computeJobCostCredits } from '@/lib/cost/pricing'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import type {
   AssembledContentBlock,
@@ -532,7 +533,25 @@ export async function* runIteration(
   }
 
   // ---- 9. Compute cost + persist iteration outcome ---------------------
+  // V1.x-C.1.b — compute BOTH dollars (anthropic_pricing → cost_usd) and
+  // credits (pricing_rates → cost_credits). Both lookups are tolerant
+  // (null on missing rate) — the iteration completes and downstream
+  // metrics surfaces show "rate missing" rather than failing the turn.
   const costUsd = await computeCostUsd(iterationUsage, modelId).catch(() => null)
+  const costCredits = await computeJobCostCredits(
+    supabase,
+    modelId,
+    new Date(),
+    {
+      input: iterationUsage.tokens_input,
+      output: iterationUsage.tokens_output,
+      cacheWrite: iterationUsage.tokens_cache_write,
+      cacheRead: iterationUsage.tokens_cache_read,
+    },
+  ).catch(() => null)
+  if (costCredits === null) {
+    console.warn('[iteration-runner] no pricing_rates row for model', modelId)
+  }
 
   // Build the assistant message content for THIS iteration (text +
   // thinking blocks + tool_use blocks). Appended to
@@ -710,7 +729,11 @@ export async function* runIteration(
     await markTurnCompleted(supabase, jobRow.director_turn_id)
   }
 
-  // Mark this iteration job completed.
+  // Mark this iteration job completed. V1.x-C.1.b fixed the prior
+  // mis-write of `cost_credits: costUsd ?? 0` (a TS column collision
+  // from the B.2.1 substrate that wrote dollars into the credits column).
+  // Now writes the actual pricing_rates-derived credit cost. `cost_usd`
+  // is also written so the BYOK dollar surface picks it up.
   await supabase
     .from('agent_jobs')
     .update({
@@ -719,7 +742,8 @@ export async function* runIteration(
       completed_at: new Date().toISOString(),
       actual_input_tokens: iterationUsage.tokens_input,
       actual_output_tokens: iterationUsage.tokens_output,
-      cost_credits: costUsd ?? 0,
+      cost_credits: costCredits ?? null,
+      cost_usd: costUsd ?? null,
       iteration_state: {
         ...iterationState,
         messages: updatedMessages,

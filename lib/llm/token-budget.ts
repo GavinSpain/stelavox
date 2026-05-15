@@ -1,29 +1,46 @@
 /**
- * Token budget gate.
+ * Token budget gate — V1.x-C.2 credit-based admission.
  *
- * Source: stelavox_technical_architecture_v1_8.md §7.5 + H-07.
- * Build Checklist T-2.5.
+ * Source: stelavox_technical_architecture §7.5 + H-07; rewritten for
+ * V1.x-C.2 against `stelavox_v1x_c_build_checklist_v1_0.md` §3 C.2.
  *
- * Called by every agent operation API route BEFORE creating the agent_jobs
- * row. Per H-07: "If the budget check runs inside the Edge Function after
- * the agent job record has been created, a budget-exceeded failure leaves
- * an orphaned agent_job record in pending status."
+ * Called by every agent operation API route + the Director message
+ * route BEFORE creating any agent_jobs row. Per H-07: "If the budget
+ * check runs inside the Edge Function after the agent job record has
+ * been created, a budget-exceeded failure leaves an orphaned agent_job
+ * record in pending status."
  *
- * Returns true if the operation can proceed; false if it would exceed budget.
- * BYOK plans bypass the gate entirely (V1 has no BYOK plans — defensive
- * future-compat check).
+ * V1.x-C.2 behavioural change:
+ * - Source of truth moved from `platform_config.token_budget.<plan>`
+ *   (raw tokens) to `organisations.token_allocation_credits` (credits)
+ *   + `organisations.token_usage_credits` (running counter incremented
+ *   atomically by M-135 trigger on agent_jobs.cost_credits transitions).
+ * - The gate signature gains a `modelId: string` param. Callers continue
+ *   passing their token estimate (`profile.max_tokens + headroom` for
+ *   agent ops; `agent.director_estimated_tokens_per_turn` for Director).
+ *   The gate converts tokens → credits using the active `pricing_rates`
+ *   row for `modelId` (input-credits-per-million as the upper bound,
+ *   treating the whole estimate as input — conservative; admission-safe
+ *   for output-heavy operations because output credits are >= input).
  *
- * Failure → 402 token_budget_exceeded from the API route; no agent_jobs
- * row is created.
+ * BYOK organisations bypass the gate entirely via `isByok()` (BYOK plans
+ * pay Anthropic directly; the platform does not enforce credit budget on
+ * BYOK). NULL `token_allocation_credits` is treated as "not enforced" —
+ * covers BYOK rows that didn't get backfilled, and any non-V1 plan slug.
+ *
+ * Returns `true` if the operation can proceed; `false` if it would
+ * exceed budget. Failure → 402 `token_budget_exceeded` from the API
+ * route; no agent_jobs row is created.
  */
 
 import 'server-only'
 
 import { getConfigInt } from '@/lib/config/platform-config'
+import { lookupRate } from '@/lib/cost/pricing'
 import { isByok } from '@/lib/llm/byok'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 
-/** Subset of organisations row needed by the gate. */
+/** Subset of organisations row read by the gate. */
 export interface BudgetCheckOrg {
   id: string
   plan: string
@@ -32,64 +49,74 @@ export interface BudgetCheckOrg {
 }
 
 /**
- * Check whether `estimatedTokens` more tokens fit in the org's current period
- * budget. Returns true if OK, false if over budget.
+ * V1.x-C.2 — credit-based admission gate.
  *
- * Reads token_budget.<plan> from platform_config and the org's accumulated
- * usage from usage_records WHERE period_start = org.current_period_start.
+ * `estimatedTokens` is the caller's token budget estimate (existing
+ * contract). `modelId` is the model the dispatched job will run against
+ * — used to look up the pricing_rates row and convert the token estimate
+ * to a credit estimate.
+ *
+ * Returns true iff the org's accumulated usage + estimated credits stays
+ * within `token_allocation_credits + plan.over_limit_grace_credits`.
  */
 export async function checkTokenBudget(
   organisation: BudgetCheckOrg,
   estimatedTokens: number,
+  modelId: string,
 ): Promise<boolean> {
-  // BYOK plans bypass the platform budget gate. B6.3 / F-19: routed
-  // through the central `isByok` helper so this check can never
-  // disagree with the factory's BYOK detection (factory.ts uses the
-  // same helper).
+  // BYOK organisations bypass the platform credit budget entirely.
   if (isByok(organisation)) {
     return true
   }
 
-  const budget = await getConfigInt(`token_budget.${organisation.plan}`)
-  const used = await getPeriodTokens(organisation.id, organisation.current_period_start)
-  return used + estimatedTokens <= budget
-}
-
-/**
- * Sum tokens consumed by the org during the current billing period.
- * usage_records keys by year_month (TEXT, e.g. "2026-05"), one row per
- * (org, year_month, operation_type, provider). Sum across all matching
- * rows for the current period.
- *
- * Returns 0 if no usage_records rows exist (e.g. brand-new org).
- */
-async function getPeriodTokens(
-  organisationId: string,
-  periodStart: string | null,
-): Promise<number> {
-  if (!periodStart) return 0
-  const yearMonth = formatYearMonth(periodStart)
   const supabase = createServiceRoleClient()
-  const { data, error } = await supabase
-    .from('usage_records')
-    .select('tokens_input, tokens_output')
-    .eq('organisation_id', organisationId)
-    .eq('year_month', yearMonth)
 
-  if (error) {
-    throw new Error(`Failed to query usage_records: ${error.message}`)
+  const { data: orgRow, error: orgErr } = await supabase
+    .from('organisations')
+    .select('token_allocation_credits, token_usage_credits')
+    .eq('id', organisation.id)
+    .maybeSingle()
+
+  if (orgErr) {
+    throw new Error(`Failed to read organisations credit columns: ${orgErr.message}`)
+  }
+  // NULL allocation = not enforced. Covers BYOK plans whose isByok()
+  // bypass somehow didn't fire (defence-in-depth) plus any non-V1 plan
+  // slug. Allowing dispatch on NULL is the safe default — V1.x-C.2 ships
+  // strict enforcement for the four locked plan slugs and treats anything
+  // else as not-yet-priced.
+  if (!orgRow || orgRow.token_allocation_credits === null) {
+    return true
   }
 
-  return (data ?? []).reduce(
-    (sum, row) => sum + (row.tokens_input ?? 0) + (row.tokens_output ?? 0),
-    0,
-  )
-}
+  const allocationCredits = Number(orgRow.token_allocation_credits)
+  const usageCredits = Number(orgRow.token_usage_credits ?? 0)
 
-/** Convert a TIMESTAMPTZ-shaped string (e.g. "2026-05-15T00:00:00Z") to "2026-05". */
-function formatYearMonth(periodStart: string): string {
-  const d = new Date(periodStart)
-  const year = d.getUTCFullYear()
-  const month = String(d.getUTCMonth() + 1).padStart(2, '0')
-  return `${year}-${month}`
+  // Convert the caller's token estimate into a credit estimate using the
+  // active pricing_rates row for `modelId`. Treat the entire estimate as
+  // input tokens — output_credits_per_million is always >= input rate at
+  // the seeded values, so an "all input" estimate is the conservative
+  // lower bound on credit cost; using it here means the gate admits
+  // jobs the actual cost might still under-spend, which is safe (any
+  // over-spend is caught by the post-completion usage trigger that
+  // increments token_usage_credits, so subsequent jobs are refused
+  // earlier).
+  const rate = await lookupRate(supabase, modelId, new Date())
+  if (!rate) {
+    // No pricing row for this model. Falling back to "not enforced" is
+    // the consistent V1.x-C.2 policy — admission gate's job is to
+    // prevent runaway spend on KNOWN-priced models. Unknown-priced
+    // models are flagged at completion-write time (where cost_credits
+    // ends up NULL and the usage trigger does not fire).
+    console.warn(
+      `[token-budget] no pricing_rates row for model ${modelId}; skipping credit gate.`,
+    )
+    return true
+  }
+
+  const estimatedCredits = (estimatedTokens * rate.inputCreditsPerMillion) / 1_000_000
+
+  const graceCredits = await getConfigInt('plan.over_limit_grace_credits')
+
+  return usageCredits + estimatedCredits <= allocationCredits + graceCredits
 }

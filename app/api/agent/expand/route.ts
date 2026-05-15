@@ -91,6 +91,7 @@ export async function POST(request: NextRequest) {
   const budgetOk = await checkTokenBudget(
     { id: org.id, plan: org.plan ?? 'trial', current_period_start: org.current_period_start },
     profile.max_tokens + 4096, // assembly headroom
+    profile.model_id,
   )
   if (!budgetOk) return err.tokenBudgetExceeded()
 

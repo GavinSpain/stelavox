@@ -164,12 +164,29 @@ export async function POST(req: NextRequest): Promise<Response> {
       { status: 500 },
     )
   }
+  // V1.x-C.2 — the gate now needs the Director's model_id to convert
+  // the estimated_tokens_per_turn into a credit estimate. Hoist a small
+  // model_id read (the full director_config load happens later at §8;
+  // this is a cheap pre-read and avoids restructuring the route).
+  const { data: directorModelRow } = await service
+    .from('director_configs')
+    .select('model_id')
+    .eq('status', 'production')
+    .maybeSingle()
+  const directorModelId = directorModelRow?.model_id ?? null
+  if (!directorModelId) {
+    return NextResponse.json(
+      { error: 'no_production_director_config', message: 'No production Director config found.' },
+      { status: 500 },
+    )
+  }
   const directorTurnEstimate = await getConfigInt(
     'agent.director_estimated_tokens_per_turn',
   )
   const budgetOk = await checkTokenBudget(
     { id: org.id, plan: org.plan ?? 'trial', current_period_start: org.current_period_start },
     directorTurnEstimate,
+    directorModelId,
   )
   if (!budgetOk) {
     return NextResponse.json(
