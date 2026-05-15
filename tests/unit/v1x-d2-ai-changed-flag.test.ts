@@ -30,10 +30,13 @@ function ensureLocalStorage() {
         return store.size
       },
     }
-    // @ts-expect-error — assigning to globalThis for test env
-    globalThis.localStorage = shim
-    // @ts-expect-error — same
-    globalThis.window = globalThis.window ?? { localStorage: shim }
+    ;(globalThis as unknown as { localStorage: Storage }).localStorage =
+      shim as unknown as Storage
+    if (typeof (globalThis as unknown as { window?: unknown }).window === 'undefined') {
+      ;(globalThis as unknown as { window: { localStorage: Storage } }).window = {
+        localStorage: shim as unknown as Storage,
+      }
+    }
   }
 }
 

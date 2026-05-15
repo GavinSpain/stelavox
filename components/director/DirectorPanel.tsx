@@ -28,6 +28,7 @@ import { ConversationThread, type ConversationMessage } from './ConversationThre
 import { DirectorInput } from './DirectorInput'
 import { PlanCard } from './PlanCard'
 import { ExecutionCard } from './ExecutionCard'
+import { WorkflowCompletionAck } from './WorkflowCompletionAck'
 import { BriefProposalCard } from './BriefProposalCard'
 import { BriefCancellationProposalCard } from './BriefCancellationProposalCard'
 import { ProjectProfileAmendmentCard } from './ProjectProfileAmendmentCard'
@@ -204,11 +205,42 @@ export function DirectorPanel({
           />
         )
       }
+      // V1.x-D.3 — for terminal-state workflows, the ExecutionCard
+      // still shows the per-step status; the WorkflowCompletionAck
+      // adds the mechanical acknowledgement line below it.
+      const isTerminal = status === 'completed' || status === 'cancelled'
+      const stepsTotal = currentWorkflow.steps?.length ?? 0
+      const stepsSucceeded =
+        currentWorkflow.steps?.filter((s) => s.status === 'completed').length ?? 0
+      const stepsFailed =
+        currentWorkflow.steps?.filter((s) => s.status === 'failed').length ?? 0
+      // Translate workflow.status → ack status (paused/cancelled don't
+      // emit an ack; only completed/failed/partially_completed).
+      let ackStatus: string | null = null
+      if (status === 'completed') {
+        ackStatus = stepsFailed > 0 ? 'partially_completed' : 'completed'
+      } else if (
+        currentWorkflow.error_message &&
+        (status === 'cancelled' || status === 'paused')
+      ) {
+        ackStatus = 'failed'
+      }
       return (
-        <ExecutionCard
-          workflow={currentWorkflow}
-          onUpdated={() => void refresh()}
-        />
+        <>
+          <ExecutionCard
+            workflow={currentWorkflow}
+            onUpdated={() => void refresh()}
+          />
+          {ackStatus && isTerminal ? (
+            <WorkflowCompletionAck
+              status={ackStatus}
+              stepsTotal={stepsTotal}
+              stepsSucceeded={stepsSucceeded}
+              stepsFailed={stepsFailed}
+              failureClass={null}
+            />
+          ) : null}
+        </>
       )
     },
     [currentWorkflow, refresh],
