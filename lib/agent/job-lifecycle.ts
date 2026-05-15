@@ -215,6 +215,14 @@ export interface FinalResultParams {
   modelId: string
   provider: string
   costUsd: number
+  /**
+   * V1.x-C.1.b — credits cost from `pricing_rates`. Written to
+   * `agent_jobs.cost_credits` (column shipped in B.2.1 M-105). May be
+   * null when the rate lookup returns no row; callers log + continue
+   * rather than fail the job (a missing credit rate is recoverable —
+   * usage tracking proceeds at zero credit cost for that job).
+   */
+  costCredits?: number | null
 }
 
 /**
@@ -238,6 +246,7 @@ export async function persistFinalResult(
       model_id: params.modelId,
       provider: params.provider,
       cost_usd: params.costUsd,
+      cost_credits: params.costCredits ?? null,
       status: 'completed',
       completed_at: new Date().toISOString(),
     })
