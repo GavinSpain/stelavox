@@ -119,6 +119,7 @@ export type IterationEvent =
   | { type: 'brief_proposal'; proposal: BriefProposalV1xA1Parsed }
   | { type: 'profile_amendment_proposal'; proposal: ProfileAmendmentProposalParsed }
   | { type: 'brief_cancellation_proposal'; proposal: BriefCancellationProposalArtefactEvent }
+  | { type: 'brief_amendment_proposal'; proposal: Record<string, unknown> }
   | { type: 'iteration_boundary'; iteration: number }
   | {
       type: 'iteration_done'
@@ -475,12 +476,13 @@ export async function* runIteration(
 
     // H-08 invariant guard (round-3 audit F-100).
     if (result.ok && isWriteTool(call.name)) {
-      const r = result as { proposal?: unknown; brief_proposal?: unknown; profile_amendment_proposal?: unknown; brief_cancellation_proposal?: unknown; data?: unknown }
+      const r = result as { proposal?: unknown; brief_proposal?: unknown; profile_amendment_proposal?: unknown; brief_cancellation_proposal?: unknown; brief_amendment_proposal?: unknown; data?: unknown }
       const hasProposalArtefact =
         r.proposal !== undefined ||
         r.brief_proposal !== undefined ||
         r.profile_amendment_proposal !== undefined ||
-        r.brief_cancellation_proposal !== undefined
+        r.brief_cancellation_proposal !== undefined ||
+        r.brief_amendment_proposal !== undefined
       if (r.data !== undefined || !hasProposalArtefact) {
         await writeAuditLogEntry({
           event_type: 'h08_violation_write_tool_returned_data',
@@ -488,15 +490,15 @@ export async function* runIteration(
           organisation_id: session.organisation_id,
           document_id: session.document_id,
           conversation_id: session.conversation_id,
-          metadata: { tool: call.name, has_data: r.data !== undefined, has_proposal: r.proposal !== undefined, has_brief_proposal: r.brief_proposal !== undefined, has_profile_amendment_proposal: r.profile_amendment_proposal !== undefined, has_brief_cancellation_proposal: r.brief_cancellation_proposal !== undefined },
+          metadata: { tool: call.name, has_data: r.data !== undefined, has_proposal: r.proposal !== undefined, has_brief_proposal: r.brief_proposal !== undefined, has_profile_amendment_proposal: r.profile_amendment_proposal !== undefined, has_brief_cancellation_proposal: r.brief_cancellation_proposal !== undefined, has_brief_amendment_proposal: r.brief_amendment_proposal !== undefined },
         })
         result = { ok: false, error: 'h08_invariant_violation', reason: `Write tool ${call.name} returned a result shape that breaches H-08.` }
       }
     }
 
     const summary = summariseToolResult(call.name, result)
-    const r = result as { brief_proposal_full?: unknown; profile_amendment_proposal?: unknown; brief_cancellation_proposal?: unknown }
-    const artefact = r.brief_proposal_full ?? r.profile_amendment_proposal ?? r.brief_cancellation_proposal ?? undefined
+    const r = result as { brief_proposal_full?: unknown; profile_amendment_proposal?: unknown; brief_cancellation_proposal?: unknown; brief_amendment_proposal?: unknown }
+    const artefact = r.brief_proposal_full ?? r.profile_amendment_proposal ?? r.brief_cancellation_proposal ?? r.brief_amendment_proposal ?? undefined
     accumulatedToolCalls.push({ id: call.id, name: call.name, arguments: call.arguments, validation_result: 'allowed', executed_at: new Date().toISOString(), result_summary: summary, ...(artefact !== undefined ? { proposal_artefact: artefact } : {}) })
     yield { type: 'tool_use_complete', tool_call_id: call.id, name: call.name, validation_result: 'allowed', result_summary: summary, ...(artefact !== undefined ? { proposal_artefact: artefact } : {}) }
 
@@ -508,7 +510,8 @@ export async function* runIteration(
           (result as { brief_proposal_full?: unknown }).brief_proposal_full ??
           (result as { brief_proposal?: unknown }).brief_proposal ??
           (result as { profile_amendment_proposal?: unknown }).profile_amendment_proposal ??
-          (result as { brief_cancellation_proposal?: unknown }).brief_cancellation_proposal
+          (result as { brief_cancellation_proposal?: unknown }).brief_cancellation_proposal ??
+          (result as { brief_amendment_proposal?: unknown }).brief_amendment_proposal
         : result,
     )
     let toolResultContent = serialisedToolResult
@@ -637,6 +640,11 @@ export async function* runIteration(
         const cancelCall = [...accumulatedToolCalls].reverse().find((c) => c.name === 'cancel_brief' && c.proposal_artefact !== undefined)
         if (cancelCall) {
           yield { type: 'brief_cancellation_proposal', proposal: cancelCall.proposal_artefact as BriefCancellationProposalArtefactEvent }
+        } else {
+          const briefAmendmentCall = [...accumulatedToolCalls].reverse().find((c) => c.name === 'propose_brief_amendment' && c.proposal_artefact !== undefined)
+          if (briefAmendmentCall) {
+            yield { type: 'brief_amendment_proposal', proposal: briefAmendmentCall.proposal_artefact as Record<string, unknown> }
+          }
         }
       }
     }
@@ -794,6 +802,10 @@ function summariseToolResult(toolName: string, result: ToolResult): string {
   if ('brief_cancellation_proposal' in result && result.brief_cancellation_proposal) {
     const c = result.brief_cancellation_proposal
     return `${toolName}: cancel proposal — brief ${c.brief_id} (${c.cascade_preview.pending_stages} pending, ${c.cascade_preview.completed_stages} completed${c.cascade_preview.queued_brief_will_promote ? ', queued promote' : ''})`
+  }
+  if ('brief_amendment_proposal' in result && result.brief_amendment_proposal) {
+    const a = result.brief_amendment_proposal as { amendment_type?: string; brief_id?: string }
+    return `${toolName}: amendment proposal — ${a.amendment_type ?? 'unknown'} on brief ${a.brief_id ?? '?'}`
   }
   return `${toolName}: ok`
 }

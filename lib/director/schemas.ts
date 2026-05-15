@@ -371,6 +371,23 @@ export const ToolInputSchemas = {
   propose_profile_amendment: ProfileAmendmentProposalSchema.strict(),
   // V1.x-B.1.1: cancel_brief — destructive proposal-only.
   cancel_brief: BriefCancellationProposalSchema.strict(),
+  // V1.x-B.3: propose_brief_amendment — modify active Brief in-flight.
+  propose_brief_amendment: z
+    .object({
+      brief_id: uuidSchema,
+      amendment_type: z.enum([
+        'goal_text',
+        'preferences',
+        'add_stage',
+        'modify_pending_stage',
+        'remove_pending_stage',
+      ]),
+      target_path: z.string().nullish(),
+      before: z.record(z.string(), z.unknown()).nullish(),
+      after: z.record(z.string(), z.unknown()),
+      reason: z.string().min(1).max(1024),
+    })
+    .strict(),
 } as const
 
 export type ToolName = keyof typeof ToolInputSchemas
@@ -397,6 +414,7 @@ export const WRITE_TOOL_NAMES: readonly ToolName[] = [
   'propose_brief',
   'propose_profile_amendment',
   'cancel_brief',
+  'propose_brief_amendment',
 ] as const
 
 export function isReadTool(name: string): name is ToolName {

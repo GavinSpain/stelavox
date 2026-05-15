@@ -621,6 +621,62 @@ export type Database = {
           },
         ]
       }
+      brief_amendments: {
+        Row: {
+          after: Json | null
+          amendment_type: string
+          applied_at: string | null
+          approved_at: string | null
+          approved_by_user_id: string | null
+          before: Json | null
+          brief_id: string
+          id: string
+          proposed_at: string
+          proposed_by_user_id: string | null
+          reason: string
+          status: string
+          target_path: string | null
+        }
+        Insert: {
+          after?: Json | null
+          amendment_type: string
+          applied_at?: string | null
+          approved_at?: string | null
+          approved_by_user_id?: string | null
+          before?: Json | null
+          brief_id: string
+          id?: string
+          proposed_at?: string
+          proposed_by_user_id?: string | null
+          reason: string
+          status?: string
+          target_path?: string | null
+        }
+        Update: {
+          after?: Json | null
+          amendment_type?: string
+          applied_at?: string | null
+          approved_at?: string | null
+          approved_by_user_id?: string | null
+          before?: Json | null
+          brief_id?: string
+          id?: string
+          proposed_at?: string
+          proposed_by_user_id?: string | null
+          reason?: string
+          status?: string
+          target_path?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "brief_amendments_brief_id_fkey"
+            columns: ["brief_id"]
+            isOneToOne: false
+            referencedRelation: "briefs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       brief_stages: {
         Row: {
           brief_id: string
@@ -2800,6 +2856,7 @@ export type Database = {
         Args: { p_document_id: string; p_goal_text: string; p_stages: Json }
         Returns: Json
       }
+      apply_brief_amendment: { Args: { p_amendment_id: string }; Returns: Json }
       apply_profile_amendment: {
         Args: {
           p_after: Json
