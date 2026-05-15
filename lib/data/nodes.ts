@@ -130,6 +130,9 @@ const NODE_SELECT = [
   'status', 'locked', 'lock_reason',
   'agent_instruction', 'word_count_target', 'word_count_actual',
   'version', 'content_revision', 'created_at', 'updated_at',
+  // V1.x-D.2 — consumed by NodeRow AI-changed flag (client compares to
+  // localStorage last-viewed-at per node).
+  'last_ai_change_at',
 ].join(', ')
 
 export async function createNode(

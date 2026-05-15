@@ -1797,6 +1797,7 @@ export type Database = {
           export_page_break_before: boolean
           external_ref: string | null
           id: string
+          last_ai_change_at: string | null
           last_modified_by: string | null
           layer_index: number | null
           lock_reason: string | null
@@ -1837,6 +1838,7 @@ export type Database = {
           export_page_break_before?: boolean
           external_ref?: string | null
           id?: string
+          last_ai_change_at?: string | null
           last_modified_by?: string | null
           layer_index?: number | null
           lock_reason?: string | null
@@ -1877,6 +1879,7 @@ export type Database = {
           export_page_break_before?: boolean
           external_ref?: string | null
           id?: string
+          last_ai_change_at?: string | null
           last_modified_by?: string | null
           layer_index?: number | null
           lock_reason?: string | null

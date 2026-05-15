@@ -24,6 +24,16 @@ import type { BriefProposalV1xA1Parsed } from '@/lib/director/schemas'
 interface BriefProposalCardProps {
   documentId: string
   proposal: BriefProposalV1xA1Parsed
+  /**
+   * V1.x-D.4 — when set, renders a warning block + the Approve button
+   * label swaps to "Approve anyway". Attached to the artefact by
+   * execProposeBrief in V1.x-B.3; surfaced via findProposalInToolCalls.
+   */
+  concurrentEditWarning?: {
+    node_ids: string[]
+    conflicting_brief_ids: string[]
+    message: string
+  } | null
   onApproved?: () => void
 }
 
@@ -47,7 +57,12 @@ interface ExistingBrief {
   current_stage: { order: number; title: string; status: string } | null
 }
 
-export function BriefProposalCard({ documentId, proposal, onApproved }: BriefProposalCardProps) {
+export function BriefProposalCard({
+  documentId,
+  proposal,
+  concurrentEditWarning,
+  onApproved,
+}: BriefProposalCardProps) {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [done, setDone] = useState(false)
@@ -243,10 +258,51 @@ export function BriefProposalCard({ documentId, proposal, onApproved }: BriefPro
           </label>
         ) : null}
 
+        {/* V1.x-D.4 — concurrent-edit warning block. Renders when the
+            Director-attached artefact carries a concurrent_edit_warning
+            (V1.x-B.3 contract). The Approve button copy swaps below. */}
+        {concurrentEditWarning ? (
+          <div
+            data-testid="brief-proposal-concurrent-edit-warning"
+            role="status"
+            style={{
+              background: 'rgba(184,112,48,0.10)',
+              borderLeft: '2px solid var(--color-status-review)',
+              borderRadius: 4,
+              padding: '10px 12px',
+              margin: '12px 0',
+              fontSize: 12,
+              color: 'var(--color-text-secondary)',
+              lineHeight: 1.55,
+            }}
+          >
+            <div
+              style={{
+                color: 'var(--color-status-review)',
+                fontWeight: 500,
+                marginBottom: 4,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+              }}
+            >
+              ⚠ Concurrent-edit warning
+            </div>
+            <div>{concurrentEditWarning.message}</div>
+            <div style={{ marginTop: 8, fontSize: 11, color: 'var(--color-text-muted)' }}>
+              Recommended: wait for the conflicting Brief
+              {concurrentEditWarning.conflicting_brief_ids.length === 1 ? '' : 's'} to complete,
+              or cancel
+              {concurrentEditWarning.conflicting_brief_ids.length === 1 ? ' it' : ' them'} first.
+            </div>
+          </div>
+        ) : null}
+
         <div style={{ display: 'flex', gap: 8 }}>
           <button
             type="button"
             data-testid="brief-proposal-approve"
+            data-concurrent-edit={concurrentEditWarning ? 'true' : undefined}
             disabled={submitting}
             onClick={() => void approve()}
             style={{
@@ -262,7 +318,11 @@ export function BriefProposalCard({ documentId, proposal, onApproved }: BriefPro
               fontFamily: 'var(--font-inter), Inter, sans-serif',
             }}
           >
-            {submitting ? 'Approving…' : 'Approve Brief'}
+            {submitting
+              ? 'Approving…'
+              : concurrentEditWarning
+                ? 'Approve anyway'
+                : 'Approve Brief'}
           </button>
         </div>
       </div>

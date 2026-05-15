@@ -1,21 +1,24 @@
 'use client'
 
-// Spec: stelavox_v1x_b_2_build_checklist_v1_0.md §3.2.5
+// Spec: stelavox_v1x_b_2_build_checklist_v1_0.md §3.2.5 (baseline)
 //       Director Architecture v2.0 §13 (Stop semantics)
-//       Component Spec v2.11 §5.14 (StopButton — to be authored in B.2.4 consolidation)
+//       Component Spec §17.9 (V1.x-D refinement — this update)
+//       wireframe_stop_refinement_v1.html (V1.x-D design)
 //
 // Mounts in the DirectorPanel header when an in-progress turn is active.
-// Click → confirmation dialog with cascade preview (computed at click
-// time via /api/scheduler/stop preflight; B.2.1 ships the simpler
-// "Stop the Director?" copy and lets the Stop API recompute cascade on
-// insert).
+// V1.x-D refinement: confirmation dialog now carries a side-effect
+// honesty block with iteration progress + state-preservation copy.
+// Numerical token savings deliberately omitted (proportional progress
+// is sufficient signal; consumption detail lives in CostMeter).
 //
 // Inviolable discipline: NO verdigris. Stop is destructive and uses the
 // same destructive-token primary action as ConversationClearButton's
 // confirm — `--color-text-primary` background, `--color-bg-base` text.
 // Verdigris is reserved for affirmative-action triggers per Inviolable #2 use #7.
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+
+import { createClient } from '@/lib/supabase/client'
 
 interface StopButtonProps {
   turnId: string
@@ -29,6 +32,33 @@ export function StopButton({ turnId, onStopped, compact = false }: StopButtonPro
   const [open, setOpen] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [iterationCount, setIterationCount] = useState<number | null>(null)
+
+  // Fetch iteration progress when the modal opens — used by the honesty
+  // block to say how many Director iterations have completed so far.
+  // RLS-scoped read on director_turns; degrades gracefully if the read
+  // fails.
+  useEffect(() => {
+    if (!open) {
+      setIterationCount(null)
+      return
+    }
+    let cancelled = false
+    const supabase = createClient()
+    void supabase
+      .from('director_turns')
+      .select('iteration_count')
+      .eq('id', turnId)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (cancelled) return
+        const row = data as { iteration_count: number | null } | null
+        setIterationCount(row?.iteration_count ?? 0)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [open, turnId])
 
   async function confirmStop() {
     setSubmitting(true)
@@ -125,12 +155,55 @@ export function StopButton({ turnId, onStopped, compact = false }: StopButtonPro
                 fontWeight: 300,
                 color: 'var(--color-text-secondary)',
                 lineHeight: 1.5,
-                marginBottom: 16,
+                marginBottom: 14,
               }}
             >
-              The current Director turn will be cancelled. Any queued iterations are stopped immediately;
-              an in-flight iteration finishes its active LLM call and then exits.
+              The turn is mid-flight. Stopping halts the current LLM call and pauses any pending steps.
             </p>
+
+            {/* V1.x-D honesty block — proportional progress + state-preservation copy.
+                No token-saving numbers (CostMeter is the consumption surface). */}
+            <div
+              data-testid="director-turn-stop-honesty"
+              style={{
+                background: 'var(--color-bg-elevated)',
+                borderLeft: '2px solid var(--color-info)',
+                padding: '10px 12px',
+                marginBottom: 16,
+                fontSize: 12,
+                color: 'var(--color-text-secondary)',
+                lineHeight: 1.55,
+              }}
+            >
+              {iterationCount === null ? (
+                <span style={{ fontStyle: 'italic', color: 'var(--color-text-muted)' }}>
+                  Loading progress…
+                </span>
+              ) : iterationCount === 0 ? (
+                <>
+                  <strong style={{ color: 'var(--color-text-primary)', fontWeight: 500 }}>
+                    The turn just started.
+                  </strong>{' '}
+                  Stopping halts the in-flight LLM call; no partial output retained.
+                </>
+              ) : (
+                <>
+                  <strong style={{ color: 'var(--color-text-primary)', fontWeight: 500 }}>
+                    {iterationCount} iteration{iterationCount === 1 ? '' : 's'} completed so far.
+                  </strong>{' '}
+                  Stop keeps these and pauses the rest.
+                </>
+              )}
+              <div
+                style={{
+                  marginTop: 6,
+                  fontStyle: 'italic',
+                  color: 'var(--color-text-muted)',
+                }}
+              >
+                Director state preserves on Stop — you can Resume later.
+              </div>
+            </div>
 
             {error ? (
               <div

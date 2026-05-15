@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stelavox — Cost Meter Wireframe & Specification v1.0</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500&family=Cormorant+Garamond:ital,wght@1,300&family=Inter:wght@200;300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --ink:      #0d1014;
+  --deep:     #131820;
+  --surface:  #1a2030;
+  --hover:    #1e2838;
+  --selected: #1f2d45;
+  --border-s: #1e2535;
+  --border-d: #253045;
+  --border-str:#3a4a62;
+  --text-p:   #ecf0f5;
+  --text-s:   #8aa0b8;
+  --text-m:   #4a6080;
+  --text-dis: #2a3850;
+  --verd:     #3d7858;
+  --verd-h:   #5aa87a;
+  --verd-m:   #1a3028;
+  --ag-run:   #2e5a90;
+  --st-rev:   #b87030;   /* attention amber for approaching-limit */
+  --destr:    #b83838;   /* destructive for exhausted / over-cap */
+  --spec-bg:  #0a0d12;
+  --spec-pan: #111520;
+  --callout:  #e8b840;
+}
+
+body {
+  background: var(--spec-bg);
+  color: var(--text-p);
+  font-family: 'Inter', sans-serif;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.doc-header {
+  background: var(--spec-pan);
+  border-bottom: 1px solid var(--border-d);
+  padding: 24px 48px;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+.wm-s { font-family:'Cinzel',serif; font-size:14px; font-weight:500; letter-spacing:.18em; color:var(--text-p); }
+.wm-v { font-family:'Cormorant Garamond',serif; font-style:italic; font-weight:300; font-size:16px; letter-spacing:.08em; color:var(--text-p); opacity:.82; }
+.doc-meta { font-size:11px; font-weight:300; letter-spacing:.2em; text-transform:uppercase; color:var(--text-m); }
+
+.section { padding: 40px 48px 0; }
+.slabel { font-size:9px; font-weight:400; letter-spacing:.45em; text-transform:uppercase; color:var(--text-m); margin-bottom:20px; padding-bottom:12px; border-bottom:1px solid var(--border-s); }
+.sub-label { font-size:9px; font-weight:400; letter-spacing:.38em; text-transform:uppercase; color:var(--text-m); padding:8px 0; }
+
+/* Callouts */
+.cn { display:inline-flex; align-items:center; justify-content:center; width:18px; height:18px; background:var(--callout); color:#0a0800; border-radius:50%; font-size:10px; font-weight:700; font-family:'Inter',sans-serif; flex-shrink:0; position:absolute; z-index:20; }
+
+/* ── Shared shells ─────────────────────────────────────────────────── */
+
+.page-shell {
+  background: var(--ink);
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 24px 32px;
+  position: relative;
+  border: 1px solid var(--border-s);
+  border-radius: 8px;
+}
+.back-link { font-size:12px; color:var(--text-s); text-decoration:none; display:inline-block; margin-bottom:16px; }
+.page-h1 { font-size:22px; font-weight:500; color:var(--text-p); margin-bottom:16px; }
+
+.card {
+  background: var(--deep);
+  border: 1px solid var(--border-s);
+  border-radius: 8px;
+  padding: 20px 24px;
+  position: relative;
+}
+.card + .card { margin-top: 16px; }
+.card-title-row {
+  display:flex; justify-content:space-between; align-items:baseline;
+  margin-bottom: 12px;
+}
+.card-title { font-size:14px; font-weight:500; color:var(--text-p); }
+.card-sub { font-size:11px; color:var(--text-m); }
+
+/* Big stat */
+.stat-big {
+  font-size: 28px;
+  font-weight: 500;
+  color: var(--text-p);
+  line-height: 1.1;
+  margin-top: 6px;
+  margin-bottom: 4px;
+}
+.stat-caption {
+  font-size: 12px;
+  color: var(--text-s);
+  margin-bottom: 16px;
+}
+
+/* Usage bar */
+.usage-bar {
+  width:100%;
+  height:6px;
+  background: var(--surface);
+  border-radius: 3px;
+  overflow: hidden;
+  margin: 6px 0 8px;
+}
+.usage-fill {
+  height:100%;
+  background: var(--text-s);
+  opacity: 0.5;
+  transition: width 200ms ease-out;
+}
+.usage-fill.warn { background: var(--st-rev); opacity: 1; }
+.usage-fill.full { background: var(--destr); opacity: 1; }
+.usage-numeric { font-size:11px; color:var(--text-m); }
+
+/* Token table (BYOK) */
+.token-table {
+  display: grid;
+  grid-template-columns: 110px 1fr;
+  row-gap: 8px;
+  column-gap: 12px;
+  margin-top: 12px;
+  font-size: 13px;
+}
+.token-table .tk-label { color: var(--text-s); }
+.token-table .tk-value { color: var(--text-p); font-variant-numeric: tabular-nums; }
+.token-table .tk-total {
+  font-weight: 500;
+  padding-top: 8px;
+  border-top: 1px solid var(--border-s);
+  margin-top: 4px;
+}
+
+/* Soft CTA */
+.cta-soft {
+  background: var(--surface);
+  border: 1px dashed var(--border-d);
+  border-radius: 6px;
+  padding: 12px 14px;
+  margin-top: 16px;
+  font-size: 12px;
+  color: var(--text-s);
+}
+.cta-soft .cta-title {
+  color: var(--text-p);
+  font-weight: 500;
+  margin-bottom: 4px;
+  font-size: 13px;
+}
+.cta-soft .cta-link {
+  color: var(--text-s);
+  text-decoration: none;
+  border-bottom: 1px dotted var(--text-m);
+}
+.cta-soft .cta-note { color: var(--text-m); margin-left: 8px; font-style: italic; }
+
+/* Empty state */
+.empty-state {
+  text-align: center;
+  padding: 20px 16px;
+  color: var(--text-m);
+  font-size: 12px;
+  font-style: italic;
+}
+
+/* AppShellStatusIndicator compact mount preview */
+.app-shell-frame {
+  background: var(--ink);
+  border: 1px dashed var(--border-d);
+  border-radius: 8px;
+  padding: 16px;
+  position: relative;
+  min-height: 200px;
+  display:flex; align-items:flex-end; justify-content:flex-end;
+}
+.app-shell-canvas-label {
+  position: absolute;
+  top: 12px; left: 16px;
+  font-size: 9px; letter-spacing: .35em; text-transform: uppercase;
+  color: var(--text-dis);
+}
+.status-indicator {
+  background: var(--deep);
+  border: 1px solid var(--border-s);
+  border-radius: 6px;
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 11px;
+  color: var(--text-s);
+  position: relative;
+}
+.status-indicator .director-state {
+  display: flex; align-items: center; gap: 6px;
+  padding-right: 10px;
+  border-right: 1px solid var(--border-s);
+}
+.status-indicator .sched-counters {
+  padding-right: 10px;
+  border-right: 1px solid var(--border-s);
+}
+.status-indicator .cost-compact {
+  display: flex; align-items: center; gap: 4px;
+}
+.status-indicator .alert-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--st-rev);
+  margin-left: 4px;
+}
+
+/* Two-up panel grid */
+.two-up { padding: 40px 48px; display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+.four-up { padding: 40px 48px; display: grid; grid-template-columns: 1fr 1fr; gap: 24px 24px; }
+
+/* Annotations */
+.annotations { padding: 0 48px 80px; }
+.ann-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 28px 36px; margin-top: 20px; }
+.ann-item { display: flex; gap: 14px; }
+.ann-num { width: 22px; height: 22px; background: var(--callout); color: #0a0800; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; flex-shrink: 0; }
+.ann-body { flex: 1; }
+.ann-title { font-size: 13px; font-weight: 500; color: var(--text-p); margin-bottom: 4px; }
+.ann-ref { font-size: 10px; font-weight: 300; color: var(--text-m); margin-bottom: 8px; font-style: italic; }
+.ann-desc { font-size: 12px; color: var(--text-s); line-height: 1.6; }
+.ann-desc code { font-family: 'Inter', monospace; background: var(--surface); padding: 1px 5px; border-radius: 3px; font-size: 11px; color: var(--text-p); }
+.ann-desc .critical { color: var(--st-rev); font-weight: 500; }
+.ann-desc .inviolable { color: var(--verd-h); font-weight: 500; }
+</style>
+</head>
+<body>
+
+<!-- Doc header -->
+<div class="doc-header">
+  <div>
+    <div style="display:flex;align-items:baseline;"><span class="wm-s">Stela</span><span class="wm-v">vox</span></div>
+    <div style="margin-top:6px;font-size:11px;font-weight:300;letter-spacing:.2em;text-transform:uppercase;color:var(--text-m);">
+      Cost Meter — Annotated Wireframe & Specification · v1.0
+    </div>
+  </div>
+  <div class="doc-meta">Companion: Component Spec §17.6 · TA v2.6 · Product Spec v1.11 · V1.x-D scope</div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════
+     SECTION 1 — COMPACT FORM (mount in AppShellStatusIndicator)
+     ══════════════════════════════════════════════════════════════ -->
+<div class="section"><div class="slabel">01 — Compact form · embedded in AppShellStatusIndicator</div></div>
+
+<div class="four-up">
+
+  <!-- VARIANT A: Non-BYOK normal -->
+  <div>
+    <div class="sub-label">A · Non-BYOK · 67% used</div>
+    <div class="app-shell-frame">
+      <div class="app-shell-canvas-label">App canvas (Edit / Director / Focus)</div>
+      <div class="status-indicator">
+        <span class="cn" style="top:-9px;left:-9px;">1</span>
+        <div class="director-state"><span style="color:var(--verd-h);">●</span> Director idle</div>
+        <div class="sched-counters">0 running · 0 queued</div>
+        <div class="cost-compact">
+          <span class="cn" style="top:-9px;right:-9px;">2</span>
+          67% · renews in 14d
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- VARIANT B: BYOK normal -->
+  <div>
+    <div class="sub-label">B · BYOK · tokens only</div>
+    <div class="app-shell-frame">
+      <div class="app-shell-canvas-label">App canvas (Edit / Director / Focus)</div>
+      <div class="status-indicator">
+        <div class="director-state"><span style="color:var(--verd-h);">●</span> Director idle</div>
+        <div class="sched-counters">0 running · 0 queued</div>
+        <div class="cost-compact">
+          <span class="cn" style="top:-9px;right:-9px;">3</span>
+          124k in · 18k out
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- VARIANT C: Non-BYOK approaching limit -->
+  <div>
+    <div class="sub-label">C · Non-BYOK · 87% — approaching</div>
+    <div class="app-shell-frame">
+      <div class="app-shell-canvas-label">App canvas</div>
+      <div class="status-indicator">
+        <div class="director-state"><span style="color:var(--verd-h);">●</span> Director idle</div>
+        <div class="sched-counters">0 running · 0 queued</div>
+        <div class="cost-compact">
+          <span class="cn" style="top:-9px;right:-9px;">4</span>
+          <span style="color:var(--st-rev);">87%</span> · renews in 14d
+          <span class="alert-dot"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- VARIANT D: Non-BYOK cap reached -->
+  <div>
+    <div class="sub-label">D · Non-BYOK · cap reached</div>
+    <div class="app-shell-frame">
+      <div class="app-shell-canvas-label">App canvas</div>
+      <div class="status-indicator">
+        <div class="director-state"><span style="color:var(--text-m);">○</span> Director paused</div>
+        <div class="sched-counters">0 running · 8 queued</div>
+        <div class="cost-compact">
+          <span style="color:var(--destr);">100%</span> · cap reached
+          <span class="alert-dot" style="background:var(--destr);"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- VARIANT E: Non-BYOK empty (fresh period) -->
+  <div>
+    <div class="sub-label">E · Non-BYOK · fresh period (empty)</div>
+    <div class="app-shell-frame">
+      <div class="app-shell-canvas-label">App canvas</div>
+      <div class="status-indicator">
+        <span class="cn" style="top:-9px;left:-9px;">9</span>
+        <div class="director-state"><span style="color:var(--verd-h);">●</span> Director idle</div>
+        <div class="sched-counters">0 running · 0 queued</div>
+        <div class="cost-compact">0% · renews in 30d</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- VARIANT F: BYOK empty (no LLM activity yet) -->
+  <div>
+    <div class="sub-label">F · BYOK · no activity yet (empty)</div>
+    <div class="app-shell-frame">
+      <div class="app-shell-canvas-label">App canvas</div>
+      <div class="status-indicator">
+        <div class="director-state"><span style="color:var(--verd-h);">●</span> Director idle</div>
+        <div class="sched-counters">0 running · 0 queued</div>
+        <div class="cost-compact">0 in · 0 out</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════
+     SECTION 2 — FULL FORM at /settings/usage · Non-BYOK
+     ══════════════════════════════════════════════════════════════ -->
+<div class="section"><div class="slabel">02 — Full form · /settings/usage · Non-BYOK (Writer plan)</div></div>
+
+<div style="padding:40px 48px;">
+  <div class="page-shell">
+    <span class="cn" style="top:24px;right:32px;">5</span>
+
+    <a href="#" class="back-link">← Settings</a>
+    <h1 class="page-h1">Usage &amp; Billing</h1>
+
+    <!-- Primary card -->
+    <div class="card">
+      <span class="cn" style="top:14px;right:14px;">6</span>
+      <div class="card-title-row">
+        <div class="card-title">Writer plan</div>
+        <div class="card-sub">Renews in 14 days · May 30, 2026</div>
+      </div>
+
+      <div class="stat-big">67% used</div>
+      <div class="usage-bar">
+        <div class="usage-fill" style="width:67%;"></div>
+      </div>
+      <div class="usage-numeric">670,000 of 1,000,000 credits</div>
+
+      <!-- Soft CTA shown above 60% -->
+      <div class="cta-soft">
+        <span class="cn" style="top:8px;right:10px;">7</span>
+        <div class="cta-title">Need more headroom?</div>
+        <div>Upgrade to Author for 4M credits per period.
+          <a href="#" class="cta-link">View plans →</a>
+          <span class="cta-note">read-only in V1</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Non-BYOK empty state -->
+<div class="section"><div class="slabel">02b — Full form · Non-BYOK · empty / fresh-period state</div></div>
+<div style="padding:40px 48px;">
+  <div class="page-shell" style="max-width:560px;">
+    <a href="#" class="back-link">← Settings</a>
+    <h1 class="page-h1">Usage &amp; Billing</h1>
+    <div class="card">
+      <span class="cn" style="top:14px;right:14px;">10</span>
+      <div class="card-title-row">
+        <div class="card-title">Writer plan</div>
+        <div class="card-sub">Renews in 30 days · Jun 15, 2026</div>
+      </div>
+      <div class="stat-big">0% used</div>
+      <div class="usage-bar">
+        <div class="usage-fill" style="width:0%;"></div>
+      </div>
+      <div class="usage-numeric">0 of 1,000,000 credits</div>
+      <!-- No CTA shown below 60% -->
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════
+     SECTION 3 — FULL FORM at /settings/usage · BYOK
+     ══════════════════════════════════════════════════════════════ -->
+<div class="section"><div class="slabel">03 — Full form · /settings/usage · BYOK (BYOK Solo)</div></div>
+
+<div style="padding:40px 48px;">
+  <div class="page-shell">
+    <a href="#" class="back-link">← Settings</a>
+    <h1 class="page-h1">Usage &amp; Billing</h1>
+
+    <!-- Primary card -->
+    <div class="card">
+      <span class="cn" style="top:14px;right:14px;">8</span>
+      <div class="card-title-row">
+        <div class="card-title">BYOK Solo</div>
+        <div class="card-sub">Anthropic key validated 2h ago · …a7c2</div>
+      </div>
+
+      <div class="token-table">
+        <div class="tk-label">Tokens in</div>
+        <div class="tk-value">124,300</div>
+
+        <div class="tk-label">Tokens out</div>
+        <div class="tk-value">18,720</div>
+
+        <div class="tk-label tk-total">Total tokens</div>
+        <div class="tk-value tk-total">143,020</div>
+      </div>
+      <div style="font-size:11px;color:var(--text-m);margin-top:14px;line-height:1.5;">
+        Tokens billed directly to your account by your LLM provider. Stelavox does not charge for usage on a BYOK plan and does not impose a platform credit cap — your provider's rate limits govern. Refer to your provider for current pricing.
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- BYOK empty state -->
+<div class="section"><div class="slabel">03b — Full form · BYOK · empty / no-activity state</div></div>
+<div style="padding:40px 48px;">
+  <div class="page-shell" style="max-width:560px;">
+    <a href="#" class="back-link">← Settings</a>
+    <h1 class="page-h1">Usage &amp; Billing</h1>
+    <div class="card">
+      <div class="card-title-row">
+        <div class="card-title">BYOK Solo</div>
+        <div class="card-sub">Anthropic key validated 2h ago · …a7c2</div>
+      </div>
+      <div class="empty-state">No LLM activity yet this period.</div>
+      <div style="font-size:11px;color:var(--text-m);margin-top:8px;line-height:1.5;text-align:center;">
+        Tokens and cost will appear here once you run a Director turn or agent operation.
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════
+     SECTION 4 — ANNOTATIONS
+     ══════════════════════════════════════════════════════════════ -->
+<div class="section"><div class="slabel">04 — Annotations</div></div>
+<div class="annotations">
+  <div class="ann-grid">
+
+    <div class="ann-item">
+      <div class="ann-num">1</div>
+      <div class="ann-body">
+        <div class="ann-title">Compact form lives in AppShellStatusIndicator</div>
+        <div class="ann-ref">Component Spec §17.1 · §17.6 · V1.x-B.1.1 shipped the AppShellStatusIndicator shell</div>
+        <div class="ann-desc">
+          The compact form is the rightmost segment in the existing AppShellStatusIndicator (bottom-right of the app, mounted in V1.x-B.1.1). V1.x-D lights up the cost segment — the surrounding Director-state badge and scheduler-counters are unchanged. <span class="inviolable">No verdigris</span> on this surface. The dot before "Director idle" uses <code>--verd-h</code> as a passive status colour from B.1.1 convention, not a new use.
+        </div>
+      </div>
+    </div>
+
+    <div class="ann-item">
+      <div class="ann-num">2</div>
+      <div class="ann-body">
+        <div class="ann-title">Non-BYOK compact display</div>
+        <div class="ann-ref">Component Spec §17.6 · Product Spec v1.9 §3.1 Platform Tiers</div>
+        <div class="ann-desc">
+          Pattern: <code>NN% · renews in Nd</code>. Percentage is <code>token_usage_credits / token_allocation_credits</code> from the org row. Days-remaining computed from <code>current_period_start + plan.period_length_days</code>. Click routes to the full form at <code>/settings/usage</code>. Realtime-subscribed to the organisations row's usage_credits column (incremented by M-135 trigger). No tokens, no dollars — non-BYOK users see only the simple "% of plan" + countdown.
+        </div>
+      </div>
+    </div>
+
+    <div class="ann-item">
+      <div class="ann-num">3</div>
+      <div class="ann-body">
+        <div class="ann-title">BYOK compact display — tokens only, no dollar surfacing</div>
+        <div class="ann-ref">Component Spec §17.6 · simplified per user direction 2026-05-17 · provider-neutral</div>
+        <div class="ann-desc">
+          Pattern: <code>NNk in · MMk out</code>. Token totals are this-period sums from <code>agent_jobs.tokens_input</code> and <code>tokens_output</code> filtered to the org. <span class="inviolable">Dollar cost is deliberately not surfaced</span> — three reasons. (1) Billing is between the user and their LLM provider; Stelavox is not the merchant of record on BYOK. (2) Cost calculations rely on time-versioned price tables (<code>anthropic_pricing</code>) that can drift from the provider's actual invoice; surfacing a wrong number is worse than surfacing none. (3) Future-proof for multi-provider BYOK (OpenAI / Google / Mistral per existing <code>byok_provider</code> CHECK constraint) where computing a unified dollar value across providers gets brittle. Tokens are provider-neutral and sufficient signal for the user to govern their own consumption. Numbers abbreviated to <code>k</code> (×1000) below 1M to stay compact; full digits at &gt;1M.
+        </div>
+      </div>
+    </div>
+
+    <div class="ann-item">
+      <div class="ann-num">4</div>
+      <div class="ann-body">
+        <div class="ann-title">Approaching-limit colour transition</div>
+        <div class="ann-ref">Component Spec §17.1 alert-dot + §17.6 + Inviolable #2</div>
+        <div class="ann-desc">
+          At 80% usage the percentage number switches to <code>--st-rev</code> (attention-amber, same token the AppShellStatusIndicator already uses for its alert dot). At 100% the colour escalates to <code>--destr</code> (destructive red) and the alert dot's background follows. Director state shifts from "idle" to "paused" because the admission gate (V1.x-C.2 <code>checkTokenBudget</code>) starts refusing dispatch; the queued counter rises as queued items can't drain. <span class="inviolable">No verdigris</span> at any usage level — usage state is passive observation, not affirmative action.
+        </div>
+      </div>
+    </div>
+
+    <div class="ann-item">
+      <div class="ann-num">5</div>
+      <div class="ann-body">
+        <div class="ann-title">Full form page shell</div>
+        <div class="ann-ref">Component Spec §1.x layout shells + existing /settings/api-keys precedent</div>
+        <div class="ann-desc">
+          Mounts at <code>/settings/usage</code>. Reuses the existing settings page shell: max-width 720px, centred, <code>← Settings</code> back-link at top, Inter 22px/500 h1. Same shell as <code>/settings/api-keys</code> (V1.x-B.1.2) and <code>/settings/org-api-keys</code> (V1.x-C.4). The Settings index (V1.x-B.1.2) gains a third row "Usage &amp; Billing" pointing here.
+        </div>
+      </div>
+    </div>
+
+    <div class="ann-item">
+      <div class="ann-num">6</div>
+      <div class="ann-body">
+        <div class="ann-title">Primary card — plan + usage (single card, no extras)</div>
+        <div class="ann-ref">Component Spec §17.6 full form · API: GET /api/usage/current-period (V1.x-C.4)</div>
+        <div class="ann-desc">
+          One <code>GET /api/usage/current-period?org_id=X</code> populates the entire card: plan label, days-remaining, usage_credits, allocation_credits. Usage bar fills proportionally; same colour transitions as the compact form (0–80% neutral, 80–100% amber, 100% destructive). Realtime-subscribed to the organisations row. The denominator is the org's <code>token_allocation_credits</code> column (set by M-134 backfill and M-140 auto-allocation trigger on new orgs). <span class="inviolable">Per user direction 2026-05-17:</span> no per-project breakdown, no past-periods card, no history — keep it focused on "% of plan used" + "when does it reset".
+        </div>
+      </div>
+    </div>
+
+    <div class="ann-item">
+      <div class="ann-num">7</div>
+      <div class="ann-body">
+        <div class="ann-title">Soft upgrade CTA — informational only in V1</div>
+        <div class="ann-ref">Inviolable #2 use #8 belongs to TrialExpiryModal · routine top-up is neutral</div>
+        <div class="ann-desc">
+          The CTA uses a dashed border + <code>--color-text-secondary</code> link — explicitly NOT verdigris. <span class="inviolable">Inviolable #2 use #8 (Plan CTA) is reserved for the trial-expiry modal specifically</span>, per Component Spec. Routine "approaching limit" prompts use the neutral CTA token. Card is shown when usage exceeds 60%; hidden below that. The "read-only in V1" italic note appears while Stripe wiring is deferred (V2). "View plans →" link target is settled in §05 below.
+        </div>
+      </div>
+    </div>
+
+    <div class="ann-item">
+      <div class="ann-num">8</div>
+      <div class="ann-body">
+        <div class="ann-title">BYOK primary card — tokens only</div>
+        <div class="ann-ref">Component Spec §17.6 · Product Spec v1.9 §3.1 BYOK Tiers · simplified 2026-05-17</div>
+        <div class="ann-desc">
+          Header row: plan name + provider-key status (last_four + last_validated relative time, same pattern as OrgAnthropicKeyPanel). Body: a three-row token table with In / Out / Total tokens. Total row separates with a 1px top border. <span class="inviolable">No dollar amount surfaced</span> — same provider-neutral rationale as annotation 3. No allocation gate applies — <code>isByok()</code> bypasses <code>checkTokenBudget</code> entirely (V1.x-B.1.2 invariant). Closing caption clarifies the billing model: provider handles billing, Stelavox does not charge for usage on BYOK, refer to provider for current pricing.
+        </div>
+      </div>
+    </div>
+
+    <div class="ann-item">
+      <div class="ann-num">9</div>
+      <div class="ann-body">
+        <div class="ann-title">Compact empty states — variants E + F</div>
+        <div class="ann-ref">User direction 2026-05-17 — empty states drawn explicitly</div>
+        <div class="ann-desc">
+          A brand-new org (just signed up, or just after period rollover via M-141) starts at 0% / 0 tokens. The compact form shows <code>0% · renews in 30d</code> (Non-BYOK) or <code>0 in · 0 out</code> (BYOK) — no alert dot, no special colour. Director state stays "idle". Identical layout to active states so the surface doesn't reshape between empty and active — only values change.
+        </div>
+      </div>
+    </div>
+
+    <div class="ann-item">
+      <div class="ann-num">10</div>
+      <div class="ann-body">
+        <div class="ann-title">Full-form empty states — §02b + §03b</div>
+        <div class="ann-ref">User direction 2026-05-17 — empty states drawn explicitly</div>
+        <div class="ann-desc">
+          Non-BYOK empty (§02b): same primary card layout; usage bar shows 0%; soft CTA hidden (60% threshold not crossed). BYOK empty (§03b): primary card replaces the token table with a centred italic line "No LLM activity yet this period." plus a one-line explanation in <code>--text-m</code>. Both routes work without errors when the org row is fresh; both surfaces transition seamlessly to populated state as soon as the first agent_job completes (realtime subscription fires).
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════
+     SECTION 5 — STATE MATRIX & OPEN DECISIONS
+     ══════════════════════════════════════════════════════════════ -->
+<div class="section"><div class="slabel">05 — State matrix &amp; settled / open decisions</div></div>
+<div style="padding: 0 48px 80px;">
+
+  <div class="card" style="max-width:none;">
+    <div class="card-title" style="margin-bottom:16px;">Compact-form usage-state colour transitions</div>
+    <table style="width:100%;border-collapse:collapse;font-size:12px;">
+      <thead>
+        <tr style="border-bottom:1px solid var(--border-d);text-align:left;color:var(--text-m);">
+          <th style="padding:8px 0;font-weight:400;letter-spacing:.08em;text-transform:uppercase;font-size:10px;">User type</th>
+          <th style="padding:8px 0;font-weight:400;letter-spacing:.08em;text-transform:uppercase;font-size:10px;">Usage</th>
+          <th style="padding:8px 0;font-weight:400;letter-spacing:.08em;text-transform:uppercase;font-size:10px;">Number colour</th>
+          <th style="padding:8px 0;font-weight:400;letter-spacing:.08em;text-transform:uppercase;font-size:10px;">Alert dot</th>
+          <th style="padding:8px 0;font-weight:400;letter-spacing:.08em;text-transform:uppercase;font-size:10px;">Director state</th>
+        </tr>
+      </thead>
+      <tbody style="color:var(--text-s);">
+        <tr style="border-bottom:1px solid var(--border-s);"><td style="padding:8px 0;">Non-BYOK</td><td>0% (empty)</td><td>--text-s</td><td>off</td><td>idle</td></tr>
+        <tr style="border-bottom:1px solid var(--border-s);"><td style="padding:8px 0;">Non-BYOK</td><td>1–79%</td><td>--text-s</td><td>off</td><td>idle / thinking (normal)</td></tr>
+        <tr style="border-bottom:1px solid var(--border-s);"><td style="padding:8px 0;">Non-BYOK</td><td>80–99%</td><td>--st-rev</td><td>on (amber)</td><td>idle / thinking (normal)</td></tr>
+        <tr style="border-bottom:1px solid var(--border-s);"><td style="padding:8px 0;">Non-BYOK</td><td>100% (cap)</td><td>--destr</td><td>on (destructive red)</td><td>paused — admission gate refusing</td></tr>
+        <tr><td style="padding:8px 0;">BYOK</td><td>n/a (no cap)</td><td>--text-s</td><td>off</td><td>follows Director-state only</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card" style="max-width:none;">
+    <div class="card-title" style="margin-bottom:12px;">Settled decisions (per user feedback 2026-05-17)</div>
+    <ul style="margin-left:18px;color:var(--text-s);font-size:13px;line-height:1.7;">
+      <li><strong>No 30-day sparkline.</strong> Dropped per user direction — basic usage is enough.</li>
+      <li><strong>No past-periods card.</strong> Dropped per user direction — same reasoning.</li>
+      <li><strong>No "Current Director session" indicator.</strong> Dropped per user direction — was ambiguous (BYOK only saw aggregate-this-period anyway).</li>
+      <li><strong>No by-model breakdown (BYOK).</strong> Dropped — keeps the surface simple. V2 candidate if BYOK users want spend-attribution.</li>
+      <li><strong>No by-project / recent-activity breakdown.</strong> Dropped — focuses the surface on the essential question: how much have I used and when does it reset.</li>
+      <li><strong>Empty-state variants drawn explicitly.</strong> Per user direction — see §02b + §03b above. Cover fresh-period (Non-BYOK) and no-activity-yet (BYOK).</li>
+    </ul>
+  </div>
+
+  <div class="card" style="max-width:none;">
+    <div class="card-title" style="margin-bottom:12px;">Open decision before build kicks off</div>
+    <div style="color:var(--text-s);font-size:13px;line-height:1.7;">
+      <strong>"View plans →" link target in V1.</strong> The soft upgrade CTA at &gt;60% usage shows a "View plans →" link. V1 has no Stripe / upgrade flow yet — so where should this link actually go when a user clicks it? Three options:
+      <ol style="margin:8px 0 0 24px;">
+        <li><strong>(a) Link to <code>/settings/plan</code></strong> — a separate read-only page that lists the four V1 plans (Trial / Writer / Author / Pro) with their pricing and allocations from <code>platform_config</code>. PlanPanel is on the V1.x-D list anyway as a separate wireframe; this would land alongside CostMeter. The link works on day one; V2 swaps the static panel for the live Stripe flow.</li>
+        <li><strong>(b) Link to a marketing URL</strong> (e.g. stelavox.com/pricing) — keeps the in-app surface lean but couples to a marketing site that doesn't exist yet in dev.</li>
+        <li><strong>(c) Drop the link entirely</strong> — the CTA becomes pure copy ("Approaching the limit? Upgrade in V2"). Honest about V1's state but loses the directional signal.</li>
+      </ol>
+      <p style="margin-top:8px;"><strong>Recommendation:</strong> option (a). PlanPanel is already on the V1.x-D build list (a separate wireframe to follow); making the "View plans →" link wire into it costs nothing extra and gives V1 a coherent settings nav. V2 then replaces only the upgrade-flow CTA inside PlanPanel with the Stripe Checkout button.</p>
+    </div>
+  </div>
+
+  <div class="card" style="max-width:none;">
+    <div class="card-title" style="margin-bottom:12px;">Member-vs-admin visibility (just noting the rule)</div>
+    <div style="color:var(--text-s);font-size:13px;line-height:1.7;">
+      Per the M-137 RPCs (V1.x-C.3) any organisation member can read usage status — no admin gate needed on this read-only surface. The route <code>/settings/usage</code> resolves the user's primary organisation server-side using the same precedence rule as the OrgAnthropicKeyPanel page (owner &gt; admin &gt; member; oldest joined_at tiebreak). Multi-org users see usage for whichever org appears first; explicit org selection is V2.
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>

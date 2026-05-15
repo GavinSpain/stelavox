@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stelavox — Director Completion Acknowledgement Wireframe & Specification v1.0</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500&family=Cormorant+Garamond:ital,wght@1,300&family=Inter:wght@200;300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --ink:#0d1014; --deep:#131820; --surface:#1a2030; --hover:#1e2838; --selected:#1f2d45;
+  --border-s:#1e2535; --border-d:#253045; --border-str:#3a4a62;
+  --text-p:#ecf0f5; --text-s:#8aa0b8; --text-m:#4a6080; --text-dis:#2a3850;
+  --verd:#3d7858; --verd-h:#5aa87a; --verd-m:#1a3028;
+  --ag-run:#2e5a90; --st-rev:#b87030; --destr:#b83838;
+  --info:#3c7891;
+  --spec-bg:#0a0d12; --spec-pan:#111520; --callout:#e8b840;
+}
+
+body { background: var(--spec-bg); color: var(--text-p); font-family: 'Inter', sans-serif; font-size: 13px; line-height: 1.5; }
+
+.doc-header { background: var(--spec-pan); border-bottom: 1px solid var(--border-d); padding: 24px 48px; display:flex; align-items:baseline; justify-content:space-between; }
+.wm-s { font-family:'Cinzel',serif; font-size:14px; font-weight:500; letter-spacing:.18em; color:var(--text-p); }
+.wm-v { font-family:'Cormorant Garamond',serif; font-style:italic; font-weight:300; font-size:16px; letter-spacing:.08em; color:var(--text-p); opacity:.82; }
+.doc-meta { font-size:11px; font-weight:300; letter-spacing:.2em; text-transform:uppercase; color:var(--text-m); }
+
+.section { padding: 40px 48px 0; }
+.slabel { font-size:9px; font-weight:400; letter-spacing:.45em; text-transform:uppercase; color:var(--text-m); margin-bottom:20px; padding-bottom:12px; border-bottom:1px solid var(--border-s); }
+.sub-label { font-size:9px; font-weight:400; letter-spacing:.38em; text-transform:uppercase; color:var(--text-m); padding:8px 0 12px; }
+
+.cn { display:inline-flex; align-items:center; justify-content:center; width:18px; height:18px; background:var(--callout); color:#0a0800; border-radius:50%; font-size:10px; font-weight:700; flex-shrink:0; position:absolute; z-index:20; }
+
+/* Director panel sim */
+.dir-panel {
+  background: var(--deep);
+  border: 1px solid var(--border-s);
+  border-radius: 6px;
+  width: 540px;
+  position: relative;
+  overflow: hidden;
+}
+.dir-header {
+  background: var(--ink);
+  border-bottom: 1px solid var(--border-s);
+  padding: 10px 14px;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.dir-header-title { font-size: 13px; font-weight: 500; color: var(--text-p); display:flex; align-items:center; gap:8px; }
+.dir-icon { color: var(--text-s); font-size: 14px; }
+
+.dir-body { padding: 16px; max-height: 500px; overflow-y: auto; }
+.msg { margin-bottom: 14px; }
+.msg-role { font-size: 10px; font-weight: 500; letter-spacing: .14em; text-transform: uppercase; color: var(--text-m); margin-bottom: 4px; }
+.msg-content { font-size: 13px; color: var(--text-p); line-height: 1.55; }
+.msg-content.assistant { color: var(--text-s); }
+
+/* PlanCard sim — final/persisted state */
+.plan-card {
+  border: 1px solid var(--border-d);
+  border-radius: 6px;
+  padding: 12px 14px;
+  font-size: 12px;
+  color: var(--text-s);
+  background: var(--ink);
+  margin-top: 8px;
+  position: relative;
+}
+.plan-card.complete {
+  border-color: var(--verd-m);
+}
+.plan-header {
+  display:flex; justify-content:space-between; align-items:center;
+  font-size:11px; color:var(--text-m); margin-bottom: 10px;
+  padding-bottom: 8px; border-bottom: 1px solid var(--border-s);
+}
+.plan-header .complete-marker {
+  display:inline-flex; align-items:center; gap:6px;
+  color: var(--verd-h); font-weight: 500;
+}
+.plan-step {
+  display: grid;
+  grid-template-columns: 14px 1fr;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  font-size: 12px;
+}
+.plan-step .step-glyph { color: var(--text-m); text-align: center; }
+.plan-step.done .step-glyph { color: var(--verd-h); }
+
+/* Acknowledgement line — the new V1.x-D message variant */
+.ack-line {
+  background: var(--surface);
+  border-left: 2px solid var(--verd);
+  border-radius: 4px;
+  padding: 10px 14px;
+  font-size: 12px;
+  color: var(--text-s);
+  margin: 14px 0;
+  position: relative;
+  display:flex; align-items:center; gap:10px;
+}
+.ack-line .ack-glyph { color: var(--verd-h); font-size: 14px; flex-shrink:0; }
+.ack-line .ack-text { color: var(--text-s); line-height: 1.5; }
+.ack-line .ack-text strong { color: var(--text-p); font-weight: 500; }
+
+/* Partial-completion variant */
+.ack-line.partial {
+  border-left-color: var(--st-rev);
+}
+.ack-line.partial .ack-glyph { color: var(--st-rev); }
+
+/* Failure variant */
+.ack-line.failed {
+  border-left-color: var(--destr);
+}
+.ack-line.failed .ack-glyph { color: var(--destr); }
+
+/* Two-up */
+.two-up { padding: 40px 48px; display:grid; grid-template-columns: 1fr 1fr; gap: 36px; align-items: flex-start; }
+
+/* Annotations */
+.annotations { padding: 0 48px 80px; }
+.ann-grid { display:grid; grid-template-columns:1fr 1fr; gap: 28px 36px; margin-top:20px; }
+.ann-item { display:flex; gap:14px; }
+.ann-num { width:22px; height:22px; background:var(--callout); color:#0a0800; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; flex-shrink:0; }
+.ann-body { flex:1; }
+.ann-title { font-size:13px; font-weight:500; color:var(--text-p); margin-bottom:4px; }
+.ann-ref { font-size:10px; font-weight:300; color:var(--text-m); margin-bottom:8px; font-style:italic; }
+.ann-desc { font-size:12px; color:var(--text-s); line-height:1.6; }
+.ann-desc code { font-family:'Inter',monospace; background:var(--surface); padding:1px 5px; border-radius:3px; font-size:11px; color:var(--text-p); }
+.ann-desc .critical { color: var(--st-rev); font-weight: 500; }
+.ann-desc .inviolable { color: var(--verd-h); font-weight: 500; }
+.card { background: var(--deep); border:1px solid var(--border-s); border-radius:8px; padding:20px 24px; position:relative; }
+.card + .card { margin-top: 16px; }
+.card-title { font-size:14px; font-weight:500; color:var(--text-p); margin-bottom:12px; }
+</style>
+</head>
+<body>
+
+<!-- Doc header -->
+<div class="doc-header">
+  <div>
+    <div style="display:flex;align-items:baseline;"><span class="wm-s">Stela</span><span class="wm-v">vox</span></div>
+    <div style="margin-top:6px;font-size:11px;font-weight:300;letter-spacing:.2em;text-transform:uppercase;color:var(--text-m);">
+      Director Completion Acknowledgement — Annotated Wireframe & Specification · v1.0
+    </div>
+  </div>
+  <div class="doc-meta">Companion: Component Spec §17.11 · Director Arch v2.3 · V1.x-D scope</div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════
+     SECTION 1 — Successful workflow completion
+     ══════════════════════════════════════════════════════════════ -->
+<div class="section"><div class="slabel">01 — Successful completion · acknowledgement line + persisted PlanCard</div></div>
+
+<div style="padding:40px 48px;display:flex;justify-content:center;">
+  <div class="dir-panel">
+    <div class="dir-header">
+      <div class="dir-header-title">
+        <span class="dir-icon">◆</span>
+        Director
+      </div>
+      <span style="font-size:11px;color:var(--text-m);">Idle</span>
+    </div>
+
+    <div class="dir-body">
+      <div class="msg">
+        <div class="msg-role">You</div>
+        <div class="msg-content">Refine all 6 scenes in Chapter 3 for tighter pacing.</div>
+      </div>
+
+      <div class="msg">
+        <div class="msg-role">Director</div>
+        <div class="msg-content assistant">I'll refine each scene in order, keeping the existing structure but tightening dialogue and trimming exposition.</div>
+        <div class="plan-card complete">
+          <span class="cn" style="top:6px;right:8px;">2</span>
+          <div class="plan-header">
+            <div>6 steps</div>
+            <div class="complete-marker"><span style="color:var(--verd-h);">●</span> Complete</div>
+          </div>
+          <div class="plan-step done"><div class="step-glyph">✓</div><div>Refine Scene 1 · The library catalogue</div></div>
+          <div class="plan-step done"><div class="step-glyph">✓</div><div>Refine Scene 2 · The encrypted archive</div></div>
+          <div class="plan-step done"><div class="step-glyph">✓</div><div>Refine Scene 3 · Marsh confronts Bracket</div></div>
+          <div class="plan-step done"><div class="step-glyph">✓</div><div>Refine Scene 4 · The bridge collapse</div></div>
+          <div class="plan-step done"><div class="step-glyph">✓</div><div>Refine Scene 5 · Aftermath in the safehouse</div></div>
+          <div class="plan-step done"><div class="step-glyph">✓</div><div>Refine Scene 6 · The cipher unlocks</div></div>
+        </div>
+      </div>
+
+      <div class="ack-line">
+        <span class="cn" style="top:-9px;left:-9px;">1</span>
+        <span class="ack-glyph">●</span>
+        <span class="ack-text">
+          <strong>Workflow complete:</strong> 6 of 6 steps succeeded. Review the changes in the tree — scenes marked <span style="color:var(--info);">●</span> have AI updates pending your review.
+        </span>
+      </div>
+
+      <div class="msg">
+        <div class="msg-role">You</div>
+        <div class="msg-content" style="color:var(--text-m);font-style:italic;">Type your next instruction…</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════
+     SECTION 2 — Variants · partial / failure
+     ══════════════════════════════════════════════════════════════ -->
+<div class="section"><div class="slabel">02 — Variants · partial completion and full failure</div></div>
+
+<div class="two-up">
+
+  <div>
+    <div class="sub-label">A · Partial completion (some steps failed mid-workflow)</div>
+    <div class="dir-panel" style="width:auto;">
+      <div class="dir-header">
+        <div class="dir-header-title">
+          <span class="dir-icon">◆</span>
+          Director
+        </div>
+        <span style="font-size:11px;color:var(--text-m);">Idle</span>
+      </div>
+      <div class="dir-body">
+        <div class="msg">
+          <div class="msg-role">You</div>
+          <div class="msg-content">Synthesise prose for the 8 unfilled beats in Chapter 4.</div>
+        </div>
+
+        <div class="msg">
+          <div class="msg-role">Director</div>
+          <div class="msg-content assistant">Working through each beat in order…</div>
+          <div class="plan-card">
+            <div class="plan-header">
+              <div>8 steps</div>
+              <div style="color:var(--st-rev);font-weight:500;display:inline-flex;align-items:center;gap:6px;">
+                <span>●</span> 6 succeeded · 2 failed
+              </div>
+            </div>
+            <div class="plan-step done"><div class="step-glyph">✓</div><div>Beat 1</div></div>
+            <div class="plan-step done"><div class="step-glyph">✓</div><div>Beat 2</div></div>
+            <div class="plan-step done"><div class="step-glyph">✓</div><div>Beat 3</div></div>
+            <div class="plan-step"><div class="step-glyph" style="color:var(--destr);">✗</div><div style="color:var(--destr);">Beat 4 · output_schema_invalid</div></div>
+            <div class="plan-step done"><div class="step-glyph">✓</div><div>Beat 5</div></div>
+            <div class="plan-step"><div class="step-glyph" style="color:var(--destr);">✗</div><div style="color:var(--destr);">Beat 6 · output_schema_invalid</div></div>
+            <div class="plan-step done"><div class="step-glyph">✓</div><div>Beat 7</div></div>
+            <div class="plan-step done"><div class="step-glyph">✓</div><div>Beat 8</div></div>
+          </div>
+        </div>
+
+        <div class="ack-line partial">
+          <span class="cn" style="top:-9px;left:-9px;">3</span>
+          <span class="ack-glyph">◐</span>
+          <span class="ack-text">
+            <strong>Workflow ended with issues:</strong> 6 of 8 steps succeeded. 2 steps failed on schema validation (Class D). The 6 successful beats are on your tree for review. <a href="#" style="color:var(--text-s);border-bottom:1px dotted var(--text-m);text-decoration:none;">Retry the 2 failures →</a>
+          </span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <div class="sub-label">B · Full failure (no step succeeded)</div>
+    <div class="dir-panel" style="width:auto;">
+      <div class="dir-header">
+        <div class="dir-header-title">
+          <span class="dir-icon">◆</span>
+          Director
+        </div>
+        <span style="font-size:11px;color:var(--text-m);">Idle</span>
+      </div>
+      <div class="dir-body">
+        <div class="msg">
+          <div class="msg-role">You</div>
+          <div class="msg-content">Expand Chapter 7 into scenes.</div>
+        </div>
+
+        <div class="msg">
+          <div class="msg-role">Director</div>
+          <div class="msg-content assistant">Drafting…</div>
+          <div class="plan-card">
+            <div class="plan-header">
+              <div>1 step</div>
+              <div style="color:var(--destr);font-weight:500;display:inline-flex;align-items:center;gap:6px;">
+                <span>●</span> Failed
+              </div>
+            </div>
+            <div class="plan-step"><div class="step-glyph" style="color:var(--destr);">✗</div><div style="color:var(--destr);">Expand Chapter 7 · provider_error: rate_limit_exceeded</div></div>
+          </div>
+        </div>
+
+        <div class="ack-line failed">
+          <span class="cn" style="top:-9px;left:-9px;">4</span>
+          <span class="ack-glyph">○</span>
+          <span class="ack-text">
+            <strong>Workflow failed:</strong> 0 of 1 step succeeded. Rate limit hit on your provider (Class A — retryable). Wait a few minutes, then <a href="#" style="color:var(--text-s);border-bottom:1px dotted var(--text-m);text-decoration:none;">retry →</a>
+          </span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════
+     SECTION 3 — Brief Stage completion variant
+     ══════════════════════════════════════════════════════════════ -->
+<div class="section"><div class="slabel">03 — Brief Stage completion · acknowledgement spans across workflows in a Brief</div></div>
+
+<div style="padding:40px 48px;display:flex;justify-content:center;">
+  <div class="dir-panel">
+    <div class="dir-header">
+      <div class="dir-header-title">
+        <span class="dir-icon">◆</span>
+        Director
+      </div>
+      <span style="font-size:11px;color:var(--text-m);">Idle</span>
+    </div>
+    <div class="dir-body">
+      <div class="msg">
+        <div class="msg-role">Director</div>
+        <div class="msg-content assistant">Stage 2 of the Brief "Draft Act 2" wrapped up. Workflow 2 of 4 just finished — see plan below.</div>
+        <div class="plan-card complete">
+          <div class="plan-header">
+            <div>Workflow 2 · Synthesise scenes for Chapter 3</div>
+            <div class="complete-marker"><span style="color:var(--verd-h);">●</span> Complete</div>
+          </div>
+          <div class="plan-step done"><div class="step-glyph">✓</div><div>Synthesise Beat 1</div></div>
+          <div class="plan-step done"><div class="step-glyph">✓</div><div>Synthesise Beat 2</div></div>
+          <div class="plan-step done"><div class="step-glyph">✓</div><div>Synthesise Beat 3</div></div>
+        </div>
+      </div>
+
+      <div class="ack-line">
+        <span class="cn" style="top:-9px;left:-9px;">5</span>
+        <span class="ack-glyph">●</span>
+        <span class="ack-text">
+          <strong>Stage 2 complete</strong> — 3 of 3 workflows succeeded in this stage. Brief "Draft Act 2" advances to Stage 3 (Refine prose). <a href="#" style="color:var(--text-s);border-bottom:1px dotted var(--text-m);text-decoration:none;">Open BriefViewer →</a>
+        </span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════
+     SECTION 4 — Reflective vs mechanical · what V1 does and does not do
+     ══════════════════════════════════════════════════════════════ -->
+<div class="section"><div class="slabel">04 — V1 ships mechanical acknowledgement · reflective acknowledgement is V2</div></div>
+
+<div class="two-up">
+
+  <div>
+    <div class="sub-label">V1 (this wireframe) · mechanical line</div>
+    <div class="card" style="max-width:none;">
+      <span class="cn" style="top:14px;right:14px;">6</span>
+      <div class="ack-line" style="margin:0;">
+        <span class="ack-glyph">●</span>
+        <span class="ack-text">
+          <strong>Workflow complete:</strong> 12 of 12 steps succeeded.
+        </span>
+      </div>
+      <div style="font-size:11px;color:var(--text-m);margin-top:14px;line-height:1.6;">
+        Counts the steps, says it's done, offers a tree-review path. No re-reading of the artefacts. No commentary on the output. Closes the "silent completion" gap from the deep-dive without becoming chatty.
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <div class="sub-label">V2 (deferred) · reflective acknowledgement</div>
+    <div class="card" style="max-width:none;">
+      <span class="cn" style="top:14px;right:14px;">7</span>
+      <div class="ack-line" style="margin:0;">
+        <span class="ack-glyph">●</span>
+        <span class="ack-text">
+          <strong>Workflow complete:</strong> 12 of 12 steps succeeded. Reviewing Chapter 3's pacing changes, I notice Scene 4's tension arc is now flatter than the others — you may want to look at that one first. Want a quick critique pass on Scene 4 specifically?
+        </span>
+      </div>
+      <div style="font-size:11px;color:var(--text-m);margin-top:14px;line-height:1.6;">
+        Director re-reads its own artefacts and surfaces an observation. <span class="ann-desc" style="color:var(--text-m);font-style:italic;">Not shipping in V1.x-D</span> — adds an extra LLM round-trip + judgement complexity; reserved for V2 once user-driven testing confirms desire.
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════
+     SECTION 5 — ANNOTATIONS
+     ══════════════════════════════════════════════════════════════ -->
+<div class="section"><div class="slabel">05 — Annotations</div></div>
+<div class="annotations">
+  <div class="ann-grid">
+
+    <div class="ann-item">
+      <div class="ann-num">1</div>
+      <div class="ann-body">
+        <div class="ann-title">Acknowledgement line — new message variant</div>
+        <div class="ann-ref">Component Spec §17.11 · Director Arch v2.3 §10 closure principle</div>
+        <div class="ann-desc">
+          New conversation-message variant fired automatically when a workflow's terminal state is reached. Renders in-thread (not floating) so the conversation history reflects the closure. Left border <code>--verd</code> (2px) for success; <code>--st-rev</code> for partial; <code>--destr</code> for full failure. <span class="inviolable">Verdigris border on success uses the existing #4 agent-complete category</span> — a passive completion indicator, not affirmative action. Verdigris-use count remains <strong>nine</strong>.
+        </div>
+      </div>
+    </div>
+
+    <div class="ann-item">
+      <div class="ann-num">2</div>
+      <div class="ann-body">
+        <div class="ann-title">PlanCard persists in complete state</div>
+        <div class="ann-ref">Component Spec §7.6 (PlanCard baseline) · §17.7 extensions · §17.11 · simplified 2026-05-17</div>
+        <div class="ann-desc">
+          Pre-V1.x-D the PlanCard could fade or collapse on completion in some surfaces. V1.x-D locks the behaviour: the card persists in the conversation thread, marked complete, with every step visible. The author can see what ran and which steps succeeded. <span class="inviolable">Per-step token costs are NOT shown</span> (stripped 2026-05-17 across PlanCards in execution + completion surfaces) — consumption detail lives in CostMeter alone; per-step labels were audit data not author-decision data and added visual noise. The PlanCard's existing Approve button (verdigris use #7) is no longer relevant in complete state (workflow already approved + executed); it hides.
+        </div>
+      </div>
+    </div>
+
+    <div class="ann-item">
+      <div class="ann-num">3</div>
+      <div class="ann-body">
+        <div class="ann-title">Partial-completion variant</div>
+        <div class="ann-ref">Component Spec §17.11 · Director Arch v2.3 §10 five-class failure taxonomy</div>
+        <div class="ann-desc">
+          When some steps failed mid-workflow, the acknowledgement uses <code>--st-rev</code> attention-amber border + a half-filled glyph (◐). Copy declares the split ("6 of 8 succeeded") and surfaces a Retry affordance for just the failed steps (the existing per-step retry pattern; not invented here). Failure reason (e.g. <code>output_schema_invalid</code> = Class D) shown inline on the failed PlanCard steps in <code>--destr</code> text.
+        </div>
+      </div>
+    </div>
+
+    <div class="ann-item">
+      <div class="ann-num">4</div>
+      <div class="ann-body">
+        <div class="ann-title">Full-failure variant</div>
+        <div class="ann-ref">Component Spec §17.11 · Director Arch v2.3 §10</div>
+        <div class="ann-desc">
+          When zero steps succeed, border + glyph escalate to <code>--destr</code>. Copy names the failure class in plain English ("Rate limit hit on your provider · Class A — retryable") so the author understands whether to wait + retry or whether the failure is permanent. Class taxonomy: A transient (retry) / B interrupted (resume) / C capacity (back off) / D validation (intervention needed) / E hard system (support). The acknowledgement copy adapts per class.
+        </div>
+      </div>
+    </div>
+
+    <div class="ann-item">
+      <div class="ann-num">5</div>
+      <div class="ann-body">
+        <div class="ann-title">Brief Stage completion variant</div>
+        <div class="ann-ref">Component Spec §17.11 · Director Arch v2.3 §4.2 Stage triggers</div>
+        <div class="ann-desc">
+          Brief-driven workflows fire stage-completion acknowledgements when a whole Stage's workflows complete (not just one workflow). Copy mentions Stage progress + Brief name + offers a cross-link to BriefViewer for context. Important for multi-stage Briefs where the Director plans + runs sequential workflows without further user approval (V1.x-B.2.3 auto-approve subsequent stages). The author may not be watching — these acknowledgements are the surface that says "here's where we are".
+        </div>
+      </div>
+    </div>
+
+    <div class="ann-item">
+      <div class="ann-num">6</div>
+      <div class="ann-body">
+        <div class="ann-title">V1 = mechanical only</div>
+        <div class="ann-ref">Component Spec §17.11 · explicit V2 deferral</div>
+        <div class="ann-desc">
+          V1.x-D ships only the mechanical acknowledgement: counts, status, navigation. No commentary on output quality, no judgement, no proactive suggestions. This is deliberate — closes the "silent completion" gap identified in the Director V2 deep-dive without overshooting into chatty territory. The Director already says enough during the turn; the closing line should be quiet and informational.
+        </div>
+      </div>
+    </div>
+
+    <div class="ann-item">
+      <div class="ann-num">7</div>
+      <div class="ann-body">
+        <div class="ann-title">V2 candidate · reflective acknowledgement</div>
+        <div class="ann-ref">Director Arch v2.3 §16.3 V2 backlog</div>
+        <div class="ann-desc">
+          V2 candidate: Director re-reads its own artefacts at workflow close and surfaces an observation ("I notice Scene 4's tension arc is flatter than the others"). Adds an extra LLM round-trip + judgement complexity + token cost. Defer until user-driven testing confirms this is useful and not annoying. Today's V1.x-D mechanical line is the floor; reflective is an opt-in V2 enhancement.
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════
+     SECTION 6 — INVIOLABLE AUDIT + OPEN DECISIONS
+     ══════════════════════════════════════════════════════════════ -->
+<div class="section"><div class="slabel">06 — Inviolable audit &amp; open decisions</div></div>
+
+<div style="padding: 0 48px 80px;">
+
+  <div class="card" style="max-width:none;">
+    <div class="card-title">Inviolable #2 audit · acknowledgement uses existing verdigris category</div>
+    <div style="color:var(--text-s);font-size:13px;line-height:1.7;">
+      <p>The acknowledgement line's left border on success uses <code>--verd</code> (2px) — this falls under the existing Inviolable #2 use #4 family (agent-complete status indicator). It's a passive completion declaration, not affirmative action. No new use category introduced. Verdigris-use count remains <strong>nine</strong>.</p>
+      <p style="margin-top:8px;">Partial border = <code>--st-rev</code>. Failure border = <code>--destr</code>. Both are existing tokens used elsewhere; neither is a new verdigris use.</p>
+    </div>
+  </div>
+
+  <div class="card" style="max-width:none;">
+    <div class="card-title">Open decisions before build</div>
+    <ol style="margin-left:18px;color:var(--text-s);font-size:13px;line-height:1.7;">
+      <li><strong>Acknowledgement copy length.</strong> Drawn as ~1 sentence. Open: should it be a single short line ("12 of 12 steps succeeded.") or include the navigation hint ("Review the changes in the tree…")? Recommendation: include the navigation hint when scenes are pending review; omit when nothing needs author action.</li>
+      <li><strong>Token / credit cost in acknowledgement.</strong> <span style="color:var(--verd-h);">SETTLED 2026-05-17 — dropped everywhere outside CostMeter.</span> Acknowledgement shows outcome counts only (N of M succeeded); per-step token labels also stripped from PlanCards in this wireframe. CostMeter remains the single dedicated surface for consumption detail.</li>
+      <li><strong>Class-specific copy for failures.</strong> Different failure classes need different copy (Class A retry-soon vs Class D author-intervention). Drawn for Classes A + D. Open: lock the exact copy per class now, or iterate during build. Recommendation: lock during build with a simple lookup table; this wireframe locks the shape, not the wording.</li>
+      <li><strong>Stage-completion acknowledgement frequency.</strong> Should every workflow-complete inside a Stage fire its own acknowledgement, plus a stage-complete acknowledgement on the last one? Drawn with the stage-complete only firing on the Stage's last workflow. Recommendation: yes — per-workflow acknowledgements would spam the thread on multi-workflow Stages.</li>
+      <li><strong>Cross-link target for failures.</strong> Drawn as "Retry the 2 failures →". Open: link to the failed agent_jobs view, or trigger a one-click retry inline? Recommendation: link first (lets author inspect the failure reason) — inline retry is a V2 polish.</li>
+    </ol>
+  </div>
+
+</div>
+
+</body>
+</html>
