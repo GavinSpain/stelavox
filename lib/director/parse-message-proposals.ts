@@ -107,8 +107,16 @@ interface ToolCallEntry {
   proposal_artefact?: unknown
 }
 
+export interface ConcurrentEditWarning {
+  node_ids: string[]
+  conflicting_brief_ids: string[]
+  message: string
+}
+
 export interface ToolCallProposals {
   briefProposal: BriefProposalV1xA1Parsed | null
+  /** V1.x-D.4 — concurrent-edit warning attached to brief proposal artefacts. */
+  briefProposalConcurrentEdit: ConcurrentEditWarning | null
   profileAmendmentProposal: ProfileAmendmentProposalParsed | null
   /** V1.x-B.1.1 — destructive Brief cancellation proposal. */
   briefCancellationProposal: BriefCancellationProposalArtefact | null
@@ -123,12 +131,14 @@ export interface ToolCallProposals {
 export function findProposalInToolCalls(toolCalls: unknown): ToolCallProposals {
   const empty: ToolCallProposals = {
     briefProposal: null,
+    briefProposalConcurrentEdit: null,
     profileAmendmentProposal: null,
     briefCancellationProposal: null,
   }
   if (!Array.isArray(toolCalls)) return empty
 
   let briefProposal: BriefProposalV1xA1Parsed | null = null
+  let briefProposalConcurrentEdit: ConcurrentEditWarning | null = null
   let profileAmendmentProposal: ProfileAmendmentProposalParsed | null = null
   let briefCancellationProposal: BriefCancellationProposalArtefact | null = null
 
@@ -140,6 +150,23 @@ export function findProposalInToolCalls(toolCalls: unknown): ToolCallProposals {
     if (entry.name === 'propose_brief') {
       const r = BriefProposalV1xA1Schema.safeParse(entry.proposal_artefact)
       if (r.success) briefProposal = r.data
+      // V1.x-D.4 — extract concurrent-edit warning attached to artefact
+      // by execProposeBrief (V1.x-B.3 contract). The strict zod schema
+      // strips it; we read it directly from the raw artefact.
+      const artefact = entry.proposal_artefact as
+        | { concurrent_edit_warning?: ConcurrentEditWarning }
+        | null
+      if (
+        artefact &&
+        typeof artefact === 'object' &&
+        artefact.concurrent_edit_warning &&
+        typeof artefact.concurrent_edit_warning === 'object' &&
+        Array.isArray(artefact.concurrent_edit_warning.node_ids) &&
+        Array.isArray(artefact.concurrent_edit_warning.conflicting_brief_ids) &&
+        typeof artefact.concurrent_edit_warning.message === 'string'
+      ) {
+        briefProposalConcurrentEdit = artefact.concurrent_edit_warning
+      }
     } else if (entry.name === 'propose_profile_amendment') {
       const r = ProfileAmendmentProposalSchema.safeParse(entry.proposal_artefact)
       if (r.success) profileAmendmentProposal = r.data
@@ -161,5 +188,10 @@ export function findProposalInToolCalls(toolCalls: unknown): ToolCallProposals {
     }
   }
 
-  return { briefProposal, profileAmendmentProposal, briefCancellationProposal }
+  return {
+    briefProposal,
+    briefProposalConcurrentEdit,
+    profileAmendmentProposal,
+    briefCancellationProposal,
+  }
 }

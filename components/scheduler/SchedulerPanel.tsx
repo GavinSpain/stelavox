@@ -22,7 +22,7 @@
  * affirmative-action gate via destructive-action token, not verdigris #7).
  */
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { BriefQueueState } from '@/lib/brief/types'
 
@@ -142,6 +142,7 @@ export function SchedulerPanel({ projectId, documentId, documentName }: Schedule
         ) : (
           <Empty>No active Brief on this document.</Empty>
         )}
+        <ConcurrentBriefsNote documentId={documentId} primaryBriefId={brief.active?.brief_id ?? null} />
       </Section>
 
       <Section label={`Queued Briefs (${brief.queue.length})`}>
@@ -434,6 +435,78 @@ const selectStyle: React.CSSProperties = {
   borderRadius: 4,
   fontSize: 12,
   fontFamily: 'var(--font-inter), Inter, sans-serif',
+}
+
+/**
+ * V1.x-D.4 — informational note showing additional concurrent active
+ * Briefs on this document. SchedulerPanel still renders a single
+ * primary Brief in the Active Brief section; this note surfaces the
+ * existence of siblings so the author knows the multi-active state
+ * exists (V1.x-B.3 dropped the strict-one-active index). Full multi-
+ * row rendering deferred to V1.x-D follow-up polish or V2.
+ */
+function ConcurrentBriefsNote({
+  documentId,
+  primaryBriefId,
+}: {
+  documentId: string
+  primaryBriefId: string | null
+}) {
+  const [others, setOthers] = useState<Array<{ id: string; goal_text: string }>>([])
+  const supabase = useMemo(() => createClient(), [])
+  useEffect(() => {
+    let cancelled = false
+    void supabase
+      .from('briefs')
+      .select('id, goal_text')
+      .eq('document_id', documentId)
+      .eq('status', 'active')
+      .then(({ data }) => {
+        if (cancelled) return
+        const rows = (data ?? []) as Array<{ id: string; goal_text: string }>
+        const filtered = primaryBriefId
+          ? rows.filter((r) => r.id !== primaryBriefId)
+          : rows
+        setOthers(filtered)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [documentId, primaryBriefId, supabase])
+
+  if (others.length === 0) return null
+
+  return (
+    <div
+      data-testid="scheduler-concurrent-briefs-note"
+      style={{
+        marginTop: 12,
+        padding: '10px 12px',
+        background: 'var(--color-bg-elevated)',
+        borderLeft: '2px solid var(--color-info)',
+        borderRadius: 4,
+        fontSize: 12,
+        color: 'var(--color-text-secondary)',
+        lineHeight: 1.5,
+      }}
+    >
+      <div style={{ fontWeight: 500, color: 'var(--color-text-primary)', marginBottom: 4 }}>
+        {others.length} other active Brief{others.length === 1 ? '' : 's'} on this document
+      </div>
+      <ul style={{ margin: 0, paddingLeft: 14 }}>
+        {others.map((b) => (
+          <li key={b.id} style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>
+            {truncate(b.goal_text, 80)}
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}
+
+function truncate(s: string, len: number): string {
+  if (s.length <= len) return s
+  return s.slice(0, len - 1).trimEnd() + '…'
 }
 
 // FU-1 — small relative-time formatter for job created_at / completed_at.

@@ -254,13 +254,18 @@ export function DirectorPanel({
       // propose_profile_amendment tool_call entry.
       const message = messages.find((m) => m.id === messageId)
       if (!message) return null
-      const { briefProposal, profileAmendmentProposal, briefCancellationProposal } =
-        findProposalInToolCalls(message.tool_calls)
+      const {
+        briefProposal,
+        briefProposalConcurrentEdit,
+        profileAmendmentProposal,
+        briefCancellationProposal,
+      } = findProposalInToolCalls(message.tool_calls)
       if (briefProposal) {
         return (
           <BriefProposalCard
             documentId={documentId}
             proposal={briefProposal}
+            concurrentEditWarning={briefProposalConcurrentEdit}
             onApproved={() => void refresh()}
           />
         )
