@@ -46,9 +46,32 @@ export default function SettingsIndexPage() {
             }}
           >
             <div>
-              <div style={{ fontWeight: 500 }}>API keys</div>
+              <div style={{ fontWeight: 500 }}>API keys (personal)</div>
               <div style={{ fontSize: 11, color: 'var(--color-text-muted)', marginTop: 2 }}>
-                BYOK Anthropic API key for Director conversations
+                Per-user BYOK Anthropic key (V1.x-C transition window — migrating to per-org)
+              </div>
+            </div>
+            <span style={{ color: 'var(--color-text-muted)', fontSize: 14 }}>›</span>
+          </Link>
+        </li>
+        <li>
+          <Link
+            href="/settings/org-api-keys"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '12px 16px',
+              textDecoration: 'none',
+              color: 'var(--color-text-primary)',
+              fontFamily: 'var(--font-inter), Inter, sans-serif',
+              fontSize: 13,
+            }}
+          >
+            <div>
+              <div style={{ fontWeight: 500 }}>Organisation API keys</div>
+              <div style={{ fontSize: 11, color: 'var(--color-text-muted)', marginTop: 2 }}>
+                Per-org BYOK Anthropic key (BYOK Solo / BYOK Team plans only)
               </div>
             </div>
             <span style={{ color: 'var(--color-text-muted)', fontSize: 14 }}>›</span>

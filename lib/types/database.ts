@@ -3046,6 +3046,7 @@ export type Database = {
       request_batch_poll: { Args: never; Returns: undefined }
       request_dispatcher_tick: { Args: never; Returns: undefined }
       request_route_capacity_sample: { Args: never; Returns: undefined }
+      rollover_org_periods: { Args: never; Returns: Json }
       rollup_metrics_minute: {
         Args: { p_bucket_started_at?: string }
         Returns: number
