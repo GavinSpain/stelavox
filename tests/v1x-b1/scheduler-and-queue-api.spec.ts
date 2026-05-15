@@ -89,7 +89,11 @@ test.describe('V1.x-B.1.1 scheduler / queue / status API', () => {
     orgA = await getUserOrgId(USERS.A.email)
   })
 
-  test('CK-3: accept_brief queues when active exists; auto-promotes on cancel', async () => {
+  // V1.x-B.3 supersession: M-126 dropped the strict-one-active partial unique index;
+  // M-128 revised accept_brief to always insert as 'active'. The queue path stays in
+  // the enum for backward compat but is no longer exercised. Multi-Brief concurrency
+  // coverage now lives in tests/v1x-b3/multibrief-and-amendments.spec.ts (CK-1).
+  test.skip('CK-3 (V1.x-B.1.1, superseded by V1.x-B.3): accept_brief queues when active exists; auto-promotes on cancel', async () => {
     const { projectId, documentId } = await newDocument(orgA, 'V1.x-B.1.1 queue lifecycle')
     try {
       const b1 = await acceptBriefDirect(documentId, 'b1: refine intro')
@@ -133,7 +137,7 @@ test.describe('V1.x-B.1.1 scheduler / queue / status API', () => {
     }
   })
 
-  test('GET /api/scheduler/queue returns brief queue + jobs', async () => {
+  test.skip('GET /api/scheduler/queue returns brief queue + jobs (V1.x-B.1.1, superseded by V1.x-B.3)', async () => {
     const { projectId, documentId } = await newDocument(orgA, 'V1.x-B.1.1 queue read')
     try {
       const b1 = await acceptBriefDirect(documentId, 'q1: read test')
@@ -164,7 +168,7 @@ test.describe('V1.x-B.1.1 scheduler / queue / status API', () => {
     expect(body.error).toBe('invalid_document_id')
   })
 
-  test('POST /api/brief/queue/reorder atomically swaps queued positions', async () => {
+  test.skip('POST /api/brief/queue/reorder atomically swaps queued positions (V1.x-B.1.1, superseded by V1.x-B.3 — no queue)', async () => {
     const { projectId, documentId } = await newDocument(orgA, 'V1.x-B.1.1 reorder')
     try {
       await acceptBriefDirect(documentId, 'r1: active')
@@ -198,7 +202,7 @@ test.describe('V1.x-B.1.1 scheduler / queue / status API', () => {
     }
   })
 
-  test('POST /api/brief/queue/reorder rejects mismatched id set', async () => {
+  test.skip('POST /api/brief/queue/reorder rejects mismatched id set (V1.x-B.1.1, superseded by V1.x-B.3)', async () => {
     const { projectId, documentId } = await newDocument(orgA, 'V1.x-B.1.1 reorder mismatch')
     try {
       await acceptBriefDirect(documentId, 'rm1: active')

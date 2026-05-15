@@ -44,6 +44,7 @@ import {
   execCreateRefineStep,
   execCreateSynthesiseStep,
   execProposeBrief,
+  execProposeBriefAmendment,
   execProposeProfileAmendment,
 } from '@/lib/director/tools/write'
 import { toolInputSchemaFor } from '@/lib/director/tool-schema'
@@ -186,6 +187,13 @@ const writeTools: DirectorToolDefinition[] = [
       "V1.x-B.1.1 — propose cancellation of an active, queued, or planned Brief. Required: brief_id (the Brief to cancel) + reason (one sentence explaining why; surfaces in the cancel_cascade audit event). Destructive: cascade-cancels the Brief's non-terminal stages and any in-flight workflows; auto-promotes the next queued Brief if the cancelled one was active. Per H-08 this tool produces a proposal — the user approves via BriefCancellationProposalCard before the cancel_brief RPC fires. Use when: the user explicitly requests cancellation; the user pivots scope dramatically and you're about to propose a replacement (cancel first, then a new Brief on the user's next message); you recognise a stuck Brief the user is working around. NOT for pausing a workflow (that's the scheduler's Stop action — direct manipulation, not yours to propose) or for reordering the queue.",
     input_schema: toolInputSchemaFor('cancel_brief'),
   },
+  {
+    name: 'propose_brief_amendment',
+    kind: 'write',
+    description:
+      "V1.x-B.3 — propose an in-flight modification to an active or planned Brief. Required: brief_id (the Brief to amend) + amendment_type (one of 'goal_text' | 'preferences' | 'add_stage' | 'modify_pending_stage' | 'remove_pending_stage') + after (the new shape; for goal_text: { goal_text: string }; for preferences: a partial object that deep-merges; for add_stage: full stage payload; for modify/remove_pending_stage: the stage UUID goes in target_path) + reason (one sentence). Already-running stages CANNOT be amended (only status='planned' stages); already-completed stages cannot be removed. The user approves via BriefAmendmentCard before apply_brief_amendment RPC fires. Use when: the user wants to extend an active Brief with another stage; the user wants to refine the goal_text or preferences on an in-flight Brief; the user wants to drop or modify a pending (not-yet-running) stage. NOT for cancelling a Brief (use cancel_brief) or for proposing a new Brief (use propose_brief).",
+    input_schema: toolInputSchemaFor('propose_brief_amendment'),
+  },
 ]
 
 // ---------------------------------------------------------------------------
@@ -224,6 +232,7 @@ const TOOL_EXECUTORS: Record<string, ToolExecutor> = {
   propose_brief: execProposeBrief as ToolExecutor,
   propose_profile_amendment: execProposeProfileAmendment as ToolExecutor,
   cancel_brief: execCancelBrief as ToolExecutor,
+  propose_brief_amendment: execProposeBriefAmendment as ToolExecutor,
 }
 
 export function getToolByName(name: string): DirectorToolDefinition | undefined {

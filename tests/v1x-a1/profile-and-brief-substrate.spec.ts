@@ -122,10 +122,11 @@ test.describe('V1.x-A.1 Profile + Brief substrate', () => {
     expect(amendments![0].amendment_type).toBe('add_constraint')
   })
 
-  test('CK-4 + CK-3 (V1.x-B.1.1 contract): accept_brief creates active; second queues', async () => {
-    // V1.x-B.1.1 superseded the V1.x-A.1 "second-Brief-rejected" behaviour:
-    // sequential multi-Brief now QUEUES the second Brief instead of erroring.
-    // No active Brief at first.
+  test('CK-4 + CK-3 (V1.x-B.3 contract): accept_brief creates active; second also active (multi-Brief concurrency)', async () => {
+    // V1.x-B.3 (M-126/M-128) supersedes V1.x-B.1.1's queue-on-second behaviour:
+    // multi-Brief concurrency is first-class — every accept_brief INSERTs as 'active'.
+    // The strict-one-active partial unique index dropped in M-126; accept_brief revised
+    // in M-128 to remove the another_brief_active branch.
     const { count: before } = await adminClient()
       .from('briefs')
       .select('id', { count: 'exact', head: true })
@@ -151,9 +152,8 @@ test.describe('V1.x-A.1 Profile + Brief substrate', () => {
     const r1 = first as { brief: { id: string; status: string }; initial_status: string; queue_position: number }
     expect(r1.brief.status).toBe('active')
     expect(r1.initial_status).toBe('active')
-    expect(r1.queue_position).toBe(0)
 
-    // Second Brief — V1.x-B.1.1 queues it (sequence_position 1).
+    // Second Brief — V1.x-B.3 inserts it as active alongside the first.
     const { data: second, error: secondErr } = await adminClient().rpc('accept_brief', {
       p_document_id: documentId,
       p_goal_text: 'Test Brief 2',
@@ -161,35 +161,32 @@ test.describe('V1.x-A.1 Profile + Brief substrate', () => {
     })
     expect(secondErr).toBeNull()
     const r2 = second as { brief: { status: string }; initial_status: string; queue_position: number }
-    expect(r2.brief.status).toBe('queued')
-    expect(r2.initial_status).toBe('queued')
-    expect(r2.queue_position).toBe(1)
+    expect(r2.brief.status).toBe('active')
+    expect(r2.initial_status).toBe('active')
   })
 
-  test('CK-7 (V1.x-B.1.1 contract): cancel_brief returns cascade summary + auto-promotes queued', async () => {
-    // V1.x-B.1.1 cancel_brief returns CancelBriefResult cascade summary
-    // (was: Brief row in V1.x-A.1). Auto-promotes the next queued Brief
-    // instead of just clearing the slot.
-    const { data: active } = await adminClient()
+  test('CK-7 (V1.x-B.3 contract): cancel_brief returns cascade summary; new Briefs always active', async () => {
+    // V1.x-B.3 supersedes V1.x-B.1.1's auto-promote behaviour: there's no queue
+    // anymore, so cancel just cancels (cascade summary still returned for telemetry).
+    // promoted_brief_id is always null because every accept_brief inserts as active.
+    const { data: actives } = await adminClient()
       .from('briefs')
       .select('id')
       .eq('document_id', documentId)
       .eq('status', 'active')
-      .single()
-    expect(active).not.toBeNull()
+    expect(actives).not.toBeNull()
+    expect(actives!.length).toBeGreaterThan(0)
 
     const { data: cascade, error: cancelErr } = await adminClient().rpc('cancel_brief', {
-      p_brief_id: active!.id,
-      p_reason: 'V1.x-B.1.1 contract test',
+      p_brief_id: actives![0].id,
+      p_reason: 'V1.x-B.3 contract test',
     })
     expect(cancelErr).toBeNull()
     const r = cascade as { brief_id: string; cancelled_count: number; promoted_brief_id: string | null }
-    expect(r.brief_id).toBe(active!.id)
+    expect(r.brief_id).toBe(actives![0].id)
     expect(typeof r.cancelled_count).toBe('number')
-    // Brief 2 (created in the previous test) should auto-promote.
-    expect(r.promoted_brief_id).not.toBeNull()
 
-    // Active is now Brief 2; further accept_brief queues again.
+    // Further accept_brief inserts as active (no queue under B.3).
     const { data: nextBrief, error: nextErr } = await adminClient().rpc('accept_brief', {
       p_document_id: documentId,
       p_goal_text: 'Test Brief 3 (after cancel)',
@@ -206,34 +203,36 @@ test.describe('V1.x-A.1 Profile + Brief substrate', () => {
     expect(nextErr).toBeNull()
     const n = nextBrief as { brief: { goal_text: string }; initial_status: string }
     expect(n.brief.goal_text).toBe('Test Brief 3 (after cancel)')
-    expect(n.initial_status).toBe('queued')
+    expect(n.initial_status).toBe('active')
   })
 
-  test('Director config v1.8 is production with 17 tools (V1.x-B.1.1 session 3a + FU-2)', async () => {
-    // V1.x-B.1.1 session 3a (Migration 102) deprecated v1.7 and made
-    // v1.8 production. v1.8 adds the trigger_config example block under
-    // "Brief structure" — surgical insertion only; tool_suite + model
-    // unchanged from v1.7 (still 17 tools including cancel_brief).
+  test('Director config v1.9 is production with 18 tools (V1.x-B.3 propose_brief_amendment)', async () => {
+    // V1.x-B.3 (Migration 129) deprecated v1.8 and made v1.9 production.
+    // v1.9 adds propose_brief_amendment to tool_suite (18 tools = v1.8's 17 + 1).
+    // System prompt carries forward v1.8's body + appends Brief amendments guidance.
     const { data } = await adminClient()
       .from('director_configs')
       .select('version_number, status, tool_suite, system_prompt')
       .eq('status', 'production')
       .single()
-    expect(data!.version_number).toBe('1.8')
+    expect(data!.version_number).toBe('1.9')
     const tools = data!.tool_suite as string[]
-    expect(tools).toHaveLength(17)
+    expect(tools).toHaveLength(18)
     expect(tools).toContain('get_project_profile')
     expect(tools).toContain('get_brief_state')
     expect(tools).toContain('propose_brief')
     expect(tools).toContain('propose_profile_amendment')
     expect(tools).toContain('cancel_brief')
-    expect(tools).not.toContain('propose_brief_amendment')
+    expect(tools).toContain('propose_brief_amendment')
     expect(data!.system_prompt).toContain('<plan>')
     expect(data!.system_prompt).toContain('tool call IS the proposal')
     expect(data!.system_prompt).toContain('cancel_brief')
-    // v1.8 FU-2 amendment: trigger_config example block.
+    // v1.8 FU-2 amendment carried forward: trigger_config example block.
     expect(data!.system_prompt).toContain('after_stage_order')
     expect(data!.system_prompt).toContain('"scheduled_at": "<ISO 8601 timestamp>"')
+    // v1.9 amendment guidance.
+    expect(data!.system_prompt).toContain('Brief amendments')
+    expect(data!.system_prompt).toContain('propose_brief_amendment')
   })
 
   test('platform_config has the rolling-window key', async () => {

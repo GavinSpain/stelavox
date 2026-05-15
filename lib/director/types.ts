@@ -89,6 +89,8 @@ export interface WriteToolResult {
   profile_amendment_proposal?: ProfileAmendmentProposalArtefact
   /** V1.x-B.1.1 — destructive Brief cancellation proposal (H-08: propose-only). */
   brief_cancellation_proposal?: BriefCancellationProposalArtefact
+  /** V1.x-B.3 — Brief amendment proposal (H-08: propose-only). */
+  brief_amendment_proposal?: Record<string, unknown>
 }
 
 /** Re-exports from lib/brief — kept here to avoid a circular import. */
