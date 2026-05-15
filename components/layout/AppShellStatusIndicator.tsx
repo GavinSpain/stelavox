@@ -27,12 +27,88 @@ import { useCallback, useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { StatusIndicatorPopover } from './StatusIndicatorPopover'
 
+type CostMeterPayload =
+  | { byok_enabled: true; plan: string; tokens_input: number; tokens_output: number }
+  | {
+      byok_enabled: false
+      plan: string
+      usage_credits: number
+      allocation_credits: number | null
+      days_remaining: number | null
+    }
+  | null
+
 interface PendingAttention {
   running_jobs: number
   queued_briefs: number
   active_briefs: number
   failed_jobs: number
   alerts: number
+  primary_org_id?: string | null
+  cost_meter?: CostMeterPayload
+}
+
+function formatThousands(n: number): string {
+  if (n >= 1_000_000) {
+    return `${(n / 1_000_000).toFixed(1)}M`
+  }
+  if (n >= 1000) {
+    return `${Math.round(n / 1000)}k`
+  }
+  return String(n)
+}
+
+function CostMeterCompact({ cost }: { cost: CostMeterPayload }) {
+  if (!cost) return null
+  if (cost.byok_enabled) {
+    return (
+      <span
+        data-testid="cost-meter"
+        data-user-type="byok"
+        data-tokens-in={cost.tokens_input}
+        data-tokens-out={cost.tokens_output}
+        style={{
+          color: 'var(--color-text-secondary)',
+          paddingLeft: 8,
+          marginLeft: 4,
+          borderLeft: '1px solid var(--color-border-subtle)',
+        }}
+      >
+        {formatThousands(cost.tokens_input)} in · {formatThousands(cost.tokens_output)} out
+      </span>
+    )
+  }
+  if (cost.allocation_credits === null || cost.allocation_credits === 0) {
+    // Unenforced (BYOK plan slug pending or unmapped) — render nothing.
+    return null
+  }
+  const pct = Math.min(100, Math.round((cost.usage_credits / cost.allocation_credits) * 100))
+  const days = cost.days_remaining
+  const cap = pct >= 100
+  const warn = pct >= 80 && !cap
+  const colour = cap
+    ? 'var(--color-error)'
+    : warn
+      ? 'var(--color-warning)'
+      : 'var(--color-text-secondary)'
+  return (
+    <span
+      data-testid="cost-meter"
+      data-user-type="platform"
+      data-usage-pct={pct}
+      data-days-remaining={days ?? ''}
+      style={{
+        color: colour,
+        paddingLeft: 8,
+        marginLeft: 4,
+        borderLeft: '1px solid var(--color-border-subtle)',
+        fontVariantNumeric: 'tabular-nums',
+      }}
+    >
+      {pct}%
+      {cap ? ' · cap reached' : days !== null ? ` · renews in ${days}d` : ''}
+    </span>
+  )
 }
 
 const POLL_FALLBACK_MS = 60_000  // safety-net poll if Realtime drops
@@ -143,6 +219,7 @@ export function AppShellStatusIndicator() {
             }}
           />
         ) : null}
+        <CostMeterCompact cost={data.cost_meter ?? null} />
       </button>
       {open ? (
         <StatusIndicatorPopover counts={data} onClose={() => setOpen(false)} />

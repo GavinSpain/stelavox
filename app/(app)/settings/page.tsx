@@ -54,7 +54,7 @@ export default function SettingsIndexPage() {
             <span style={{ color: 'var(--color-text-muted)', fontSize: 14 }}>›</span>
           </Link>
         </li>
-        <li>
+        <li style={{ borderBottom: '1px solid var(--color-border-subtle)' }}>
           <Link
             href="/settings/org-api-keys"
             style={{
@@ -72,6 +72,52 @@ export default function SettingsIndexPage() {
               <div style={{ fontWeight: 500 }}>Organisation API keys</div>
               <div style={{ fontSize: 11, color: 'var(--color-text-muted)', marginTop: 2 }}>
                 Per-org BYOK Anthropic key (BYOK Solo / BYOK Team plans only)
+              </div>
+            </div>
+            <span style={{ color: 'var(--color-text-muted)', fontSize: 14 }}>›</span>
+          </Link>
+        </li>
+        <li style={{ borderBottom: '1px solid var(--color-border-subtle)' }}>
+          <Link
+            href="/settings/usage"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '12px 16px',
+              textDecoration: 'none',
+              color: 'var(--color-text-primary)',
+              fontFamily: 'var(--font-inter), Inter, sans-serif',
+              fontSize: 13,
+            }}
+          >
+            <div>
+              <div style={{ fontWeight: 500 }}>Usage &amp; Billing</div>
+              <div style={{ fontSize: 11, color: 'var(--color-text-muted)', marginTop: 2 }}>
+                Period usage, allocation, days remaining (tokens for BYOK plans)
+              </div>
+            </div>
+            <span style={{ color: 'var(--color-text-muted)', fontSize: 14 }}>›</span>
+          </Link>
+        </li>
+        <li>
+          <Link
+            href="/settings/plan"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '12px 16px',
+              textDecoration: 'none',
+              color: 'var(--color-text-primary)',
+              fontFamily: 'var(--font-inter), Inter, sans-serif',
+              fontSize: 13,
+            }}
+          >
+            <div>
+              <div style={{ fontWeight: 500 }}>Plan</div>
+              <div style={{ fontSize: 11, color: 'var(--color-text-muted)', marginTop: 2 }}>
+                Current subscription, plan tiers, BYOK eligibility (read-only in V1)
               </div>
             </div>
             <span style={{ color: 'var(--color-text-muted)', fontSize: 14 }}>›</span>
