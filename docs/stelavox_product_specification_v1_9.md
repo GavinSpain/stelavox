@@ -1,5 +1,7 @@
 # Stelavox — Product Specification
-## Version 1.9
+## Version 1.10
+
+> **V1.x-B.2 absorption (2026-05-16):** §11 V1.x-B.2 capability list — user-visible: per-iteration Director (each LLM call is its own checkpoint; turn cancellation + crash recovery now surgical at iteration boundaries); Stop button on active Director turns; Auto-approve subsequent stages checkbox on multi-stage Brief proposals (Director plans + runs each stage without further approval); batched_24h execution intent (50% Anthropic Batch API discount, up to 24h SLA — typical real-world completion is single-digit minutes). Admin-visible (V1.x-E precursor): metrics rollup feeding the future admin dashboard. **No user-facing pricing surface yet** — the cost meter + plan model lands in V1.x-C. Filename intentionally retained at `v1_9.md` (version stamp is the `## Version 1.10` header).
 
 > **Director architecture (V2):** product surfaces for Brief, Stage, plan/top-up, app-shell status indicator, Stop-only first-level cancellation, cost meter, AI-changed flag, and Brief-as-memory model are documented in §11 (added in this version). Architectural details live in `docs/stelavox_director_architecture_v2_0.md` (Tier-A canonical).
 

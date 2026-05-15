@@ -29,9 +29,9 @@ import {
   findInterruptedTurn,
   markAssistantInterrupted,
 } from '@/lib/director/conversation-context'
-import { runAgenticTurn, type TurnEvent } from '@/lib/director/executor'
+import { startDirectorTurn } from '@/lib/director/executor'
+import { runIteration, type IterationEvent } from '@/lib/director/iteration-runner'
 import { encodeHeartbeat, encodeSse, turnEventToSse } from '@/lib/director/sse'
-import { persistDraftWorkflow } from '@/lib/director/workflow-executor'
 import { SecurityViolationError } from '@/lib/security/canary'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { createClient } from '@/lib/supabase/server'
@@ -212,35 +212,36 @@ export async function POST(
         }
       }, 5_000)
 
-      const accumulator = {
-        content: interrupted.content as string,
-        toolCalls: Array.isArray(interrupted.tool_calls)
-          ? [...(interrupted.tool_calls as unknown[])]
-          : [],
-        usage: {
-          tokens_input: 0,
-          tokens_output: 0,
-          tokens_cache_read: 0,
-          tokens_cache_write: 0,
-        },
-        cost: null as number | null,
-      }
+      // V1.x-B.2.1 — resume now creates a NEW director_turns row using
+      // startDirectorTurn, with the interrupted content pre-seeded into
+      // the conversation context. The per-iteration runner then
+      // continues from that pre-seeded view.
+      //
+      // Tradeoff: this drops the in-place edit semantic of the old V1.x-A.1
+      // resume flow (where the SAME interrupted assistant_message row was
+      // mutated to 'final'). The new flow creates a fresh director_turn +
+      // accumulates into the same conversation_messages interim row,
+      // preserving cost continuity at the conversation level. The
+      // interrupted row stays interrupted at the row level (no
+      // back-write); the user-facing message thread renders the most
+      // recent assistant message which now carries the full resumed text.
+
+      const totalUsage = { tokens_input: 0, tokens_output: 0, tokens_cache_read: 0, tokens_cache_write: 0 }
+      let totalCost = 0
+      let stopReasonFinal = 'unknown'
       let cleanExit = false
+      let firstIterationJobId: string | null = null
 
       try {
-        // Re-feed the partial assistant content. The executor's
-        // buildToolUseContinuation handles the V1 simplified format.
-        // The user message we pass is the original prior_user content;
-        // the agentic loop will continue producing text + tools.
-        const turnGen = runAgenticTurn({
-          session,
-          config: directorConfig,
-          provider,
+        const start = await startDirectorTurn({
+          supabase: service,
+          conversationId,
+          userMessageId: interrupted.id,
+          assistantMessageId: interrupted.id,
+          userMessageContent: priorUser.content,
+          mentionedNodeIds: [],
           conversationContext: [
             ...conversationContext,
-            // Pre-seed the model's view: we treat the interrupted row's
-            // accumulated content as a prior assistant turn that ended
-            // mid-thought.
             {
               role: 'assistant',
               content:
@@ -248,67 +249,67 @@ export async function POST(
                 '\n\n[The above response was interrupted. The author has asked you to resume from here. Continue your previous thought.]',
             },
           ],
-          userMessageContent: priorUser.content,
-          mentionedNodeIds: [],
-          assistantMessageId: interrupted.id,
-          supabase: service,
+          config: directorConfig,
+          organisationId: conversation.organisation_id,
+          documentId: conversation.document_id,
         })
+        firstIterationJobId = start.firstIterationJobId
 
-        for await (const event of turnGen as AsyncGenerator<TurnEvent>) {
-          if (aborted) break
-
-          if (event.type === 'text_delta') {
-            accumulator.content += event.delta
-          } else if (event.type === 'tool_use_complete') {
-            accumulator.toolCalls.push({
-              id: event.tool_call_id,
-              name: event.name,
-              validation_result: event.validation_result,
-              result_summary: event.result_summary,
-              executed_at: new Date().toISOString(),
-              // V1.x-A.1 (v1.6): forward proposal_artefact for UI re-render.
-              ...(event.proposal_artefact !== undefined
-                ? { proposal_artefact: event.proposal_artefact }
-                : {}),
-            })
-          } else if (event.type === 'turn_complete') {
-            accumulator.usage = event.usage
-            accumulator.cost = await computeCostUsd(event.usage, modelId).catch(() => null)
-          } else if (event.type === 'workflow_proposal') {
-            try {
-              const workflowId = await persistDraftWorkflow({
-                supabase: service,
-                organisationId: conversation.organisation_id,
-                documentId: conversation.document_id,
-                conversationId,
-                proposal: event.proposal,
-              })
-              await service
-                .from('conversation_messages')
-                .update({ workflow_id: workflowId })
-                .eq('id', interrupted.id)
-            } catch (err) {
-              console.error('[director-resume] persistDraftWorkflow failed', {
-                error: err instanceof Error ? err.message : String(err),
-              })
+        let currentJobId: string | null = firstIterationJobId
+        while (currentJobId && !aborted) {
+          const gen = runIteration(currentJobId)
+          let outcome: Extract<IterationEvent, { type: 'iteration_done' }> | null = null
+          for await (const event of gen) {
+            if (aborted) break
+            if (event.type === 'iteration_done') {
+              outcome = event
+              continue
             }
+            const sse = turnEventToSse(event)
+            if (sse) writeEvent(sse.name, sse.payload)
+          }
+          if (!outcome) break
+          totalUsage.tokens_input += outcome.usage.tokens_input
+          totalUsage.tokens_output += outcome.usage.tokens_output
+          totalUsage.tokens_cache_read += outcome.usage.tokens_cache_read
+          totalUsage.tokens_cache_write += outcome.usage.tokens_cache_write
+          if (outcome.cost_usd !== null) totalCost += outcome.cost_usd
+          stopReasonFinal = outcome.stop_reason
+
+          if (outcome.cancelled) {
+            writeEvent('error', { error: 'turn_cancelled', message: 'Director turn cancelled.' })
+            cleanExit = true
+            break
           }
 
-          const sse = turnEventToSse(event)
-          if (sse) writeEvent(sse.name, sse.payload)
-        }
-
-        if (!aborted) {
-          await finaliseAssistantMessage(
-            service,
-            interrupted.id,
-            accumulator.content,
-            accumulator.toolCalls,
-            accumulator.usage,
-            accumulator.cost,
-          )
-          writeEvent('done', {})
-          cleanExit = true
+          if (outcome.turn_complete || !outcome.next_iteration_job_id) {
+            writeEvent('assistant_message_complete', {
+              assistant_message_id: outcome.assistant_message_id,
+              stop_reason: stopReasonFinal,
+              tokens_input: totalUsage.tokens_input,
+              tokens_output: totalUsage.tokens_output,
+              tokens_cache_read: totalUsage.tokens_cache_read,
+              tokens_cache_write: totalUsage.tokens_cache_write,
+              cost_usd: totalCost,
+            })
+            const { data: finalMsg } = await service
+              .from('conversation_messages')
+              .select('content, tool_calls')
+              .eq('id', interrupted.id)
+              .single()
+            await finaliseAssistantMessage(
+              service,
+              interrupted.id,
+              (finalMsg?.content as string) ?? '',
+              (finalMsg?.tool_calls as unknown[]) ?? [],
+              totalUsage,
+              totalCost,
+            )
+            writeEvent('done', {})
+            cleanExit = true
+            break
+          }
+          currentJobId = outcome.next_iteration_job_id
         }
       } catch (err) {
         if (err instanceof SecurityViolationError) {

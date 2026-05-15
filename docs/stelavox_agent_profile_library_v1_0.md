@@ -1,5 +1,7 @@
 # Stelavox — Agent Profile Library
-## Version 1.3
+## Version 1.4
+
+> **V1.x-B.2 absorption (2026-05-16):** No new operation types in B.2. The 18 V1 system profiles (seeded by M-027) continue to apply. **Integration note:** the V1.x-B.2.2 WFQ-VFT scheduler uses `lib/scheduler/wfq.ts:DEFAULT_TICKET_COST=2500` as the per-ticket cost estimate. Per-profile `estimated_input_tokens` + `estimated_output_tokens` columns were planned for B.2.4 but deferred — a real-world tuning pass (observing actual token usage per op type via `metrics_minute_buckets`) is more meaningful than estimated values written before live data exists. Tracked as a V1.x-D follow-up alongside the admin dashboard. Three V1.x/V2 candidate QC-and-review job types from §3.10 remain queued. Filename intentionally retained at `v1_0.md` (version stamp is the `## Version 1.4` header).
 
 > **Versioning note:** This file is versioned. The version lives here, not in the filename — the filename pattern remains `stelavox_agent_profile_library_v[major]_[minor].md`. When this file changes, increment the version and add a changelog entry at the bottom (newest first). This document is the source of truth for every system prompt seeded into the `agent_profiles` table by Migration 027 (Phase 5) and any subsequent prompt-update migrations. **Production discipline:** every production edit to `agent_profiles.system_prompt` MUST be reflected by a corresponding commit bumping this document AND a follow-up migration that replicates the change to the database. The library doc + migrations together are the version-control mechanism while V1 is in market — see §6.
 

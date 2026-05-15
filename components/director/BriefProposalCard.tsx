@@ -53,6 +53,10 @@ export function BriefProposalCard({ documentId, proposal, onApproved }: BriefPro
   const [done, setDone] = useState(false)
   const [existingBrief, setExistingBrief] = useState<ExistingBrief | null>(null)
   const [lookupLoading, setLookupLoading] = useState(true)
+  // V1.x-B.2.3 — auto-approve subsequent stages. Sets briefs.auto_approve_workflow_proposals
+  // on creation; the iteration-runner then auto-approves any workflow_proposal
+  // it emits in subsequent stages of this Brief.
+  const [autoApproveSubsequent, setAutoApproveSubsequent] = useState(false)
 
   // On mount, ask the server whether a Brief has already been created
   // from this proposal. If so, render the Brief's current state instead
@@ -84,7 +88,11 @@ export function BriefProposalCard({ documentId, proposal, onApproved }: BriefPro
       const res = await fetch('/api/brief/proposals/approve', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ document_id: documentId, proposal }),
+        body: JSON.stringify({
+          document_id: documentId,
+          proposal,
+          auto_approve_workflow_proposals: autoApproveSubsequent,
+        }),
       })
       if (!res.ok) {
         const body = (await res.json().catch(() => null)) as { message?: string; error?: string } | null
@@ -196,6 +204,43 @@ export function BriefProposalCard({ documentId, proposal, onApproved }: BriefPro
 
         {error ? (
           <div role="alert" style={errorStyle}>{error}</div>
+        ) : null}
+
+        {/* V1.x-B.2.3 — auto-approve subsequent stages (only meaningful for
+            multi-stage Briefs). Inviolable #2: checkbox uses verdigris ONLY
+            in its checked state, falling under existing use #7 (affirmative-
+            action triggers — auto-approve commitment fits the family). */}
+        {proposal.stages.length > 1 ? (
+          <label
+            data-testid="brief-proposal-auto-approve-checkbox-label"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              fontSize: 11,
+              color: 'var(--color-text-secondary)',
+              marginBottom: 12,
+              cursor: 'pointer',
+            }}
+          >
+            <input
+              type="checkbox"
+              data-testid="brief-proposal-auto-approve-checkbox"
+              checked={autoApproveSubsequent}
+              onChange={(e) => setAutoApproveSubsequent(e.target.checked)}
+              disabled={submitting}
+              style={{
+                accentColor: autoApproveSubsequent ? 'var(--color-accent)' : undefined,
+                cursor: 'pointer',
+              }}
+            />
+            <span>
+              Auto-approve subsequent stages
+              <span style={{ fontSize: 10, color: 'var(--color-text-muted)', marginLeft: 6 }}>
+                (Director plans + runs each stage without further approval)
+              </span>
+            </span>
+          </label>
         ) : null}
 
         <div style={{ display: 'flex', gap: 8 }}>

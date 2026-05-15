@@ -36,16 +36,31 @@ export type Database = {
     Tables: {
       agent_jobs: {
         Row: {
+          actual_input_tokens: number | null
+          actual_output_tokens: number | null
+          batch_anthropic_id: string | null
           batch_id: string | null
+          batch_polled_at: string | null
+          batch_submitted_at: string | null
+          bucket_wait_ms: number | null
           cause: string | null
           completed_at: string | null
           context_snapshot: Json | null
+          cost_credits: number | null
           cost_usd: number | null
+          crashed_at: string | null
           created_at: string
+          dependency_wait_ms: number | null
+          director_turn_id: string | null
+          dispatched_at: string | null
+          dispatcher_skips_count: number
           document_id: string | null
           error_message: string | null
           execution_intent: string
+          failure_class: string | null
           id: string
+          iteration_number: number | null
+          iteration_state: Json | null
           job_progress: Json | null
           last_heartbeat_at: string | null
           model_id: string | null
@@ -53,8 +68,11 @@ export type Database = {
           operation_class: string
           operation_type: string
           organisation_id: string
+          parent_iteration_id: string | null
           profile_id: string | null
           provider: string | null
+          queue_status: string
+          queued_at: string
           reservation_id: string | null
           result_child_nodes: Json | null
           result_metadata: Json | null
@@ -74,18 +92,34 @@ export type Database = {
           tokens_output: number | null
           traffic_class: number
           triggered_by: string
+          wfq_vft_at_dispatch: number | null
         }
         Insert: {
+          actual_input_tokens?: number | null
+          actual_output_tokens?: number | null
+          batch_anthropic_id?: string | null
           batch_id?: string | null
+          batch_polled_at?: string | null
+          batch_submitted_at?: string | null
+          bucket_wait_ms?: number | null
           cause?: string | null
           completed_at?: string | null
           context_snapshot?: Json | null
+          cost_credits?: number | null
           cost_usd?: number | null
+          crashed_at?: string | null
           created_at?: string
+          dependency_wait_ms?: number | null
+          director_turn_id?: string | null
+          dispatched_at?: string | null
+          dispatcher_skips_count?: number
           document_id?: string | null
           error_message?: string | null
           execution_intent?: string
+          failure_class?: string | null
           id?: string
+          iteration_number?: number | null
+          iteration_state?: Json | null
           job_progress?: Json | null
           last_heartbeat_at?: string | null
           model_id?: string | null
@@ -93,8 +127,11 @@ export type Database = {
           operation_class?: string
           operation_type: string
           organisation_id: string
+          parent_iteration_id?: string | null
           profile_id?: string | null
           provider?: string | null
+          queue_status?: string
+          queued_at?: string
           reservation_id?: string | null
           result_child_nodes?: Json | null
           result_metadata?: Json | null
@@ -114,18 +151,34 @@ export type Database = {
           tokens_output?: number | null
           traffic_class?: number
           triggered_by: string
+          wfq_vft_at_dispatch?: number | null
         }
         Update: {
+          actual_input_tokens?: number | null
+          actual_output_tokens?: number | null
+          batch_anthropic_id?: string | null
           batch_id?: string | null
+          batch_polled_at?: string | null
+          batch_submitted_at?: string | null
+          bucket_wait_ms?: number | null
           cause?: string | null
           completed_at?: string | null
           context_snapshot?: Json | null
+          cost_credits?: number | null
           cost_usd?: number | null
+          crashed_at?: string | null
           created_at?: string
+          dependency_wait_ms?: number | null
+          director_turn_id?: string | null
+          dispatched_at?: string | null
+          dispatcher_skips_count?: number
           document_id?: string | null
           error_message?: string | null
           execution_intent?: string
+          failure_class?: string | null
           id?: string
+          iteration_number?: number | null
+          iteration_state?: Json | null
           job_progress?: Json | null
           last_heartbeat_at?: string | null
           model_id?: string | null
@@ -133,8 +186,11 @@ export type Database = {
           operation_class?: string
           operation_type?: string
           organisation_id?: string
+          parent_iteration_id?: string | null
           profile_id?: string | null
           provider?: string | null
+          queue_status?: string
+          queued_at?: string
           reservation_id?: string | null
           result_child_nodes?: Json | null
           result_metadata?: Json | null
@@ -154,8 +210,16 @@ export type Database = {
           tokens_output?: number | null
           traffic_class?: number
           triggered_by?: string
+          wfq_vft_at_dispatch?: number | null
         }
         Relationships: [
+          {
+            foreignKeyName: "agent_jobs_director_turn_id_fkey"
+            columns: ["director_turn_id"]
+            isOneToOne: false
+            referencedRelation: "director_turns"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "agent_jobs_document_id_fkey"
             columns: ["document_id"]
@@ -182,6 +246,13 @@ export type Database = {
             columns: ["organisation_id"]
             isOneToOne: false
             referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_jobs_parent_iteration_id_fkey"
+            columns: ["parent_iteration_id"]
+            isOneToOne: false
+            referencedRelation: "agent_jobs"
             referencedColumns: ["id"]
           },
           {
@@ -341,6 +412,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      anthropic_batches: {
+        Row: {
+          completed_at: string | null
+          completed_count: number
+          id: string
+          poll_count: number
+          polled_at: string | null
+          pool_key: string
+          request_count: number
+          status: string
+          submitted_at: string
+        }
+        Insert: {
+          completed_at?: string | null
+          completed_count?: number
+          id: string
+          poll_count?: number
+          polled_at?: string | null
+          pool_key: string
+          request_count: number
+          status?: string
+          submitted_at?: string
+        }
+        Update: {
+          completed_at?: string | null
+          completed_count?: number
+          id?: string
+          poll_count?: number
+          polled_at?: string | null
+          pool_key?: string
+          request_count?: number
+          status?: string
+          submitted_at?: string
+        }
+        Relationships: []
       }
       audit_log: {
         Row: {
@@ -577,6 +684,7 @@ export type Database = {
       briefs: {
         Row: {
           approved_at: string | null
+          auto_approve_workflow_proposals: boolean
           cancelled_at: string | null
           cause: string
           completed_at: string | null
@@ -592,6 +700,7 @@ export type Database = {
         }
         Insert: {
           approved_at?: string | null
+          auto_approve_workflow_proposals?: boolean
           cancelled_at?: string | null
           cause?: string
           completed_at?: string | null
@@ -607,6 +716,7 @@ export type Database = {
         }
         Update: {
           approved_at?: string | null
+          auto_approve_workflow_proposals?: boolean
           cancelled_at?: string | null
           cause?: string
           completed_at?: string | null
@@ -643,6 +753,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      class_1_reserved_slots: {
+        Row: {
+          id: number
+          in_use: number
+          total_slots: number
+        }
+        Insert: {
+          id?: number
+          in_use?: number
+          total_slots: number
+        }
+        Update: {
+          id?: number
+          in_use?: number
+          total_slots?: number
+        }
+        Relationships: []
       }
       constraint_violations: {
         Row: {
@@ -856,67 +984,116 @@ export type Database = {
         }
         Relationships: []
       }
-      director_iterations: {
+      director_turns: {
         Row: {
-          accumulated_proposals: Json
           completed_at: string | null
-          cost_credits: number | null
-          created_at: string
-          failure_class: string | null
-          failure_message: string | null
+          conversation_id: string
           id: string
-          iteration_number: number
-          last_heartbeat_at: string | null
-          messages_snapshot: Json
-          started_at: string | null
+          iteration_count: number
+          started_at: string
           status: string
-          tokens_in: number | null
-          tokens_out: number | null
-          turn_id: string
+          total_cost_credits: number
+          total_input_tokens: number
+          total_output_tokens: number
+          user_message_id: string | null
         }
         Insert: {
-          accumulated_proposals?: Json
           completed_at?: string | null
-          cost_credits?: number | null
-          created_at?: string
-          failure_class?: string | null
-          failure_message?: string | null
+          conversation_id: string
           id?: string
-          iteration_number: number
-          last_heartbeat_at?: string | null
-          messages_snapshot?: Json
-          started_at?: string | null
+          iteration_count?: number
+          started_at?: string
           status?: string
-          tokens_in?: number | null
-          tokens_out?: number | null
-          turn_id: string
+          total_cost_credits?: number
+          total_input_tokens?: number
+          total_output_tokens?: number
+          user_message_id?: string | null
         }
         Update: {
-          accumulated_proposals?: Json
           completed_at?: string | null
-          cost_credits?: number | null
-          created_at?: string
-          failure_class?: string | null
-          failure_message?: string | null
+          conversation_id?: string
           id?: string
-          iteration_number?: number
-          last_heartbeat_at?: string | null
-          messages_snapshot?: Json
-          started_at?: string | null
+          iteration_count?: number
+          started_at?: string
           status?: string
-          tokens_in?: number | null
-          tokens_out?: number | null
-          turn_id?: string
+          total_cost_credits?: number
+          total_input_tokens?: number
+          total_output_tokens?: number
+          user_message_id?: string | null
         }
         Relationships: [
           {
-            foreignKeyName: "director_iterations_turn_id_fkey"
-            columns: ["turn_id"]
+            foreignKeyName: "director_turns_conversation_id_fkey"
+            columns: ["conversation_id"]
             isOneToOne: false
-            referencedRelation: "agent_jobs"
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "director_turns_user_message_id_fkey"
+            columns: ["user_message_id"]
+            isOneToOne: false
+            referencedRelation: "conversation_messages"
             referencedColumns: ["id"]
           },
         ]
+      }
+      dispatcher_tick_samples: {
+        Row: {
+          active_throttle_reservations_count: number
+          class_1_reserved_slots_in_use: number
+          duration_ms: number
+          id: number
+          queue_depth_class_1: number
+          queue_depth_class_2: number
+          queue_depth_class_3: number
+          queue_depth_class_4: number
+          tick_started_at: string
+          tickets_considered: number
+          tickets_dispatched: number
+          tickets_skipped_no_capacity: number
+          tickets_skipped_no_dependency: number
+          tickets_skipped_stop_requested: number
+          tickets_skipped_wrong_route: number
+          virtual_clock: number
+        }
+        Insert: {
+          active_throttle_reservations_count: number
+          class_1_reserved_slots_in_use: number
+          duration_ms: number
+          id?: number
+          queue_depth_class_1: number
+          queue_depth_class_2: number
+          queue_depth_class_3: number
+          queue_depth_class_4: number
+          tick_started_at: string
+          tickets_considered: number
+          tickets_dispatched: number
+          tickets_skipped_no_capacity: number
+          tickets_skipped_no_dependency: number
+          tickets_skipped_stop_requested: number
+          tickets_skipped_wrong_route: number
+          virtual_clock: number
+        }
+        Update: {
+          active_throttle_reservations_count?: number
+          class_1_reserved_slots_in_use?: number
+          duration_ms?: number
+          id?: number
+          queue_depth_class_1?: number
+          queue_depth_class_2?: number
+          queue_depth_class_3?: number
+          queue_depth_class_4?: number
+          tick_started_at?: string
+          tickets_considered?: number
+          tickets_dispatched?: number
+          tickets_skipped_no_capacity?: number
+          tickets_skipped_no_dependency?: number
+          tickets_skipped_stop_requested?: number
+          tickets_skipped_wrong_route?: number
+          virtual_clock?: number
+        }
+        Relationships: []
       }
       documents: {
         Row: {
@@ -1065,6 +1242,50 @@ export type Database = {
           },
         ]
       }
+      failure_taxonomy_samples: {
+        Row: {
+          agent_job_id: string
+          auto_recovered: boolean
+          error_summary: string | null
+          failure_class: string
+          id: number
+          occurred_at: string
+          operation_type: string
+          pool_key: string
+          requires_user_action: boolean
+        }
+        Insert: {
+          agent_job_id: string
+          auto_recovered?: boolean
+          error_summary?: string | null
+          failure_class: string
+          id?: number
+          occurred_at?: string
+          operation_type: string
+          pool_key: string
+          requires_user_action?: boolean
+        }
+        Update: {
+          agent_job_id?: string
+          auto_recovered?: boolean
+          error_summary?: string | null
+          failure_class?: string
+          id?: number
+          occurred_at?: string
+          operation_type?: string
+          pool_key?: string
+          requires_user_action?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "failure_taxonomy_samples_agent_job_id_fkey"
+            columns: ["agent_job_id"]
+            isOneToOne: false
+            referencedRelation: "agent_jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       layer_stacks: {
         Row: {
           created_at: string
@@ -1115,6 +1336,30 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      metrics_minute_buckets: {
+        Row: {
+          bucket_started_at: string
+          dimensions: Json
+          metric_kind: string
+          sample_count: number
+          value: number
+        }
+        Insert: {
+          bucket_started_at: string
+          dimensions: Json
+          metric_kind: string
+          sample_count: number
+          value: number
+        }
+        Update: {
+          bucket_started_at?: string
+          dimensions?: Json
+          metric_kind?: string
+          sample_count?: number
+          value?: number
+        }
+        Relationships: []
       }
       node_attachments: {
         Row: {
@@ -1904,6 +2149,36 @@ export type Database = {
           },
         ]
       }
+      route_capacity_samples: {
+        Row: {
+          active_concurrent_calls: number
+          bucket_size: number
+          current_tokens: number
+          id: number
+          pool_key: string
+          refill_rate: number
+          sampled_at: string
+        }
+        Insert: {
+          active_concurrent_calls: number
+          bucket_size: number
+          current_tokens: number
+          id?: number
+          pool_key: string
+          refill_rate: number
+          sampled_at?: string
+        }
+        Update: {
+          active_concurrent_calls?: number
+          bucket_size?: number
+          current_tokens?: number
+          id?: number
+          pool_key?: string
+          refill_rate?: number
+          sampled_at?: string
+        }
+        Relationships: []
+      }
       scheduled_jobs: {
         Row: {
           created_at: string
@@ -1978,6 +2253,50 @@ export type Database = {
           },
           {
             foreignKeyName: "scheduled_jobs_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      stop_requests: {
+        Row: {
+          cascade_count: number | null
+          completed_at: string | null
+          id: string
+          organisation_id: string
+          reason: string | null
+          requested_at: string
+          requested_by: string
+          target_id: string
+          target_kind: string
+        }
+        Insert: {
+          cascade_count?: number | null
+          completed_at?: string | null
+          id?: string
+          organisation_id: string
+          reason?: string | null
+          requested_at?: string
+          requested_by: string
+          target_id: string
+          target_kind: string
+        }
+        Update: {
+          cascade_count?: number | null
+          completed_at?: string | null
+          id?: string
+          organisation_id?: string
+          reason?: string | null
+          requested_at?: string
+          requested_by?: string
+          target_id?: string
+          target_kind?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stop_requests_organisation_id_fkey"
             columns: ["organisation_id"]
             isOneToOne: false
             referencedRelation: "organisations"
@@ -2141,6 +2460,66 @@ export type Database = {
           last_validated_at?: string
           user_id?: string
           vault_secret_id?: string
+        }
+        Relationships: []
+      }
+      user_throttle_buckets: {
+        Row: {
+          bucket_size: number
+          created_at: string
+          current_tokens: number
+          last_refill_at: string
+          pool_key: string
+          refill_rate: number
+          updated_at: string
+        }
+        Insert: {
+          bucket_size: number
+          created_at?: string
+          current_tokens: number
+          last_refill_at?: string
+          pool_key: string
+          refill_rate: number
+          updated_at?: string
+        }
+        Update: {
+          bucket_size?: number
+          created_at?: string
+          current_tokens?: number
+          last_refill_at?: string
+          pool_key?: string
+          refill_rate?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      wfq_state: {
+        Row: {
+          class_1_last_vft: number
+          class_2_last_vft: number
+          class_3_last_vft: number
+          class_4_last_vft: number
+          id: number
+          updated_at: string
+          virtual_clock: number
+        }
+        Insert: {
+          class_1_last_vft?: number
+          class_2_last_vft?: number
+          class_3_last_vft?: number
+          class_4_last_vft?: number
+          id?: number
+          updated_at?: string
+          virtual_clock?: number
+        }
+        Update: {
+          class_1_last_vft?: number
+          class_2_last_vft?: number
+          class_3_last_vft?: number
+          class_4_last_vft?: number
+          id?: number
+          updated_at?: string
+          virtual_clock?: number
         }
         Relationships: []
       }
@@ -2435,6 +2814,15 @@ export type Database = {
         Args: { p_brief_id: string; p_reason?: string }
         Returns: Json
       }
+      classify_failure: {
+        Args: {
+          p_error_code: string
+          p_http_status: number
+          p_operation_type: string
+          p_retry_count: number
+        }
+        Returns: string
+      }
       complete_brief_stage: { Args: { p_stage_id: string }; Returns: Json }
       complete_brief_stage_workflow: {
         Args: { p_workflow_id: string }
@@ -2469,6 +2857,14 @@ export type Database = {
       propagate_brief_completion: {
         Args: { p_brief_id: string }
         Returns: Json
+      }
+      purge_raw_metric_samples: { Args: never; Returns: Json }
+      request_batch_poll: { Args: never; Returns: undefined }
+      request_dispatcher_tick: { Args: never; Returns: undefined }
+      request_route_capacity_sample: { Args: never; Returns: undefined }
+      rollup_metrics_minute: {
+        Args: { p_bucket_started_at?: string }
+        Returns: number
       }
       save_user_anthropic_key: {
         Args: { p_key: string; p_validation_completed_at: string }

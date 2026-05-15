@@ -137,14 +137,27 @@ test.describe('j5-novel — Director-turn wire-shape smoke', () => {
     expect(assistantContent, 'assistant message did not persist within 90s — SSE wire shape may be broken').not.toBeNull()
     expect(assistantContent!.length).toBeGreaterThan(0)
 
-    // No agent_jobs rows should have been created during this turn —
-    // the Director's read tools are read-only and the probe asks no
-    // question requiring a write tool.
+    // V1.x-B.2.1 — under the per-iteration model, the turn DOES create
+    // agent_jobs rows (one per Director iteration, operation_type=
+    // 'director_iteration'). The pre-rewrite assertion required zero
+    // agent_jobs because the Director ran inline. The new assertion
+    // requires zero NON-iteration agent_jobs (no workflow steps, no
+    // expand/synthesise/refine/generate_context) since the probe is a
+    // read-only question that shouldn't trigger any write proposal.
     const { data: jobs } = await admin
       .from('agent_jobs')
-      .select('id')
+      .select('id, operation_type')
       .gt('created_at', new Date(Date.now() - 120_000).toISOString())
-    expect(jobs?.length ?? 0).toBe(0)
+    const nonIterationJobs = (jobs ?? []).filter(
+      (j) => j.operation_type !== 'director_iteration',
+    )
+    expect(nonIterationJobs.length).toBe(0)
+    // At least one director_iteration row should exist (typically 1-3
+    // depending on whether the model called any read tools).
+    const iterationJobs = (jobs ?? []).filter(
+      (j) => j.operation_type === 'director_iteration',
+    )
+    expect(iterationJobs.length).toBeGreaterThanOrEqual(1)
 
     // No workflow rows should exist either (the probe doesn't trigger a
     // plan).

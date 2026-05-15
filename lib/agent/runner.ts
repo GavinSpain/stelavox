@@ -99,12 +99,30 @@ export async function runAgentJob(jobId: string): Promise<void> {
     // Assemble the prompt + persist context_snapshot (immutable).
     const assembled = await assembleAndPersistContext(supabase, job, profile, dynamicCtx)
 
+    // V1.x-B.2.3 — extract user_id from triggered_by when present, so
+    // the factory can route via ByokProvider when the user has a
+    // per-user Anthropic key. The triggered_by field is one of:
+    //   - a UUID (user-triggered jobs) → use as user_id for BYOK lookup
+    //   - 'workflow_step:<step_id>:<workflow_id>' → workflow-driven; user
+    //     unknown at runner time, falls back to platform route
+    //   - 'scheduled' / 'integration-test' / etc. → not a UUID; platform route
+    const userIdForByok = isUuidLike(job.triggered_by) ? job.triggered_by : undefined
+
     // Call the LLM via the factory.
-    const { provider, modelId } = await getProvider(
-      { id: job.organisation_id }, // V1 BYOK fields all undefined
+    const { provider, modelId, route } = await getProvider(
+      { id: job.organisation_id },
       profile.operation_type,
       profile.model_id,
+      userIdForByok,
     )
+
+    // Stamp `route` for metrics + bucket selection. The factory tells
+    // us whether this resolved to platform or byok routing.
+    await supabase
+      .from('agent_jobs')
+      .update({ route })
+      .eq('id', jobId)
+      .in('queue_status', ['queued', 'dispatched', 'running'])
     const llmResponse = await provider.complete({
       ...assembled,
       config: { ...assembled.config, model: modelId },
@@ -490,4 +508,14 @@ export async function* runAgentJobInline(
     // terminal state (the UPDATE filters status IN ('running','pending')).
     await persistCancellation(supabase, jobId, 'client_disconnect')
   }
+}
+
+// ---------------------------------------------------------------------------
+// V1.x-B.2.3 helpers
+// ---------------------------------------------------------------------------
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+function isUuidLike(s: string | null | undefined): s is string {
+  return typeof s === 'string' && UUID_RE.test(s)
 }
