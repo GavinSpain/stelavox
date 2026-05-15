@@ -115,25 +115,53 @@ export async function startSchedulerListener(opts: ListenerOptions = {}): Promis
     }
 
     client.on('notification', (msg) => {
-      if (msg.channel !== 'scheduler_completion') return
+      // V1.x-B.2.3 — listen on multiple pg_notify channels:
+      //   scheduler_completion       — M-109 trigger; invoke dispatcher
+      //   dispatcher_tick_request    — M-122 cron stub; invoke dispatcher
+      //   batch_poll_request         — M-122 cron stub; invoke batch poller
+      //   route_sample_request       — M-122 cron stub; invoke metrics sampler
+      if (
+        msg.channel !== 'scheduler_completion' &&
+        msg.channel !== 'dispatcher_tick_request' &&
+        msg.channel !== 'batch_poll_request' &&
+        msg.channel !== 'route_sample_request'
+      ) {
+        return
+      }
       notifyCount++
 
+      // Only scheduler_completion has a typed payload; the cron-stub
+      // channels carry { requested_at } which we don't need to parse.
+      const isCompletion = msg.channel === 'scheduler_completion'
       let payload: CompletionPayload | null = null
-      try {
-        payload = JSON.parse(msg.payload ?? '{}') as CompletionPayload
-      } catch (parseErr) {
-        handleError(parseErr as Error)
-        return
+      if (isCompletion) {
+        try {
+          payload = JSON.parse(msg.payload ?? '{}') as CompletionPayload
+        } catch (parseErr) {
+          handleError(parseErr as Error)
+          return
+        }
       }
 
       // Fire-and-forget invocation. Errors caught here, not surfaced
       // to the caller (a single bad tick should not stop the listener).
       Promise.resolve()
-        .then(() => {
-          if (opts.onCompletion) {
+        .then(async () => {
+          if (msg.channel === 'batch_poll_request') {
+            const { pollAllInProgressBatches } = await import('./batch-poller')
+            await pollAllInProgressBatches()
+            return
+          }
+          if (msg.channel === 'route_sample_request') {
+            const { recordRouteCapacitySamples } = await import('./metrics-samplers')
+            await recordRouteCapacitySamples()
+            return
+          }
+          // scheduler_completion or dispatcher_tick_request → dispatch tick.
+          if (isCompletion && opts.onCompletion) {
             return opts.onCompletion(payload!)
           }
-          return runDispatcherTick().then(() => undefined)
+          await runDispatcherTick()
         })
         .catch((err) => handleError(err as Error))
     })
@@ -149,6 +177,9 @@ export async function startSchedulerListener(opts: ListenerOptions = {}): Promis
 
     try {
       await client.query('LISTEN scheduler_completion')
+      await client.query('LISTEN dispatcher_tick_request')
+      await client.query('LISTEN batch_poll_request')
+      await client.query('LISTEN route_sample_request')
     } catch (err) {
       handleError(err as Error)
     }
@@ -162,6 +193,9 @@ export async function startSchedulerListener(opts: ListenerOptions = {}): Promis
       if (client) {
         try {
           await client.query('UNLISTEN scheduler_completion').catch(() => {})
+          await client.query('UNLISTEN dispatcher_tick_request').catch(() => {})
+          await client.query('UNLISTEN batch_poll_request').catch(() => {})
+          await client.query('UNLISTEN route_sample_request').catch(() => {})
           await client.end().catch(() => {})
         } finally {
           client = null

@@ -38,7 +38,10 @@ export type Database = {
         Row: {
           actual_input_tokens: number | null
           actual_output_tokens: number | null
+          batch_anthropic_id: string | null
           batch_id: string | null
+          batch_polled_at: string | null
+          batch_submitted_at: string | null
           bucket_wait_ms: number | null
           cause: string | null
           completed_at: string | null
@@ -94,7 +97,10 @@ export type Database = {
         Insert: {
           actual_input_tokens?: number | null
           actual_output_tokens?: number | null
+          batch_anthropic_id?: string | null
           batch_id?: string | null
+          batch_polled_at?: string | null
+          batch_submitted_at?: string | null
           bucket_wait_ms?: number | null
           cause?: string | null
           completed_at?: string | null
@@ -150,7 +156,10 @@ export type Database = {
         Update: {
           actual_input_tokens?: number | null
           actual_output_tokens?: number | null
+          batch_anthropic_id?: string | null
           batch_id?: string | null
+          batch_polled_at?: string | null
+          batch_submitted_at?: string | null
           bucket_wait_ms?: number | null
           cause?: string | null
           completed_at?: string | null
@@ -404,6 +413,42 @@ export type Database = {
           },
         ]
       }
+      anthropic_batches: {
+        Row: {
+          completed_at: string | null
+          completed_count: number
+          id: string
+          poll_count: number
+          polled_at: string | null
+          pool_key: string
+          request_count: number
+          status: string
+          submitted_at: string
+        }
+        Insert: {
+          completed_at?: string | null
+          completed_count?: number
+          id: string
+          poll_count?: number
+          polled_at?: string | null
+          pool_key: string
+          request_count: number
+          status?: string
+          submitted_at?: string
+        }
+        Update: {
+          completed_at?: string | null
+          completed_count?: number
+          id?: string
+          poll_count?: number
+          polled_at?: string | null
+          pool_key?: string
+          request_count?: number
+          status?: string
+          submitted_at?: string
+        }
+        Relationships: []
+      }
       audit_log: {
         Row: {
           conversation_id: string | null
@@ -639,6 +684,7 @@ export type Database = {
       briefs: {
         Row: {
           approved_at: string | null
+          auto_approve_workflow_proposals: boolean
           cancelled_at: string | null
           cause: string
           completed_at: string | null
@@ -654,6 +700,7 @@ export type Database = {
         }
         Insert: {
           approved_at?: string | null
+          auto_approve_workflow_proposals?: boolean
           cancelled_at?: string | null
           cause?: string
           completed_at?: string | null
@@ -669,6 +716,7 @@ export type Database = {
         }
         Update: {
           approved_at?: string | null
+          auto_approve_workflow_proposals?: boolean
           cancelled_at?: string | null
           cause?: string
           completed_at?: string | null
@@ -1190,6 +1238,50 @@ export type Database = {
             columns: ["organisation_id"]
             isOneToOne: false
             referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      failure_taxonomy_samples: {
+        Row: {
+          agent_job_id: string
+          auto_recovered: boolean
+          error_summary: string | null
+          failure_class: string
+          id: number
+          occurred_at: string
+          operation_type: string
+          pool_key: string
+          requires_user_action: boolean
+        }
+        Insert: {
+          agent_job_id: string
+          auto_recovered?: boolean
+          error_summary?: string | null
+          failure_class: string
+          id?: number
+          occurred_at?: string
+          operation_type: string
+          pool_key: string
+          requires_user_action?: boolean
+        }
+        Update: {
+          agent_job_id?: string
+          auto_recovered?: boolean
+          error_summary?: string | null
+          failure_class?: string
+          id?: number
+          occurred_at?: string
+          operation_type?: string
+          pool_key?: string
+          requires_user_action?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "failure_taxonomy_samples_agent_job_id_fkey"
+            columns: ["agent_job_id"]
+            isOneToOne: false
+            referencedRelation: "agent_jobs"
             referencedColumns: ["id"]
           },
         ]
@@ -2742,6 +2834,9 @@ export type Database = {
         Args: { p_brief_id: string }
         Returns: Json
       }
+      request_batch_poll: { Args: never; Returns: undefined }
+      request_dispatcher_tick: { Args: never; Returns: undefined }
+      request_route_capacity_sample: { Args: never; Returns: undefined }
       save_user_anthropic_key: {
         Args: { p_key: string; p_validation_completed_at: string }
         Returns: Json

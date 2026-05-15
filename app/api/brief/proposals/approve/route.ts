@@ -26,6 +26,10 @@ import { createClient } from '@/lib/supabase/server'
 const ApproveRequestSchema = z.object({
   document_id: z.string().uuid(),
   proposal: ProposeBriefInputSchema,
+  // V1.x-B.2.3 — when true, sets briefs.auto_approve_workflow_proposals
+  // so the iteration-runner auto-approves any workflow_proposal it
+  // emits during subsequent stages of this Brief. Defaults to false.
+  auto_approve_workflow_proposals: z.boolean().optional(),
 })
 
 export async function POST(req: NextRequest): Promise<Response> {
@@ -49,6 +53,17 @@ export async function POST(req: NextRequest): Promise<Response> {
 
   try {
     const result = await acceptBrief(supabase, parsed.data.document_id, validated)
+
+    // V1.x-B.2.3 — apply auto_approve_workflow_proposals flag if requested.
+    // The flag is read by lib/director/iteration-runner.ts when emitting
+    // a workflow_proposal during a push-model stage trigger.
+    if (parsed.data.auto_approve_workflow_proposals) {
+      const service = createServiceRoleClient()
+      await service
+        .from('briefs')
+        .update({ auto_approve_workflow_proposals: true })
+        .eq('id', result.brief.id)
+    }
 
     // After Brief + Stages created, create the workflow for stage 1 and
     // attach it via brief_stages.workflow_id. Stage 2..N have null workflow

@@ -61,7 +61,7 @@ export async function getProvider(
   operationType: string,
   profileModelId: string,
   userId?: string,
-): Promise<{ provider: LLMProvider; modelId: string }> {
+): Promise<{ provider: LLMProvider; modelId: string; route: 'platform' | 'byok' }> {
   const modelId =
     organisation.preferred_model_overrides?.[operationType] ?? profileModelId
 
@@ -83,6 +83,7 @@ export async function getProvider(
           userId,
         }),
         modelId,
+        route: 'byok',
       }
     }
   }
@@ -96,7 +97,7 @@ export async function getProvider(
       'ANTHROPIC_API_KEY env var not set — refusing to invoke LLM provider.',
     )
   }
-  return { provider: new AnthropicProvider(apiKey), modelId }
+  return { provider: new AnthropicProvider(apiKey), modelId, route: 'platform' }
 }
 
 /**

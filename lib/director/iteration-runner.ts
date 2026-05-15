@@ -589,6 +589,34 @@ export async function* runIteration(
           proposal: workflowProposal,
         })
         await supabase.from('conversation_messages').update({ workflow_id: workflowId }).eq('id', assistantMessageId)
+
+        // V1.x-B.2.3 — auto-approve subsequent stages. If this turn is
+        // running on a Brief whose auto_approve_workflow_proposals=true
+        // is set (push-model stage trigger), POST to the auto-approve
+        // route to immediately mark the workflow approved + queue its
+        // step agent_jobs. The flag is on briefs.auto_approve_workflow_proposals;
+        // we look it up via the Brief that links to this turn's conversation.
+        try {
+          const briefCheck = await supabase
+            .from('briefs')
+            .select('id, auto_approve_workflow_proposals')
+            .eq('document_id', conversation.document_id)
+            .in('status', ['active'])
+            .maybeSingle()
+          if (briefCheck.data?.auto_approve_workflow_proposals) {
+            const cronToken = process.env.CRON_AUTH_TOKEN
+            const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
+            await fetch(`${baseUrl}/api/director/turns/${jobRow.director_turn_id}/auto-approve-workflow`, {
+              method: 'POST',
+              headers: cronToken
+                ? { 'content-type': 'application/json', authorization: `Bearer ${cronToken}` }
+                : { 'content-type': 'application/json' },
+              body: '{}',
+            })
+          }
+        } catch (err) {
+          console.error('[iteration-runner] auto-approve check failed', err instanceof Error ? err.message : String(err))
+        }
       } catch (err) {
         console.error('[iteration-runner] persistDraftWorkflow failed', { conversation: conversation.id, error: err instanceof Error ? err.message : String(err) })
       }
