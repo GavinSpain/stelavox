@@ -429,6 +429,60 @@ export async function execProposeBriefAmendment(
 }
 
 // ---------------------------------------------------------------------------
+// report_capability_limit (V1.x-F.1) — synthetic propose-only self-rejection.
+// ---------------------------------------------------------------------------
+// Per H-08, write tools never execute. The Director invokes this tool
+// when it detects the user's request exceeds its capability boundaries
+// (per-iteration node cap, token-budget headroom, tool-count overflow,
+// or a multi-step batch protocol that doesn't fit in one workflow).
+//
+// There is no underlying DB write or session-scoped lookup — the args
+// are pure model output. The user "approves" by reformulating their
+// request after reading the suggested alternative; the UI surfaces as
+// CapabilityLimitCard in the conversation thread.
+//
+// Args validation already happened at validateToolCall via the zod
+// schema in lib/director/schemas.ts; this executor re-checks the
+// presence + non-empty-string invariants for defence in depth.
+
+export async function execReportCapabilityLimit(
+  args: Record<string, unknown>,
+  _session: DirectorSession,
+): Promise<WriteToolReturn> {
+  const detectedLimit = args.detected_limit
+  const suggestedAlternative = args.suggested_alternative
+  const reason = args.reason
+
+  if (
+    detectedLimit !== 'per_iteration_cap' &&
+    detectedLimit !== 'token_budget' &&
+    detectedLimit !== 'tool_count' &&
+    detectedLimit !== 'other'
+  ) {
+    return {
+      ok: false,
+      error: 'invalid_detected_limit',
+      reason: 'detected_limit must be one of per_iteration_cap | token_budget | tool_count | other',
+    }
+  }
+  if (typeof suggestedAlternative !== 'string' || suggestedAlternative.trim().length === 0) {
+    return { ok: false, error: 'invalid_suggested_alternative', reason: 'suggested_alternative must be non-empty' }
+  }
+  if (typeof reason !== 'string' || reason.trim().length === 0) {
+    return { ok: false, error: 'invalid_reason', reason: 'reason must be non-empty' }
+  }
+
+  return {
+    ok: true,
+    capability_limit_proposal: {
+      detected_limit: detectedLimit,
+      suggested_alternative: suggestedAlternative,
+      reason,
+    },
+  } as WriteToolReturn
+}
+
+// ---------------------------------------------------------------------------
 // cancel_brief (V1.x-B.1.1) — destructive proposal-only.
 // ---------------------------------------------------------------------------
 // Per H-08, write tools never execute. The Director recommends cancelling

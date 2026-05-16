@@ -206,33 +206,36 @@ test.describe('V1.x-A.1 Profile + Brief substrate', () => {
     expect(n.initial_status).toBe('active')
   })
 
-  test('Director config v1.9 is production with 18 tools (V1.x-B.3 propose_brief_amendment)', async () => {
-    // V1.x-B.3 (Migration 129) deprecated v1.8 and made v1.9 production.
-    // v1.9 adds propose_brief_amendment to tool_suite (18 tools = v1.8's 17 + 1).
-    // System prompt carries forward v1.8's body + appends Brief amendments guidance.
+  test('Director config v1.10 is production with 19 tools (V1.x-F.1 report_capability_limit)', async () => {
+    // V1.x-F.1 (Migration 146) deprecated v1.9 and made v1.10 production.
+    // v1.10 adds report_capability_limit to tool_suite (19 tools = v1.9's 18 + 1).
+    // System prompt carries forward v1.9's body + appends self-rejection guidance.
     const { data } = await adminClient()
       .from('director_configs')
       .select('version_number, status, tool_suite, system_prompt')
       .eq('status', 'production')
       .single()
-    expect(data!.version_number).toBe('1.9')
+    expect(data!.version_number).toBe('1.10')
     const tools = data!.tool_suite as string[]
-    expect(tools).toHaveLength(18)
+    expect(tools).toHaveLength(19)
     expect(tools).toContain('get_project_profile')
     expect(tools).toContain('get_brief_state')
     expect(tools).toContain('propose_brief')
     expect(tools).toContain('propose_profile_amendment')
     expect(tools).toContain('cancel_brief')
     expect(tools).toContain('propose_brief_amendment')
+    expect(tools).toContain('report_capability_limit')
     expect(data!.system_prompt).toContain('<plan>')
     expect(data!.system_prompt).toContain('tool call IS the proposal')
     expect(data!.system_prompt).toContain('cancel_brief')
-    // v1.8 FU-2 amendment carried forward: trigger_config example block.
+    // v1.8 FU-2 amendment carried forward through v1.9 into v1.10: trigger_config example block.
     expect(data!.system_prompt).toContain('after_stage_order')
     expect(data!.system_prompt).toContain('"scheduled_at": "<ISO 8601 timestamp>"')
-    // v1.9 amendment guidance.
+    // v1.9 amendment guidance carried forward.
     expect(data!.system_prompt).toContain('Brief amendments')
     expect(data!.system_prompt).toContain('propose_brief_amendment')
+    // v1.10 self-rejection guidance.
+    expect(data!.system_prompt).toContain('report_capability_limit')
   })
 
   test('platform_config has the rolling-window key', async () => {

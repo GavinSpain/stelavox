@@ -65,7 +65,7 @@ describe('cancel_brief tool registration', () => {
     expect(isWriteTool('cancel_brief')).toBe(true)
   })
 
-  it('total write-tool count is 10 (V1.x-B.3: V1.x-B.1.1 9 + propose_brief_amendment)', () => {
-    expect(WRITE_TOOL_NAMES.length).toBe(10)
+  it('total write-tool count is 11 (V1.x-F.1: V1.x-B.3 10 + report_capability_limit)', () => {
+    expect(WRITE_TOOL_NAMES.length).toBe(11)
   })
 })

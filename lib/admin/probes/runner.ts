@@ -121,9 +121,19 @@ async function dispatchProbe(probeId: ProbeId): Promise<ProbeRunResult> {
   switch (probeId) {
     case 'director_small':
       return await runDirectorSmall()
-    case 'workflow_expand':
-    case 'refine_accept':
-      return pendingImplementation(probeId)
+    case 'workflow_expand': {
+      // V1.x-F.3 — real implementation against the probe-fixture data
+      // seeded by scripts/seed-probe-fixtures.ts. Returns the
+      // probe_fixtures_not_seeded fail-shape gracefully when the
+      // platform_config pointers are absent.
+      const { runWorkflowExpandProbe } = await import('./workflow-expand')
+      return await runWorkflowExpandProbe()
+    }
+    case 'refine_accept': {
+      // V1.x-F.3 — see above for fixture-gating semantics.
+      const { runRefineAcceptProbe } = await import('./refine-accept')
+      return await runRefineAcceptProbe()
+    }
   }
 }
 
@@ -192,23 +202,8 @@ async function runDirectorSmall(): Promise<ProbeRunResult> {
   }
 }
 
-/**
- * V1.x-F polish — workflow_expand and refine_accept need fixture data
- * (a probe-only org + document tree) to exercise end-to-end. V1.x-E
- * ships substrate only; the row records the deferral so admins can see
- * the probe surface exists.
- */
-function pendingImplementation(probeId: ProbeId): ProbeRunResult {
-  return {
-    outcome: 'fail',
-    duration_ms: 0,
-    tokens_input: null,
-    tokens_output: null,
-    cost_credits: null,
-    agent_job_id: null,
-    director_turn_id: null,
-    failure_class: 'E',
-    error_message: `probe_implementation_pending_v1xf:${probeId}`,
-    metadata: { deferred_to: 'V1.x-F' },
-  }
-}
+// V1.x-F.3 — pendingImplementation() helper removed; workflow_expand
+// and refine_accept now dispatch to lib/admin/probes/workflow-expand.ts
+// + lib/admin/probes/refine-accept.ts. Probe-fixture-not-seeded case is
+// surfaced by those implementations directly with a clear remediation
+// hint.

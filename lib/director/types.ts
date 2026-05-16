@@ -91,6 +91,22 @@ export interface WriteToolResult {
   brief_cancellation_proposal?: BriefCancellationProposalArtefact
   /** V1.x-B.3 — Brief amendment proposal (H-08: propose-only). */
   brief_amendment_proposal?: Record<string, unknown>
+  /** V1.x-F.1 — Capability-limit synthetic proposal (H-08: propose-only). */
+  capability_limit_proposal?: CapabilityLimitArtefact
+}
+
+/**
+ * V1.x-F.1 — Capability-limit artefact. Emitted by the Director when it
+ * detects the user's request exceeds its capability boundaries
+ * (per-iteration node cap, token-budget headroom, tool-count overflow,
+ * or a multi-step batch protocol that doesn't fit in one workflow).
+ * Surfaces as CapabilityLimitCard in the conversation thread; no DB
+ * write — the user "approves" by reformulating their request.
+ */
+export type CapabilityLimitArtefact = {
+  detected_limit: 'per_iteration_cap' | 'token_budget' | 'tool_count' | 'other'
+  suggested_alternative: string
+  reason: string
 }
 
 /** Re-exports from lib/brief — kept here to avoid a circular import. */
