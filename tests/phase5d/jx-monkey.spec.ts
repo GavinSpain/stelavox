@@ -119,9 +119,11 @@ const operations: Record<string, Operation> = {
     if (state.knownNodeIds.length === 0) return { ok: false, note: 'no nodes' }
     const id = pick(state.knownNodeIds, rand)
     const locked = rand() < 0.5
-    const r = await api.patch(`/api/nodes/${id}`, {
-      data: { locked, lock_reason: locked ? 'monkey lock' : null },
-    })
+    // Phase 6: locking moves to dedicated endpoints (6.B).
+    // Monkey driver hits POST/DELETE /api/nodes/[id]/lock for toggle.
+    const r = locked
+      ? await api.post(`/api/nodes/${id}/lock`, { data: { reason: 'monkey lock' } })
+      : await api.delete(`/api/nodes/${id}/lock`)
     return { ok: r.ok(), note: r.ok() ? undefined : `lock ${r.status()}` }
   },
 

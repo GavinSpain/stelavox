@@ -25,6 +25,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { LockReasonModal } from './LockReasonModal'
+import { LockConflictModal } from './LockConflictModal'
+import type { LockConflictJob } from '@/lib/locking/authorLock'
 
 // Phase 6: status reduces from 4 values to 2. `in_review` (vestigial)
 // and `locked` (collapsed into Author Lock as its own axis) dropped.
@@ -35,23 +38,33 @@ interface NodeMoreMenuProps {
   nodeId: string
   anchor: HTMLElement
   isRoot: boolean
+  nodeName?: string
+  isAuthorLocked?: boolean
+  descendantIds?: string[]
+  reasonSuggestions?: string[]
   onClose: () => void
   onMutated: () => void
 }
 
-export function NodeMoreMenu({ nodeId, anchor, isRoot, onClose, onMutated }: NodeMoreMenuProps) {
+export function NodeMoreMenu({
+  nodeId, anchor, isRoot,
+  nodeName = 'this node',
+  isAuthorLocked = false,
+  descendantIds = [],
+  reasonSuggestions = [],
+  onClose, onMutated,
+}: NodeMoreMenuProps) {
   const ref = useRef<HTMLDivElement>(null)
   const [busy, setBusy] = useState(false)
   const [showStatus, setShowStatus] = useState(false)
-  // SU-22 follow-up: dialog state lives in the menu so the popover stays
-  // mounted while the dialog is open. We disable the click-outside /
-  // escape-close handlers below when a dialog is showing — the dialog
-  // owns dismissal during that window.
   const [renameOpen, setRenameOpen] = useState(false)
   const [renameValue, setRenameValue] = useState('')
   const [deleteOpen, setDeleteOpen] = useState(false)
+  const [lockOpen, setLockOpen] = useState(false)
+  const [conflictOpen, setConflictOpen] = useState(false)
+  const [conflicts, setConflicts] = useState<LockConflictJob[]>([])
 
-  const dialogOpen = renameOpen || deleteOpen
+  const dialogOpen = renameOpen || deleteOpen || lockOpen || conflictOpen
 
   // Anchor position: place menu directly below the More button.
   const rect = anchor.getBoundingClientRect()
@@ -146,6 +159,20 @@ export function NodeMoreMenu({ nodeId, anchor, isRoot, onClose, onMutated }: Nod
     }
   }
 
+  async function unlock() {
+    setBusy(true)
+    try {
+      const r = await fetch(`/api/nodes/${nodeId}/lock`, { method: 'DELETE' })
+      if (r.ok) onMutated()
+      else console.error('[NodeMoreMenu] unlock non-OK', r.status)
+    } catch (e) {
+      console.error('[NodeMoreMenu] unlock failed', e)
+    } finally {
+      setBusy(false)
+      onClose()
+    }
+  }
+
   return (
     <>
       <div
@@ -165,23 +192,33 @@ export function NodeMoreMenu({ nodeId, anchor, isRoot, onClose, onMutated }: Nod
           fontSize: 'var(--text-sm)',
         }}
       >
-        <MenuButton onClick={openRename} disabled={busy}>Rename…</MenuButton>
-        <MenuButton onClick={() => setShowStatus(s => !s)} disabled={busy}>
+        <MenuButton onClick={openRename} disabled={busy || isAuthorLocked}>Rename…</MenuButton>
+        <MenuButton onClick={() => setShowStatus(s => !s)} disabled={busy || isAuthorLocked}>
           Status {showStatus ? '▾' : '▸'}
         </MenuButton>
         {showStatus && (
           <div style={{ paddingLeft: 'var(--space-3)' }}>
             {STATUS_VALUES.map(s => (
-              <MenuButton key={s} onClick={() => setStatus(s)} disabled={busy}>
-                {s.replace('_', ' ')}
+              <MenuButton key={s} onClick={() => setStatus(s)} disabled={busy || isAuthorLocked}>
+                {s}
               </MenuButton>
             ))}
           </div>
         )}
+        <div style={{ height: '1px', background: 'var(--color-border-subtle)', margin: 'var(--space-1) 0' }} />
+        {isAuthorLocked ? (
+          <MenuButton onClick={unlock} disabled={busy} data-testid="node-menu-unlock">
+            🔓 Unlock this node
+          </MenuButton>
+        ) : (
+          <MenuButton onClick={() => setLockOpen(true)} disabled={busy} data-testid="node-menu-lock">
+            🔒 Lock this node…
+          </MenuButton>
+        )}
         {!isRoot && (
           <>
             <div style={{ height: '1px', background: 'var(--color-border-subtle)', margin: 'var(--space-1) 0' }} />
-            <MenuButton onClick={openDelete} disabled={busy} danger>
+            <MenuButton onClick={openDelete} disabled={busy || isAuthorLocked} danger>
               Delete…
             </MenuButton>
           </>
@@ -232,6 +269,25 @@ export function NodeMoreMenu({ nodeId, anchor, isRoot, onClose, onMutated }: Nod
           </div>
         </DialogContent>
       </Dialog>
+
+      <LockReasonModal
+        open={lockOpen}
+        nodeId={nodeId}
+        nodeName={nodeName}
+        descendantIds={descendantIds}
+        descendantCount={descendantIds.length}
+        reasonSuggestions={reasonSuggestions}
+        onClose={() => { setLockOpen(false); onClose() }}
+        onLocked={onMutated}
+        onConflict={(c) => { setConflicts(c); setLockOpen(false); setConflictOpen(true) }}
+      />
+
+      <LockConflictModal
+        open={conflictOpen}
+        nodeName={nodeName}
+        conflicts={conflicts}
+        onClose={() => { setConflictOpen(false); onClose() }}
+      />
     </>
   )
 }
@@ -241,15 +297,17 @@ interface MenuButtonProps {
   onClick: () => void
   disabled?: boolean
   danger?: boolean
+  'data-testid'?: string
 }
 
-function MenuButton({ children, onClick, disabled, danger }: MenuButtonProps) {
+function MenuButton({ children, onClick, disabled, danger, 'data-testid': testId }: MenuButtonProps) {
   return (
     <button
       type="button"
       role="menuitem"
       onClick={onClick}
       disabled={disabled}
+      data-testid={testId}
       style={{
         display: 'block',
         width: '100%',

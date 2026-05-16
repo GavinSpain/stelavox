@@ -118,14 +118,13 @@ test.describe('Phase 5c — synthesise streaming smoke (TC-A-1 functional)', () 
     // bedside drawer" per fixtures/director-corpus/j5-novel/structure.ts).
     const { data: beat } = await admin
       .from('nodes')
-      .select('id, version, locked, node_type, name')
+      .select('id, version, node_type, name')
       .eq('document_id', doc.id)
       .eq('node_type', 'beat')
-      .eq('locked', false)
       .order('order')
       .limit(1)
       .single()
-    if (!beat) throw new Error('no unlocked beat in fixture')
+    if (!beat) throw new Error('no beat in fixture')
 
     setup = {
       organisationId: member.organisation_id,

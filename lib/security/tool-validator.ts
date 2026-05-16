@@ -162,7 +162,7 @@ async function checkNodeScope(
 ): Promise<ValidationResult | null> {
   const { data: node } = await supabase
     .from('nodes')
-    .select('id, organisation_id, document_id, locked')
+    .select('id, organisation_id, document_id')
     .eq('id', nodeId)
     .maybeSingle()
 
@@ -190,10 +190,11 @@ async function checkNodeScope(
     return deny('cross_document_access_denied')
   }
 
-  if (node.locked && isWriteTool(toolName as ToolName) && isWriteTarget) {
-    // Write tool targeting a locked node — denied. Comments are an
-    // exception (admitted on locked nodes); checked at the executor layer.
-    if (toolName !== 'create_comment_step') {
+  // Phase 6: lock state from node_author_locks (nodes.locked dropped).
+  if (isWriteTool(toolName as ToolName) && isWriteTarget && toolName !== 'create_comment_step') {
+    const { data: lockRow } = await supabase
+      .from('node_author_locks').select('node_id').eq('node_id', nodeId).maybeSingle()
+    if (lockRow) {
       audit('tool_call_locked_node', 'medium', session, { tool: toolName, node_id: nodeId })
       return deny('node_locked')
     }

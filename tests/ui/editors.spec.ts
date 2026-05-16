@@ -63,8 +63,22 @@ async function setupFixture(orgId: string, prefix: string, opts: { locked?: bool
     organisation_id: orgId, project_id: project!.id, document_id: setup.document.id,
     parent_id: scene!.id, node_category: 'structural', node_type: 'beat',
     order: 1, depth: 4, layer_index: 4, name: beatName,
-    status: 'draft', version: 1, locked: opts.locked ?? false,
+    status: 'draft', version: 1,
   }).select('id').single()
+
+  if (opts.locked) {
+    // Phase 6: nodes.locked dropped; use node_author_locks.
+    const { data: member } = await admin
+      .from('organisation_members').select('user_id')
+      .eq('organisation_id', orgId).limit(1).single()
+    if (member?.user_id) {
+      await admin.from('node_author_locks').insert({
+        node_id: beat!.id, organisation_id: orgId,
+        locked_by_user_id: member.user_id, lock_reason: 'test fixture',
+      })
+    }
+  }
+
   return { projectId: project!.id, documentId: setup.document.id, beatId: beat!.id, beatName }
 }
 
@@ -254,7 +268,16 @@ test.describe('Phase 3 — editors', () => {
     const f = await setupFixture(orgA, 'TC-U-11')
     await openBeat(page, f)
     // Lock the node via service role
-    await adminClient().from('nodes').update({ locked: true }).eq('id', f.beatId)
+    // Phase 6: insert into node_author_locks.
+    const { data: org } = await adminClient()
+      .from('nodes').select('organisation_id').eq('id', f.beatId).single()
+    const { data: member } = await adminClient()
+      .from('organisation_members').select('user_id')
+      .eq('organisation_id', org!.organisation_id).limit(1).single()
+    await adminClient().from('node_author_locks').insert({
+      node_id: f.beatId, organisation_id: org!.organisation_id,
+      locked_by_user_id: member!.user_id, lock_reason: 'TC-U-23',
+    })
     await page.locator('[data-editor="prose"] .tiptap').click()
     await page.keyboard.type('x')
     const { status } = await waitForPatch(page, f.beatId)

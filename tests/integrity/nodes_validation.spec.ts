@@ -129,9 +129,10 @@ test('PATCH: status enum out of range → fail', () => {
   expect(r.success).toBe(false)
 })
 
-test('PATCH: locked=true accepted (admin/test path per §2.11.7)', () => {
-  const r = nodePatchSchema.safeParse({ locked: true, status: 'locked' })
-  expect(r.success).toBe(true)
+test.skip('PATCH: locked=true accepted (admin/test path per §2.11.7) — SUPERSEDED Phase 6', () => {
+  // Phase 6: direct PATCH to nodes.locked is removed. Locking moves
+  // to dedicated POST/DELETE /api/nodes/[id]/lock endpoints. Status
+  // enum also dropped 'locked' (D7).
 })
 
 test('PATCH: each PATCH-only-forbidden field individually → fail', () => {

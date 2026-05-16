@@ -23,7 +23,10 @@
 import { z } from 'zod'
 import { CONTEXT_NODE_TYPES_V1 } from '@/lib/context/types'
 
-const NODE_STATUS_V2   = ['draft', 'in_review', 'approved', 'locked'] as const
+// Phase 6 D7: status reduced from 4 to 2 values. in_review (vestigial,
+// no user story) and locked (collapsed into Author Lock as its own
+// axis, not a status value) dropped.
+const NODE_STATUS_V2   = ['draft', 'approved'] as const
 const NODE_CATEGORY_V2 = ['structural'] as const
 const NODE_SCOPE_V4    = ['project', 'document'] as const
 
@@ -49,7 +52,10 @@ const summaryField          = z.string().max(100_000).nullable().optional()
 const proseField            = z.string().max(2_000_000).nullable().optional()
 const notesField            = z.string().max(100_000).nullable().optional()
 const metadataField         = z.record(z.string(), z.unknown()).optional()
-const lockReasonField       = z.string().max(1000).nullable().optional()
+// Phase 6: lock_reason no longer settable via PATCH /api/nodes/[id].
+// Locking moves to POST /api/nodes/[id]/lock with body { reason? }.
+// Type retained for backwards-compat of any importers; routes reject.
+const lockReasonField       = z.string().max(1000).nullable().optional()  // eslint-disable-line @typescript-eslint/no-unused-vars
 // Phase 3: optional optimistic-concurrency token. Strict integer ≥ 1.
 const expectedVersionField  = z.number().int().min(1).optional()
 // SU-J14-1: autosave concurrency anchor. Bumps on every content change;
@@ -111,8 +117,10 @@ export const nodePatchSchema = z.object({
   prose:             proseField,
   notes:             notesField,
   metadata:          metadataField,
-  locked:            z.boolean().optional(),
-  lock_reason:       lockReasonField,
+  // Phase 6: PATCH no longer accepts locked / lock_reason. Locking
+  // moved to dedicated POST/DELETE /api/nodes/[id]/lock endpoints
+  // backed by node_author_locks. .strict() ensures these fields fail
+  // with unknown_field if a stale client sends them.
   // Phase 3: optimistic-concurrency check; not a settable column. The route
   // strips it before the UPDATE.
   expected_version:  expectedVersionField,

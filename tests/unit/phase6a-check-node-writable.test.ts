@@ -117,9 +117,14 @@ describe.skipIf(!hasServiceKey)('Phase 6.A check_node_writable RPC', () => {
     expect(data).toMatchObject({ writable: true, blocker: null, details: null })
   })
 
-  it('returns author_locked when nodes.locked = TRUE (read source for 6.A; moves to node_author_locks in 6.B)', async () => {
+  it('returns author_locked when node_author_locks row exists (Phase 6.B source)', async () => {
     if (!fix) throw new Error('no fixture')
-    await svc.from('nodes').update({ locked: true, lock_reason: 'test lock' }).eq('id', fix.childNodeId)
+    await svc.from('node_author_locks').insert({
+      node_id: fix.childNodeId,
+      organisation_id: fix.organisationId,
+      locked_by_user_id: fix.ownerUserId,
+      lock_reason: 'test lock',
+    })
 
     const { data } = await svc.rpc('check_node_writable', {
       p_node_id: fix.childNodeId,
@@ -128,7 +133,7 @@ describe.skipIf(!hasServiceKey)('Phase 6.A check_node_writable RPC', () => {
     expect(data).toMatchObject({ writable: false, blocker: 'author_locked' })
     expect((data as { details: { reason: string } }).details.reason).toBe('test lock')
 
-    await svc.from('nodes').update({ locked: false, lock_reason: null }).eq('id', fix.childNodeId)
+    await svc.from('node_author_locks').delete().eq('node_id', fix.childNodeId)
   })
 
   it('returns node_in_use when another user has an Edit Session', async () => {
@@ -247,7 +252,10 @@ describe.skipIf(!hasServiceKey)('Phase 6.A check_node_writable RPC', () => {
     if (!fix) throw new Error('no fixture')
 
     // Set up all three blockers simultaneously.
-    await svc.from('nodes').update({ locked: true }).eq('id', fix.childNodeId)
+    await svc.from('node_author_locks').insert({
+      node_id: fix.childNodeId, organisation_id: fix.organisationId,
+      locked_by_user_id: fix.ownerUserId, lock_reason: 'priority test',
+    })
     const future = new Date(Date.now() + 5 * 60_000).toISOString()
     await svc.from('node_locks').insert({
       node_id: fix.childNodeId, organisation_id: fix.organisationId,
@@ -273,7 +281,7 @@ describe.skipIf(!hasServiceKey)('Phase 6.A check_node_writable RPC', () => {
     expect(data).toMatchObject({ writable: false, blocker: 'author_locked' })
 
     // Now remove author lock; node_in_use should win.
-    await svc.from('nodes').update({ locked: false }).eq('id', fix.childNodeId)
+    await svc.from('node_author_locks').delete().eq('node_id', fix.childNodeId)
     const { data: d2 } = await svc.rpc('check_node_writable', {
       p_node_id: fix.childNodeId,
       p_requesting_user_id: fix.ownerUserId,

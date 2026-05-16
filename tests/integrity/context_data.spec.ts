@@ -114,7 +114,7 @@ test('TC-D-05 Cascade delete on structural node removes the link', async () => {
     organisation_id: orgId, project_id: project.id, document_id: setup.document.id,
     parent_id: setup.root_node.id, node_category: 'structural', node_type: 'act',
     order: 1, depth: 1, layer_index: 1, name: 'Act 1',
-    locked: false, status: 'draft', version: 1, metadata: {} as never,
+    status: 'draft', version: 1, metadata: {} as never,
   }).select().single()
 
   const link = await linkContextFixture(child!.id, elena.id, orgId)

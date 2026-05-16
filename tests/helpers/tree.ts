@@ -49,6 +49,10 @@ interface InsertNodeArgs {
   depth: number
   layerIndex: number
   name?: string
+  // Phase 6: nodes.locked column dropped. Author Lock state lives in
+  // node_author_locks. Pass `locked: true` to make this helper also
+  // insert a node_author_locks row after creating the node (the org's
+  // first member is used as the locker for fixture convenience).
   locked?: boolean
 }
 
@@ -69,13 +73,31 @@ export async function insertNode(
       depth:           args.depth,
       layer_index:     args.layerIndex,
       name:            args.name ?? null,
-      locked:          args.locked ?? false,
       status:          'draft',
       version:         1,
     })
     .select('id')
     .single()
-  return data!.id
+  const nodeId = data!.id
+
+  if (args.locked) {
+    // Pick the org's first member as the locker.
+    const { data: member } = await admin
+      .from('organisation_members')
+      .select('user_id')
+      .eq('organisation_id', args.orgId)
+      .limit(1)
+      .single()
+    if (member?.user_id) {
+      await admin.from('node_author_locks').insert({
+        node_id: nodeId,
+        organisation_id: args.orgId,
+        locked_by_user_id: member.user_id,
+        lock_reason: 'test fixture',
+      })
+    }
+  }
+  return nodeId
 }
 
 export async function disposeFixture(fix: DocFixture) {

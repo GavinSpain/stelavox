@@ -75,7 +75,8 @@ export async function runRefineAcceptProbe(): Promise<ProbeRunResult> {
     summary: target.summary,
     version: target.version,
     content_revision: target.content_revision,
-    locked: target.locked,
+    // Phase 6: nodes.locked dropped. Refine probe doesn't touch
+    // node_author_locks, so no lock snapshot/restore needed.
   }
 
   // Resolve the refine profile for this node_type.
@@ -148,7 +149,6 @@ export async function runRefineAcceptProbe(): Promise<ProbeRunResult> {
       summary: snapshot.summary,
       version: snapshot.version,
       content_revision: snapshot.content_revision,
-      locked: snapshot.locked,
     })
     .eq('id', targetNodeId)
   await svc.from('agent_jobs').delete().eq('id', jobId)

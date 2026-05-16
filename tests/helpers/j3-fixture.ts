@@ -70,8 +70,21 @@ export async function setupJ3Fixture(orgId: string, prefix: string, opts: { lock
     organisation_id: orgId, project_id: project.id, document_id: setup.document.id,
     parent_id: scene!.id, node_category: 'structural', node_type: 'beat',
     order: 1, depth: 4, layer_index: 4, name: beatName,
-    status: 'draft', version: 1, locked: opts.lockedBeat ?? false,
+    status: 'draft', version: 1,
   }).select('id').single()
+
+  if (opts.lockedBeat) {
+    // Phase 6: nodes.locked dropped; use node_author_locks.
+    const { data: member } = await admin
+      .from('organisation_members').select('user_id')
+      .eq('organisation_id', orgId).limit(1).single()
+    if (member?.user_id) {
+      await admin.from('node_author_locks').insert({
+        node_id: beat!.id, organisation_id: orgId,
+        locked_by_user_id: member.user_id, lock_reason: 'fixture lock',
+      })
+    }
+  }
 
   return {
     projectId: project.id,

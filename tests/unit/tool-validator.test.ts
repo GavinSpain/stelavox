@@ -62,24 +62,26 @@ beforeAll(async () => {
     .limit(1)
     .maybeSingle()
   if (!doc) throw new Error('No document in j5-novel project. Re-seed.')
-  const { data: locked } = await a
+  // Phase 6: nodes.locked dropped. Find a chapter to lock and another to leave unlocked.
+  const { data: chapters } = await a
     .from('nodes')
     .select('id')
     .eq('document_id', doc.id)
     .eq('node_type', 'chapter')
-    .eq('locked', true)
-    .limit(1)
-    .maybeSingle()
-  if (!locked) throw new Error('No locked chapter in seeded fixture.')
-  const { data: unlocked } = await a
-    .from('nodes')
-    .select('id')
-    .eq('document_id', doc.id)
-    .eq('node_type', 'chapter')
-    .eq('locked', false)
-    .limit(1)
-    .maybeSingle()
-  if (!unlocked) throw new Error('No unlocked chapter in seeded fixture.')
+    .order('order')
+    .limit(2)
+  if (!chapters || chapters.length < 2) throw new Error('Need 2 chapters in fixture.')
+  const locked = chapters[0]
+  const unlocked = chapters[1]
+  // Ensure the first one is locked (via node_author_locks).
+  await a.from('node_author_locks').delete().eq('node_id', locked.id)  // clean prior runs
+  await a.from('node_author_locks').delete().eq('node_id', unlocked.id)
+  const { data: member2 } = await a
+    .from('organisation_members').select('user_id').eq('organisation_id', member.organisation_id).limit(1).single()
+  await a.from('node_author_locks').insert({
+    node_id: locked.id, organisation_id: member.organisation_id,
+    locked_by_user_id: member2!.user_id, lock_reason: 'tool-validator test',
+  })
   fixture = {
     orgId: member.organisation_id,
     documentId: doc.id,

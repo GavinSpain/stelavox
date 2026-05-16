@@ -127,7 +127,7 @@ const NODE_SELECT = [
   'node_type', 'node_category', 'scope',
   'name', 'short_description', 'tags',
   'summary', 'prose', 'notes', 'metadata',
-  'status', 'locked', 'lock_reason',
+  'status',  // Phase 6: locked / lock_reason dropped (now in node_author_locks)
   'agent_instruction', 'word_count_target', 'word_count_actual',
   'version', 'content_revision', 'created_at', 'updated_at',
   // V1.x-D.2 — consumed by NodeRow AI-changed flag (client compares to

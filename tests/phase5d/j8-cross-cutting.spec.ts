@@ -164,7 +164,16 @@ test('TC-J8-15: scheduled jobs use FOR UPDATE SKIP LOCKED (H-11)', async () => {
 test('TC-J8-01: locked node returns 423 on PATCH attempt', async () => {
   const f = await newFixture('J8-01')
   const admin = adminClient()
-  await admin.from('nodes').update({ locked: true }).eq('id', f.beatId)
+  // Phase 6: nodes.locked dropped; insert into node_author_locks.
+  const { data: node } = await admin
+    .from('nodes').select('organisation_id').eq('id', f.beatId).single()
+  const { data: member } = await admin
+    .from('organisation_members').select('user_id')
+    .eq('organisation_id', node!.organisation_id).limit(1).single()
+  await admin.from('node_author_locks').insert({
+    node_id: f.beatId, organisation_id: node!.organisation_id,
+    locked_by_user_id: member!.user_id, lock_reason: 'J8 test',
+  })
 
   const ctx = await ctxA()
   const res = await ctx.patch(`/api/nodes/${f.beatId}`, {

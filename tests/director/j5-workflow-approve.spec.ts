@@ -77,12 +77,13 @@ test.describe('TC-A-15 — Workflow approve + execute happy path', () => {
     if (!doc) throw new Error('doc missing')
 
     // Pick an unlocked Scene node for the refine step.
+    // Phase 6: nodes.locked dropped. Fixture data starts unlocked so a
+    // simple first-by-order pick is correct here.
     const { data: scene } = await admin
       .from('nodes')
       .select('id, version')
       .eq('document_id', doc.id)
       .eq('node_type', 'scene')
-      .eq('locked', false)
       .order('order')
       .limit(1)
       .single()
