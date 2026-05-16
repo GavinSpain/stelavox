@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stelavox — Failure-mode UX Wireframe & Specification v1.0 (V1.x-F)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500&family=Cormorant+Garamond:ital,wght@1,300&family=Inter:wght@200;300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --ink:#0d1014; --deep:#131820; --surface:#1a2030; --hover:#1e2838; --selected:#1f2d45;
+  --border-s:#1e2535; --border-d:#253045; --border-str:#3a4a62;
+  --text-p:#ecf0f5; --text-s:#8aa0b8; --text-m:#4a6080; --text-dis:#2a3850;
+  --verd:#3d7858; --verd-h:#5aa87a; --verd-m:#1a3028;
+  --ag-run:#2e5a90; --st-rev:#b87030; --destr:#b83838;
+  --info:#3a6090;
+  --spec-bg:#0a0d12; --spec-pan:#111520; --callout:#e8b840;
+}
+
+body { background: var(--spec-bg); color: var(--text-p); font-family: 'Inter', sans-serif; font-size: 13px; line-height: 1.5; }
+
+.doc-header { background: var(--spec-pan); border-bottom: 1px solid var(--border-d); padding: 24px 48px; display:flex; align-items:baseline; justify-content:space-between; }
+.wm-s { font-family:'Cinzel',serif; font-size:14px; font-weight:500; letter-spacing:.18em; color:var(--text-p); }
+.wm-v { font-family:'Cormorant Garamond',serif; font-style:italic; font-weight:300; font-size:16px; letter-spacing:.08em; color:var(--text-p); opacity:.82; }
+.doc-meta { font-size:11px; font-weight:300; letter-spacing:.2em; text-transform:uppercase; color:var(--text-m); }
+
+.section { padding: 40px 48px 0; }
+.slabel { font-size:9px; font-weight:400; letter-spacing:.45em; text-transform:uppercase; color:var(--text-m); margin-bottom:20px; padding-bottom:12px; border-bottom:1px solid var(--border-s); }
+.sub-label { font-size:9px; font-weight:400; letter-spacing:.38em; text-transform:uppercase; color:var(--text-m); padding:8px 0 12px; }
+
+.cn { display:inline-flex; align-items:center; justify-content:center; width:18px; height:18px; background:var(--callout); color:#0a0800; border-radius:50%; font-size:10px; font-weight:700; flex-shrink:0; position:absolute; z-index:20; }
+
+/* Stage container — two-column wireframe layouts */
+.stage-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; align-items: start; padding-bottom: 40px; }
+.stage-grid.full { grid-template-columns: 1fr; }
+.stage-frame {
+  background: var(--ink);
+  border: 1px solid var(--border-s);
+  border-radius: 8px;
+  padding: 20px;
+  position: relative;
+}
+.stage-title { font-size: 10px; font-weight: 500; letter-spacing: .22em; text-transform: uppercase; color: var(--text-s); margin-bottom: 14px; }
+
+/* Director panel sim */
+.dir-panel {
+  background: var(--deep);
+  border: 1px solid var(--border-s);
+  border-radius: 6px;
+  position: relative;
+  overflow: hidden;
+}
+.dir-header {
+  background: var(--ink);
+  border-bottom: 1px solid var(--border-s);
+  padding: 10px 14px;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.dir-header-title { font-size: 13px; font-weight: 500; color: var(--text-p); display:flex; align-items:center; gap:8px; }
+.dir-icon { color: var(--text-s); font-size: 14px; }
+.dir-body { padding: 16px; }
+
+.msg { margin-bottom: 14px; }
+.msg-role { font-size: 10px; font-weight: 500; letter-spacing: .14em; text-transform: uppercase; color: var(--text-m); margin-bottom: 4px; }
+.msg-content { font-size: 13px; color: var(--text-p); line-height: 1.55; }
+.msg-content.assistant { color: var(--text-s); }
+
+/* CapabilityLimitCard */
+.cap-card {
+  border: 1px solid var(--border-d);
+  border-left: 3px solid var(--info);
+  border-radius: 4px;
+  padding: 12px 14px;
+  background: var(--ink);
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--text-s);
+  position: relative;
+}
+.cap-header {
+  font-size: 10px; font-weight: 500; letter-spacing: .18em; text-transform: uppercase;
+  color: var(--info); margin-bottom: 6px;
+  display: flex; align-items: center; gap: 8px;
+}
+.cap-title {
+  font-size: 13px; font-weight: 500; color: var(--text-p); margin-bottom: 8px;
+}
+.cap-meta { font-size: 11px; color: var(--text-m); margin-bottom: 10px; }
+.cap-reason { font-size: 12px; color: var(--text-s); margin-bottom: 12px; line-height: 1.6; }
+.cap-suggested {
+  background: var(--surface);
+  border-left: 2px solid var(--info);
+  padding: 10px 12px;
+  margin-bottom: 12px;
+  border-radius: 3px;
+}
+.cap-suggested-label { font-size: 9px; font-weight: 500; letter-spacing: .2em; text-transform: uppercase; color: var(--text-m); margin-bottom: 4px; }
+.cap-suggested-text { font-size: 12px; color: var(--text-p); }
+.cap-action {
+  font-size: 12px; font-weight: 400;
+  color: var(--text-p);
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--border-str);
+  padding: 4px 0;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+/* Failure toast — generic */
+.toast-container {
+  position: relative;
+  width: 100%;
+  background: var(--deep);
+  border: 1px solid var(--border-s);
+  border-radius: 8px;
+  padding: 28px 20px;
+  min-height: 200px;
+}
+.toast-anchor {
+  position: absolute;
+  bottom: 16px; right: 16px;
+  width: 320px;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.toast {
+  background: var(--ink);
+  border: 1px solid var(--border-d);
+  border-left: 3px solid var(--info);
+  border-radius: 4px;
+  padding: 10px 12px;
+  font-size: 12px;
+  color: var(--text-s);
+  display: flex; align-items: flex-start; gap: 10px;
+  box-shadow: 0 4px 16px rgba(0,0,0,.4);
+  position: relative;
+}
+.toast.class-a { border-left-color: var(--info); }
+.toast.class-c { border-left-color: var(--st-rev); }
+.toast-icon {
+  width: 16px; height: 16px;
+  display: inline-flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.toast.class-a .toast-icon { color: var(--info); }
+.toast.class-c .toast-icon { color: var(--st-rev); }
+.toast-body { flex: 1; }
+.toast-title { font-size: 11px; font-weight: 500; color: var(--text-p); margin-bottom: 2px; }
+.toast-msg { font-size: 11px; color: var(--text-s); }
+.toast-dismiss {
+  font-size: 14px; color: var(--text-m);
+  background: transparent; border: none; cursor: pointer;
+  padding: 0; line-height: 1;
+}
+
+/* Failure banner */
+.banner-container {
+  background: var(--deep);
+  border: 1px solid var(--border-s);
+  border-radius: 8px;
+  padding: 20px;
+  min-height: 200px;
+}
+.banner {
+  background: var(--ink);
+  border: 1px solid var(--border-d);
+  border-radius: 4px;
+  padding: 14px 16px;
+  font-size: 12px;
+  color: var(--text-s);
+  display: flex; align-items: flex-start; gap: 12px;
+  margin-bottom: 12px;
+  position: relative;
+}
+.banner.class-d {
+  border-left: 3px solid var(--destr);
+}
+.banner.class-e {
+  border: 1px solid var(--destr);
+  background: linear-gradient(0deg, rgba(184,56,56,0.05) 0%, rgba(184,56,56,0.10) 100%);
+}
+.banner-icon {
+  width: 20px; height: 20px;
+  display: inline-flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  color: var(--destr);
+  font-size: 14px;
+}
+.banner-body { flex: 1; }
+.banner-title {
+  font-size: 13px; font-weight: 500;
+  color: var(--text-p);
+  margin-bottom: 4px;
+}
+.banner-msg { font-size: 12px; color: var(--text-s); margin-bottom: 8px; line-height: 1.6; }
+.banner-remediation {
+  background: var(--surface);
+  border-radius: 3px;
+  padding: 8px 10px;
+  font-size: 11px;
+  color: var(--text-s);
+  margin-top: 8px;
+}
+.banner-remediation-label {
+  font-size: 9px; font-weight: 500; letter-spacing: .2em; text-transform: uppercase;
+  color: var(--text-m); margin-bottom: 4px;
+}
+.banner-cta {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 12px;
+  background: transparent;
+  color: var(--text-p);
+  border: 1px solid var(--border-str);
+  border-radius: 3px;
+  padding: 6px 12px;
+  cursor: pointer;
+  margin-top: 10px;
+  text-decoration: none;
+}
+.banner-cta.destructive {
+  border-color: var(--destr);
+  color: var(--destr);
+}
+.banner-dismiss {
+  font-size: 16px; color: var(--text-m);
+  background: transparent; border: none; cursor: pointer;
+  padding: 0; line-height: 1;
+  position: absolute; top: 12px; right: 12px;
+}
+
+/* Class B reference (already shipped V1.x-D) */
+.class-b-ref {
+  background: var(--deep);
+  border: 1px dashed var(--border-d);
+  border-radius: 8px;
+  padding: 20px;
+  font-size: 11px;
+  color: var(--text-m);
+  text-align: center;
+  min-height: 150px;
+  display: flex; align-items: center; justify-content: center;
+}
+
+/* Annotations */
+.annotations {
+  background: var(--spec-pan);
+  padding: 36px 48px;
+  border-top: 1px solid var(--border-d);
+  border-bottom: 1px solid var(--border-d);
+  margin-top: 40px;
+}
+.annotations-title { font-size:11px; font-weight:500; letter-spacing:.4em; text-transform:uppercase; color:var(--text-s); margin-bottom: 24px; padding-bottom:12px; border-bottom:1px solid var(--border-d); }
+.ann-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px 32px; }
+.ann-row { display: flex; gap: 12px; align-items: flex-start; }
+.ann-num {
+  flex-shrink: 0;
+  background: var(--callout); color: #0a0800;
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 700;
+}
+.ann-text { font-size: 12px; color: var(--text-s); line-height: 1.55; }
+.ann-text strong { color: var(--text-p); font-weight: 500; }
+.ann-text code {
+  font-family: 'Inter', monospace;
+  font-size: 11px;
+  background: var(--ink);
+  padding: 1px 6px;
+  border-radius: 2px;
+  color: var(--text-p);
+}
+
+/* Decision lists */
+.decisions {
+  padding: 36px 48px;
+  background: var(--spec-bg);
+}
+.decisions-title { font-size:11px; font-weight:500; letter-spacing:.4em; text-transform:uppercase; color:var(--text-s); margin-bottom: 20px; }
+.decision {
+  background: var(--spec-pan);
+  border: 1px solid var(--border-d);
+  border-left: 3px solid var(--info);
+  border-radius: 4px;
+  padding: 14px 16px;
+  margin-bottom: 12px;
+  font-size: 12px;
+  color: var(--text-s);
+  line-height: 1.6;
+}
+.decision strong { color: var(--text-p); }
+.decision .locked {
+  display: inline-block;
+  font-size: 9px; font-weight: 600; letter-spacing: .2em; text-transform: uppercase;
+  color: var(--verd-h);
+  background: var(--verd-m);
+  padding: 2px 8px;
+  border-radius: 3px;
+  margin-left: 8px;
+}
+
+/* Inviolable audit */
+.inv-audit {
+  padding: 36px 48px;
+  background: var(--spec-pan);
+  border-top: 1px solid var(--border-d);
+}
+.inv-row {
+  display: grid;
+  grid-template-columns: 30px 1fr 100px;
+  gap: 16px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border-s);
+  font-size: 12px;
+  color: var(--text-s);
+  align-items: center;
+}
+.inv-pass {
+  font-size: 10px; font-weight: 600; letter-spacing: .15em; text-transform: uppercase;
+  color: var(--verd-h);
+  text-align: right;
+}
+
+/* Refs */
+.refs {
+  padding: 28px 48px 56px;
+  background: var(--spec-bg);
+  border-top: 1px solid var(--border-d);
+  font-size: 11px;
+  color: var(--text-m);
+  line-height: 1.7;
+}
+.refs strong { color: var(--text-s); font-weight: 500; }
+</style>
+</head>
+<body>
+
+<!-- ── Document header ─────────────────────────────────────── -->
+<header class="doc-header">
+  <div>
+    <span class="wm-s">STELAVOX</span>
+    <span class="wm-v" style="margin-left: 10px;">/ Wireframe & Specification</span>
+  </div>
+  <div class="doc-meta">V1.x-F · Failure-mode UX · v1.0 · 2026-05-19</div>
+</header>
+
+<!-- ── SECTION 01 · CapabilityLimitCard (in conversation thread) ───── -->
+<section class="section">
+  <div class="slabel">§01 · CapabilityLimitCard — in Director conversation thread</div>
+
+  <div class="stage-grid full">
+    <div class="stage-frame">
+      <div class="stage-title">Director panel — model self-rejects + proposes alternative</div>
+      <div class="dir-panel">
+        <div class="dir-header">
+          <div class="dir-header-title">
+            <span class="dir-icon">◆</span>
+            <span>Director</span>
+          </div>
+          <div style="font-size:10px;color:var(--text-m);">scope: this document</div>
+        </div>
+        <div class="dir-body">
+          <div class="msg">
+            <div class="msg-role">You</div>
+            <div class="msg-content">Create scenes for chapters 1 through 50.</div>
+          </div>
+
+          <div class="msg">
+            <div class="msg-role">Director</div>
+            <div class="msg-content assistant">
+              I'd like to do this in stages rather than one go — here's what I can manage in a single workflow:
+            </div>
+
+            <!-- CapabilityLimitCard -->
+            <div class="cap-card" style="margin-top: 12px;">
+              <span class="cn" style="left:-9px;top:-9px;">1</span>
+              <div class="cap-header">
+                <span style="font-size:14px;">⚠</span>
+                <span>Capability limit</span>
+              </div>
+              <div class="cap-title">Single workflow capped at 30 nodes</div>
+              <div class="cap-meta">Detected: per-iteration cap · 50 requested, 30 maximum per workflow</div>
+
+              <div class="cap-reason">
+                A single workflow plan tops out at 30 nodes so each step gets adequate model attention and the plan stays readable. For chapters 1–50 (likely ~150 scenes), I'd run multiple sequential workflows.
+              </div>
+
+              <div class="cap-suggested">
+                <span class="cn" style="right:-9px;top:-9px;">2</span>
+                <div class="cap-suggested-label">Suggested alternative</div>
+                <div class="cap-suggested-text">
+                  Start with chapters 1–10 in the first workflow. Once those land, I'll plan chapters 11–20 and continue in batches. Each batch creates a separate Brief; you can pause or adjust between any of them.
+                </div>
+              </div>
+
+              <span class="cn" style="left:14px;bottom:-9px;">3</span>
+              <button class="cap-action">Adjust request →</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── SECTION 02 · FailureToast variants (Class A + Class C) ─────── -->
+<section class="section">
+  <div class="slabel">§02 · FailureToast — Class A (retry) + Class C (capacity)</div>
+
+  <div class="stage-grid">
+    <!-- Class A — retry in progress -->
+    <div class="stage-frame">
+      <div class="stage-title">Class A — Transient (auto-retry in progress)</div>
+      <div class="toast-container">
+        <div style="font-size:11px;color:var(--text-m);text-align:center;padding-top:60px;">
+          (App content above — toast anchors bottom-right)
+        </div>
+        <div class="toast-anchor">
+          <div class="toast class-a">
+            <span class="cn" style="left:-9px;top:-9px;">4</span>
+            <span class="toast-icon">⟳</span>
+            <div class="toast-body">
+              <div class="toast-title">Retrying call</div>
+              <div class="toast-msg">Provider returned a transient error · attempt 2 of 3</div>
+            </div>
+            <button class="toast-dismiss">×</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Class C — capacity attention -->
+    <div class="stage-frame">
+      <div class="stage-title">Class C — Capacity (queue back-off)</div>
+      <div class="toast-container">
+        <div style="font-size:11px;color:var(--text-m);text-align:center;padding-top:60px;">
+          (App content above — toast anchors bottom-right)
+        </div>
+        <div class="toast-anchor">
+          <div class="toast class-c">
+            <span class="cn" style="left:-9px;top:-9px;">5</span>
+            <span class="toast-icon">⏸</span>
+            <div class="toast-body">
+              <div class="toast-title">Briefly throttled</div>
+              <div class="toast-msg">Job paused for ~30s while the system catches up · no action needed</div>
+            </div>
+            <button class="toast-dismiss">×</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── SECTION 03 · FailureBanner variants (Class D + Class E) ─────── -->
+<section class="section">
+  <div class="slabel">§03 · FailureBanner — Class D (validation) + Class E (hard system)</div>
+
+  <div class="stage-grid full">
+
+    <!-- Class D — validation -->
+    <div class="stage-frame">
+      <div class="stage-title">Class D — Validation (model output rejected by guardrails)</div>
+      <div class="banner-container">
+        <div class="banner class-d">
+          <span class="cn" style="left:-9px;top:-9px;">6</span>
+          <span class="banner-icon">!</span>
+          <div class="banner-body">
+            <div class="banner-title">Generated content didn't pass validation</div>
+            <div class="banner-msg">
+              The synthesise step for <strong>"Bridge Crossing"</strong> produced output that exceeded the atom-size guardrail. The job has been marked failed and the node is unchanged.
+            </div>
+            <div class="banner-remediation">
+              <div class="banner-remediation-label">What to do</div>
+              Reduce the word-count target for this beat, or split it into two beats before re-running.
+            </div>
+            <a class="banner-cta" href="#">Open node →</a>
+          </div>
+          <button class="banner-dismiss">×</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Class E — hard system -->
+    <div class="stage-frame">
+      <div class="stage-title">Class E — Hard system (escalation)</div>
+      <div class="banner-container">
+        <div class="banner class-e">
+          <span class="cn" style="left:-9px;top:-9px;">7</span>
+          <span class="banner-icon">⚠</span>
+          <div class="banner-body">
+            <div class="banner-title">A system component returned an unrecoverable error</div>
+            <div class="banner-msg">
+              Job <code style="background:var(--surface);padding:1px 5px;border-radius:2px;color:var(--text-p);font-size:11px;">d4a91b…</code> failed with a hard system error. This isn't a normal failure mode — the team has been notified, and we'd appreciate any details you can share.
+            </div>
+            <span class="cn" style="left:280px;top:84px;">8</span>
+            <a class="banner-cta" href="mailto:support@stelavox.io?subject=Hard%20system%20error">Contact support</a>
+          </div>
+          <button class="banner-dismiss">×</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ── SECTION 04 · Class B (already shipped) reference ─────────────── -->
+<section class="section">
+  <div class="slabel">§04 · Class B reference — Resume button (shipped V1.x-D, regression-only in V1.x-F)</div>
+
+  <div class="stage-grid full">
+    <div class="class-b-ref">
+      <div>
+        <div style="color: var(--text-s); margin-bottom: 8px; font-weight: 500;">Class B — Interrupted (Resume)</div>
+        Already shipped V1.x-D as <strong style="color:var(--text-s);">StoppedFollowOnBanner</strong> (three-way Resume / Cancel / View follow-on after Stop).<br>
+        See <code style="background:var(--surface);padding:1px 5px;border-radius:2px;color:var(--text-p);font-size:11px;">docs/wireframes/wireframe_stop_refinement_v1.html</code> §02.<br>
+        V1.x-F regression-checks only — no new code.
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Annotations ─────────────────────────────────────────────────── -->
+<div class="annotations">
+  <div class="annotations-title">Annotations</div>
+  <div class="ann-grid">
+
+    <div class="ann-row"><span class="ann-num">1</span><span class="ann-text">
+      <strong>CapabilityLimitCard.</strong> Renders in conversation thread when an iteration emits <code>capability_limit_artefact</code>. Left border is <code>--color-info</code> (not <code>--color-error</code>) — this is the Director recognising its own limits, not a failure. Header pill icon is the warning glyph in <code>--color-info</code>.
+    </span></div>
+
+    <div class="ann-row"><span class="ann-num">2</span><span class="ann-text">
+      <strong>Suggested alternative block.</strong> The model's structured proposal of what it <em>can</em> do — surfaced separately from the reason text so the user can act on it without re-reading the explanation. Background <code>--color-bg-elevated</code> + 2px left accent in <code>--color-info</code>.
+    </span></div>
+
+    <div class="ann-row"><span class="ann-num">3</span><span class="ann-text">
+      <strong>"Adjust request" link.</strong> Text-link with subtle bottom border in <code>--color-border-strong</code> — informational affordance, <strong>not</strong> verdigris (there is no approval; the user reformulates their request manually). No button background; no fill.
+    </span></div>
+
+    <div class="ann-row"><span class="ann-num">4</span><span class="ann-text">
+      <strong>Class A toast.</strong> <code>--color-info</code> left border. Surfaces only at <strong>2nd retry onward</strong> — first retry stays silent (most transient errors resolve invisibly). Auto-dismisses after 6s. Message body shows attempt counter so the user knows how close we are to giving up.
+    </span></div>
+
+    <div class="ann-row"><span class="ann-num">5</span><span class="ann-text">
+      <strong>Class C toast.</strong> <code>--color-status-review</code> left border (attention without alarm — same family as in-review status pill). Surfaces when a job is paused by the WFQ dispatcher's back-off. Auto-dismisses after 8s (slightly longer than Class A — capacity events are rarer and the user benefits from a moment to register them).
+    </span></div>
+
+    <div class="ann-row"><span class="ann-num">6</span><span class="ann-text">
+      <strong>Class D banner.</strong> 3px left border in <code>--color-error</code>. Remediation block in the elevated surface tone tells the user what to do, not just what happened. Action link opens the affected node — no automatic retry (validation failures usually need user intervention).
+    </span></div>
+
+    <div class="ann-row"><span class="ann-num">7</span><span class="ann-text">
+      <strong>Class E banner.</strong> Full border in <code>--color-error</code> plus a low-saturation red gradient background — visually heavier than Class D because Class E is exceptional and worth pausing for. Tone is collaborative ("the team has been notified") not blame.
+    </span></div>
+
+    <div class="ann-row"><span class="ann-num">8</span><span class="ann-text">
+      <strong>Contact support CTA.</strong> mailto: link populated with the job id pre-filled in the subject. Border in <code>--color-error</code> echoes the banner border. No system-prompt or stack-trace dump in the email body (privacy + the user shouldn't paste arbitrary content unknowingly).
+    </span></div>
+
+  </div>
+</div>
+
+<!-- ── Locked decisions ────────────────────────────────────────────── -->
+<div class="decisions">
+  <div class="decisions-title">Open decisions to lock before F.1 build</div>
+
+  <div class="decision">
+    <strong>D1 · Class A first-retry silence.</strong> Should the Class A toast appear on the <strong>first</strong> retry or only on the <strong>second</strong>? <em>Recommendation: silent on first retry; surface on second.</em> Most transient errors resolve invisibly on retry 1; surfacing every transient blip becomes noise. Second-retry surfacing gives the user warning before the (final) third attempt.
+  </div>
+
+  <div class="decision">
+    <strong>D2 · Class C back-off threshold.</strong> Should every WFQ throttle event surface a Class C toast, or only when back-off duration exceeds N seconds? <em>Recommendation: surface only when back-off ≥ 15s.</em> Sub-second pauses are dispatcher-internal and shouldn't generate noise. Configurable via new <code>failure.class_c_min_pause_seconds</code> platform_config key (default 15).
+  </div>
+
+  <div class="decision">
+    <strong>D3 · Class E admin contact mechanism.</strong> <code>mailto:</code> link to a configurable address, or a dedicated in-app feedback form? <em>Recommendation: mailto: for V1.</em> Email address lives in <code>failure.class_e_admin_contact</code> platform_config key (default <code>support@stelavox.io</code>). In-app feedback form is V2 (requires a feedback table + admin inbox UI).
+  </div>
+
+  <div class="decision">
+    <strong>D4 · Dismissed-banner persistence.</strong> Should Class D / Class E banner dismissals persist across reloads (per-job-id in localStorage) or clear on reload? <em>Recommendation: persist via localStorage <code>failure-banner-dismissed:&lt;job_id&gt;</code>.</em> Same pattern as V1.x-D StoppedFollowOnBanner — keyed by job_id so each failure has its own dismiss state.
+  </div>
+
+  <div class="decision">
+    <strong>D5 · CapabilityLimitCard re-trigger.</strong> If the user re-sends the same over-capability request, does the Director re-emit the artefact or recognise it from conversation context? <em>Recommendation: re-emit each time.</em> Conversation rolling window may have dropped the prior artefact; re-emission is cheap and keeps the surface deterministic. Director prompt v1.10 doesn't add a "don't repeat capability_limit" instruction.
+  </div>
+
+</div>
+
+<!-- ── Inviolable audit ────────────────────────────────────────────── -->
+<div class="inv-audit">
+  <div class="annotations-title">Inviolable audit</div>
+
+  <div class="inv-row">
+    <span style="color: var(--callout); font-weight: 600;">1</span>
+    <span><strong style="color:var(--text-p);">Prose surface low-noise.</strong> No prose-surface changes in V1.x-F. The Director conversation surfaces are the only new mount points.</span>
+    <span class="inv-pass">PASS</span>
+  </div>
+
+  <div class="inv-row">
+    <span style="color: var(--callout); font-weight: 600;">2</span>
+    <span><strong style="color:var(--text-p);">Verdigris in exactly nine places.</strong> V1.x-F adds ZERO verdigris uses. CapabilityLimitCard's "Adjust request" is a text-link (no fill / no background). FailureToast uses <code>--color-info</code> / <code>--color-status-review</code>. FailureBanner uses <code>--color-error</code>. Contact support CTA uses <code>--color-error</code> border. Verdigris-use count remains <strong style="color:var(--verd-h);">9</strong>.</span>
+    <span class="inv-pass">PASS</span>
+  </div>
+
+  <div class="inv-row">
+    <span style="color: var(--callout); font-weight: 600;">3</span>
+    <span><strong style="color:var(--text-p);">Cinzel only in wordmark.</strong> No new wordmark surfaces. All copy in Inter.</span>
+    <span class="inv-pass">PASS</span>
+  </div>
+
+  <div class="inv-row">
+    <span style="color: var(--callout); font-weight: 600;">4</span>
+    <span><strong style="color:var(--text-p);">Typeface boundary.</strong> All V1.x-F surfaces are Inter — failure UX is structural / informational, not prose. No Lora introduced.</span>
+    <span class="inv-pass">PASS</span>
+  </div>
+
+  <div class="inv-row" style="border-bottom: none;">
+    <span style="color: var(--callout); font-weight: 600;">5</span>
+    <span><strong style="color:var(--text-p);">No prose-editor toolbar.</strong> Not applicable — no prose-editor changes.</span>
+    <span class="inv-pass">PASS</span>
+  </div>
+</div>
+
+<!-- ── Refs ────────────────────────────────────────────────────────── -->
+<div class="refs">
+  <strong>Companion specs:</strong> Component Spec §17.12 (CapabilityLimitCard) + §17.13 (FailureToast + FailureBanner) NEW · Director Architecture v2.5 §10 (failure-class UX) · Director Architecture v2.5 §4 (tool registry; report_capability_limit added in V1.10) · TA v2.8 §3.7.4 (platform_config new keys: failure.class_a_message, class_c_message, class_d_message_template, class_e_message, class_e_admin_contact, class_c_min_pause_seconds, banner_dismiss_persist) · Build Checklist v1.1 §3+§4 · Memory feedback_wireframe_first_for_ui.md (wireframe-first discipline locked V1.x-D).
+</div>
+
+</body>
+</html>
