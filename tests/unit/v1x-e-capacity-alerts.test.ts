@@ -53,7 +53,7 @@ function buildFakeSvc(opts: {
           gte: () => fq,
           order: () => fq,
           limit: () => fq,
-          then(resolve) {
+          then(resolve: (v: unknown) => void) {
             const samples = opts.rateLimitSamples?.[modelFilter] ?? []
             resolve({ data: samples.map((s) => ({ ...s, model_id: modelFilter })) })
           },
@@ -67,7 +67,7 @@ function buildFakeSvc(opts: {
           gte: () => fq,
           order: () => fq,
           limit: () => fq,
-          then(resolve) {
+          then(resolve: (v: unknown) => void) {
             const data = opts.oldestQueuedAt === undefined
               ? []
               : [{ queued_at: opts.oldestQueuedAt }]
