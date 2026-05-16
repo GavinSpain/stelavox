@@ -1,0 +1,878 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stelavox — Admin Dashboard Wireframe & Specification v1.0</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500&family=Cormorant+Garamond:ital,wght@1,300&family=Inter:wght@200;300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --ink:#0d1014; --deep:#131820; --surface:#1a2030; --hover:#1e2838; --selected:#1f2d45;
+  --border-s:#1e2535; --border-d:#253045; --border-str:#3a4a62;
+  --text-p:#ecf0f5; --text-s:#8aa0b8; --text-m:#4a6080; --text-dis:#2a3850;
+  --verd:#3d7858; --verd-h:#5aa87a; --verd-m:#1a3028;
+  --ag-run:#2e5a90; --st-rev:#b87030; --destr:#b83838;
+  --info:#3a6090;
+  --spec-bg:#0a0d12; --spec-pan:#111520; --callout:#e8b840;
+}
+
+body { background: var(--spec-bg); color: var(--text-p); font-family: 'Inter', sans-serif; font-size: 13px; line-height: 1.5; }
+
+.doc-header { background: var(--spec-pan); border-bottom: 1px solid var(--border-d); padding: 24px 48px; display:flex; align-items:baseline; justify-content:space-between; }
+.wm-s { font-family:'Cinzel',serif; font-size:14px; font-weight:500; letter-spacing:.18em; color:var(--text-p); }
+.wm-v { font-family:'Cormorant Garamond',serif; font-style:italic; font-weight:300; font-size:16px; letter-spacing:.08em; color:var(--text-p); opacity:.82; }
+.doc-meta { font-size:11px; font-weight:300; letter-spacing:.2em; text-transform:uppercase; color:var(--text-m); }
+
+.section { padding: 40px 48px 0; }
+.slabel { font-size:9px; font-weight:400; letter-spacing:.45em; text-transform:uppercase; color:var(--text-m); margin-bottom:20px; padding-bottom:12px; border-bottom:1px solid var(--border-s); }
+.sub-label { font-size:9px; font-weight:400; letter-spacing:.38em; text-transform:uppercase; color:var(--text-m); padding:8px 0 12px; }
+
+.cn { display:inline-flex; align-items:center; justify-content:center; width:18px; height:18px; background:var(--callout); color:#0a0800; border-radius:50%; font-size:10px; font-weight:700; flex-shrink:0; position:absolute; z-index:20; }
+
+/* Admin page shell */
+.admin-shell {
+  background: var(--ink);
+  border: 1px solid var(--border-s);
+  border-radius: 8px;
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 24px 32px;
+  position: relative;
+}
+.admin-header { display:flex; justify-content:space-between; align-items:flex-start; padding-bottom:16px; border-bottom:1px solid var(--border-s); margin-bottom:20px; }
+.admin-h1 { font-size: 22px; font-weight: 500; color: var(--text-p); margin-bottom: 4px; }
+.admin-sub { font-size: 12px; color: var(--text-m); }
+
+/* Time window selector */
+.window-tabs { display:flex; gap:4px; }
+.window-tab {
+  font-size: 11px; font-weight: 400;
+  padding: 5px 12px;
+  background: transparent;
+  border: 1px solid var(--border-s);
+  color: var(--text-s);
+  border-radius: 3px;
+  cursor: pointer;
+}
+.window-tab.active {
+  background: var(--surface);
+  color: var(--text-p);
+  border-color: var(--border-str);
+}
+
+/* Card grid */
+.dashboard-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.dashboard-grid.full { grid-template-columns: 1fr; }
+.dashboard-grid.tri { grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.dashboard-grid.quad { grid-template-columns: repeat(4, 1fr); gap: 12px; }
+
+.card {
+  background: var(--deep);
+  border: 1px solid var(--border-s);
+  border-radius: 6px;
+  padding: 16px 18px;
+  position: relative;
+}
+.card-title { font-size: 12px; font-weight: 500; color: var(--text-p); margin-bottom: 10px; display:flex; align-items:center; justify-content:space-between; }
+.card-title .card-subtitle { font-size: 10px; font-weight: 300; color: var(--text-m); }
+
+/* Live counter */
+.counter-card { padding: 14px 16px; }
+.counter-label { font-size: 9px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--text-m); margin-bottom: 8px; }
+.counter-value { font-size: 26px; font-weight: 500; color: var(--text-p); line-height: 1; font-variant-numeric: tabular-nums; }
+.counter-delta { font-size: 10px; color: var(--text-m); margin-top: 4px; }
+.counter-value.warn { color: var(--st-rev); }
+.counter-value.bad { color: var(--destr); }
+
+/* Per-class row */
+.class-row {
+  display: grid;
+  grid-template-columns: 60px 1fr 60px;
+  align-items: center;
+  padding: 6px 0;
+  font-size: 11px;
+  gap: 10px;
+}
+.class-name { color: var(--text-s); font-weight: 500; }
+.class-bar-track { height: 4px; background: var(--surface); border-radius: 2px; overflow: hidden; }
+.class-bar-fill { height: 100%; background: var(--info); opacity: 0.6; }
+.class-bar-fill.warn { background: var(--st-rev); opacity: 1; }
+.class-bar-fill.bad { background: var(--destr); opacity: 1; }
+.class-count { color: var(--text-p); text-align: right; font-variant-numeric: tabular-nums; }
+
+/* Headroom widget */
+.headroom-row {
+  display: grid;
+  grid-template-columns: 80px 1fr 75px;
+  align-items: center;
+  padding: 5px 0;
+  font-size: 11px;
+  gap: 10px;
+}
+.headroom-label { color: var(--text-s); }
+.headroom-track { height: 6px; background: var(--surface); border-radius: 3px; overflow: hidden; }
+.headroom-fill { height: 100%; background: var(--info); opacity: 0.6; }
+.headroom-fill.warn { background: var(--st-rev); opacity: 1; }
+.headroom-fill.bad { background: var(--destr); opacity: 1; }
+.headroom-pct { color: var(--text-p); text-align: right; font-variant-numeric: tabular-nums; }
+
+/* Sparkline */
+.spark { display:flex; align-items:flex-end; gap:2px; height: 40px; }
+.spark-bar { flex: 1; background: var(--text-s); opacity: 0.4; border-radius: 1px; min-height: 2px; }
+.spark-bar.peak { background: var(--ag-run); opacity: 0.8; }
+.spark-axis { display:flex; justify-content:space-between; font-size: 9px; color: var(--text-m); margin-top: 4px; }
+
+/* Failure class pill */
+.fail-class-row {
+  display: grid;
+  grid-template-columns: 22px 1fr 60px;
+  gap: 8px;
+  align-items: center;
+  padding: 5px 0;
+  font-size: 11px;
+}
+.fail-class-pill {
+  display:inline-flex; align-items:center; justify-content:center;
+  width: 22px; height: 18px;
+  font-size: 10px; font-weight: 600;
+  border-radius: 3px;
+}
+.fail-class-pill.A { background: rgba(58,96,144,0.20); color: #6aa0d0; }
+.fail-class-pill.B { background: rgba(184,112,48,0.18); color: var(--st-rev); }
+.fail-class-pill.C { background: rgba(184,112,48,0.18); color: var(--st-rev); }
+.fail-class-pill.D { background: rgba(184,56,56,0.18); color: var(--destr); }
+.fail-class-pill.E { background: rgba(184,56,56,0.30); color: var(--destr); }
+.fail-class-label { color: var(--text-s); }
+.fail-class-count { color: var(--text-p); text-align: right; font-variant-numeric: tabular-nums; }
+
+/* Top-N list */
+.top-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 10px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border-s);
+  align-items: center;
+  font-size: 12px;
+}
+.top-row:last-child { border-bottom: none; }
+.top-name { color: var(--text-p); }
+.top-name-sub { font-size: 10px; color: var(--text-m); }
+.top-value { color: var(--text-s); font-variant-numeric: tabular-nums; }
+.top-pct { font-size: 10px; color: var(--text-m); width: 40px; text-align: right; }
+
+/* Probe row */
+.probe-row {
+  display: grid;
+  grid-template-columns: 14px 1fr auto auto;
+  gap: 10px;
+  align-items: center;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--border-s);
+  font-size: 12px;
+}
+.probe-row:last-child { border-bottom: none; }
+.probe-status-dot { width: 8px; height: 8px; border-radius: 50%; }
+.probe-status-dot.pass { background: var(--verd-h); }
+.probe-status-dot.fail { background: var(--destr); }
+.probe-status-dot.stale { background: var(--text-m); }
+.probe-name { color: var(--text-p); font-weight: 500; }
+.probe-meta { font-size: 10px; color: var(--text-m); }
+.probe-last { color: var(--text-s); font-size: 10px; }
+
+/* Alert banner */
+.alert-banner {
+  background: rgba(184,112,48,0.10);
+  border-left: 3px solid var(--st-rev);
+  border-radius: 4px;
+  padding: 10px 12px;
+  font-size: 12px;
+  color: var(--text-s);
+  line-height: 1.55;
+  margin-bottom: 16px;
+}
+.alert-banner .alert-title { color: var(--st-rev); font-weight: 500; margin-bottom: 2px; }
+
+/* Auth-gate redirect note */
+.auth-gate-frame {
+  background: var(--ink);
+  border: 1px dashed var(--border-d);
+  border-radius: 8px;
+  padding: 60px 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 12px;
+  text-align: center;
+  position: relative;
+}
+.auth-gate-frame .ag-title { font-size: 16px; font-weight: 500; color: var(--text-p); }
+.auth-gate-frame .ag-sub { font-size: 12px; color: var(--text-m); max-width: 380px; line-height: 1.5; }
+
+/* Annotations */
+.annotations { padding: 0 48px 80px; }
+.ann-grid { display:grid; grid-template-columns:1fr 1fr; gap: 28px 36px; margin-top:20px; }
+.ann-item { display:flex; gap:14px; }
+.ann-num { width:22px; height:22px; background:var(--callout); color:#0a0800; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; flex-shrink:0; }
+.ann-body { flex:1; }
+.ann-title { font-size:13px; font-weight:500; color:var(--text-p); margin-bottom:4px; }
+.ann-ref { font-size:10px; font-weight:300; color:var(--text-m); margin-bottom:8px; font-style:italic; }
+.ann-desc { font-size:12px; color:var(--text-s); line-height:1.6; }
+.ann-desc code { font-family:'Inter',monospace; background:var(--surface); padding:1px 5px; border-radius:3px; font-size:11px; color:var(--text-p); }
+.ann-desc .critical { color: var(--st-rev); font-weight: 500; }
+.ann-desc .inviolable { color: var(--verd-h); font-weight: 500; }
+
+/* Decisions / state matrix card */
+.card.wide { padding: 18px 22px; }
+.card.wide .card-title { font-size: 13px; }
+table { width: 100%; border-collapse: collapse; font-size: 12px; }
+th, td { padding: 7px 8px; text-align: left; }
+th { font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-m); font-weight: 400; border-bottom: 1px solid var(--border-d); }
+td { color: var(--text-s); border-bottom: 1px solid var(--border-s); }
+td:last-child { color: var(--text-p); font-variant-numeric: tabular-nums; }
+</style>
+</head>
+<body>
+
+<!-- Doc header -->
+<div class="doc-header">
+  <div>
+    <div style="display:flex;align-items:baseline;"><span class="wm-s">Stela</span><span class="wm-v">vox</span></div>
+    <div style="margin-top:6px;font-size:11px;font-weight:300;letter-spacing:.2em;text-transform:uppercase;color:var(--text-m);">
+      Admin Dashboard — Annotated Wireframe &amp; Specification · v1.0
+    </div>
+  </div>
+  <div class="doc-meta">Companion: Component Spec §17.5 · TA v2.7 · V1.x-E scope</div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════
+     SECTION 1 — Main dashboard · normal state
+     ══════════════════════════════════════════════════════════════ -->
+<div class="section"><div class="slabel">01 — /admin · main dashboard · normal state · last-hour window</div></div>
+
+<div style="padding:40px 48px;">
+  <div class="admin-shell">
+    <span class="cn" style="top:24px;right:32px;">1</span>
+
+    <div class="admin-header">
+      <div>
+        <div class="admin-h1">Stelavox Admin</div>
+        <div class="admin-sub">Platform operations · realtime · admin-only</div>
+      </div>
+      <div class="window-tabs">
+        <span class="cn" style="top:-9px;right:-9px;">2</span>
+        <button class="window-tab">Live</button>
+        <button class="window-tab active">1h</button>
+        <button class="window-tab">24h</button>
+        <button class="window-tab">7d</button>
+      </div>
+    </div>
+
+    <!-- ── Live counters row ───────────────────────────────────── -->
+    <div class="sub-label">Live operations</div>
+    <div class="dashboard-grid quad">
+      <div class="card counter-card">
+        <span class="cn" style="top:6px;right:8px;">3</span>
+        <div class="counter-label">Active Director turns</div>
+        <div class="counter-value">8</div>
+        <div class="counter-delta">across 6 organisations</div>
+      </div>
+      <div class="card counter-card">
+        <div class="counter-label">Running agent jobs</div>
+        <div class="counter-value">14</div>
+        <div class="counter-delta">↑ 3 vs 10m ago</div>
+      </div>
+      <div class="card counter-card">
+        <div class="counter-label">Queued jobs</div>
+        <div class="counter-value">42</div>
+        <div class="counter-delta">waiting on throttle</div>
+      </div>
+      <div class="card counter-card">
+        <div class="counter-label">Failures (24h)</div>
+        <div class="counter-value warn">17</div>
+        <div class="counter-delta">8 transient · 6 capacity · 3 validation</div>
+      </div>
+    </div>
+
+    <!-- ── Queue depth per class + Anthropic headroom ──────────── -->
+    <div class="sub-label" style="margin-top: 22px;">Queue + capacity</div>
+    <div class="dashboard-grid">
+
+      <div class="card">
+        <span class="cn" style="top:10px;right:12px;">4</span>
+        <div class="card-title">Queue depth by class<span class="card-subtitle">current snapshot</span></div>
+        <div class="class-row">
+          <div class="class-name">Class 1</div>
+          <div class="class-bar-track"><div class="class-bar-fill" style="width:12%;"></div></div>
+          <div class="class-count">3</div>
+        </div>
+        <div class="class-row">
+          <div class="class-name">Class 2</div>
+          <div class="class-bar-track"><div class="class-bar-fill" style="width:48%;"></div></div>
+          <div class="class-count">12</div>
+        </div>
+        <div class="class-row">
+          <div class="class-name">Class 3</div>
+          <div class="class-bar-track"><div class="class-bar-fill warn" style="width:84%;"></div></div>
+          <div class="class-count">21</div>
+        </div>
+        <div class="class-row">
+          <div class="class-name">Class 4</div>
+          <div class="class-bar-track"><div class="class-bar-fill" style="width:24%;"></div></div>
+          <div class="class-count">6</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <span class="cn" style="top:10px;right:12px;">5</span>
+        <div class="card-title">Anthropic headroom<span class="card-subtitle">last sampled · 12s ago</span></div>
+        <div class="headroom-row">
+          <div class="headroom-label">RPM</div>
+          <div class="headroom-track"><div class="headroom-fill" style="width:34%;"></div></div>
+          <div class="headroom-pct">34%</div>
+        </div>
+        <div class="headroom-row">
+          <div class="headroom-label">ITPM</div>
+          <div class="headroom-track"><div class="headroom-fill warn" style="width:81%;"></div></div>
+          <div class="headroom-pct">81%</div>
+        </div>
+        <div class="headroom-row">
+          <div class="headroom-label">OTPM</div>
+          <div class="headroom-track"><div class="headroom-fill" style="width:42%;"></div></div>
+          <div class="headroom-pct">42%</div>
+        </div>
+        <div class="headroom-row">
+          <div class="headroom-label">Concurrent</div>
+          <div class="headroom-track"><div class="headroom-fill" style="width:18%;"></div></div>
+          <div class="headroom-pct">3 of 16</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Dispatch rate + failure breakdown ───────────────────── -->
+    <div class="sub-label" style="margin-top: 22px;">Throughput &amp; failures · last hour</div>
+    <div class="dashboard-grid">
+      <div class="card">
+        <span class="cn" style="top:10px;right:12px;">6</span>
+        <div class="card-title">Dispatch rate<span class="card-subtitle">jobs/min · last 60 min</span></div>
+        <div class="spark">
+          <div class="spark-bar" style="height:18%;"></div>
+          <div class="spark-bar" style="height:22%;"></div>
+          <div class="spark-bar" style="height:14%;"></div>
+          <div class="spark-bar" style="height:32%;"></div>
+          <div class="spark-bar" style="height:28%;"></div>
+          <div class="spark-bar" style="height:42%;"></div>
+          <div class="spark-bar" style="height:58%;"></div>
+          <div class="spark-bar peak" style="height:78%;"></div>
+          <div class="spark-bar peak" style="height:84%;"></div>
+          <div class="spark-bar" style="height:62%;"></div>
+          <div class="spark-bar" style="height:48%;"></div>
+          <div class="spark-bar" style="height:38%;"></div>
+          <div class="spark-bar" style="height:42%;"></div>
+          <div class="spark-bar" style="height:36%;"></div>
+          <div class="spark-bar" style="height:30%;"></div>
+          <div class="spark-bar" style="height:28%;"></div>
+          <div class="spark-bar" style="height:24%;"></div>
+          <div class="spark-bar" style="height:20%;"></div>
+          <div class="spark-bar" style="height:16%;"></div>
+          <div class="spark-bar" style="height:14%;"></div>
+          <div class="spark-bar" style="height:12%;"></div>
+          <div class="spark-bar" style="height:18%;"></div>
+          <div class="spark-bar" style="height:22%;"></div>
+          <div class="spark-bar" style="height:26%;"></div>
+          <div class="spark-bar" style="height:30%;"></div>
+          <div class="spark-bar" style="height:34%;"></div>
+          <div class="spark-bar" style="height:38%;"></div>
+          <div class="spark-bar" style="height:32%;"></div>
+          <div class="spark-bar" style="height:28%;"></div>
+          <div class="spark-bar" style="height:24%;"></div>
+        </div>
+        <div class="spark-axis">
+          <div>60m</div>
+          <div>peak 11 jobs/min · 22m</div>
+          <div>now</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <span class="cn" style="top:10px;right:12px;">7</span>
+        <div class="card-title">Failures by class<span class="card-subtitle">last hour</span></div>
+        <div class="fail-class-row">
+          <span class="fail-class-pill A">A</span>
+          <span class="fail-class-label">Transient · retryable</span>
+          <span class="fail-class-count">8</span>
+        </div>
+        <div class="fail-class-row">
+          <span class="fail-class-pill B">B</span>
+          <span class="fail-class-label">Interrupted · resumable</span>
+          <span class="fail-class-count">2</span>
+        </div>
+        <div class="fail-class-row">
+          <span class="fail-class-pill C">C</span>
+          <span class="fail-class-label">Capacity · back off</span>
+          <span class="fail-class-count">4</span>
+        </div>
+        <div class="fail-class-row">
+          <span class="fail-class-pill D">D</span>
+          <span class="fail-class-label">Validation · intervention</span>
+          <span class="fail-class-count">3</span>
+        </div>
+        <div class="fail-class-row">
+          <span class="fail-class-pill E">E</span>
+          <span class="fail-class-label">Hard system · escalate</span>
+          <span class="fail-class-count">0</span>
+        </div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border-s);font-size:11px;color:var(--text-m);">
+          Auto-recovery rate: <span style="color:var(--verd-h);">88%</span> · 15 of 17 recovered
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Cost spend ──────────────────────────────────────────── -->
+    <div class="sub-label" style="margin-top: 22px;">Spend leaders · last 24h</div>
+    <div class="dashboard-grid">
+
+      <div class="card">
+        <span class="cn" style="top:10px;right:12px;">8</span>
+        <div class="card-title">Top organisations by usage<span class="card-subtitle">credits consumed</span></div>
+        <div class="top-row">
+          <div>
+            <div class="top-name">Acme Publishing</div>
+            <div class="top-name-sub">Pro plan · 4 active Briefs</div>
+          </div>
+          <div class="top-value">1,420,000</div>
+          <div class="top-pct">9%</div>
+        </div>
+        <div class="top-row">
+          <div>
+            <div class="top-name">Independent Author 12</div>
+            <div class="top-name-sub">Writer plan · 2 active Briefs</div>
+          </div>
+          <div class="top-value">820,000</div>
+          <div class="top-pct">82%</div>
+        </div>
+        <div class="top-row">
+          <div>
+            <div class="top-name">Vox Studio</div>
+            <div class="top-name-sub">Author plan · 1 active Brief</div>
+          </div>
+          <div class="top-value">680,000</div>
+          <div class="top-pct">17%</div>
+        </div>
+        <div class="top-row">
+          <div>
+            <div class="top-name">Marsh Manuscripts</div>
+            <div class="top-name-sub">BYOK Solo · provider-billed</div>
+          </div>
+          <div class="top-value">2.1M tk</div>
+          <div class="top-pct">—</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <span class="cn" style="top:10px;right:12px;">9</span>
+        <div class="card-title">By model<span class="card-subtitle">platform credits · last 24h</span></div>
+        <div class="class-row">
+          <div class="class-name">Sonnet 4.6</div>
+          <div class="class-bar-track"><div class="class-bar-fill" style="width:72%;"></div></div>
+          <div class="class-count">3.6M</div>
+        </div>
+        <div class="class-row">
+          <div class="class-name">Haiku 4.5</div>
+          <div class="class-bar-track"><div class="class-bar-fill" style="width:18%;"></div></div>
+          <div class="class-count">900k</div>
+        </div>
+        <div class="class-row">
+          <div class="class-name">Opus 4.7</div>
+          <div class="class-bar-track"><div class="class-bar-fill" style="width:10%;"></div></div>
+          <div class="class-count">500k</div>
+        </div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border-s);font-size:11px;color:var(--text-m);">
+          Total: 5.0M platform credits · ~$5.00 spend
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Capacity signals + synthetic probes ────────────────── -->
+    <div class="sub-label" style="margin-top: 22px;">Capacity signals &amp; probes</div>
+    <div class="dashboard-grid">
+
+      <div class="card">
+        <span class="cn" style="top:10px;right:12px;">10</span>
+        <div class="card-title">Capacity alerts<span class="card-subtitle">sustained-utilisation thresholds</span></div>
+
+        <div class="alert-banner">
+          <div class="alert-title">Anthropic ITPM &gt; 75% for 12 min</div>
+          Class-3 queue depth climbing as token-bucket refills lag behind dispatch.
+          Consider trimming Class-3 weight or extending the batched_24h window.
+        </div>
+
+        <div style="font-size:11px;color:var(--text-m);">
+          No other capacity alerts in the last hour. Class 1 reserved-slot pool nominal (1 in use of 3).
+        </div>
+      </div>
+
+      <div class="card">
+        <span class="cn" style="top:10px;right:12px;">11</span>
+        <div class="card-title">Synthetic probes<span class="card-subtitle">last cycle · 5 min ago</span></div>
+        <div class="probe-row">
+          <span class="probe-status-dot pass"></span>
+          <div>
+            <div class="probe-name">Director turn — small</div>
+            <div class="probe-meta">Haiku · 2 iterations · 8s</div>
+          </div>
+          <div class="probe-last">pass</div>
+          <div style="font-size:10px;color:var(--text-m);">5m ago</div>
+        </div>
+        <div class="probe-row">
+          <span class="probe-status-dot pass"></span>
+          <div>
+            <div class="probe-name">Workflow expand — 3 steps</div>
+            <div class="probe-meta">Haiku · synthesise + expand · 14s</div>
+          </div>
+          <div class="probe-last">pass</div>
+          <div style="font-size:10px;color:var(--text-m);">5m ago</div>
+        </div>
+        <div class="probe-row">
+          <span class="probe-status-dot pass"></span>
+          <div>
+            <div class="probe-name">Refine + accept round-trip</div>
+            <div class="probe-meta">Haiku · 1 step · 6s</div>
+          </div>
+          <div class="probe-last">pass</div>
+          <div style="font-size:10px;color:var(--text-m);">5m ago</div>
+        </div>
+        <div class="probe-row">
+          <span class="probe-status-dot stale"></span>
+          <div>
+            <div class="probe-name">Edge Function — BYOK route</div>
+            <div class="probe-meta">requires BYOK key on probe org</div>
+          </div>
+          <div class="probe-last">stale</div>
+          <div style="font-size:10px;color:var(--text-m);">2d ago</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════
+     SECTION 2 — Quiet state + auth gate
+     ══════════════════════════════════════════════════════════════ -->
+<div class="section"><div class="slabel">02 — Variants · quiet state, alert state, auth gate</div></div>
+
+<div style="padding:40px 48px;display:grid;grid-template-columns:1fr 1fr;gap:36px;">
+
+  <div>
+    <div class="sub-label">A · Quiet state · no active traffic</div>
+    <div class="admin-shell" style="padding:18px 22px;">
+      <div class="admin-header" style="padding-bottom:12px;margin-bottom:14px;">
+        <div>
+          <div class="admin-h1" style="font-size:16px;">Stelavox Admin</div>
+          <div class="admin-sub">Quiet · no active turns</div>
+        </div>
+      </div>
+      <div class="dashboard-grid quad">
+        <div class="card counter-card" style="padding:10px 12px;">
+          <div class="counter-label">Active turns</div>
+          <div class="counter-value" style="font-size:20px;">0</div>
+        </div>
+        <div class="card counter-card" style="padding:10px 12px;">
+          <div class="counter-label">Running</div>
+          <div class="counter-value" style="font-size:20px;">0</div>
+        </div>
+        <div class="card counter-card" style="padding:10px 12px;">
+          <div class="counter-label">Queued</div>
+          <div class="counter-value" style="font-size:20px;">0</div>
+        </div>
+        <div class="card counter-card" style="padding:10px 12px;">
+          <div class="counter-label">Failures (24h)</div>
+          <div class="counter-value" style="font-size:20px;color:var(--verd-h);">0</div>
+        </div>
+      </div>
+      <div style="margin-top:12px;font-size:11px;color:var(--text-m);text-align:center;font-style:italic;padding:14px 0;">
+        Last activity: 47 minutes ago. All synthetic probes green.
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <div class="sub-label">B · Auth gate · non-admin redirect</div>
+    <div class="auth-gate-frame">
+      <span class="cn" style="top:14px;left:14px;">12</span>
+      <div class="ag-title">Admin only</div>
+      <div class="ag-sub">
+        This page is restricted to platform administrators. Your account doesn't have admin
+        access. If you think this is wrong, contact support.
+      </div>
+      <a href="/" style="font-size:12px;color:var(--text-s);border-bottom:1px dotted var(--text-m);text-decoration:none;">
+        ← Return to your projects
+      </a>
+    </div>
+  </div>
+
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════
+     SECTION 3 — High-alert variant
+     ══════════════════════════════════════════════════════════════ -->
+<div class="section"><div class="slabel">03 — High-alert state · sustained-utilisation triggered</div></div>
+
+<div style="padding:40px 48px;">
+  <div class="admin-shell" style="padding:20px 24px;">
+    <span class="cn" style="top:18px;right:18px;">13</span>
+    <div class="admin-header" style="padding-bottom:12px;margin-bottom:14px;">
+      <div>
+        <div class="admin-h1" style="font-size:16px;">Stelavox Admin</div>
+        <div class="admin-sub" style="color:var(--st-rev);">⚠ 2 active capacity alerts</div>
+      </div>
+    </div>
+
+    <div class="alert-banner" style="border-left-color:var(--destr);background:rgba(184,56,56,0.10);">
+      <div class="alert-title" style="color:var(--destr);">Anthropic ITPM saturated · &gt;95% for 8 min</div>
+      Class-3 + Class-4 dispatch paused by token-bucket back-pressure.
+      37 jobs queued behind the bucket. Likely cause: a single org running a multi-Brief
+      expansion. <a href="#" style="color:var(--text-s);border-bottom:1px dotted var(--text-m);text-decoration:none;">View top consumers →</a>
+    </div>
+
+    <div class="alert-banner">
+      <div class="alert-title">Class-4 starvation risk · oldest job 18 min old</div>
+      Aging promotion is firing but Class 3 traffic is consuming most of the WFQ slots.
+      No action required — auto-promotion will resolve. Monitor.
+    </div>
+
+    <div class="dashboard-grid quad">
+      <div class="card counter-card" style="padding:10px 12px;">
+        <div class="counter-label">Active turns</div>
+        <div class="counter-value warn" style="font-size:20px;">22</div>
+      </div>
+      <div class="card counter-card" style="padding:10px 12px;">
+        <div class="counter-label">Queued</div>
+        <div class="counter-value bad" style="font-size:20px;">137</div>
+      </div>
+      <div class="card counter-card" style="padding:10px 12px;">
+        <div class="counter-label">Oldest queue</div>
+        <div class="counter-value warn" style="font-size:20px;">18m</div>
+      </div>
+      <div class="card counter-card" style="padding:10px 12px;">
+        <div class="counter-label">Failures (1h)</div>
+        <div class="counter-value bad" style="font-size:20px;">14</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════
+     SECTION 4 — ANNOTATIONS
+     ══════════════════════════════════════════════════════════════ -->
+<div class="section"><div class="slabel">04 — Annotations</div></div>
+<div class="annotations">
+  <div class="ann-grid">
+
+    <div class="ann-item">
+      <div class="ann-num">1</div>
+      <div class="ann-body">
+        <div class="ann-title">Mount + auth gate</div>
+        <div class="ann-ref">Component Spec §17.5 · TA v2.7 · V1 admin scope</div>
+        <div class="ann-desc">
+          Routes at <code>/admin</code>. Admin-only. <span class="critical">Open decision:</span> in V1 the simplest auth path is an env-var allowlist (<code>PLATFORM_ADMIN_EMAILS</code>) checked server-side. V2 candidates: a <code>users.is_platform_admin</code> column, or <code>app_metadata.role=&apos;platform_admin&apos;</code> on the auth row. The route reads ALL orgs (bypasses standard RLS via service-role client + an explicit allowlist check); page-server-component checks first and redirects on miss. Inter typography throughout; no verdigris on any dashboard surface — admin views are passive observation, not affirmative action.
+        </div>
+      </div>
+    </div>
+
+    <div class="ann-item">
+      <div class="ann-num">2</div>
+      <div class="ann-body">
+        <div class="ann-title">Time-window selector</div>
+        <div class="ann-ref">Component Spec §17.5 · TA v2.7 §3.6 metrics_minute_buckets</div>
+        <div class="ann-desc">
+          Four windows: Live (current snapshot) · 1h · 24h · 7d. Data sources differ per window: Live → realtime counts from agent_jobs / director_turns; 1h / 24h → metrics_minute_buckets aggregations; 7d → metrics_minute_buckets daily rollups (collapse minute granularity to hourly or daily depending on retention — the M-125 purge keeps minute buckets 90 days). Window changes update every section's data source; URL reflects via <code>?window=1h</code> for shareable links.
+        </div>
+      </div>
+    </div>
+
+    <div class="ann-item">
+      <div class="ann-num">3</div>
+      <div class="ann-body">
+        <div class="ann-title">Live counter quartet</div>
+        <div class="ann-ref">Component Spec §17.5 §1 (live registry) · agent_jobs + director_turns + briefs</div>
+        <div class="ann-desc">
+          Four atomic counts: active Director turns (director_turns WHERE status='in_progress'), running agent_jobs (agent_jobs WHERE status='running'), queued (agent_jobs WHERE queue_status='queued'), failures last 24h (agent_jobs WHERE status='failed' AND created_at &gt; NOW()-24h). The failures counter colour-shifts to <code>--st-rev</code> when &gt;10 and <code>--destr</code> when &gt;30 (illustrative thresholds; tune in V1.x-E follow-up). Sub-line beneath each number gives context (delta, breakdown, attribution).
+        </div>
+      </div>
+    </div>
+
+    <div class="ann-item">
+      <div class="ann-num">4</div>
+      <div class="ann-body">
+        <div class="ann-title">Queue depth by class</div>
+        <div class="ann-ref">Component Spec §17.5 §2 · TA v2.7 §3.6 agent_jobs.traffic_class + wfq_state</div>
+        <div class="ann-desc">
+          Per-class queue depth from <code>agent_jobs WHERE queue_status='queued' GROUP BY traffic_class</code>. Bar widths are relative to the cap that triggers WFQ back-pressure (Class 3 in the wireframe is hitting 84% — bar colour shifts to <code>--st-rev</code> attention-amber). Class 1 (interactive Director) typically lowest; Class 4 (scheduled/parked) lowest priority. The four classes match the V1.x-B.2.2 throttle model.
+        </div>
+      </div>
+    </div>
+
+    <div class="ann-item">
+      <div class="ann-num">5</div>
+      <div class="ann-body">
+        <div class="ann-title">Anthropic headroom</div>
+        <div class="ann-ref">Component Spec §17.5 §3 · NEW DATA SOURCE needed</div>
+        <div class="ann-desc">
+          RPM / ITPM / OTPM / concurrent-connection utilisation pulled from Anthropic's rate-limit response headers (<code>anthropic-ratelimit-*</code>). <span class="critical">Open decision:</span> capturing these requires a new <code>anthropic_rate_limit_samples</code> table populated by the agent runner on every response. V1.x-E MVP scope question — ship the capture mechanism now, OR defer and surface only the wfq_state + bucket signals which are already captured? Recommendation: ship a tiny capture in V1.x-E (M-143) — it's a small ALTER PUBLICATION-style addition and unblocks the most-important capacity signal.
+        </div>
+      </div>
+    </div>
+
+    <div class="ann-item">
+      <div class="ann-num">6</div>
+      <div class="ann-body">
+        <div class="ann-title">Dispatch rate sparkline</div>
+        <div class="ann-ref">Component Spec §17.5 §2 · TA v2.7 §3.6 metrics_minute_buckets.dispatch_rate</div>
+        <div class="ann-desc">
+          30-bar sparkline (~2-min buckets over the last hour for the 1h window). Reads <code>metrics_minute_buckets WHERE bucket_started_at &gt; NOW()-60m</code>. Peak bar colour-shifts to <code>--ag-run</code> for callout. Axis labels show "60m ago" / "peak X jobs/min · Nm ago" / "now". Click on a bar drills down to the per-minute detail (V1.x-E polish or V2).
+        </div>
+      </div>
+    </div>
+
+    <div class="ann-item">
+      <div class="ann-num">7</div>
+      <div class="ann-body">
+        <div class="ann-title">Failures by class — A through E</div>
+        <div class="ann-ref">Component Spec §17.5 §4 · Director Arch v2.4 §10 five-class taxonomy · failure_taxonomy_samples</div>
+        <div class="ann-desc">
+          Reads <code>failure_taxonomy_samples</code> grouped by <code>failure_class</code>. Each class shows count + human label + colour-coded pill (A blue/info, B amber, C amber, D destructive, E destructive-saturated). Auto-recovery rate beneath: <code>SUM(auto_recovered) / SUM(failed_total)</code> from the same window — surfaces in green when &gt; 70%, amber 50-70%, destructive &lt; 50%. The "0 in E (hard system)" line is the most-important signal for V1 launch: any non-zero count there is a paging-level incident.
+        </div>
+      </div>
+    </div>
+
+    <div class="ann-item">
+      <div class="ann-num">8</div>
+      <div class="ann-body">
+        <div class="ann-title">Top organisations by usage</div>
+        <div class="ann-ref">Component Spec §17.5 §5 · organisations.token_usage_credits + token_allocation_credits</div>
+        <div class="ann-desc">
+          Top 5 by recent-window credit consumption. Sub-line shows plan + active-Brief count for context. Per-row "%" is the org's <code>token_usage_credits / token_allocation_credits</code> for non-BYOK; for BYOK shows raw tokens with a "—" placeholder for percentage (no Stelavox cap applies; BYOK billing is between user + provider per provider-neutral rule). Click drills into per-org spend timeline (V1.x-E polish).
+        </div>
+      </div>
+    </div>
+
+    <div class="ann-item">
+      <div class="ann-num">9</div>
+      <div class="ann-body">
+        <div class="ann-title">By-model spend distribution</div>
+        <div class="ann-ref">Component Spec §17.5 §5 · agent_jobs.cost_credits grouped by model_id</div>
+        <div class="ann-desc">
+          Per-model platform credit totals for the window. Bars are relative to the largest. Beneath: total credit spend + corresponding dollar estimate (computed from anthropic_pricing for internal cost tracking — admin sees real dollars, end-users don't per V1.x-C provider-neutral rule). BYOK jobs counted in the totals at credit zero — they don't consume platform allocation, so they appear in token counts only on the per-org list (annotation 8) not here.
+        </div>
+      </div>
+    </div>
+
+    <div class="ann-item">
+      <div class="ann-num">10</div>
+      <div class="ann-body">
+        <div class="ann-title">Capacity alerts</div>
+        <div class="ann-ref">Component Spec §17.5 §6 · sustained-utilisation threshold</div>
+        <div class="ann-desc">
+          Generated when a metric crosses a configured threshold sustained for N minutes (e.g. ITPM &gt;75% for 10 min). Thresholds live in <code>platform_config</code> alongside the other operational keys (<code>admin.alerts.itpm_warn_pct</code>, <code>admin.alerts.itpm_sustained_minutes</code>). When no alerts active, the card shows "No capacity alerts" with a green-toned status line. When triggered: each alert shows title + summary + recommended action + drill-down link. Alerts are informational only — no automated remediation in V1.
+        </div>
+      </div>
+    </div>
+
+    <div class="ann-item">
+      <div class="ann-num">11</div>
+      <div class="ann-body">
+        <div class="ann-title">Synthetic probes</div>
+        <div class="ann-ref">Component Spec §17.5 §7 · NEW DATA + cron needed</div>
+        <div class="ann-desc">
+          A small fleet of canned operations run on a cron schedule against a dedicated probe org (separate from any real user data). Each probe = a specific Director turn / workflow / agent op that exercises the full pipeline. Each run records pass / fail + duration + token usage in a new <code>synthetic_probe_runs</code> table. Dashboard surfaces last cycle's results + a stale indicator if it's been &gt;15 min since the last run. <span class="critical">Open decision:</span> probe set scope. Recommendation for V1.x-E: ship 3 probes (Director-small + Workflow-expand + Refine-accept-round-trip). BYOK probe deferred (requires test key).
+        </div>
+      </div>
+    </div>
+
+    <div class="ann-item">
+      <div class="ann-num">12</div>
+      <div class="ann-body">
+        <div class="ann-title">Non-admin gate</div>
+        <div class="ann-ref">Brand voice — direct, no alarm</div>
+        <div class="ann-desc">
+          Server-rendered redirect path: if the authenticated user's email isn't in <code>PLATFORM_ADMIN_EMAILS</code>, the page renders the gate (no 403, no error stack). Brand voice: explain + offer a back-link. No verdigris. The gate page itself is publicly reachable as an empty shell; the data-loading layer below is the real gate. Belt-and-braces: the API endpoints (<code>/api/admin/*</code>) check the allowlist server-side too, so a non-admin can't hit them via API directly.
+        </div>
+      </div>
+    </div>
+
+    <div class="ann-item">
+      <div class="ann-num">13</div>
+      <div class="ann-body">
+        <div class="ann-title">High-alert state</div>
+        <div class="ann-ref">Component Spec §17.5 §6 + §3 (Anthropic headroom)</div>
+        <div class="ann-desc">
+          When &gt; 1 alert is active, the header sub-line escalates to <code>--st-rev</code> attention-amber with a "⚠ N active capacity alerts" summary. The alert-banner stack at the top of the page lists each alert in severity order. Counter values colour-shift: counters in the warn band use <code>--st-rev</code>; counters past the destructive threshold use <code>--destr</code>. The whole page stays passive observation — no operator action button in V1 (operators take action via Supabase / Vercel admin consoles externally).
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════
+     SECTION 5 — Data sources + open decisions
+     ══════════════════════════════════════════════════════════════ -->
+<div class="section"><div class="slabel">05 — Data sources &amp; open decisions</div></div>
+
+<div style="padding: 0 48px 80px;">
+
+  <div class="card wide" style="margin-bottom: 16px;">
+    <div class="card-title">Existing substrate consumed by V1.x-E (no new schema needed)</div>
+    <table>
+      <thead>
+        <tr><th>Surface</th><th>Source</th><th>Phase</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Live counters (running / queued / failures)</td><td>agent_jobs · director_turns · briefs</td><td>V1.x-B substrate</td></tr>
+        <tr><td>Queue depth per class</td><td>agent_jobs.traffic_class · wfq_state</td><td>V1.x-B.2.2</td></tr>
+        <tr><td>Dispatch rate sparkline</td><td>metrics_minute_buckets</td><td>V1.x-B.2.4 M-124</td></tr>
+        <tr><td>Failures by class + auto-recovery</td><td>failure_taxonomy_samples</td><td>V1.x-B.2.3 M-119</td></tr>
+        <tr><td>Top orgs by usage</td><td>organisations.token_usage_credits</td><td>V1.x-C.2 M-133/135</td></tr>
+        <tr><td>By-model spend distribution</td><td>agent_jobs.cost_credits · pricing_rates</td><td>V1.x-C.1</td></tr>
+        <tr><td>Capacity alerts thresholds</td><td>platform_config (new keys)</td><td>V1.x-E inline</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card wide" style="margin-bottom: 16px;">
+    <div class="card-title">New substrate proposed for V1.x-E</div>
+    <table>
+      <thead>
+        <tr><th>Item</th><th>Migration</th><th>Status</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>anthropic_rate_limit_samples table + agent runner capture</td><td>M-143</td><td>Open decision (annotation 5)</td></tr>
+        <tr><td>synthetic_probe_runs table + 3 probe ops + cron + admin route</td><td>M-144</td><td>Open decision (annotation 11)</td></tr>
+        <tr><td>platform_config admin alert thresholds (4 keys)</td><td>M-145</td><td>Recommended</td></tr>
+        <tr><td>users.is_platform_admin column OR env allowlist</td><td>None (env allowlist) or M-146 (column)</td><td>Open decision (annotation 1)</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card wide">
+    <div class="card-title">Open decisions before build</div>
+    <ol style="margin-left:18px;color:var(--text-s);font-size:13px;line-height:1.7;">
+      <li><strong>Admin auth mechanism.</strong> Three options: (a) <code>PLATFORM_ADMIN_EMAILS</code> env-var allowlist — simplest, no schema change, suitable for V1 with 1-3 admins; (b) <code>users.is_platform_admin BOOLEAN</code> column — needs admin UI to manage; (c) <code>app_metadata.role='platform_admin'</code> on auth.users — Supabase-idiomatic but requires service-role writes. Recommendation: option (a) for V1.x-E; revisit at V2 when a real admin user base exists.</li>
+      <li><strong>Anthropic rate-limit capture.</strong> Ship in V1.x-E or defer. The headroom widget is the most-important capacity signal; without it we only see internal queue state, not provider-imposed limits. Recommendation: ship — add <code>anthropic_rate_limit_samples</code> table + agent-runner hook that reads <code>response.headers</code> and inserts a row asynchronously. Small footprint; high admin-value.</li>
+      <li><strong>Synthetic probe scope.</strong> Three probes (Director-small + Workflow-expand + Refine-accept) or more? Recommendation: three for V1.x-E ship; add Edge Function / BYOK probes in V1.x-E polish or V2 once probe org has a real BYOK key available.</li>
+      <li><strong>Capacity alert engine.</strong> Sustained-utilisation alerts need a small evaluator. Options: (a) compute on dashboard load (cheap, no extra infra; alert "active" computed each request); (b) pg_cron evaluator writes to an <code>admin_alerts</code> table. Recommendation: (a) for V1.x-E — admin opens dashboard occasionally; evaluating thresholds at load time is fine. Push-model alerting (Slack / email) is V2.</li>
+      <li><strong>Drill-down navigation.</strong> Wireframe shows "View top consumers →" inline link. Open: per-org / per-model / per-class drill-downs as separate pages or modal overlays? Recommendation: in-page expanded sections for V1.x-E (cheaper than building separate routes); drill-downs to per-document operations remain user-side (existing SchedulerPanel handles that already).</li>
+    </ol>
+  </div>
+
+</div>
+
+</body>
+</html>

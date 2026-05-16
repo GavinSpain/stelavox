@@ -23,6 +23,7 @@ import 'server-only'
 
 import Anthropic from '@anthropic-ai/sdk'
 
+import { captureAnthropicHeaders } from '@/lib/llm/anthropicHeaderCapture'
 import { injectCanary, scanForCanaryLeak } from '@/lib/security/canary'
 import {
   NotImplementedError,
@@ -125,7 +126,37 @@ export class AnthropicProvider implements LLMProvider {
   protected client: Anthropic
 
   constructor(apiKey: string) {
-    this.client = new Anthropic({ apiKey })
+    // V1.x-E.1 — install a custom fetch that captures Anthropic
+    // rate-limit headers on every response, fire-and-forget into
+    // anthropic_rate_limit_samples. Powers the admin dashboard's
+    // headroom widget (Component Spec §17.5 §3). The placeholder
+    // 'byok-routed-key-unused' apiKey case (used by ByokProvider via
+    // super(...)) skips capture — BYOK headers reflect the user's key,
+    // not the platform's.
+    if (apiKey === 'byok-routed-key-unused') {
+      this.client = new Anthropic({ apiKey })
+      return
+    }
+    const captureFetch: typeof fetch = async (input, init) => {
+      const response = await fetch(input, init)
+      // Best-effort header capture. Resolve modelId from the request
+      // body if present; fall back to 'unknown'. The body is JSON for
+      // /v1/messages calls — peek without consuming the response body.
+      let modelId = 'unknown'
+      try {
+        if (init?.body && typeof init.body === 'string') {
+          const parsed = JSON.parse(init.body) as { model?: unknown }
+          if (typeof parsed.model === 'string') modelId = parsed.model
+        }
+      } catch {
+        // Body wasn't JSON — leave modelId as 'unknown'.
+      }
+      // Async capture; do not await (fire-and-forget so the SDK's
+      // response wrapping isn't delayed by the DB insert).
+      void captureAnthropicHeaders(response.clone(), modelId)
+      return response
+    }
+    this.client = new Anthropic({ apiKey, fetch: captureFetch })
   }
 
   async complete(prompt: AssembledPrompt): Promise<LLMResponse> {

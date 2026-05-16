@@ -488,6 +488,54 @@ export type Database = {
         }
         Relationships: []
       }
+      anthropic_rate_limit_samples: {
+        Row: {
+          id: number
+          input_tokens_limit: number | null
+          input_tokens_remaining: number | null
+          input_tokens_reset: string | null
+          model_id: string
+          output_tokens_limit: number | null
+          output_tokens_remaining: number | null
+          output_tokens_reset: string | null
+          requests_limit: number | null
+          requests_remaining: number | null
+          requests_reset: string | null
+          sampled_at: string
+          tier: string | null
+        }
+        Insert: {
+          id?: number
+          input_tokens_limit?: number | null
+          input_tokens_remaining?: number | null
+          input_tokens_reset?: string | null
+          model_id: string
+          output_tokens_limit?: number | null
+          output_tokens_remaining?: number | null
+          output_tokens_reset?: string | null
+          requests_limit?: number | null
+          requests_remaining?: number | null
+          requests_reset?: string | null
+          sampled_at?: string
+          tier?: string | null
+        }
+        Update: {
+          id?: number
+          input_tokens_limit?: number | null
+          input_tokens_remaining?: number | null
+          input_tokens_reset?: string | null
+          model_id?: string
+          output_tokens_limit?: number | null
+          output_tokens_remaining?: number | null
+          output_tokens_reset?: string | null
+          requests_limit?: number | null
+          requests_remaining?: number | null
+          requests_reset?: string | null
+          sampled_at?: string
+          tier?: string | null
+        }
+        Relationships: []
+      }
       audit_log: {
         Row: {
           conversation_id: string | null
@@ -2487,6 +2535,60 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      synthetic_probe_runs: {
+        Row: {
+          agent_job_id: string | null
+          completed_at: string | null
+          cost_credits: number | null
+          director_turn_id: string | null
+          duration_ms: number | null
+          error_message: string | null
+          failure_class: string | null
+          id: number
+          metadata: Json | null
+          outcome: string | null
+          probe_id: string
+          tokens_input: number | null
+          tokens_output: number | null
+          triggered_at: string
+          triggered_by: string
+        }
+        Insert: {
+          agent_job_id?: string | null
+          completed_at?: string | null
+          cost_credits?: number | null
+          director_turn_id?: string | null
+          duration_ms?: number | null
+          error_message?: string | null
+          failure_class?: string | null
+          id?: number
+          metadata?: Json | null
+          outcome?: string | null
+          probe_id: string
+          tokens_input?: number | null
+          tokens_output?: number | null
+          triggered_at?: string
+          triggered_by: string
+        }
+        Update: {
+          agent_job_id?: string | null
+          completed_at?: string | null
+          cost_credits?: number | null
+          director_turn_id?: string | null
+          duration_ms?: number | null
+          error_message?: string | null
+          failure_class?: string | null
+          id?: number
+          metadata?: Json | null
+          outcome?: string | null
+          probe_id?: string
+          tokens_input?: number | null
+          tokens_output?: number | null
+          triggered_at?: string
+          triggered_by?: string
+        }
+        Relationships: []
       }
       throttle_reservations: {
         Row: {
