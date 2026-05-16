@@ -1,0 +1,1173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stelavox — Phase 6 Wireframe: Lock + Status + Restore v1.0</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500&family=Cormorant+Garamond:ital,wght@1,300&family=Inter:wght@200;300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --ink:#0d1014; --deep:#131820; --surface:#1a2030; --hover:#1e2838; --selected:#1f2d45;
+  --border-s:#1e2535; --border-d:#253045; --border-str:#3a4a62;
+  --text-p:#ecf0f5; --text-s:#8aa0b8; --text-m:#4a6080; --text-dis:#2a3850;
+  --verd:#3d7858; --verd-h:#5aa87a; --verd-m:#1a3028;
+  --ag-run:#2e5a90; --st-rev:#b87030; --destr:#b83838; --destr-h:#d65454; --destr-bg:#2a1318;
+  --info:#3a6090;
+  --st-draft:#4a6080; --st-approved:#3d7858;
+  --spec-bg:#0a0d12; --spec-pan:#111520; --callout:#e8b840;
+}
+
+body { background: var(--spec-bg); color: var(--text-p); font-family: 'Inter', sans-serif; font-size: 13px; line-height: 1.5; }
+
+.doc-header { background: var(--spec-pan); border-bottom: 1px solid var(--border-d); padding: 24px 48px; display:flex; align-items:baseline; justify-content:space-between; }
+.wm-s { font-family:'Cinzel',serif; font-size:14px; font-weight:500; letter-spacing:.18em; color:var(--text-p); }
+.wm-v { font-family:'Cormorant Garamond',serif; font-style:italic; font-weight:300; font-size:16px; letter-spacing:.08em; color:var(--text-p); opacity:.82; }
+.doc-meta { font-size:11px; font-weight:300; letter-spacing:.2em; text-transform:uppercase; color:var(--text-m); }
+
+.section { padding: 40px 48px 0; }
+.slabel { font-size:9px; font-weight:400; letter-spacing:.45em; text-transform:uppercase; color:var(--text-m); margin-bottom:20px; padding-bottom:12px; border-bottom:1px solid var(--border-s); }
+.sub-label { font-size:9px; font-weight:400; letter-spacing:.38em; text-transform:uppercase; color:var(--text-m); padding:8px 0 12px; }
+
+.cn { display:inline-flex; align-items:center; justify-content:center; width:18px; height:18px; background:var(--callout); color:#0a0800; border-radius:50%; font-size:10px; font-weight:700; flex-shrink:0; position:absolute; z-index:20; }
+
+/* Stage container — two-column wireframe layouts */
+.stage-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; align-items: start; padding-bottom: 40px; }
+.stage-grid.full { grid-template-columns: 1fr; }
+.stage-grid.tri { grid-template-columns: 1fr 1fr 1fr; gap: 20px; }
+.stage-frame {
+  background: var(--ink);
+  border: 1px solid var(--border-s);
+  border-radius: 8px;
+  padding: 20px;
+  position: relative;
+}
+.stage-title { font-size: 10px; font-weight: 500; letter-spacing: .22em; text-transform: uppercase; color: var(--text-s); margin-bottom: 14px; }
+
+/* ── Tree row simulations ─────────────────────────────────────────── */
+.tree-frame {
+  background: var(--deep);
+  border: 1px solid var(--border-s);
+  border-radius: 6px;
+  padding: 0;
+  overflow: hidden;
+}
+.tree-header {
+  background: var(--ink);
+  padding: 8px 14px;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: .22em;
+  text-transform: uppercase;
+  color: var(--text-m);
+  border-bottom: 1px solid var(--border-s);
+}
+.tree-row {
+  height: 36px;
+  padding: 0 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border-bottom: 1px solid var(--border-s);
+  font-size: 13px;
+  color: var(--text-s);
+  position: relative;
+}
+.tree-row.active { background: var(--selected); color: var(--text-p); font-weight: 500; border-left: 2px solid var(--verd); padding-left: 6px; }
+.tree-row.indented-1 { padding-left: 24px; }
+.tree-row.indented-2 { padding-left: 40px; }
+.tree-row.indented-3 { padding-left: 56px; }
+
+.tree-chevron { width: 14px; color: var(--text-m); font-size: 10px; }
+.tree-type-icon { width: 14px; color: var(--text-m); font-size: 11px; text-align: center; }
+.tree-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Lock glyphs — three categories */
+.lock-user { width: 14px; text-align: center; color: var(--text-m); font-size: 11px; }
+.lock-edit-session { width: 14px; text-align: center; color: var(--text-s); font-size: 10px; }
+.lock-ai-queued { width: 14px; text-align: center; color: var(--info); font-size: 11px; opacity: 0.7; }
+.lock-ai-running { width: 14px; text-align: center; color: var(--ag-run); font-size: 11px; }
+.lock-ai-review { width: 14px; text-align: center; color: var(--st-rev); font-size: 11px; }
+.lock-ai-running .pulse { display: inline-block; animation: pulse 2s ease-in-out infinite; }
+@keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
+
+.tree-edit-avatar { width: 16px; height: 16px; border-radius: 50%; background: var(--ag-run); color: #fff; font-size: 9px; font-weight: 500; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+
+.status-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; margin-left: auto; }
+.status-draft { background: var(--st-draft); }
+.status-approved { background: var(--st-approved); }
+
+.lifecycle-pill {
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: .14em;
+  padding: 2px 6px;
+  border-radius: 2px;
+  margin-left: 4px;
+  flex-shrink: 0;
+}
+.lifecycle-queued { background: rgba(74,96,128,0.20); color: var(--text-s); }
+.lifecycle-running { background: rgba(46,90,144,0.20); color: var(--ag-run); }
+.lifecycle-new { background: rgba(184,112,48,0.16); color: var(--st-rev); }
+
+/* ── NodeMoreMenu simulation ──────────────────────────────────────── */
+.menu-frame {
+  background: var(--deep);
+  border: 1px solid var(--border-d);
+  border-radius: 6px;
+  padding: 8px 0;
+  width: 280px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+}
+.menu-section { border-bottom: 1px solid var(--border-s); padding: 6px 0; }
+.menu-section:last-child { border-bottom: none; }
+.menu-section-label { font-size: 9px; font-weight: 500; letter-spacing: .2em; text-transform: uppercase; color: var(--text-m); padding: 4px 14px 8px; }
+.menu-item {
+  padding: 8px 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  color: var(--text-s);
+  cursor: pointer;
+}
+.menu-item:hover { background: var(--hover); color: var(--text-p); }
+.menu-item.destructive { color: var(--destr-h); }
+.menu-icon { width: 14px; text-align: center; font-size: 11px; color: var(--text-m); }
+
+.status-pill-row { display: flex; gap: 6px; padding: 4px 14px 8px; }
+.status-pill {
+  flex: 1;
+  padding: 6px 8px;
+  border-radius: 3px;
+  border: 1px solid var(--border-d);
+  background: var(--surface);
+  font-size: 11px;
+  color: var(--text-s);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  justify-content: center;
+}
+.status-pill.active { background: var(--ink); border-color: var(--text-m); color: var(--text-p); }
+.status-pill .dot { width: 8px; height: 8px; border-radius: 50%; }
+
+/* ── Modal simulations ────────────────────────────────────────────── */
+.modal-frame {
+  background: var(--deep);
+  border: 1px solid var(--border-d);
+  border-radius: 8px;
+  width: 100%;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+  overflow: hidden;
+}
+.modal-header { padding: 16px 20px 12px; border-bottom: 1px solid var(--border-s); }
+.modal-title { font-size: 14px; font-weight: 500; color: var(--text-p); }
+.modal-body { padding: 16px 20px; }
+.modal-text { font-size: 12px; color: var(--text-s); line-height: 1.6; }
+.modal-actions {
+  padding: 12px 20px;
+  background: var(--ink);
+  border-top: 1px solid var(--border-s);
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.modal-btn {
+  padding: 6px 14px;
+  border-radius: 3px;
+  font-size: 12px;
+  font-weight: 500;
+  border: 1px solid transparent;
+  cursor: pointer;
+}
+.btn-ghost { background: transparent; color: var(--text-s); border-color: var(--border-d); }
+.btn-ghost:hover { color: var(--text-p); }
+.btn-destructive { background: var(--destr); color: #fff; }
+.btn-destructive:hover { background: var(--destr-h); }
+.btn-primary { background: var(--text-p); color: var(--ink); }
+
+.form-row { margin: 12px 0; }
+.form-label { font-size: 10px; font-weight: 500; letter-spacing: .14em; text-transform: uppercase; color: var(--text-m); margin-bottom: 6px; }
+.form-input {
+  width: 100%;
+  background: var(--ink);
+  border: 1px solid var(--border-d);
+  border-radius: 3px;
+  padding: 8px 10px;
+  color: var(--text-p);
+  font-family: 'Inter', sans-serif;
+  font-size: 12px;
+}
+.form-input:focus { outline: none; border-color: var(--text-m); }
+.form-suggestions { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+.form-suggestion {
+  font-size: 10px;
+  color: var(--text-m);
+  background: var(--surface);
+  padding: 3px 8px;
+  border-radius: 10px;
+  cursor: pointer;
+  border: 1px solid var(--border-s);
+}
+.form-suggestion:hover { color: var(--text-s); border-color: var(--border-d); }
+
+.toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: var(--surface);
+  border-radius: 4px;
+  margin: 10px 0;
+}
+.toggle-box { width: 16px; height: 16px; border: 1px solid var(--border-str); border-radius: 3px; background: var(--ink); display: flex; align-items: center; justify-content: center; font-size: 10px; color: var(--text-m); }
+.toggle-box.checked { background: var(--text-p); border-color: var(--text-p); color: var(--ink); }
+.toggle-label { font-size: 12px; color: var(--text-s); flex: 1; }
+
+/* Conflict job list */
+.conflict-job {
+  background: var(--surface);
+  border: 1px solid var(--border-s);
+  border-left: 2px solid var(--st-rev);
+  border-radius: 3px;
+  padding: 10px 12px;
+  margin: 6px 0;
+}
+.conflict-job-title { font-size: 12px; color: var(--text-p); font-weight: 500; margin-bottom: 3px; }
+.conflict-job-meta { font-size: 10px; color: var(--text-m); }
+
+/* Version-history simulation */
+.vhist-frame {
+  background: var(--deep);
+  border: 1px solid var(--border-s);
+  border-radius: 6px;
+  padding: 12px 0;
+}
+.vhist-title { font-size: 10px; font-weight: 500; letter-spacing: .22em; text-transform: uppercase; color: var(--text-m); padding: 0 16px 10px; border-bottom: 1px solid var(--border-s); }
+.vhist-row {
+  padding: 10px 16px;
+  display: grid;
+  grid-template-columns: 28px 1fr auto;
+  align-items: center;
+  gap: 10px;
+  border-bottom: 1px solid var(--border-s);
+  position: relative;
+}
+.vhist-row:hover { background: var(--hover); }
+.vhist-row:last-child { border-bottom: none; }
+.vhist-star { color: var(--text-p); font-size: 14px; }
+.vhist-num { color: var(--text-m); font-size: 11px; font-weight: 500; text-align: center; }
+.vhist-meta-1 { font-size: 11px; color: var(--text-p); }
+.vhist-meta-2 { font-size: 10px; color: var(--text-m); margin-top: 2px; }
+.vhist-restore {
+  font-size: 10px;
+  color: var(--destr-h);
+  border: 1px solid var(--destr);
+  border-radius: 3px;
+  padding: 3px 10px;
+  background: transparent;
+  cursor: pointer;
+  opacity: 0;
+}
+.vhist-row:hover .vhist-restore { opacity: 1; }
+.vhist-restore:hover { background: var(--destr-bg); }
+.vhist-restore:disabled, .vhist-restore.disabled {
+  opacity: 0.4;
+  color: var(--text-m);
+  border-color: var(--border-d);
+  background: transparent;
+  cursor: not-allowed;
+}
+.vhist-restored-from { font-size: 10px; color: var(--st-rev); margin-left: 6px; font-style: italic; }
+
+/* ── Admin force-unlock surface ───────────────────────────────────── */
+.admin-frame {
+  background: var(--deep);
+  border: 1px solid var(--border-s);
+  border-radius: 6px;
+  padding: 0;
+  overflow: hidden;
+}
+.admin-header { padding: 12px 16px; border-bottom: 1px solid var(--border-s); }
+.admin-title { font-size: 14px; font-weight: 500; color: var(--text-p); }
+.admin-subtitle { font-size: 11px; color: var(--text-m); margin-top: 2px; }
+.admin-list-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border-s);
+}
+.admin-list-row:last-child { border-bottom: none; }
+.admin-list-row:hover { background: var(--hover); }
+.admin-list-node { font-size: 12px; color: var(--text-p); }
+.admin-list-node-meta { font-size: 10px; color: var(--text-m); margin-top: 2px; }
+.admin-list-meta { font-size: 11px; color: var(--text-s); }
+.admin-list-meta-2 { font-size: 10px; color: var(--text-m); }
+.admin-force-btn {
+  font-size: 10px;
+  color: var(--destr-h);
+  border: 1px solid var(--destr);
+  border-radius: 3px;
+  padding: 4px 10px;
+  background: transparent;
+  cursor: pointer;
+}
+.admin-force-btn:hover { background: var(--destr-bg); }
+
+/* ── Annotations / decisions / inviolables (shared) ───────────────── */
+.annotations { background: var(--spec-pan); padding: 32px 48px; margin-top: 40px; border-top: 1px solid var(--border-d); }
+.annotations-title { font-size: 11px; font-weight: 500; letter-spacing: .38em; text-transform: uppercase; color: var(--text-s); margin-bottom: 16px; }
+.ann-grid { display: grid; gap: 14px; }
+.ann-row { display: grid; grid-template-columns: 28px 1fr; gap: 10px; align-items: start; }
+.ann-num { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; background: var(--callout); color: #0a0800; border-radius: 50%; font-size: 11px; font-weight: 700; }
+.ann-text { font-size: 12px; color: var(--text-s); line-height: 1.6; }
+.ann-text strong { color: var(--text-p); }
+.ann-text code { background: var(--ink); padding: 1px 5px; border-radius: 2px; color: var(--text-p); font-size: 11px; }
+
+.decisions { background: var(--spec-pan); padding: 32px 48px; border-top: 1px solid var(--border-d); }
+.decisions-title { font-size: 11px; font-weight: 500; letter-spacing: .38em; text-transform: uppercase; color: var(--text-s); margin-bottom: 16px; }
+.decision { background: var(--ink); border: 1px solid var(--border-s); border-left: 3px solid var(--verd); border-radius: 4px; padding: 12px 16px; margin-bottom: 10px; font-size: 12px; color: var(--text-s); line-height: 1.6; }
+.decision strong { color: var(--text-p); }
+.decision em { color: var(--verd-h); font-style: normal; font-weight: 500; }
+.decision code { background: var(--surface); padding: 1px 5px; border-radius: 2px; color: var(--text-p); font-size: 11px; }
+
+.inv-audit { background: var(--spec-pan); padding: 32px 48px; border-top: 1px solid var(--border-d); }
+.inv-row { display: grid; grid-template-columns: 28px 1fr 72px; gap: 12px; align-items: start; padding: 10px 0; border-bottom: 1px solid var(--border-s); font-size: 12px; color: var(--text-s); line-height: 1.6; }
+.inv-row code { background: var(--ink); padding: 1px 5px; border-radius: 2px; color: var(--text-p); font-size: 11px; }
+.inv-pass { color: var(--verd-h); font-size: 10px; font-weight: 600; letter-spacing: .22em; text-align: right; }
+
+.refs { background: var(--ink); padding: 24px 48px; border-top: 1px solid var(--border-d); font-size: 11px; color: var(--text-m); line-height: 1.7; }
+.refs strong { color: var(--text-s); }
+.refs code { background: var(--surface); padding: 1px 5px; border-radius: 2px; color: var(--text-s); font-size: 10px; }
+
+/* Disabled-state hover tooltip */
+.disabled-tooltip {
+  background: var(--ink);
+  border: 1px solid var(--border-d);
+  border-radius: 4px;
+  padding: 8px 12px;
+  font-size: 11px;
+  color: var(--text-s);
+  max-width: 260px;
+}
+.disabled-tooltip strong { color: var(--text-p); display: block; margin-bottom: 4px; font-size: 12px; }
+</style>
+</head>
+<body>
+
+<!-- ── Document header ─────────────────────────────────────────────── -->
+<header class="doc-header">
+  <div>
+    <span class="wm-s">STELAVOX</span>
+    <span class="wm-v" style="margin-left: 14px;">phase 6 wireframe — lock + status + restore</span>
+  </div>
+  <div class="doc-meta">v1.0 · 2026-05-17 · pre-build · approval gate</div>
+</header>
+
+<!-- ── SECTION 01 · Lock category vocabulary ───────────────────────── -->
+<section class="section">
+  <div class="slabel">§01 · Three lock-like primitives — distinct UX vocabulary</div>
+
+  <div class="stage-grid tri">
+
+    <!-- Author Lock -->
+    <div class="stage-frame">
+      <div class="stage-title">Author Lock</div>
+      <div style="font-size: 11px; color: var(--text-m); margin-bottom: 14px; letter-spacing: .14em; text-transform: uppercase;">Category 1 — the only true "lock"</div>
+      <div class="tree-frame">
+        <div class="tree-row indented-1">
+          <span class="tree-chevron">▸</span>
+          <span class="lock-user">🔒</span>
+          <span class="tree-name">Act 1: The Confrontation</span>
+          <span class="status-dot status-approved"></span>
+        </div>
+      </div>
+      <div style="font-size: 11px; color: var(--text-s); margin-top: 10px; line-height: 1.5;">
+        <span class="cn" style="position: static; margin-right: 6px;">1</span>
+        🔒 in <code style="background:var(--surface);padding:1px 4px;border-radius:2px;color:var(--text-p);font-size:10px;">--color-text-muted</code> on author-set lock. Persistent. Tooltip on hover: <em style="color:var(--text-s);">"Locked by you — approved final draft"</em>.
+      </div>
+    </div>
+
+    <!-- Edit Session -->
+    <div class="stage-frame">
+      <div class="stage-title">Edit Session</div>
+      <div style="font-size: 11px; color: var(--text-m); margin-bottom: 14px; letter-spacing: .14em; text-transform: uppercase;">Category 2 — coworker presence</div>
+      <div class="tree-frame">
+        <div class="tree-row indented-2">
+          <span class="tree-chevron">▸</span>
+          <span class="tree-type-icon">¶</span>
+          <span class="tree-edit-avatar">SK</span>
+          <span class="tree-name">Chapter 3: Reckoning</span>
+          <span class="status-dot status-draft"></span>
+        </div>
+      </div>
+      <div style="font-size: 11px; color: var(--text-s); margin-top: 10px; line-height: 1.5;">
+        <span class="cn" style="position: static; margin-right: 6px;">2</span>
+        Coworker avatar replaces drag handle. NOT a lock icon. Tooltip on hover: <em style="color:var(--text-s);">"Sarah Kim is editing — read-only for you. Auto-releases on idle."</em>
+      </div>
+    </div>
+
+    <!-- Agent In-Flight - three sub-states -->
+    <div class="stage-frame">
+      <div class="stage-title">Agent In-Flight</div>
+      <div style="font-size: 11px; color: var(--text-m); margin-bottom: 14px; letter-spacing: .14em; text-transform: uppercase;">Category 3 — three sub-states</div>
+      <div class="tree-frame">
+        <div class="tree-row indented-3">
+          <span class="tree-chevron">·</span>
+          <span class="lock-ai-queued">⧗</span>
+          <span class="tree-name">Beat 1</span>
+          <span class="lifecycle-pill lifecycle-queued">QUEUED</span>
+        </div>
+        <div class="tree-row indented-3">
+          <span class="tree-chevron">·</span>
+          <span class="lock-ai-running"><span class="pulse">⟳</span></span>
+          <span class="tree-name">Beat 2</span>
+          <span class="lifecycle-pill lifecycle-running">RUN</span>
+        </div>
+        <div class="tree-row indented-3">
+          <span class="tree-chevron">·</span>
+          <span class="lock-ai-review">●</span>
+          <span class="tree-name">Beat 3</span>
+          <span class="lifecycle-pill lifecycle-new">NEW</span>
+        </div>
+      </div>
+      <div style="font-size: 11px; color: var(--text-s); margin-top: 10px; line-height: 1.5;">
+        <span class="cn" style="position: static; margin-right: 6px;">3</span>
+        Three distinct visuals. NONE called "lock" in UI copy. Queued: <code style="background:var(--surface);padding:1px 4px;border-radius:2px;color:var(--text-p);font-size:10px;">--color-info</code> hourglass (dim). Running: <code style="background:var(--surface);padding:1px 4px;border-radius:2px;color:var(--text-p);font-size:10px;">--color-agent-running</code> pulsing spinner. Review: <code style="background:var(--surface);padding:1px 4px;border-radius:2px;color:var(--text-p);font-size:10px;">--color-status-review</code> filled dot.
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ── SECTION 02 · NodeMoreMenu — Lock + reduced status pills ─────── -->
+<section class="section">
+  <div class="slabel">§02 · NodeMoreMenu — Lock affordance + 2-value status pills</div>
+
+  <div class="stage-grid">
+
+    <!-- NodeMoreMenu - unlocked node -->
+    <div class="stage-frame">
+      <div class="stage-title">NodeMoreMenu — node is unlocked</div>
+      <div style="display:flex; justify-content:center; padding: 20px 0;">
+        <div class="menu-frame">
+          <div class="menu-section">
+            <div class="menu-section-label">Status</div>
+            <div class="status-pill-row">
+              <div class="status-pill active"><span class="dot status-draft"></span>Draft</div>
+              <div class="status-pill"><span class="dot status-approved"></span>Approved</div>
+            </div>
+          </div>
+          <div class="menu-section">
+            <div class="menu-item">
+              <span class="menu-icon">+</span>
+              Add child
+            </div>
+            <div class="menu-item">
+              <span class="menu-icon">✎</span>
+              Rename
+            </div>
+            <div class="menu-item">
+              <span class="menu-icon">⤴</span>
+              Move…
+            </div>
+          </div>
+          <div class="menu-section">
+            <div class="menu-item">
+              <span class="menu-icon">🔒</span>
+              <span style="flex:1;">Lock this node…</span>
+              <span style="font-size: 10px; color: var(--text-m); margin-left: 8px;">⌘L</span>
+            </div>
+          </div>
+          <div class="menu-section">
+            <div class="menu-item destructive">
+              <span class="menu-icon">×</span>
+              Delete
+            </div>
+          </div>
+        </div>
+      </div>
+      <div style="font-size: 11px; color: var(--text-s); margin-top: 6px; line-height: 1.5;">
+        <span class="cn" style="position: static; margin-right: 6px;">4</span>
+        Status section drops from 4 pills to <strong style="color:var(--text-p);">2 pills</strong> — verdigris remains on the Approved pill (use #5, unchanged).
+      </div>
+      <div style="font-size: 11px; color: var(--text-s); margin-top: 8px; line-height: 1.5;">
+        <span class="cn" style="position: static; margin-right: 6px;">5</span>
+        New <strong style="color:var(--text-p);">Lock this node…</strong> item. Trailing ellipsis signals confirmation modal follows. NOT verdigris (lock is a protective action; verdigris is for affirmative-action triggers).
+      </div>
+    </div>
+
+    <!-- NodeMoreMenu - locked node -->
+    <div class="stage-frame">
+      <div class="stage-title">NodeMoreMenu — node is locked</div>
+      <div style="display:flex; justify-content:center; padding: 20px 0;">
+        <div class="menu-frame">
+          <div class="menu-section">
+            <div class="menu-section-label">Status</div>
+            <div class="status-pill-row">
+              <div class="status-pill" style="opacity: 0.5; cursor: not-allowed;"><span class="dot status-draft"></span>Draft</div>
+              <div class="status-pill active" style="opacity: 0.5; cursor: not-allowed;"><span class="dot status-approved"></span>Approved</div>
+            </div>
+            <div style="font-size: 10px; color: var(--text-m); padding: 0 14px 4px; font-style: italic;">Unlock to change status</div>
+          </div>
+          <div class="menu-section">
+            <div class="menu-item" style="opacity: 0.5; cursor: not-allowed;">
+              <span class="menu-icon">+</span>
+              Add child
+            </div>
+            <div class="menu-item" style="opacity: 0.5; cursor: not-allowed;">
+              <span class="menu-icon">✎</span>
+              Rename
+            </div>
+            <div class="menu-item" style="opacity: 0.5; cursor: not-allowed;">
+              <span class="menu-icon">⤴</span>
+              Move…
+            </div>
+          </div>
+          <div class="menu-section">
+            <div class="menu-item">
+              <span class="menu-icon">🔓</span>
+              <span style="flex:1;">Unlock this node</span>
+              <span style="font-size: 10px; color: var(--text-m); margin-left: 8px;">⌘L</span>
+            </div>
+          </div>
+          <div class="menu-section">
+            <div class="menu-item destructive" style="opacity: 0.5; cursor: not-allowed;">
+              <span class="menu-icon">×</span>
+              Delete
+            </div>
+          </div>
+        </div>
+      </div>
+      <div style="font-size: 11px; color: var(--text-s); margin-top: 6px; line-height: 1.5;">
+        <span class="cn" style="position: static; margin-right: 6px;">6</span>
+        Status pills + structural actions <strong style="color:var(--text-p);">all dimmed</strong> (0.5 opacity, not-allowed cursor). Italic helper text "Unlock to change status" surfaces the rule.
+      </div>
+      <div style="font-size: 11px; color: var(--text-s); margin-top: 8px; line-height: 1.5;">
+        <span class="cn" style="position: static; margin-right: 6px;">7</span>
+        Lock item swaps to <strong style="color:var(--text-p);">Unlock this node</strong> — single-click (no modal), same ⌘L shortcut. Unlock is low-friction; lock is high-friction.
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ── SECTION 03 · LockReasonModal ─────────────────────────────────── -->
+<section class="section">
+  <div class="slabel">§03 · Lock confirmation — reason input + descendants toggle</div>
+
+  <div class="stage-grid">
+
+    <div class="stage-frame">
+      <div class="stage-title">LockReasonModal — single-node lock</div>
+      <div style="padding: 16px 0;">
+        <div class="modal-frame">
+          <div class="modal-header">
+            <div class="modal-title">Lock "Chapter 3: Reckoning"</div>
+          </div>
+          <div class="modal-body">
+            <div class="modal-text">
+              While locked, no content, structure, or status changes can be made — by you, by other authors, or by agents. Unlock anytime from the More menu.
+            </div>
+            <div class="form-row">
+              <div class="form-label">Reason (optional)</div>
+              <input class="form-input" placeholder="What does this lock protect?" />
+              <div class="form-suggestions">
+                <span class="form-suggestion">Approved final draft</span>
+                <span class="form-suggestion">Saving for revision</span>
+                <span class="form-suggestion">Do not modify</span>
+                <span class="form-suggestion">Reviewer copy</span>
+              </div>
+            </div>
+            <div class="toggle-row">
+              <div class="toggle-box">·</div>
+              <div class="toggle-label">
+                Also lock all 4 descendants (3 scenes, 1 beat)<br>
+                <span style="color:var(--text-m); font-size: 10px;">Each descendant gets its own independent lock — unlock them individually later, or release all at once from the bulk lock.</span>
+              </div>
+            </div>
+          </div>
+          <div class="modal-actions">
+            <button class="modal-btn btn-ghost">Cancel</button>
+            <button class="modal-btn btn-primary">Lock</button>
+          </div>
+        </div>
+      </div>
+      <div style="font-size: 11px; color: var(--text-s); margin-top: 6px; line-height: 1.5;">
+        <span class="cn" style="position: static; margin-right: 6px;">8</span>
+        <strong style="color:var(--text-p);">Reason optional with suggestions.</strong> Click a suggestion to populate the field. Suggestions sourced from <code style="background:var(--surface);padding:1px 4px;border-radius:2px;color:var(--text-p);font-size:10px;">platform_config</code> so launch defaults can evolve without code changes.
+      </div>
+      <div style="font-size: 11px; color: var(--text-s); margin-top: 8px; line-height: 1.5;">
+        <span class="cn" style="position: static; margin-right: 6px;">9</span>
+        <strong style="color:var(--text-p);">"Lock all descendants" toggle</strong> creates N independent rows in <code style="background:var(--surface);padding:1px 4px;border-radius:2px;color:var(--text-p);font-size:10px;">node_author_locks</code> sharing a <code style="background:var(--surface);padding:1px 4px;border-radius:2px;color:var(--text-p);font-size:10px;">bulk_operation_id</code>. Lock state remains per-node afterward; bulk grouping is for UX (unlock-all action).
+      </div>
+      <div style="font-size: 11px; color: var(--text-s); margin-top: 8px; line-height: 1.5;">
+        <span class="cn" style="position: static; margin-right: 6px;">10</span>
+        Primary action button uses <code style="background:var(--surface);padding:1px 4px;border-radius:2px;color:var(--text-p);font-size:10px;">--color-text-primary</code> (neutral primary), NOT verdigris. Lock is protective, not affirmative.
+      </div>
+    </div>
+
+    <div class="stage-frame">
+      <div class="stage-title">BulkUnlockConfirmModal — release a bulk group</div>
+      <div style="padding: 16px 0;">
+        <div class="modal-frame">
+          <div class="modal-header">
+            <div class="modal-title">Unlock 5 nodes locked together</div>
+          </div>
+          <div class="modal-body">
+            <div class="modal-text">
+              These nodes were locked together on 2026-05-12 with reason <em>"Approved final draft."</em>
+            </div>
+            <div style="background: var(--surface); border-radius: 3px; padding: 8px 12px; margin: 12px 0; font-size: 11px; color: var(--text-s);">
+              <div style="margin: 2px 0;">▸ Act 1</div>
+              <div style="margin: 2px 0; padding-left: 12px;">▸ Chapter 1</div>
+              <div style="margin: 2px 0; padding-left: 12px;">▸ Chapter 2</div>
+              <div style="margin: 2px 0; padding-left: 24px;">· Scene 2.1</div>
+              <div style="margin: 2px 0; padding-left: 24px;">· Scene 2.2</div>
+            </div>
+            <div class="modal-text">
+              Unlocking releases all 5 at once. You can re-lock individually later.
+            </div>
+          </div>
+          <div class="modal-actions">
+            <button class="modal-btn btn-ghost">Cancel</button>
+            <button class="modal-btn btn-primary">Unlock all 5</button>
+          </div>
+        </div>
+      </div>
+      <div style="font-size: 11px; color: var(--text-s); margin-top: 6px; line-height: 1.5;">
+        <span class="cn" style="position: static; margin-right: 6px;">11</span>
+        Modal triggered from "Unlock all from this batch" on any node in the group. Shows the full tree of affected nodes. Single-button unlock (no per-node selection — bulk grouping is its own UX semantics; selective unlock uses the standard per-node Unlock).
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ── SECTION 04 · LockConflictModal — pending-job conflict ───────── -->
+<section class="section">
+  <div class="slabel">§04 · LockConflictModal — when lock proposal hits pending jobs</div>
+
+  <div class="stage-grid full">
+    <div class="stage-frame">
+      <div class="stage-title">Lock request blocked by pending agent work</div>
+      <div style="display:flex; justify-content:center; padding: 16px 0;">
+        <div class="modal-frame" style="max-width: 560px;">
+          <div class="modal-header">
+            <div class="modal-title">Can't lock — agent work is pending</div>
+          </div>
+          <div class="modal-body">
+            <div class="modal-text">
+              Locking "Chapter 3" would conflict with 2 scheduled or running agent operations. Resolve the conflict, then try again.
+            </div>
+
+            <div class="conflict-job">
+              <div class="conflict-job-title">Refine "Chapter 3: Reckoning" — running</div>
+              <div class="conflict-job-meta">Started 2 min ago · agent operation · estimated 3 min remaining</div>
+            </div>
+
+            <div class="conflict-job">
+              <div class="conflict-job-title">Synthesise Beat 3.4 — queued</div>
+              <div class="conflict-job-meta">Queued 4 min ago · part of workflow "Final pass Chapter 3" (3 of 5 steps)</div>
+            </div>
+
+            <div class="modal-text" style="margin-top: 12px;">
+              <strong style="color: var(--text-p);">Your options:</strong>
+            </div>
+            <ul style="font-size: 12px; color: var(--text-s); padding-left: 18px; margin-top: 6px; line-height: 1.7;">
+              <li>Cancel the jobs from the Scheduler, then re-attempt the lock</li>
+              <li>Wait for them to finish, then try again</li>
+              <li>Cancel this lock request</li>
+            </ul>
+          </div>
+          <div class="modal-actions">
+            <button class="modal-btn btn-ghost">Cancel lock request</button>
+            <button class="modal-btn btn-ghost">Open Scheduler</button>
+          </div>
+        </div>
+      </div>
+      <div style="font-size: 11px; color: var(--text-s); margin-top: 6px; line-height: 1.5;">
+        <span class="cn" style="position: static; margin-right: 6px;">12</span>
+        <strong style="color:var(--text-p);">No auto-resolve.</strong> System advises; author decides. No "Cancel jobs and lock anyway" shortcut — explicit action through the Scheduler keeps the cancellation deliberate and audit-traceable. <em style="color:var(--text-s);">"Open Scheduler"</em> deep-links to the scheduler panel filtered to this document.
+      </div>
+      <div style="font-size: 11px; color: var(--text-s); margin-top: 8px; line-height: 1.5;">
+        <span class="cn" style="position: static; margin-right: 6px;">13</span>
+        Pending = <code style="background:var(--surface);padding:1px 4px;border-radius:2px;color:var(--text-p);font-size:10px;">queue_status IN ('queued','dispatched','running')</code> OR <code style="background:var(--surface);padding:1px 4px;border-radius:2px;color:var(--text-p);font-size:10px;">status = 'completed'</code> awaiting Accept. Conflict surface gives the count + per-job context so the author can decide intelligently.
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── SECTION 05 · Version-History Restore ────────────────────────── -->
+<section class="section">
+  <div class="slabel">§05 · VersionHistory — restore action + confirmation modal</div>
+
+  <div class="stage-grid">
+
+    <div class="stage-frame">
+      <div class="stage-title">VersionHistory — restore button on hover</div>
+      <div style="padding: 16px 0;">
+        <div class="vhist-frame">
+          <div class="vhist-title">Version History — Chapter 3: Reckoning</div>
+
+          <div class="vhist-row">
+            <span class="vhist-star">★</span>
+            <div>
+              <div class="vhist-meta-1">Version 11 <span class="vhist-restored-from">— restored from v7</span></div>
+              <div class="vhist-meta-2">today, 11:42 · You · restore</div>
+            </div>
+            <span style="font-size: 10px; color: var(--text-m);">current</span>
+          </div>
+
+          <div class="vhist-row">
+            <span class="vhist-num">10</span>
+            <div>
+              <div class="vhist-meta-1">Version 10</div>
+              <div class="vhist-meta-2">yesterday, 16:09 · You · refine_summary</div>
+            </div>
+            <button class="vhist-restore">Restore…</button>
+          </div>
+
+          <div class="vhist-row">
+            <span class="vhist-num">9</span>
+            <div>
+              <div class="vhist-meta-1">Version 9</div>
+              <div class="vhist-meta-2">2 days ago · agent · synthesise_beat</div>
+            </div>
+            <button class="vhist-restore">Restore…</button>
+          </div>
+
+          <div class="vhist-row">
+            <span class="vhist-num">8</span>
+            <div>
+              <div class="vhist-meta-1">Version 8</div>
+              <div class="vhist-meta-2">3 days ago · You · autosave</div>
+            </div>
+            <button class="vhist-restore">Restore…</button>
+          </div>
+
+          <div class="vhist-row">
+            <span class="vhist-num">7</span>
+            <div>
+              <div class="vhist-meta-1">Version 7</div>
+              <div class="vhist-meta-2">5 days ago · You · refine_prose</div>
+            </div>
+            <button class="vhist-restore">Restore…</button>
+          </div>
+        </div>
+      </div>
+      <div style="font-size: 11px; color: var(--text-s); margin-top: 6px; line-height: 1.5;">
+        <span class="cn" style="position: static; margin-right: 6px;">14</span>
+        Restore button appears on row hover (opacity 0 → 1). <strong style="color:var(--destr-h);">Destructive token</strong> (red border + red text) — author reads "I'm replacing my current content" before the modal explains history is preserved.
+      </div>
+      <div style="font-size: 11px; color: var(--text-s); margin-top: 8px; line-height: 1.5;">
+        <span class="cn" style="position: static; margin-right: 6px;">15</span>
+        Current version shows the <em style="color:var(--st-rev);">"restored from v7"</em> annotation rendered from <code style="background:var(--surface);padding:1px 4px;border-radius:2px;color:var(--text-p);font-size:10px;">change_reason='restore_from_v7'</code>. Makes the history additive-model visible at a glance.
+      </div>
+      <div style="font-size: 11px; color: var(--text-s); margin-top: 8px; line-height: 1.5;">
+        <span class="cn" style="position: static; margin-right: 6px;">16</span>
+        Star ★ on current version stays <code style="background:var(--surface);padding:1px 4px;border-radius:2px;color:var(--text-p);font-size:10px;">--color-text-primary</code>, NOT verdigris (closes legacy SU-7 deviation).
+      </div>
+    </div>
+
+    <div class="stage-frame">
+      <div class="stage-title">RestoreConfirmModal</div>
+      <div style="padding: 16px 0;">
+        <div class="modal-frame">
+          <div class="modal-header">
+            <div class="modal-title">Restore Chapter 3 to version 7?</div>
+          </div>
+          <div class="modal-body">
+            <div class="modal-text">
+              Your current content (version 11) won't be lost — it stays in the version history. You can restore back to v11 any time from this same list.
+            </div>
+            <div style="background: var(--surface); border-radius: 3px; padding: 10px 12px; margin: 12px 0; font-size: 11px; color: var(--text-s);">
+              <div style="margin-bottom: 4px;"><strong style="color:var(--text-p);">v7</strong> — 5 days ago · refine_prose</div>
+              <div style="color: var(--text-m); font-size: 10px;">Restores: summary, prose, notes, metadata.</div>
+              <div style="color: var(--text-m); font-size: 10px;">Unchanged: name, tags, structure, status, lock.</div>
+            </div>
+          </div>
+          <div class="modal-actions">
+            <button class="modal-btn btn-ghost">Cancel</button>
+            <button class="modal-btn btn-destructive">Restore to v7</button>
+          </div>
+        </div>
+      </div>
+      <div style="font-size: 11px; color: var(--text-s); margin-top: 6px; line-height: 1.5;">
+        <span class="cn" style="position: static; margin-right: 6px;">17</span>
+        Explanatory copy teaches the additive history model. Modal lists what restore touches vs preserves — eliminates surprise about renames / tags / lock state surviving.
+      </div>
+      <div style="font-size: 11px; color: var(--text-s); margin-top: 8px; line-height: 1.5;">
+        <span class="cn" style="position: static; margin-right: 6px;">18</span>
+        Primary action explicitly labelled "Restore to v7" (not just "Restore") — confirms the target version on the action button as a final visual anchor.
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ── SECTION 06 · VersionHistory — restore disabled states ──────── -->
+<section class="section">
+  <div class="slabel">§06 · VersionHistory restore — disabled states for write-blocked nodes</div>
+
+  <div class="stage-grid tri">
+
+    <div class="stage-frame">
+      <div class="stage-title">Node has Author Lock</div>
+      <div style="padding: 16px 0;">
+        <div class="vhist-frame">
+          <div class="vhist-title">Version History — Chapter 1 (LOCKED)</div>
+          <div class="vhist-row">
+            <span class="vhist-num">7</span>
+            <div>
+              <div class="vhist-meta-1">Version 7</div>
+              <div class="vhist-meta-2">5 days ago · You · refine_prose</div>
+            </div>
+            <button class="vhist-restore disabled">Restore…</button>
+          </div>
+        </div>
+        <div class="disabled-tooltip" style="margin-top: 12px;">
+          <strong>This node is locked.</strong>
+          Unlock it from the More menu before restoring a version.
+        </div>
+      </div>
+    </div>
+
+    <div class="stage-frame">
+      <div class="stage-title">Coworker has Edit Session</div>
+      <div style="padding: 16px 0;">
+        <div class="vhist-frame">
+          <div class="vhist-title">Version History — Chapter 2 (in use)</div>
+          <div class="vhist-row">
+            <span class="vhist-num">7</span>
+            <div>
+              <div class="vhist-meta-1">Version 7</div>
+              <div class="vhist-meta-2">5 days ago · You · refine_prose</div>
+            </div>
+            <button class="vhist-restore disabled">Restore…</button>
+          </div>
+        </div>
+        <div class="disabled-tooltip" style="margin-top: 12px;">
+          <strong>Sarah Kim is editing this.</strong>
+          You can restore when she's done — auto-releases when she navigates away.
+        </div>
+      </div>
+    </div>
+
+    <div class="stage-frame">
+      <div class="stage-title">Agent has pending result (NEW)</div>
+      <div style="padding: 16px 0;">
+        <div class="vhist-frame">
+          <div class="vhist-title">Version History — Chapter 3 (NEW pending)</div>
+          <div class="vhist-row">
+            <span class="vhist-num">7</span>
+            <div>
+              <div class="vhist-meta-1">Version 7</div>
+              <div class="vhist-meta-2">5 days ago · You · refine_prose</div>
+            </div>
+            <button class="vhist-restore disabled">Restore…</button>
+          </div>
+        </div>
+        <div class="disabled-tooltip" style="margin-top: 12px;">
+          <strong>Agent result pending review.</strong>
+          Accept or Dismiss the pending result first, then restore.
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div style="padding: 0 4px 20px; font-size: 11px; color: var(--text-s); line-height: 1.5;">
+    <span class="cn" style="position: static; margin-right: 6px;">19</span>
+    <strong style="color:var(--text-p);">Disabled-state hover tooltip</strong> explains <em>why</em> Restore is unavailable AND <em>what the author can do about it</em>. Three distinct messages for the three lock categories. Maps to the three blocker codes returned by <code style="background:var(--surface);padding:1px 4px;border-radius:2px;color:var(--text-p);font-size:10px;">check_node_writable</code>: <code style="background:var(--surface);padding:1px 4px;border-radius:2px;color:var(--text-p);font-size:10px;">author_locked</code> / <code style="background:var(--surface);padding:1px 4px;border-radius:2px;color:var(--text-p);font-size:10px;">node_in_use</code> / <code style="background:var(--surface);padding:1px 4px;border-radius:2px;color:var(--text-p);font-size:10px;">node_in_progress</code>.
+  </div>
+</section>
+
+<!-- ── SECTION 07 · Restore 409 — version advanced during decision ─── -->
+<section class="section">
+  <div class="slabel">§07 · Restore 409 — version advanced while author was deciding</div>
+
+  <div class="stage-grid full">
+    <div class="stage-frame">
+      <div class="stage-title">409 — node version moved on while VersionHistory was open</div>
+      <div style="display:flex; justify-content:center; padding: 16px 0;">
+        <div class="modal-frame" style="max-width: 480px;">
+          <div class="modal-header">
+            <div class="modal-title">Version history has changed</div>
+          </div>
+          <div class="modal-body">
+            <div class="modal-text">
+              Since you opened this list, another version (<strong style="color:var(--text-p);">v12</strong>) was added — by an agent operation that just completed.
+            </div>
+            <div class="modal-text" style="margin-top: 10px;">
+              Review the latest history before restoring. Your selection (v7) is still available.
+            </div>
+          </div>
+          <div class="modal-actions">
+            <button class="modal-btn btn-ghost">Cancel</button>
+            <button class="modal-btn btn-primary">Refresh history</button>
+          </div>
+        </div>
+      </div>
+      <div style="font-size: 11px; color: var(--text-s); margin-top: 6px; line-height: 1.5;">
+        <span class="cn" style="position: static; margin-right: 6px;">20</span>
+        <strong style="color:var(--text-p);">409 conflict on restore.</strong> Server rejects because <code style="background:var(--surface);padding:1px 4px;border-radius:2px;color:var(--text-p);font-size:10px;">expected_version</code> doesn't match current. Author refreshes, sees the new state, decides again — no proceed-anyway path. Forces re-evaluation when ground shifts.
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── SECTION 08 · Force-Unlock (org owner) ────────────────────────── -->
+<section class="section">
+  <div class="slabel">§08 · Force-Unlock — org-owner emergency surface</div>
+
+  <div class="stage-grid full">
+    <div class="stage-frame">
+      <div class="stage-title">/settings/locks — org-owner view</div>
+      <div style="padding: 16px 0;">
+        <div class="admin-frame">
+          <div class="admin-header">
+            <div class="admin-title">Locked nodes — organisation</div>
+            <div class="admin-subtitle">Author locks across all projects. Force-unlock is an org-owner-only action and is recorded in the audit log.</div>
+          </div>
+          <div class="admin-list-row">
+            <div>
+              <div class="admin-list-node">Act 1 — The Mars Series, Book 1</div>
+              <div class="admin-list-node-meta">Locked by Sarah Kim · 2026-05-12 · "Approved final draft"</div>
+            </div>
+            <div>
+              <div class="admin-list-meta">Bulk lock · 5 nodes</div>
+              <div class="admin-list-meta-2">5 days ago</div>
+            </div>
+            <button class="admin-force-btn">Force-unlock…</button>
+          </div>
+          <div class="admin-list-row">
+            <div>
+              <div class="admin-list-node">Chapter 3 — Detective Story Draft</div>
+              <div class="admin-list-node-meta">Locked by John Reade · 2026-04-30 · "Reviewer copy"</div>
+            </div>
+            <div>
+              <div class="admin-list-meta">Single node</div>
+              <div class="admin-list-meta-2">17 days ago</div>
+            </div>
+            <button class="admin-force-btn">Force-unlock…</button>
+          </div>
+        </div>
+      </div>
+      <div style="font-size: 11px; color: var(--text-s); margin-top: 8px; line-height: 1.5;">
+        <span class="cn" style="position: static; margin-right: 6px;">21</span>
+        <strong style="color:var(--text-p);">Force-unlock</strong> button uses destructive token (red). Confirmation modal (not shown — same pattern as RestoreConfirmModal) explains: <em style="color:var(--text-s);">"This will unlock [N] nodes. The action is recorded in the audit log. Use only when the original locker is unavailable."</em>
+      </div>
+      <div style="font-size: 11px; color: var(--text-s); margin-top: 8px; line-height: 1.5;">
+        <span class="cn" style="position: static; margin-right: 6px;">22</span>
+        Surface mounts at <code style="background:var(--surface);padding:1px 4px;border-radius:2px;color:var(--text-p);font-size:10px;">/settings/locks</code>. Org-owner role check at the route level (Inviolable: only owner sees this; members get 403). Audit row written to existing <code style="background:var(--surface);padding:1px 4px;border-radius:2px;color:var(--text-p);font-size:10px;">audit_log</code> table with action type <code style="background:var(--surface);padding:1px 4px;border-radius:2px;color:var(--text-p);font-size:10px;">force_unlock</code>.
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Annotations summary ─────────────────────────────────────────── -->
+<div class="annotations">
+  <div class="annotations-title">Annotation summary (22 callouts)</div>
+  <div class="ann-grid">
+
+    <div class="ann-row"><span class="ann-num">1</span><span class="ann-text">
+      <strong>Author Lock visual.</strong> Existing 🔒 in <code>--color-text-muted</code>. Persistent across sessions. Only Category 1 wears the lock glyph in this colour.
+    </span></div>
+
+    <div class="ann-row"><span class="ann-num">2</span><span class="ann-text">
+      <strong>Edit Session — coworker avatar.</strong> Replaces drag handle on the row. Avatar derives initials from <code>auth.users.full_name</code>. No lock glyph. Different vocabulary in tooltip ("editing" not "locked").
+    </span></div>
+
+    <div class="ann-row"><span class="ann-num">3</span><span class="ann-text">
+      <strong>Agent In-Flight — three sub-states.</strong> Queued (hourglass, dim info), Running (pulsing spinner in agent-running), Review (filled dot in attention-amber). The "review" state is indefinite by design — also serves as the author's review-backlog signal.
+    </span></div>
+
+    <div class="ann-row"><span class="ann-num">4</span><span class="ann-text">
+      <strong>Status pills reduced 4 → 2.</strong> Draft + Approved. Migration drops <code>in_review</code> → <code>draft</code> and <code>locked</code> → <code>approved</code>. Verdigris use #5 (Approved pill) retained.
+    </span></div>
+
+    <div class="ann-row"><span class="ann-num">5</span><span class="ann-text">
+      <strong>Lock affordance — new menu item.</strong> Ellipsis signals confirmation modal. ⌘L shortcut. NOT verdigris.
+    </span></div>
+
+    <div class="ann-row"><span class="ann-num">6</span><span class="ann-text">
+      <strong>Locked-node menu — dimmed mutating actions.</strong> Status pills + Add child + Rename + Move + Delete all visually disabled. The lock is honest about what it covers.
+    </span></div>
+
+    <div class="ann-row"><span class="ann-num">7</span><span class="ann-text">
+      <strong>Unlock — single-click, no modal.</strong> Low-friction by design. Author who set the lock knows what they're doing; one click out is correct.
+    </span></div>
+
+    <div class="ann-row"><span class="ann-num">8</span><span class="ann-text">
+      <strong>Reason field with suggestions.</strong> Optional input + four clickable suggestions. Suggestions in <code>platform_config</code> (key: <code>locking.reason_suggestions</code>, array). Empty reason is allowed and common.
+    </span></div>
+
+    <div class="ann-row"><span class="ann-num">9</span><span class="ann-text">
+      <strong>Descendants toggle.</strong> Off by default (intentional per-node default; opt-in to cascade). On = N rows in <code>node_author_locks</code> with shared <code>bulk_operation_id</code>. Count surfaces the scope so the author isn't surprised.
+    </span></div>
+
+    <div class="ann-row"><span class="ann-num">10</span><span class="ann-text">
+      <strong>Primary action — neutral primary.</strong> "Lock" button uses <code>--color-text-primary</code> background (high-contrast neutral). NOT verdigris (protective, not affirmative).
+    </span></div>
+
+    <div class="ann-row"><span class="ann-num">11</span><span class="ann-text">
+      <strong>Bulk-unlock surface.</strong> "Unlock all from this batch" appears on any node in a bulk-locked group. Tree preview shows what's affected. Single button — selective unlock uses standard per-node Unlock instead.
+    </span></div>
+
+    <div class="ann-row"><span class="ann-num">12</span><span class="ann-text">
+      <strong>Lock-conflict modal.</strong> Lists conflicting jobs. No "cancel jobs and lock anyway" shortcut — explicit cancellation through Scheduler keeps actions audit-traceable.
+    </span></div>
+
+    <div class="ann-row"><span class="ann-num">13</span><span class="ann-text">
+      <strong>Conflict predicate.</strong> Pending = <code>queue_status IN ('queued','dispatched','running')</code> OR <code>status = 'completed'</code>. Lock proposal can succeed against a completed-pending-review job only by Accept/Dismiss first.
+    </span></div>
+
+    <div class="ann-row"><span class="ann-num">14</span><span class="ann-text">
+      <strong>Restore button — destructive token.</strong> Red border + red text on hover. Author reads the button as "replace current content" before the modal explains the additive-history model. Matches intuition first; teaches via copy.
+    </span></div>
+
+    <div class="ann-row"><span class="ann-num">15</span><span class="ann-text">
+      <strong>"Restored from vN" annotation.</strong> Rendered when <code>change_reason</code> starts with <code>restore_from_</code>. Makes the additive history model visible — author sees v12 was a restore of v7, not new writing.
+    </span></div>
+
+    <div class="ann-row"><span class="ann-num">16</span><span class="ann-text">
+      <strong>Star tinted neutral.</strong> Current-version star uses <code>--color-text-primary</code>, NOT <code>--color-accent</code>. Closes the SU-7 verdigris deviation noted in CLAUDE.md v1.5.
+    </span></div>
+
+    <div class="ann-row"><span class="ann-num">17</span><span class="ann-text">
+      <strong>Modal teaches the model.</strong> Two-line preserved-vs-rewritten breakdown eliminates surprise that renames / tags / status / lock survive the restore.
+    </span></div>
+
+    <div class="ann-row"><span class="ann-num">18</span><span class="ann-text">
+      <strong>Primary action labels the target.</strong> "Restore to v7" not just "Restore" — one more visual confirmation of which version is being restored.
+    </span></div>
+
+    <div class="ann-row"><span class="ann-num">19</span><span class="ann-text">
+      <strong>Disabled tooltips explain + suggest action.</strong> Three messages map to three blocker codes from <code>check_node_writable</code>. Author always sees what to do, not just that the action is unavailable.
+    </span></div>
+
+    <div class="ann-row"><span class="ann-num">20</span><span class="ann-text">
+      <strong>409 conflict UX.</strong> Refresh, decide again. No proceed-anyway. Maintains the author's mental-model integrity (they were deciding about v11; v12 changes the assumption).
+    </span></div>
+
+    <div class="ann-row"><span class="ann-num">21</span><span class="ann-text">
+      <strong>Force-unlock confirmation modal.</strong> Explains it goes in the audit log. Owner-only access. Emergency escape valve, not routine flow.
+    </span></div>
+
+    <div class="ann-row"><span class="ann-num">22</span><span class="ann-text">
+      <strong>/settings/locks mount.</strong> Org-scoped list of all author-locked nodes. Filter / sort by date / by locker. Two columns: lock metadata + scope info. Route-level role check.
+    </span></div>
+
+  </div>
+</div>
+
+<!-- ── Locked decisions ────────────────────────────────────────────── -->
+<div class="decisions">
+  <div class="decisions-title">Decisions locked in this session (no further input needed)</div>
+
+  <div class="decision">
+    <strong>D1 · Three categories, three vocabularies.</strong> Only Category 1 (Author Lock) uses the word "lock" in UI. Category 2 (Edit Session) says "editing" / "in use". Category 3 (Agent In-Flight) says "queued" / "working" / "ready for review". <em>Locked.</em>
+  </div>
+
+  <div class="decision">
+    <strong>D2 · Per-node locks, no implicit cascade.</strong> Locking Act 1 protects Act 1's content + structure + status + tree position only. Existing unlocked descendants remain writable. Bulk-with-descendants creates N independent records sharing <code>bulk_operation_id</code>. <em>Locked.</em>
+  </div>
+
+  <div class="decision">
+    <strong>D3 · Lock proposal does conflict check.</strong> If pending jobs target the to-be-locked node(s), lock fails with options: cancel jobs (in Scheduler) or retry later. No proceed-anyway. <em>Locked.</em>
+  </div>
+
+  <div class="decision">
+    <strong>D4 · Lock reason optional with suggestions.</strong> Free-text input. Four launch suggestions in <code>platform_config</code>. Empty reason allowed. <em>Locked.</em>
+  </div>
+
+  <div class="decision">
+    <strong>D5 · Force-unlock available, audit-logged.</strong> Org owner only. Recorded in <code>audit_log</code> with action <code>force_unlock</code> + target node + reason (optional). Surface at <code>/settings/locks</code>. <em>Locked.</em>
+  </div>
+
+  <div class="decision">
+    <strong>D6 · Auto-lock on completed-pending-review is indefinite.</strong> Also serves as the author's "review needed" backlog signal. No timeout. Author controls when to Accept/Dismiss. <em>Locked.</em>
+  </div>
+
+  <div class="decision">
+    <strong>D7 · Status reduces to 2 values.</strong> <code>draft</code> + <code>approved</code>. Bidirectional free flips. No state machine. No audit-log entry for status changes (<code>updated_at</code> + <code>last_modified_by</code> suffice). <em>Locked.</em>
+  </div>
+
+  <div class="decision">
+    <strong>D8 · Restore is additive and content-only.</strong> Creates new version (<code>change_reason='restore_from_vN'</code>), preserves all history, overwrites summary/prose/notes/metadata only. Preserves name/tags/structure/status/lock. <em>Locked.</em>
+  </div>
+
+  <div class="decision">
+    <strong>D9 · Restore button uses destructive token + confirmation modal.</strong> Red token on the button; explanatory modal teaches the additive-history model. NOT verdigris. <em>Locked.</em>
+  </div>
+
+  <div class="decision">
+    <strong>D10 · Restore on version conflict returns 409.</strong> No proceed-anyway. Author refreshes, decides again. Maintains author's mental model integrity. <em>Locked.</em>
+  </div>
+
+  <div class="decision">
+    <strong>D11 · Unified write-gate RPC.</strong> Every write endpoint routes through <code>check_node_writable(node_id, user_id)</code> which checks all three lock categories. <code>ancestorChainLocked</code> helper drops everywhere. <em>Locked.</em>
+  </div>
+
+</div>
+
+<!-- ── Inviolable audit ────────────────────────────────────────────── -->
+<div class="inv-audit">
+  <div class="annotations-title">Inviolable audit (Phase 6 wireframe)</div>
+
+  <div class="inv-row">
+    <span style="color: var(--callout); font-weight: 600;">1</span>
+    <span><strong style="color:var(--text-p);">Prose surface low-noise.</strong> No prose-surface changes in Phase 6. All new mounts are structural (tree row, menu, modal, version history panel, settings route).</span>
+    <span class="inv-pass">PASS</span>
+  </div>
+
+  <div class="inv-row">
+    <span style="color: var(--callout); font-weight: 600;">2</span>
+    <span><strong style="color:var(--text-p);">Verdigris in exactly nine places.</strong> Phase 6 adds <strong style="color:var(--verd-h);">ZERO</strong> new verdigris uses. Existing use #5 (Approved status pill) preserved through the 4→2 reduction. Lock button = neutral primary. Restore button = destructive. Force-unlock = destructive. SU-7 (current-version star) explicitly de-verdigrised at callout 16. Verdigris-use count remains <strong style="color:var(--verd-h);">9</strong>.</span>
+    <span class="inv-pass">PASS</span>
+  </div>
+
+  <div class="inv-row">
+    <span style="color: var(--callout); font-weight: 600;">3</span>
+    <span><strong style="color:var(--text-p);">Cinzel only in wordmark.</strong> No new wordmark surfaces. All Phase 6 copy in Inter.</span>
+    <span class="inv-pass">PASS</span>
+  </div>
+
+  <div class="inv-row">
+    <span style="color: var(--callout); font-weight: 600;">4</span>
+    <span><strong style="color:var(--text-p);">Typeface boundary.</strong> All Phase 6 surfaces are structural / informational — Inter only. No Lora introduced. Modals, menus, version history rows, settings panels are all structural.</span>
+    <span class="inv-pass">PASS</span>
+  </div>
+
+  <div class="inv-row" style="border-bottom: none;">
+    <span style="color: var(--callout); font-weight: 600;">5</span>
+    <span><strong style="color:var(--text-p);">No prose-editor toolbar.</strong> No prose-editor changes in Phase 6.</span>
+    <span class="inv-pass">PASS</span>
+  </div>
+</div>
+
+<!-- ── Refs ────────────────────────────────────────────────────────── -->
+<div class="refs">
+  <strong>Companion specs (to bump alongside Phase 6 ship):</strong>
+  TA v2.11 → v2.12 (schema — <code>node_author_locks</code> table; status enum 4→2; <code>check_node_writable</code> RPC; <code>check_author_lock_proposal_conflicts</code> RPC; <code>restore_node_version</code> RPC; agent_jobs in-flight index; <code>nodes.locked / lock_reason / locked_at / locked_version</code> columns dropped) ·
+  Component Spec v2.15 → v2.16 (NodeStatusBadge 2-state; NodeMoreMenu lock affordance + reduced pills; new LockReasonModal + LockConflictModal + BulkUnlockConfirmModal + RestoreConfirmModal; NodeLockIndicator extracted with 3 sub-states; VersionHistory restore action + disabled states; SU-7 star de-verdigrise; new <code>/settings/locks</code> admin surface) ·
+  Product Spec v1.14 → v1.15 (§4.11 lock feature wires up; §4.12 restore action lands; §4 status reduction) ·
+  CLAUDE.md v1.36 → v1.37 (Phase 6 SHIPPED entry) ·
+  <strong>Phase 6 sub-phasing:</strong> Shape B — three sub-phases on a single branch, merged via <code>--no-ff</code> at the end.
+  <strong>6.A Foundation</strong> (status migration + <code>check_node_writable</code> + ancestor-cascade removal + agent-in-flight enforcement + NodeLockIndicator extraction + predicate refresh) ·
+  <strong>6.B Author Lock</strong> (<code>node_author_locks</code> table + LockReasonModal + LockConflictModal + BulkUnlockConfirmModal + NodeMoreMenu lock affordance + force-unlock surface) ·
+  <strong>6.C Restore</strong> (<code>restore_node_version</code> RPC + VersionHistory restore action + RestoreConfirmModal + disabled states + 409 UX).
+  <strong>Migration count expected:</strong> 148 → ~155.
+  <strong>Memory references:</strong> <code>project_phase6_kickoff_prep.md</code> · <code>feedback_wireframe_first_for_ui.md</code> · CLAUDE.md v1.36 §11 (Phase 6 row).
+</div>
+
+</body>
+</html>
