@@ -36,6 +36,7 @@ import { checkTokenBudget } from '@/lib/llm/token-budget'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { synthesiseBodySchema } from '@/lib/validation/agent-operations'
+import { enforceWritable } from '@/lib/locking/enforceWritable'
 
 export async function POST(request: NextRequest): Promise<Response> {
   // ---- 1. Auth ----------------------------------------------------------
@@ -84,8 +85,9 @@ export async function POST(request: NextRequest): Promise<Response> {
   const summaryGate = checkSummaryNonEmpty(node.summary)
   if (summaryGate) return summaryGate
 
-  // ---- 5. Lock check ---------------------------------------------------
-  if (node.locked) return apiError(423, 'node_locked', 'Target node is locked.')
+  // ---- 5. Lock check (Phase 6 D11 — unified write-gate) ---------------
+  const block = await enforceWritable(supabase, data.node_id, user.id)
+  if (block) return block
 
   // ---- 6. Optional version-conflict check -----------------------------
   if (data.expected_version !== undefined && node.version !== data.expected_version) {

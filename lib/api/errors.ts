@@ -43,7 +43,22 @@ export const err = {
   invalidLocked:             () => apiError(400, 'invalid_locked'),
   invalidLockReason:         () => apiError(400, 'invalid_lock_reason'),
   cannotDeleteRoot:          () => apiError(422, 'cannot_delete_root'),
-  nodeLocked:                () => apiError(423, 'node_locked'),
+  nodeLocked:                (details?: unknown) =>
+    NextResponse.json(
+      details ? { error: 'node_locked', details } : { error: 'node_locked' },
+      { status: 423 },
+    ),
+  // Phase 6 — unified write-gate three blockers
+  nodeInUse:                 (details?: unknown) =>
+    NextResponse.json(
+      details ? { error: 'node_in_use', details } : { error: 'node_in_use' },
+      { status: 423 },
+    ),
+  nodeInProgress:            (details?: unknown) =>
+    NextResponse.json(
+      details ? { error: 'node_in_progress', details } : { error: 'node_in_progress' },
+      { status: 423 },
+    ),
 
   // Phase 2 nodes — PATCH /move (T-3.5)
   invalidPosition:           () => apiError(400, 'invalid_position'),

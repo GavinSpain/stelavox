@@ -16,6 +16,7 @@ import { checkTokenBudget } from '@/lib/llm/token-budget'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { expandBodySchema } from '@/lib/validation/agent-operations'
+import { enforceWritable } from '@/lib/locking/enforceWritable'
 
 export async function POST(request: NextRequest) {
   // Auth
@@ -49,11 +50,12 @@ export async function POST(request: NextRequest) {
   const { data: node } = await getNode(supabase, data.node_id)
   if (!node) return err.notFound()
 
-  // SU-J14-7 (round-3 hardening 2026-05-09): expand/synthesise/refine/
-  // generate-context were silently accepting dispatch on locked nodes.
-  // The Accept path would later 423, but the LLM call had already run
-  // and the author saw an apparent success. Refuse at dispatch.
-  if (node.locked) return err.nodeLocked()
+  // Phase 6 D11: unified write-gate covers SU-J14-7 (Author Lock) +
+  // Phase 6 D3 (no new agent work when one is already In-Flight or
+  // when another user holds an Edit Session). Replaces bespoke
+  // node.locked check.
+  const block = await enforceWritable(supabase, data.node_id, user.id)
+  if (block) return block
 
   // Structural + non-leaf check
   if (node.node_category !== 'structural') return err.invalidOperationForNodeType()

@@ -24,32 +24,11 @@ import {
 } from '@/lib/data/nodes'
 import { countBackLinks } from '@/lib/data/context-links'
 import { normalizeContent } from '@/lib/editor/serialise'
+import { enforceWritable } from '@/lib/locking/enforceWritable'
 
 interface Context { params: Promise<{ nodeId: string }> }
 
 type SupabaseRouteClient = Awaited<ReturnType<typeof createClient>>
-
-// Walk parent_id chain upward from `startId`. Returns true if any node
-// in the chain has locked = TRUE. Same as the helper in
-// app/api/documents/[documentId]/nodes/route.ts; duplicated here to
-// avoid coupling the two route files.
-async function ancestorChainLocked(
-  supabase: SupabaseRouteClient,
-  startId: string | null,
-): Promise<boolean> {
-  let currentId: string | null = startId
-  while (currentId !== null) {
-    const { data } = await supabase
-      .from('nodes')
-      .select('parent_id, locked')
-      .eq('id', currentId)
-      .maybeSingle()
-    if (!data) return false
-    if (data.locked) return true
-    currentId = data.parent_id
-  }
-  return false
-}
 
 // Map a Zod issue from nodePatchSchema to a 400 error helper. Mirrors
 // the POST mapping in the documents/[id]/nodes/route, with added
@@ -234,20 +213,21 @@ export async function PATCH(request: NextRequest, { params }: Context) {
     const { data: node } = await getNode(supabase, nodeId)
     if (!node) return err.notFound()
 
-    // Step 10: lock check beats step 11's version check (§2.4 + TC-A-30).
-    // SU-J14-9 (round-3 hardening 2026-05-09): once locked, PATCH was
-    // refusing every change INCLUDING unlocking — the author had no way
-    // to open a node back up from the API. The unlock-and-only-unlock
-    // PATCH is the supported recovery path. Allow PATCHes whose only
-    // settable mutation is locked=false (and optionally lock_reason).
-    if (node.locked) {
-      const settableKeys = Object.keys(updateFields)
-      const isUnlockOnly =
-        settableKeys.every((k) => k === 'locked' || k === 'lock_reason') &&
-        (updateFields as { locked?: boolean }).locked === false
-      if (!isUnlockOnly) return err.nodeLocked()
-    }
-    if (await ancestorChainLocked(supabase, node.parent_id)) return err.parentLocked()
+    // Step 10 (Phase 6): unified write-gate. Per Phase 6 D11, ancestor-
+    // chain cascade is dropped — locks are per-node. The unified RPC
+    // checks Author Lock (own node only), Edit Session (other user),
+    // and Agent In-Flight in one round-trip.
+    //
+    // Direct PATCH of `nodes.locked` from the API (the SU-J14-9 unlock
+    // path) is removed in Phase 6 — locking moves to dedicated POST/
+    // DELETE /api/nodes/[id]/lock endpoints in 6.B. nodePatchSchema
+    // continues to reject `locked` / `lock_reason` keys (see
+    // mapPatchZodIssue above).
+    //
+    // Note: a user holding their own Edit Session is NOT blocked by
+    // the gate (check_node_writable filters by user_id != requester).
+    const block = await enforceWritable(supabase, nodeId, user.id)
+    if (block) return block
 
     // Step 11–12: atomic optimistic UPDATE. With `expected_version` set,
     // the UPDATE's WHERE clause includes `version = expectedVersion`, so
@@ -348,7 +328,10 @@ export async function DELETE(request: NextRequest, { params }: Context) {
     // not apply to context nodes (they have no parent and no siblings
     // in the structural tree).
     if (node.node_category === 'context') {
-      if (node.locked) return err.nodeLocked()
+      // Phase 6: unified write-gate. Context nodes have no parent, so
+      // only the node's own lock state + edit session + in-flight matter.
+      const block = await enforceWritable(supabase, nodeId, user.id)
+      if (block) return block
 
       // §2.11 invariant 11: default DELETE returns 409 with the count
       // unless ?force=true is supplied. The FK ON DELETE CASCADE on
@@ -368,8 +351,15 @@ export async function DELETE(request: NextRequest, { params }: Context) {
     // Structural-node delete (Phase 2 path, unchanged).
     if (node.parent_id === null) return err.cannotDeleteRoot()
 
-    if (node.locked) return err.nodeLocked()
-    if (await ancestorChainLocked(supabase, node.parent_id)) return err.parentLocked()
+    // Phase 6: unified write-gate covering target node only (per-node,
+    // no ancestor cascade per D2). The parent's children list IS being
+    // mutated by the delete, so additionally check parent.
+    const block = await enforceWritable(supabase, nodeId, user.id)
+    if (block) return block
+    if (node.parent_id) {
+      const parentBlock = await enforceWritable(supabase, node.parent_id, user.id)
+      if (parentBlock) return parentBlock
+    }
 
     const descendantsCount = await countDescendants(supabase, node.document_id!, node.id)
     const deletedOrder = node.order

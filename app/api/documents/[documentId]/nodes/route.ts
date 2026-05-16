@@ -17,6 +17,7 @@ import {
   createNode, getNode, listNodes,
   getDocumentMaxLayerIndex, decorateWithLeaf,
 } from '@/lib/data/nodes'
+import { enforceWritable } from '@/lib/locking/enforceWritable'
 
 interface Context { params: Promise<{ documentId: string }> }
 
@@ -51,27 +52,6 @@ function depthFirstSort<T extends { id: string; parent_id: string | null; order:
 }
 
 type SupabaseRouteClient = Awaited<ReturnType<typeof createClient>>
-
-// Walk parent_id chain upward from `startId`. Returns true if any ancestor
-// has locked = TRUE, false otherwise. Phase 2 max depth is 5 so at most
-// 5 round trips per call. (`startId` itself IS visited.)
-async function ancestorChainLocked(
-  supabase: SupabaseRouteClient,
-  startId: string | null,
-): Promise<boolean> {
-  let currentId: string | null = startId
-  while (currentId !== null) {
-    const { data } = await supabase
-      .from('nodes')
-      .select('parent_id, locked')
-      .eq('id', currentId)
-      .maybeSingle()
-    if (!data) return false
-    if (data.locked) return true
-    currentId = data.parent_id
-  }
-  return false
-}
 
 interface LayerEntry { node_type: string }
 
@@ -130,9 +110,11 @@ export async function POST(request: NextRequest, { params }: Context) {
     if (parent.document_id !== documentId) return err.invalidParent()
     if (parent.node_category !== 'structural') return err.invalidParent()
 
-    // Lock-chain check on parent (and its ancestors). The parent's own
-    // `locked` is included in the walk — TC-A-20 sets the parent locked.
-    if (await ancestorChainLocked(supabase, parent.id)) return err.parentLocked()
+    // Phase 6 D2 + D11: adding a child is a write on the parent's
+    // children list. Check the IMMEDIATE parent only — no ancestor
+    // walk. Unified write-gate covers all three lock categories.
+    const parentBlock = await enforceWritable(supabase, parent.id, user.id)
+    if (parentBlock) return parentBlock
 
     // Layer hierarchy: parent's child layer must exist (max-depth check)
     // and equal the requested node_type.

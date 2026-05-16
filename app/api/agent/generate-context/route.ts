@@ -16,6 +16,7 @@ import { checkTokenBudget } from '@/lib/llm/token-budget'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { generateContextBodySchema } from '@/lib/validation/agent-operations'
+import { enforceWritable } from '@/lib/locking/enforceWritable'
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient()
@@ -44,8 +45,9 @@ export async function POST(request: NextRequest) {
   const { data: node } = await getNode(supabase, data.node_id)
   if (!node) return err.notFound()
 
-  // SU-J14-7 (2026-05-09): refuse dispatch on locked node.
-  if (node.locked) return err.nodeLocked()
+  // Phase 6 D11: unified write-gate (SU-J14-7 + D3 in-flight check).
+  const block = await enforceWritable(supabase, data.node_id, user.id)
+  if (block) return block
 
   // generate_context: context node only
   if (node.node_category !== 'context') return err.invalidOperationForNodeType()

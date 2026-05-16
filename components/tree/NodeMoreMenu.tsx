@@ -26,8 +26,10 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 
-export type StatusValue = 'draft' | 'in_review' | 'approved' | 'locked'
-const STATUS_VALUES: readonly StatusValue[] = ['draft', 'in_review', 'approved', 'locked']
+// Phase 6: status reduces from 4 values to 2. `in_review` (vestigial)
+// and `locked` (collapsed into Author Lock as its own axis) dropped.
+export type StatusValue = 'draft' | 'approved'
+const STATUS_VALUES: readonly StatusValue[] = ['draft', 'approved']
 
 interface NodeMoreMenuProps {
   nodeId: string

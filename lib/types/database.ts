@@ -3069,6 +3069,10 @@ export type Database = {
         Args: { p_brief_id: string; p_reason?: string }
         Returns: Json
       }
+      check_node_writable: {
+        Args: { p_node_id: string; p_requesting_user_id: string }
+        Returns: Json
+      }
       classify_failure: {
         Args: {
           p_error_code: string
@@ -3151,6 +3155,10 @@ export type Database = {
       request_batch_poll: { Args: never; Returns: undefined }
       request_dispatcher_tick: { Args: never; Returns: undefined }
       request_route_capacity_sample: { Args: never; Returns: undefined }
+      request_synthetic_probe: {
+        Args: { p_probe_id: string }
+        Returns: undefined
+      }
       rollover_org_periods: { Args: never; Returns: Json }
       rollup_metrics_minute: {
         Args: { p_bucket_started_at?: string }
