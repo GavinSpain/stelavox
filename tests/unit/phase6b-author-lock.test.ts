@@ -69,8 +69,8 @@ describe.skipIf(!hasServiceKey)('Phase 6.B Author Lock RPCs', () => {
       },
     )
     if (docErr) throw new Error(`doc: ${docErr.message}`)
-    const docId = (docResult as { document_id: string }).document_id
-    const rootId = (docResult as { root_node_id: string }).root_node_id
+    const docId = (docResult as { document: { id: string } }).document.id
+    const rootId = (docResult as { root_node: { id: string } }).root_node.id
 
     const childId = crypto.randomUUID()
     const child2Id = crypto.randomUUID()

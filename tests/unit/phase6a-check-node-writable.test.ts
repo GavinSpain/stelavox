@@ -83,8 +83,8 @@ describe.skipIf(!hasServiceKey)('Phase 6.A check_node_writable RPC', () => {
       },
     )
     if (docErr) throw new Error(`create_document_with_layer_stack: ${docErr.message}`)
-    const docId = (docResult as { document_id: string }).document_id
-    const rootId = (docResult as { root_node_id: string }).root_node_id
+    const docId = (docResult as { document: { id: string } }).document.id
+    const rootId = (docResult as { root_node: { id: string } }).root_node.id
 
     // Add a single child for the lock-check tests.
     r = await svc.from('nodes').insert({
