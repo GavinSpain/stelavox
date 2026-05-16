@@ -120,6 +120,14 @@ export interface ToolCallProposals {
   profileAmendmentProposal: ProfileAmendmentProposalParsed | null
   /** V1.x-B.1.1 — destructive Brief cancellation proposal. */
   briefCancellationProposal: BriefCancellationProposalArtefact | null
+  /** V1.x-F.1 — capability-limit synthetic proposal (Director self-rejection). */
+  capabilityLimitProposal: CapabilityLimitProposalArtefact | null
+}
+
+export interface CapabilityLimitProposalArtefact {
+  detected_limit: 'per_iteration_cap' | 'token_budget' | 'tool_count' | 'other'
+  suggested_alternative: string
+  reason: string
 }
 
 /**
@@ -134,6 +142,7 @@ export function findProposalInToolCalls(toolCalls: unknown): ToolCallProposals {
     briefProposalConcurrentEdit: null,
     profileAmendmentProposal: null,
     briefCancellationProposal: null,
+    capabilityLimitProposal: null,
   }
   if (!Array.isArray(toolCalls)) return empty
 
@@ -141,6 +150,7 @@ export function findProposalInToolCalls(toolCalls: unknown): ToolCallProposals {
   let briefProposalConcurrentEdit: ConcurrentEditWarning | null = null
   let profileAmendmentProposal: ProfileAmendmentProposalParsed | null = null
   let briefCancellationProposal: BriefCancellationProposalArtefact | null = null
+  let capabilityLimitProposal: CapabilityLimitProposalArtefact | null = null
 
   for (const raw of toolCalls) {
     if (!raw || typeof raw !== 'object') continue
@@ -185,6 +195,25 @@ export function findProposalInToolCalls(toolCalls: unknown): ToolCallProposals {
       ) {
         briefCancellationProposal = a
       }
+    } else if (entry.name === 'report_capability_limit') {
+      // V1.x-F.1 — Director self-rejection artefact. Server-validated at
+      // execReportCapabilityLimit time against the zod schema. Re-check
+      // here for client-side safety (page-reload hydration).
+      const a = entry.proposal_artefact as CapabilityLimitProposalArtefact
+      if (
+        a &&
+        typeof a === 'object' &&
+        (a.detected_limit === 'per_iteration_cap' ||
+          a.detected_limit === 'token_budget' ||
+          a.detected_limit === 'tool_count' ||
+          a.detected_limit === 'other') &&
+        typeof a.suggested_alternative === 'string' &&
+        a.suggested_alternative.length > 0 &&
+        typeof a.reason === 'string' &&
+        a.reason.length > 0
+      ) {
+        capabilityLimitProposal = a
+      }
     }
   }
 
@@ -193,5 +222,6 @@ export function findProposalInToolCalls(toolCalls: unknown): ToolCallProposals {
     briefProposalConcurrentEdit,
     profileAmendmentProposal,
     briefCancellationProposal,
+    capabilityLimitProposal,
   }
 }

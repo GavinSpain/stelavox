@@ -46,6 +46,7 @@ import {
   execProposeBrief,
   execProposeBriefAmendment,
   execProposeProfileAmendment,
+  execReportCapabilityLimit,
 } from '@/lib/director/tools/write'
 import { toolInputSchemaFor } from '@/lib/director/tool-schema'
 
@@ -194,6 +195,13 @@ const writeTools: DirectorToolDefinition[] = [
       "V1.x-B.3 — propose an in-flight modification to an active or planned Brief. Required: brief_id (the Brief to amend) + amendment_type (one of 'goal_text' | 'preferences' | 'add_stage' | 'modify_pending_stage' | 'remove_pending_stage') + after (the new shape; for goal_text: { goal_text: string }; for preferences: a partial object that deep-merges; for add_stage: full stage payload; for modify/remove_pending_stage: the stage UUID goes in target_path) + reason (one sentence). Already-running stages CANNOT be amended (only status='planned' stages); already-completed stages cannot be removed. The user approves via BriefAmendmentCard before apply_brief_amendment RPC fires. Use when: the user wants to extend an active Brief with another stage; the user wants to refine the goal_text or preferences on an in-flight Brief; the user wants to drop or modify a pending (not-yet-running) stage. NOT for cancelling a Brief (use cancel_brief) or for proposing a new Brief (use propose_brief).",
     input_schema: toolInputSchemaFor('propose_brief_amendment'),
   },
+  {
+    name: 'report_capability_limit',
+    kind: 'write',
+    description:
+      "V1.x-F.1 — declare a capability boundary that prevents you from fulfilling the user's request in one go. Required: detected_limit (one of 'per_iteration_cap' | 'token_budget' | 'tool_count' | 'other') + suggested_alternative (the closest reformulation you CAN do — e.g. 'plan chapters 1-10 first, then continue in subsequent batches') + reason (one sentence explaining the limit). Call this BEFORE attempting partial execution; do NOT call propose_brief or propose_workflow for the over-capacity request after reporting the limit (wait for the user to reformulate). Surfaces as CapabilityLimitCard in the conversation thread; no DB write. Use when: the user requests more nodes than fit in one workflow (cap typically 30); a token estimate would exceed budget; required tool count exceeds your tool_suite; a multi-step batch protocol genuinely doesn't fit. NOT for failed validation (return the model's natural failure response) or for cancelling a Brief (use cancel_brief).",
+    input_schema: toolInputSchemaFor('report_capability_limit'),
+  },
 ]
 
 // ---------------------------------------------------------------------------
@@ -233,6 +241,7 @@ const TOOL_EXECUTORS: Record<string, ToolExecutor> = {
   propose_profile_amendment: execProposeProfileAmendment as ToolExecutor,
   cancel_brief: execCancelBrief as ToolExecutor,
   propose_brief_amendment: execProposeBriefAmendment as ToolExecutor,
+  report_capability_limit: execReportCapabilityLimit as ToolExecutor,
 }
 
 export function getToolByName(name: string): DirectorToolDefinition | undefined {

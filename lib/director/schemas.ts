@@ -388,6 +388,17 @@ export const ToolInputSchemas = {
       reason: z.string().min(1).max(1024),
     })
     .strict(),
+  // V1.x-F.1: report_capability_limit — synthetic propose-only tool the
+  // Director invokes when it detects the user's request exceeds its
+  // capability boundaries (per-iteration cap, token budget, tool count,
+  // multi-step protocol overflow).
+  report_capability_limit: z
+    .object({
+      detected_limit: z.enum(['per_iteration_cap', 'token_budget', 'tool_count', 'other']),
+      suggested_alternative: z.string().min(1).max(2048),
+      reason: z.string().min(1).max(2048),
+    })
+    .strict(),
 } as const
 
 export type ToolName = keyof typeof ToolInputSchemas
@@ -415,6 +426,7 @@ export const WRITE_TOOL_NAMES: readonly ToolName[] = [
   'propose_profile_amendment',
   'cancel_brief',
   'propose_brief_amendment',
+  'report_capability_limit',
 ] as const
 
 export function isReadTool(name: string): name is ToolName {

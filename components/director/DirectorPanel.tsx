@@ -31,6 +31,7 @@ import { ExecutionCard } from './ExecutionCard'
 import { WorkflowCompletionAck } from './WorkflowCompletionAck'
 import { BriefProposalCard } from './BriefProposalCard'
 import { BriefCancellationProposalCard } from './BriefCancellationProposalCard'
+import { CapabilityLimitCard } from './CapabilityLimitCard'
 import { ProjectProfileAmendmentCard } from './ProjectProfileAmendmentCard'
 import { ConversationClearButton } from './ConversationClearButton'
 import { StopButton } from './StopButton'
@@ -259,6 +260,7 @@ export function DirectorPanel({
         briefProposalConcurrentEdit,
         profileAmendmentProposal,
         briefCancellationProposal,
+        capabilityLimitProposal,
       } = findProposalInToolCalls(message.tool_calls)
       if (briefProposal) {
         return (
@@ -286,6 +288,11 @@ export function DirectorPanel({
             onApproved={() => void refresh()}
           />
         )
+      }
+      if (capabilityLimitProposal) {
+        // V1.x-F.1 — Director self-rejection. No "Approved" callback;
+        // the user reformulates their request manually.
+        return <CapabilityLimitCard proposal={capabilityLimitProposal} />
       }
       return null
     },

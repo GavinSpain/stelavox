@@ -285,20 +285,21 @@ test.describe('V1.x-B.1.1 session 3a — stage triggers + runtime substrate', ()
     await admin.from('agent_jobs').delete().eq('id', jobId)
   })
 
-  test('Director config v1.9 production with trigger_config example block (FU-2 carried forward) + propose_brief_amendment (V1.x-B.3)', async () => {
-    // V1.x-B.3 (Migration 129) deprecated v1.8, made v1.9 production with
-    // 18 tools (= v1.8's 17 + propose_brief_amendment). The v1.8 FU-2 trigger_config
-    // example block carries forward into v1.9.
+  test('Director config v1.10 production with prior tool carry-over + report_capability_limit (V1.x-F.1)', async () => {
+    // V1.x-F.1 (Migration 146) deprecated v1.9, made v1.10 production with
+    // 19 tools (= v1.9's 18 + report_capability_limit). The v1.8 FU-2
+    // trigger_config example block carries forward through v1.9 into v1.10.
     const { data } = await adminClient()
       .from('director_configs')
       .select('version_number, status, system_prompt, tool_suite')
       .eq('status', 'production')
       .single()
-    expect(data!.version_number).toBe('1.9')
+    expect(data!.version_number).toBe('1.10')
     const tools = data!.tool_suite as string[]
-    expect(tools).toHaveLength(18)
+    expect(tools).toHaveLength(19)
     expect(tools).toContain('cancel_brief')
     expect(tools).toContain('propose_brief_amendment')
+    expect(tools).toContain('report_capability_limit')
     expect(data!.system_prompt).toContain('after_stage_order')
     expect(data!.system_prompt).toContain('"scheduled_at": "<ISO 8601 timestamp>"')
   })
