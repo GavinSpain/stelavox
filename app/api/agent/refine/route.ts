@@ -22,6 +22,7 @@ import {
 import { createClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { refineBodySchema } from '@/lib/validation/agent-operations'
+import { enforceWritable } from '@/lib/locking/enforceWritable'
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient()
@@ -52,8 +53,12 @@ export async function POST(request: NextRequest) {
   const { data: node } = await getNode(supabase, data.node_id)
   if (!node) return err.notFound()
 
-  // SU-J14-7 (2026-05-09): refuse dispatch on locked node.
-  if (node.locked) return err.nodeLocked()
+  // Phase 6 D11: unified write-gate covers SU-J14-7 (Author Lock) +
+  // Phase 6 D3 (no new agent work on a node already In-Flight or held
+  // in an Edit Session by a different user). Replaces bespoke
+  // node.locked check.
+  const block = await enforceWritable(supabase, data.node_id, user.id)
+  if (block) return block
 
   // target_field validation against node category/leaf-ness
   if (data.target_field === 'prose') {

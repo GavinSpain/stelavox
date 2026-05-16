@@ -1,11 +1,12 @@
 'use client'
 
-// Spec: stelavox_component_specification_v2_1.md §5.11 (VersionHistory)
+// Spec: stelavox_component_specification_v2_16.md §5.11 (VersionHistory)
 //       stelavox_phase3_api_contract_v1_0.md §3.2, §3.3
-//       stelavox_phase3_build_checklist_v1_0.md §3.5 T-5.4
+//       Phase 6.C wireframe §05 — Restore action.
 //
-// 🔒 NO Restore button in Phase 3 (Phase 6 work — see §5.11 lock-aware
-//    semantics block).
+// Phase 3 shipped the list + hover diff. Phase 6.C ships the Restore
+// button on hover + RestoreConfirmModal + disabled states for nodes
+// that are author-locked / in use / agent in-flight.
 //
 // Initial fetch: limit=7. "Show N more" loads the next 25.
 // Hover on a row → fetches that version's content + the next-higher
@@ -13,6 +14,7 @@
 // Empty state: TC-U-23 wording.
 
 import { useEffect, useRef, useState } from 'react'
+import { RestoreConfirmModal } from './RestoreConfirmModal'
 
 interface VersionRow {
   id: string
@@ -32,6 +34,14 @@ interface FullVersion extends VersionRow {
 
 interface VersionHistoryProps {
   nodeId: string
+  // Phase 6.C: caller (NodeDetailPanel) signals whether restore is
+  // available right now. Computed from check_node_writable on mount.
+  // When the node is not writable, the Restore button renders in a
+  // disabled state with a tooltip explaining why.
+  restoreDisabledReason?: 'author_locked' | 'node_in_use' | 'node_in_progress' | null
+  nodeName?: string
+  currentVersion?: number
+  onRestored?: (newVersion: number) => void
 }
 
 const INITIAL_LIMIT = 7
@@ -95,9 +105,18 @@ function diffWords(oldText: string, newText: string): DiffSeg[] {
   return out
 }
 
-export function VersionHistory({ nodeId }: VersionHistoryProps) {
+export function VersionHistory({
+  nodeId,
+  restoreDisabledReason = null,
+  nodeName = 'this node',
+  currentVersion,
+  onRestored,
+}: VersionHistoryProps) {
   const [rows, setRows]     = useState<VersionRow[]>([])
   const [total, setTotal]   = useState(0)
+  const [restoreModalOpen, setRestoreModalOpen] = useState(false)
+  const [restoreTargetVersion, setRestoreTargetVersion] = useState<number | null>(null)
+  const [restoreTargetMeta, setRestoreTargetMeta] = useState<{ changedAt: string; changeReason: string | null } | null>(null)
   const [hasMore, setHasMore] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError]   = useState(false)
@@ -264,11 +283,62 @@ export function VersionHistory({ nodeId }: VersionHistoryProps) {
                   fontFamily: 'var(--font-inter), Inter, sans-serif',
                   fontSize: '11px',
                   fontWeight: 300,
-                  color: 'var(--color-text-muted)',
+                  color: row.change_reason.startsWith('restore_from_v')
+                    ? 'var(--color-status-review)'
+                    : 'var(--color-text-muted)',
+                  fontStyle: row.change_reason.startsWith('restore_from_v') ? 'italic' : 'normal',
                 }}
               >
-                {row.change_reason}
+                {row.change_reason.startsWith('restore_from_v')
+                  ? `restored from v${row.change_reason.substring('restore_from_v'.length)}`
+                  : row.change_reason}
               </div>
+            )}
+            {/* Phase 6.C: Restore button on hover (non-current rows only). */}
+            {!isCurrent && (
+              <button
+                type="button"
+                disabled={restoreDisabledReason !== null}
+                data-testid={`version-restore-${row.version}`}
+                title={
+                  restoreDisabledReason === 'author_locked'
+                    ? 'This node is locked. Unlock it from the More menu before restoring.'
+                    : restoreDisabledReason === 'node_in_use'
+                      ? 'Another author is editing this node. You can restore when they finish.'
+                      : restoreDisabledReason === 'node_in_progress'
+                        ? 'Agent result pending review. Accept or Dismiss the pending result first, then restore.'
+                        : `Restore to v${row.version}`
+                }
+                onClick={() => {
+                  if (restoreDisabledReason !== null) return
+                  setRestoreTargetVersion(row.version)
+                  setRestoreTargetMeta({
+                    changedAt: row.created_at,
+                    changeReason: row.change_reason,
+                  })
+                  setRestoreModalOpen(true)
+                }}
+                style={{
+                  position: 'absolute',
+                  right: 4,
+                  top: 6,
+                  fontSize: '10px',
+                  color: restoreDisabledReason !== null
+                    ? 'var(--color-text-muted)'
+                    : 'var(--color-error)',
+                  border: `1px solid ${restoreDisabledReason !== null
+                    ? 'var(--color-border-subtle)'
+                    : 'var(--color-error)'}`,
+                  borderRadius: 3,
+                  padding: '3px 10px',
+                  background: 'transparent',
+                  cursor: restoreDisabledReason !== null ? 'not-allowed' : 'pointer',
+                  opacity: hoveredVersion === row.version || restoreDisabledReason !== null ? 1 : 0,
+                  transition: 'opacity 120ms ease',
+                }}
+              >
+                Restore…
+              </button>
             )}
             {hoveredVersion === row.version && diffSegs && (
               <div
@@ -325,6 +395,42 @@ export function VersionHistory({ nodeId }: VersionHistoryProps) {
           Show {Math.min(PAGE_LIMIT, total - rows.length)} more versions…
         </button>
       )}
+
+      <RestoreConfirmModal
+        open={restoreModalOpen && restoreTargetVersion !== null}
+        nodeId={nodeId}
+        nodeName={nodeName}
+        targetVersion={restoreTargetVersion ?? 0}
+        targetVersionMeta={restoreTargetMeta ?? undefined}
+        expectedVersion={currentVersion ?? (rows[0]?.version ?? 1)}
+        onClose={() => {
+          setRestoreModalOpen(false)
+          setRestoreTargetVersion(null)
+          setRestoreTargetMeta(null)
+        }}
+        onRestored={(newVersion) => {
+          // Refresh the list — the new version row will appear at the top.
+          void (async () => {
+            const r = await fetch(`/api/nodes/${nodeId}/versions?limit=${INITIAL_LIMIT}`)
+            if (r.ok) {
+              const body = await r.json() as { versions: VersionRow[]; total: number }
+              setRows(body.versions)
+              setTotal(body.total)
+            }
+            onRestored?.(newVersion)
+          })()
+        }}
+        onVersionConflict={() => {
+          void (async () => {
+            const r = await fetch(`/api/nodes/${nodeId}/versions?limit=${INITIAL_LIMIT}`)
+            if (r.ok) {
+              const body = await r.json() as { versions: VersionRow[]; total: number }
+              setRows(body.versions)
+              setTotal(body.total)
+            }
+          })()
+        }}
+      />
     </div>
   )
 }

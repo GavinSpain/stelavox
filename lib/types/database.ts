@@ -1575,6 +1575,55 @@ export type Database = {
           },
         ]
       }
+      node_author_locks: {
+        Row: {
+          bulk_operation_id: string | null
+          lock_reason: string | null
+          locked_at: string
+          locked_by_user_id: string
+          node_id: string
+          organisation_id: string
+        }
+        Insert: {
+          bulk_operation_id?: string | null
+          lock_reason?: string | null
+          locked_at?: string
+          locked_by_user_id: string
+          node_id: string
+          organisation_id: string
+        }
+        Update: {
+          bulk_operation_id?: string | null
+          lock_reason?: string | null
+          locked_at?: string
+          locked_by_user_id?: string
+          node_id?: string
+          organisation_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "node_author_locks_node_id_fkey"
+            columns: ["node_id"]
+            isOneToOne: true
+            referencedRelation: "nodes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "node_author_locks_node_id_fkey"
+            columns: ["node_id"]
+            isOneToOne: true
+            referencedRelation: "nodes_canonical"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "node_author_locks_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       node_comments: {
         Row: {
           agent_job_id: string | null
@@ -1848,10 +1897,6 @@ export type Database = {
           last_ai_change_at: string | null
           last_modified_by: string | null
           layer_index: number | null
-          lock_reason: string | null
-          locked: boolean
-          locked_at: string | null
-          locked_version: number | null
           metadata: Json | null
           mobile_notes: Json
           name: string | null
@@ -1889,10 +1934,6 @@ export type Database = {
           last_ai_change_at?: string | null
           last_modified_by?: string | null
           layer_index?: number | null
-          lock_reason?: string | null
-          locked?: boolean
-          locked_at?: string | null
-          locked_version?: number | null
           metadata?: Json | null
           mobile_notes?: Json
           name?: string | null
@@ -1930,10 +1971,6 @@ export type Database = {
           last_ai_change_at?: string | null
           last_modified_by?: string | null
           layer_index?: number | null
-          lock_reason?: string | null
-          locked?: boolean
-          locked_at?: string | null
-          locked_version?: number | null
           metadata?: Json | null
           mobile_notes?: Json
           name?: string | null
@@ -2958,10 +2995,6 @@ export type Database = {
           id: string | null
           last_modified_by: string | null
           layer_index: number | null
-          lock_reason: string | null
-          locked: boolean | null
-          locked_at: string | null
-          locked_version: number | null
           metadata: Json | null
           mobile_notes: Json | null
           name: string | null
@@ -3054,6 +3087,18 @@ export type Database = {
         Args: { p_document_id: string; p_goal_text: string; p_stages: Json }
         Returns: Json
       }
+      apply_author_lock: {
+        Args: { p_node_id: string; p_reason: string }
+        Returns: Json
+      }
+      apply_author_lock_bulk: {
+        Args: {
+          p_descendant_ids: string[]
+          p_node_id: string
+          p_reason: string
+        }
+        Returns: Json
+      }
       apply_brief_amendment: { Args: { p_amendment_id: string }; Returns: Json }
       apply_profile_amendment: {
         Args: {
@@ -3067,6 +3112,10 @@ export type Database = {
       }
       cancel_brief: {
         Args: { p_brief_id: string; p_reason?: string }
+        Returns: Json
+      }
+      check_node_writable: {
+        Args: { p_node_id: string; p_requesting_user_id: string }
         Returns: Json
       }
       classify_failure: {
@@ -3121,6 +3170,10 @@ export type Database = {
       disable_org_byok: { Args: { p_org_id: string }; Returns: Json }
       enable_org_byok: { Args: { p_org_id: string }; Returns: Json }
       evaluate_ready_stage_triggers: { Args: never; Returns: number }
+      force_unlock: {
+        Args: { p_node_id: string; p_reason: string }
+        Returns: Json
+      }
       get_org_anthropic_key_for_byok_call: {
         Args: { p_org_id: string }
         Returns: string
@@ -3147,10 +3200,23 @@ export type Database = {
         Args: { p_brief_id: string }
         Returns: Json
       }
+      propose_author_lock_conflicts: {
+        Args: { p_node_ids: string[] }
+        Returns: Json
+      }
       purge_raw_metric_samples: { Args: never; Returns: Json }
+      release_author_lock: { Args: { p_node_id: string }; Returns: Json }
+      release_bulk_operation: {
+        Args: { p_bulk_operation_id: string }
+        Returns: Json
+      }
       request_batch_poll: { Args: never; Returns: undefined }
       request_dispatcher_tick: { Args: never; Returns: undefined }
       request_route_capacity_sample: { Args: never; Returns: undefined }
+      request_synthetic_probe: {
+        Args: { p_probe_id: string }
+        Returns: undefined
+      }
       rollover_org_periods: { Args: never; Returns: Json }
       rollup_metrics_minute: {
         Args: { p_bucket_started_at?: string }

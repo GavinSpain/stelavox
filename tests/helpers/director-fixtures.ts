@@ -140,7 +140,17 @@ export async function seedNodes(f: DirectorFixture): Promise<DirectorFixture> {
 }
 
 export async function lockNode(nodeId: string): Promise<void> {
-  await adminClient().from('nodes').update({ locked: true }).eq('id', nodeId)
+  // Phase 6: nodes.locked dropped; use node_author_locks.
+  const admin = adminClient()
+  const { data: node } = await admin
+    .from('nodes').select('organisation_id').eq('id', nodeId).single()
+  const { data: member } = await admin
+    .from('organisation_members').select('user_id')
+    .eq('organisation_id', node!.organisation_id).limit(1).single()
+  await admin.from('node_author_locks').insert({
+    node_id: nodeId, organisation_id: node!.organisation_id,
+    locked_by_user_id: member!.user_id, lock_reason: 'fixture lock',
+  })
 }
 
 export async function dispose(f: DirectorFixture): Promise<void> {

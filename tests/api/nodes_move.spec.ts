@@ -78,13 +78,26 @@ async function insertNode(args: {
       depth:           args.depth,
       layer_index:     args.layer_index,
       name:            args.name ?? null,
-      locked:          args.locked ?? false,
       status:          'draft',
       version:         1,
     })
     .select('id, parent_id, order, depth, layer_index, node_type')
     .single()
-  return data as ChildNode
+  const node = data as ChildNode
+
+  if (args.locked) {
+    // Phase 6: nodes.locked dropped; use node_author_locks.
+    const { data: member } = await adminClient()
+      .from('organisation_members').select('user_id')
+      .eq('organisation_id', args.org_id).limit(1).single()
+    if (member?.user_id) {
+      await adminClient().from('node_author_locks').insert({
+        node_id: node.id, organisation_id: args.org_id,
+        locked_by_user_id: member.user_id, lock_reason: 'test fixture',
+      })
+    }
+  }
+  return node
 }
 
 async function readNode(id: string) {
@@ -384,43 +397,17 @@ test.describe('PATCH /api/nodes/[id]/move', () => {
     await ctx.dispose()
   })
 
-  test('TC-A-90 ancestor of moved node locked → 423 parent_locked', async () => {
-    const lockedAct = await freshAct('TC-A-90 locked act')
-    await adminClient().from('nodes').update({ locked: true }).eq('id', lockedAct.id)
-    const ch = await chapter(lockedAct.id, 1, 'TC-A-90 ch')
-    const targetAct = await freshAct('TC-A-90 target')
-
-    const ctx = await ctxA()
-    const res = await ctx.patch(`/api/nodes/${ch.id}/move`, {
-      data: { parent_id: targetAct.id, position: 0 },
-    })
-    expect(res.status()).toBe(423)
-    expect((await res.json()).error).toBe('parent_locked')
-    await ctx.dispose()
+  test.skip('TC-A-90 ancestor of moved node locked → 423 parent_locked — SUPERSEDED Phase 6 D2', async () => {
+    // Phase 6 D2: locks are per-node, no ancestor cascade. Moving a
+    // child of a locked ancestor is allowed when the immediate
+    // old parent is unlocked. M-155 move_node now checks only the
+    // immediate old parent + new parent + moved node itself.
   })
 
-  test('TC-A-91 new parent ancestor locked → 423 parent_locked', async () => {
-    const sourceAct = await freshAct('TC-A-91 source')
-    const lockedTargetAct = await freshAct('TC-A-91 locked target')
-    await adminClient().from('nodes').update({ locked: true }).eq('id', lockedTargetAct.id)
-    // unlocked chapter under the locked target act — its lineage from
-    // that chapter back up includes the locked act.
-    const lockedTargetChapter = await chapter(lockedTargetAct.id, 1, 'TC-A-91 locked target ch')
-    const ch = await chapter(sourceAct.id, 1, 'TC-A-91 ch')
-
-    const ctx = await ctxA()
-    // Move ch (source unlocked) under lockedTargetChapter (whose
-    // ancestor lockedTargetAct is locked). We need a layer-valid
-    // target: ch is a chapter, so its parent must admit chapters
-    // (i.e., an act). Use lockedTargetAct as the new parent.
-    const res = await ctx.patch(`/api/nodes/${ch.id}/move`, {
-      data: { parent_id: lockedTargetAct.id, position: 0 },
-    })
-    expect(res.status()).toBe(423)
-    expect((await res.json()).error).toBe('parent_locked')
-    // touch the unused variable to keep TS happy
-    expect(lockedTargetChapter.id).toBeTruthy()
-    await ctx.dispose()
+  test.skip('TC-A-91 new parent ancestor locked → 423 parent_locked — SUPERSEDED Phase 6 D2', async () => {
+    // Phase 6 D2: locks are per-node, no ancestor cascade. The new
+    // parent's ancestors are NOT walked. Only the new parent itself
+    // is checked. M-155 move_node logic per-node only.
   })
 
   // ─── path/auth ────────────────────────────────────────────────────

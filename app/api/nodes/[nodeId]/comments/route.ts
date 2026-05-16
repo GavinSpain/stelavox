@@ -74,8 +74,11 @@ export async function POST(request: NextRequest, { params }: Context) {
     if (parent.parent_comment_id !== null) return err.commentThreadTooDeep()
   }
 
-  // Lock check (defensive — Phase 6 enforces locks; Phase 5 honours if set)
-  if (node.locked) return err.nodeLocked()
+  // Phase 6 D-A: comments are EXCLUDED from the lock domain. Adding a
+  // comment is a sibling-artefact write, not a write on the node's
+  // content / structure / status / tree position. Locked nodes still
+  // accept comments. (Editorial discussion shouldn't be blocked by a
+  // protective lock.)
 
   // INSERT
   const { data: created, error: insertErr } = await supabase

@@ -72,13 +72,24 @@ async function insertStructuralChild(args: {
       depth:           args.depth,
       layer_index:     args.layer_index,
       name:            args.name,
-      locked:          args.locked ?? false,
       status:          'draft',
       version:         1,
       metadata:        {} as never,
     })
     .select()
     .single()
+  if (args.locked && data) {
+    // Phase 6: nodes.locked dropped; use node_author_locks.
+    const { data: member } = await adminClient()
+      .from('organisation_members').select('user_id')
+      .eq('organisation_id', args.org_id).limit(1).single()
+    if (member?.user_id) {
+      await adminClient().from('node_author_locks').insert({
+        node_id: data.id, organisation_id: args.org_id,
+        locked_by_user_id: member.user_id, lock_reason: 'test fixture',
+      })
+    }
+  }
   return data!
 }
 
@@ -200,51 +211,17 @@ test('TC-A-20 POST duplicate link returns 409 with existing link', async () => {
   await ctx.dispose()
 })
 
-test('TC-A-21 POST link blocked by source lock', async () => {
-  const orgId = await getUserOrgId(USERS.A.email)
-  const project = await setupProject(orgId, 'TC-A-21-project')
-  const setup = await setupNovelDocument(project.id, orgId, 'TC-A-21-doc')
-  const elena = await shorthandCharacter(orgId, project.id, 'Elena')
-
-  // Lock the root node.
-  await adminClient().from('nodes')
-    .update({ locked: true, lock_reason: 'TC-A-21' })
-    .eq('id', setup.root_node.id)
-
-  const ctx = await ctxA()
-  const res = await ctx.post(`/api/nodes/${setup.root_node.id}/context-links`, {
-    headers: { 'content-type': 'application/json' },
-    data: { context_node_id: elena.id },
-  })
-  expect(res.status()).toBe(423)
-  expect((await res.json()).error).toBe('node_locked')
-  await ctx.dispose()
+test.skip('TC-A-21 POST link blocked by source lock — SUPERSEDED Phase 6 D-A', async () => {
+  // Phase 6 D-A: context links are EXCLUDED from the lock domain.
+  // Locked nodes still accept new links (linking is annotation, not
+  // content). Lock check was removed from
+  // /api/nodes/[id]/context-links POST in 6.A.
 })
 
-test('TC-A-22 POST link blocked by ancestor lock', async () => {
-  const orgId = await getUserOrgId(USERS.A.email)
-  const project = await setupProject(orgId, 'TC-A-22-project')
-  const setup = await setupNovelDocument(project.id, orgId, 'TC-A-22-doc')
-  const child = await insertStructuralChild({
-    org_id: orgId, project_id: project.id, document_id: setup.document.id,
-    parent_id: setup.root_node.id, node_type: 'act',
-    order: 1, depth: 1, layer_index: 1, name: 'Act 1',
-  })
-  const elena = await shorthandCharacter(orgId, project.id, 'Elena')
-
-  // Lock the parent (root), child is the source.
-  await adminClient().from('nodes')
-    .update({ locked: true, lock_reason: 'TC-A-22' })
-    .eq('id', setup.root_node.id)
-
-  const ctx = await ctxA()
-  const res = await ctx.post(`/api/nodes/${child.id}/context-links`, {
-    headers: { 'content-type': 'application/json' },
-    data: { context_node_id: elena.id },
-  })
-  expect(res.status()).toBe(423)
-  expect((await res.json()).error).toBe('parent_locked')
-  await ctx.dispose()
+test.skip('TC-A-22 POST link blocked by ancestor lock — SUPERSEDED Phase 6 D-A + D2', async () => {
+  // Phase 6 D-A: context links excluded from lock domain.
+  // Phase 6 D2: locks are per-node anyway — no ancestor cascade.
+  // Doubly superseded.
 })
 
 // ─── TC-A-23..TC-A-25: DELETE link ──────────────────────────────────────
@@ -284,22 +261,10 @@ test('TC-A-24 DELETE non-existent link returns 404', async () => {
   await ctx.dispose()
 })
 
-test('TC-A-25 DELETE blocked by source lock', async () => {
-  const orgId = await getUserOrgId(USERS.A.email)
-  const project = await setupProject(orgId, 'TC-A-25-project')
-  const setup = await setupNovelDocument(project.id, orgId, 'TC-A-25-doc')
-  const elena = await shorthandCharacter(orgId, project.id, 'Elena')
-  await linkContextFixture(setup.root_node.id, elena.id, orgId)
-
-  await adminClient().from('nodes')
-    .update({ locked: true, lock_reason: 'TC-A-25' })
-    .eq('id', setup.root_node.id)
-
-  const ctx = await ctxA()
-  const res = await ctx.delete(`/api/nodes/${setup.root_node.id}/context-links/${elena.id}`)
-  expect(res.status()).toBe(423)
-  expect((await res.json()).error).toBe('node_locked')
-  await ctx.dispose()
+test.skip('TC-A-25 DELETE blocked by source lock — SUPERSEDED Phase 6 D-A', async () => {
+  // Phase 6 D-A: context links excluded from lock domain. Lock check
+  // removed from /api/nodes/[id]/context-links/[contextNodeId] DELETE
+  // in 6.A.
 })
 
 // ─── TC-A-26..TC-A-30: GET links — direct, inherited, closest, suppression ───

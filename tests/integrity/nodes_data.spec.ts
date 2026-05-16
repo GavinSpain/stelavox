@@ -299,10 +299,18 @@ test.describe('TC-D-01..12 — Data integrity', () => {
       .insert({
         organisation_id: orgA, project_id: doc.projectId, document_id: doc.docId,
         parent_id: doc.rootId, node_category: 'structural', node_type: 'act',
-        order: 1, depth: 1, layer_index: 1, name: 'L', locked: true,
+        order: 1, depth: 1, layer_index: 1, name: 'L',
         status: 'draft', version: 1,
       })
       .select('id, updated_at').single()
+    // Phase 6: insert into node_author_locks instead of nodes.locked.
+    const { data: member } = await adminClient()
+      .from('organisation_members').select('user_id')
+      .eq('organisation_id', orgA).limit(1).single()
+    await adminClient().from('node_author_locks').insert({
+      node_id: act!.id, organisation_id: orgA,
+      locked_by_user_id: member!.user_id, lock_reason: 'D-11 test',
+    })
     const before = act!.updated_at
 
     const ctx = await ctxA()

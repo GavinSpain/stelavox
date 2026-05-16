@@ -16,28 +16,6 @@ interface Context {
   params: Promise<{ nodeId: string; contextNodeId: string }>
 }
 
-type SupabaseRouteClient = Awaited<ReturnType<typeof createClient>>
-
-async function ancestorChainLocked(
-  supabase: SupabaseRouteClient,
-  startId: string | null,
-): Promise<boolean> {
-  let currentId: string | null = startId
-  let hops = 0
-  while (currentId !== null) {
-    if (++hops > 10) return false
-    const { data } = await supabase
-      .from('nodes')
-      .select('parent_id, locked')
-      .eq('id', currentId)
-      .maybeSingle()
-    if (!data) return false
-    if (data.locked) return true
-    currentId = data.parent_id
-  }
-  return false
-}
-
 export async function DELETE(_request: NextRequest, { params }: Context) {
   try {
     const { nodeId, contextNodeId } = await params
@@ -56,9 +34,8 @@ export async function DELETE(_request: NextRequest, { params }: Context) {
     const { data: target } = await getNode(supabase, contextNodeId)
     if (!target) return err.contextNodeNotFound()
 
-    // Step 5: lock check on source (the same lock-state guard as POST).
-    if (source.locked) return err.nodeLocked()
-    if (await ancestorChainLocked(supabase, source.parent_id)) return err.parentLocked()
+    // Phase 6 D-A: context links are EXCLUDED from the lock domain.
+    // Removing a link from a locked node is allowed.
 
     // Step 6: delete. 0 rows → 404 link_not_found.
     const { deletedCount, error } = await deleteContextLink(supabase, nodeId, contextNodeId)

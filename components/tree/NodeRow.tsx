@@ -31,6 +31,7 @@ import { createContext, useContext, useState } from 'react'
 import type { NodeRendererProps } from 'react-arborist'
 import { NodeStatusBadge } from './NodeStatusBadge'
 import { NodeLifecycleBadge, lifecycleFromJobStatus } from './NodeLifecycleBadge'
+import { NodeLockIndicator } from './NodeLockIndicator'
 import { useActiveJobForNode, useNodeHasRunningJob } from '@/lib/hooks/useAgentJobsRealtime'
 import { useAiChangedFlag, markNodeAsViewed } from '@/lib/hooks/useAiChangedFlag'
 
@@ -296,69 +297,6 @@ function RowActionButton({ glyph, disabled, onClick, ...rest }: RowActionButtonP
     >
       {glyph}
     </button>
-  )
-}
-
-/**
- * V1.x-D.2 — distinguishes user-lock (author intent) from auto-lock
- * (system intent). User-lock uses --color-text-muted; auto-lock uses
- * --color-info plus a small clock-overlay glyph. Component Spec §17.8.
- */
-function NodeLockIndicator({ nodeId, userLocked }: { nodeId: string; userLocked: boolean }) {
-  const job = useActiveJobForNode(nodeId)
-  // Auto-lock applies while an agent_job is queued or running on this
-  // node. Completed-pending-review still locks until accept_agent_job
-  // fires (the result is on the agent_job row, not yet on the node).
-  const autoLocked =
-    !!job && (job.status === 'pending' || job.status === 'running' || job.status === 'completed')
-  if (userLocked) {
-    return (
-      <span
-        aria-label="locked by you"
-        data-testid="node-user-lock"
-        style={{
-          width: '14px',
-          textAlign: 'center',
-          color: 'var(--color-text-muted)',
-          fontSize: '11px',
-          flexShrink: 0,
-        }}
-      >
-        🔒
-      </span>
-    )
-  }
-  if (autoLocked) {
-    return (
-      <span
-        aria-label="locked — scheduled for AI work"
-        data-testid="node-auto-lock"
-        style={{
-          width: '14px',
-          textAlign: 'center',
-          color: 'var(--color-info)',
-          fontSize: '11px',
-          flexShrink: 0,
-          position: 'relative',
-        }}
-      >
-        🔒
-      </span>
-    )
-  }
-  return (
-    <span
-      aria-hidden="true"
-      style={{
-        width: '14px',
-        textAlign: 'center',
-        color: 'var(--color-text-muted)',
-        fontSize: '11px',
-        flexShrink: 0,
-      }}
-    >
-      ·
-    </span>
   )
 }
 

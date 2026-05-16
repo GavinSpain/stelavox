@@ -26,31 +26,6 @@ import {
 
 interface Context { params: Promise<{ nodeId: string }> }
 
-type SupabaseRouteClient = Awaited<ReturnType<typeof createClient>>
-
-// Walk parent_id chain upward from `startId`. Returns true if any node
-// in the chain has locked = TRUE. Same shape as the helpers in
-// app/api/nodes/[nodeId]/route.ts and app/api/documents/[id]/nodes/route.ts.
-async function ancestorChainLocked(
-  supabase: SupabaseRouteClient,
-  startId: string | null,
-): Promise<boolean> {
-  let currentId: string | null = startId
-  let hops = 0
-  while (currentId !== null) {
-    if (++hops > 10) return false  // cycle guard (Migration 021 prevents)
-    const { data } = await supabase
-      .from('nodes')
-      .select('parent_id, locked')
-      .eq('id', currentId)
-      .maybeSingle()
-    if (!data) return false
-    if (data.locked) return true
-    currentId = data.parent_id
-  }
-  return false
-}
-
 // ─── POST ─────────────────────────────────────────────────────────────
 
 export async function POST(request: NextRequest, { params }: Context) {
@@ -104,9 +79,10 @@ export async function POST(request: NextRequest, { params }: Context) {
       return err.linkCrossDocument()
     }
 
-    // Step 11: lock checks.
-    if (source.locked) return err.nodeLocked()
-    if (await ancestorChainLocked(supabase, source.parent_id)) return err.parentLocked()
+    // Phase 6 D-A: context links are EXCLUDED from the lock domain.
+    // Linking a Character to a locked scene doesn't change the scene's
+    // content — it adds an annotation. Locked nodes still accept new
+    // links and removals.
 
     // Step 12: insert.
     const { data: link, error: insertError } = await createContextLink(

@@ -54,9 +54,17 @@ test('TC-J7-05+06: vercel.json CSP allows wss://*.supabase.co (Phase 5c bug #1 r
 test('TC-J7-S-01: POST /api/agent/synthesise/stream against locked node returns 423', async () => {
   const fix = await setupAgentNovelFixture(orgId, 'J7-S-01', { withSummary: true })
   try {
-    // Lock the beat.
+    // Phase 6: nodes.locked dropped; insert into node_author_locks.
     const admin = adminClient()
-    await admin.from('nodes').update({ locked: true }).eq('id', fix.beatId)
+    const { data: node } = await admin
+      .from('nodes').select('organisation_id').eq('id', fix.beatId).single()
+    const { data: member } = await admin
+      .from('organisation_members').select('user_id')
+      .eq('organisation_id', node!.organisation_id).limit(1).single()
+    await admin.from('node_author_locks').insert({
+      node_id: fix.beatId, organisation_id: node!.organisation_id,
+      locked_by_user_id: member!.user_id, lock_reason: 'J7 test',
+    })
 
     const ctx = await ctxA()
     const res = await ctx.post(`/api/agent/synthesise/stream`, {

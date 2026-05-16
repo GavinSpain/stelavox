@@ -42,7 +42,7 @@ async function verifyTargetNode(
   const supabase = createServiceRoleClient()
   const { data, error } = await supabase
     .from('nodes')
-    .select('id, locked, organisation_id, document_id')
+    .select('id, organisation_id, document_id')
     .eq('id', nodeId)
     .maybeSingle()
 
@@ -53,7 +53,10 @@ async function verifyTargetNode(
   if (data.document_id !== session.document_id) {
     return { ok: false, error: 'cross_document_access_denied' }
   }
-  return { ok: true, locked: data.locked }
+  // Phase 6: lock state from node_author_locks (nodes.locked dropped).
+  const { data: lockRow } = await supabase
+    .from('node_author_locks').select('node_id').eq('node_id', nodeId).maybeSingle()
+  return { ok: true, locked: !!lockRow }
 }
 
 // ---------------------------------------------------------------------------

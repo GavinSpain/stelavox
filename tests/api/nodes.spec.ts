@@ -95,13 +95,31 @@ async function insertNode(args: {
       depth:           args.depth,
       layer_index:     args.layer_index,
       name:            args.name ?? null,
-      locked:          args.locked ?? false,
       status:          'draft',
       version:         1,
     })
     .select('id, parent_id, order, depth, layer_index, node_type')
     .single()
-  return data as ChildNode
+  const node = data as ChildNode
+
+  if (args.locked) {
+    // Phase 6: nodes.locked dropped — use node_author_locks instead.
+    const { data: member } = await adminClient()
+      .from('organisation_members')
+      .select('user_id')
+      .eq('organisation_id', args.org_id)
+      .limit(1)
+      .single()
+    if (member?.user_id) {
+      await adminClient().from('node_author_locks').insert({
+        node_id: node.id,
+        organisation_id: args.org_id,
+        locked_by_user_id: member.user_id,
+        lock_reason: 'test fixture',
+      })
+    }
+  }
+  return node
 }
 
 // ─── POST /api/documents/[id]/nodes ─────────────────────────────────────────
@@ -389,25 +407,12 @@ test.describe('POST /api/documents/[id]/nodes', () => {
     await ctx.dispose()
   })
 
-  test('TC-A-21 ancestor locked → 423', async () => {
-    const ctx = await ctxA()
-    // Create locked act, unlocked chapter under it; POST scene under chapter
-    const lockedAct = await insertNode({
-      org_id: orgA, project_id: project.id, document_id: doc.id,
-      parent_id: rootNode.id, node_type: 'act', order: 98,
-      depth: 1, layer_index: 1, name: 'TC-A-21 locked act', locked: true,
-    })
-    const ch = await insertNode({
-      org_id: orgA, project_id: project.id, document_id: doc.id,
-      parent_id: lockedAct.id, node_type: 'chapter', order: 1,
-      depth: 2, layer_index: 2, name: 'TC-A-21 chapter', locked: false,
-    })
-    const res = await ctx.post(`/api/documents/${doc.id}/nodes`, {
-      data: { parent_id: ch.id, node_type: 'scene' },
-    })
-    expect(res.status()).toBe(423)
-    expect((await res.json()).error).toBe('parent_locked')
-    await ctx.dispose()
+  test.skip('TC-A-21 ancestor locked → 423 — SUPERSEDED Phase 6 D2', async () => {
+    // Phase 6 D2: locks are per-node with NO implicit cascade. Locking
+    // an ancestor doesn't propagate. A child of a locked ancestor that
+    // is itself unlocked accepts new descendants. This test asserted
+    // the old cascade semantics that Phase 6.A removed (ancestorChainLocked
+    // helper dropped from all routes).
   })
 
   test('TC-A-22 no session → 401', async () => {

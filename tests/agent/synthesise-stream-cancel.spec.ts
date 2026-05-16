@@ -85,11 +85,10 @@ test.describe('Phase 5c — synthesise streaming cancellation (TC-A-2)', () => {
       .select('id, name')
       .eq('document_id', doc!.id)
       .eq('node_type', 'beat')
-      .eq('locked', false)
       .order('order')
-      .range(2, 2) // skip the first two unlocked beats; pick the third
+      .range(2, 2) // skip the first two; pick the third (fixture data starts unlocked)
       .single()
-    if (!beat) throw new Error('no unlocked beat in fixture')
+    if (!beat) throw new Error('no beat in fixture')
 
     setup = {
       documentId: doc!.id,

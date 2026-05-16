@@ -115,12 +115,11 @@ export async function execGetDocumentState(
       .select('id, node_type, node_category, layer_index')
       .eq('document_id', session.document_id)
       .eq('organisation_id', session.organisation_id),
+    // Phase 6: locks moved from nodes.locked to node_author_locks.
     supabase
-      .from('nodes')
-      .select('id')
-      .eq('document_id', session.document_id)
-      .eq('organisation_id', session.organisation_id)
-      .eq('locked', true),
+      .from('node_author_locks')
+      .select('node_id')
+      .eq('organisation_id', session.organisation_id),
     doc.layer_stack_id
       ? supabase
           .from('layer_stacks')
@@ -171,7 +170,7 @@ export async function execGetDocumentState(
       layer_stack: layerStack.data?.layers ?? null,
       node_counts_by_type: counts,
       total_node_count: nodeRows.length,
-      locked_node_ids: (lockedNodes.data ?? []).map((n) => n.id),
+      locked_node_ids: (lockedNodes.data ?? []).map((n) => (n as { node_id: string }).node_id),
       total_word_count_approx: totalWordCount,
       progress: buildProgress(
         (canonical.data ?? []) as ProgressRow[],
@@ -336,6 +335,14 @@ export async function execGetNode(
     .select('*', { count: 'exact', head: true })
     .eq('parent_id', args.node_id)
 
+  // Phase 6: locked derived from node_author_locks.
+  const { data: lockRow } = await supabase
+    .from('node_author_locks')
+    .select('node_id')
+    .eq('node_id', args.node_id)
+    .maybeSingle()
+  const isLocked = !!lockRow
+
   return {
     ok: true,
     data: {
@@ -347,7 +354,7 @@ export async function execGetNode(
       depth: node.depth,
       order: node.order,
       parent_id: node.parent_id,
-      locked: node.locked,
+      locked: isLocked,
       status: node.status,
       summary_text: extractText(node.summary),
       prose_text: extractText(node.prose),
@@ -378,7 +385,7 @@ export async function execGetNodesByLayer(
   // Director Architecture v2.0 §7.1.
   let query = supabase
     .from('nodes_canonical')
-    .select('id, name, node_type, layer_index, parent_id, "order", locked, summary')
+    .select('id, name, node_type, layer_index, parent_id, "order", summary')
     .eq('document_id', session.document_id)
     .eq('organisation_id', session.organisation_id)
     .eq('layer_index', args.layer_index)
@@ -392,6 +399,13 @@ export async function execGetNodesByLayer(
     return { ok: false, error: 'query_failed', reason: error.message }
   }
 
+  // Phase 6: derive `locked` from node_author_locks (nodes.locked dropped).
+  const { data: lockRows } = await supabase
+    .from('node_author_locks')
+    .select('node_id')
+    .eq('organisation_id', session.organisation_id)
+  const lockedSet = new Set((lockRows ?? []).map(r => (r as { node_id: string }).node_id))
+
   return {
     ok: true,
     data: {
@@ -402,7 +416,7 @@ export async function execGetNodesByLayer(
         layer_index: n.layer_index,
         parent_id: n.parent_id,
         order: (n as { order: number }).order,
-        locked: n.locked,
+        locked: lockedSet.has(n.id as string),
         summary_text: extractText(n.summary),
       })),
     },
@@ -432,7 +446,7 @@ export async function execGetNodeTree(
   // Verify root belongs to caller's org/document
   const { data: root } = await supabase
     .from('nodes')
-    .select('id, name, node_type, layer_index, locked')
+    .select('id, name, node_type, layer_index')
     .eq('id', args.root_node_id)
     .eq('organisation_id', session.organisation_id)
     .eq('document_id', session.document_id)
@@ -445,10 +459,17 @@ export async function execGetNodeTree(
   // Load all descendants in one batched query (cheaper than N recursive calls)
   const { data: allDescendants } = await supabase
     .from('nodes')
-    .select('id, name, node_type, layer_index, parent_id, "order", locked, depth')
+    .select('id, name, node_type, layer_index, parent_id, "order", depth')
     .eq('document_id', session.document_id)
     .eq('organisation_id', session.organisation_id)
     .order('order')
+
+  // Phase 6: lock state derived from node_author_locks.
+  const { data: lockRows } = await supabase
+    .from('node_author_locks')
+    .select('node_id')
+    .eq('organisation_id', session.organisation_id)
+  const lockedSet = new Set((lockRows ?? []).map(r => (r as { node_id: string }).node_id))
 
   const byParent = new Map<string | null, typeof allDescendants>()
   for (const n of allDescendants ?? []) {
@@ -468,7 +489,7 @@ export async function execGetNodeTree(
       name: node.name,
       node_type: node.node_type,
       layer_index: node.layer_index,
-      locked: node.locked,
+      locked: lockedSet.has(node.id),
       children,
     }
   }
@@ -500,29 +521,18 @@ export async function execAssessDownstreamImpact(
 
   // Phase 5b V1: descendants are "affected" by any change to an ancestor.
   // V2 will use semantic context-link analysis.
-  const { data: descendants } = await supabase
-    .from('nodes')
-    .select('id, name, node_type, locked, layer_index, depth')
-    .eq('document_id', session.document_id)
-    .eq('organisation_id', session.organisation_id)
-
-  const affected: typeof descendants = []
-  if (descendants) {
-    const visit = (parentId: string) => {
-      for (const n of descendants) {
-        if (n['id'] === parentId) continue
-        // we don't have parent_id in the projection — re-fetch with parent_id
-      }
-    }
-    void visit
-  }
-
-  // Simpler implementation: re-query descendants of node_id via parent_id chain.
   const { data: tree } = await supabase
     .from('nodes')
-    .select('id, name, node_type, locked, parent_id, depth')
+    .select('id, name, node_type, parent_id, depth')
     .eq('document_id', session.document_id)
     .eq('organisation_id', session.organisation_id)
+
+  // Phase 6: lock state derived from node_author_locks.
+  const { data: lockRows } = await supabase
+    .from('node_author_locks')
+    .select('node_id')
+    .eq('organisation_id', session.organisation_id)
+  const lockedSet = new Set((lockRows ?? []).map(r => (r as { node_id: string }).node_id))
 
   const byParent = new Map<string | null, NonNullable<typeof tree>>()
   for (const n of tree ?? []) {
@@ -533,7 +543,10 @@ export async function execAssessDownstreamImpact(
   const collected: { id: string; name: string; node_type: string; locked: boolean }[] = []
   function collect(parentId: string) {
     for (const c of byParent.get(parentId) ?? []) {
-      collected.push({ id: c.id, name: c.name, node_type: c.node_type, locked: c.locked })
+      collected.push({
+        id: c.id, name: c.name, node_type: c.node_type,
+        locked: lockedSet.has(c.id),
+      })
       collect(c.id)
     }
   }

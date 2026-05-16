@@ -64,7 +64,20 @@ async function readNode(id: string) {
 }
 
 async function setLocked(id: string, locked: boolean) {
-  await adminClient().from('nodes').update({ locked }).eq('id', id)
+  // Phase 6: nodes.locked dropped; use node_author_locks.
+  if (locked) {
+    const { data: node } = await adminClient()
+      .from('nodes').select('organisation_id').eq('id', id).single()
+    const { data: member } = await adminClient()
+      .from('organisation_members').select('user_id')
+      .eq('organisation_id', node!.organisation_id).limit(1).single()
+    await adminClient().from('node_author_locks').insert({
+      node_id: id, organisation_id: node!.organisation_id,
+      locked_by_user_id: member!.user_id, lock_reason: 'test',
+    })
+  } else {
+    await adminClient().from('node_author_locks').delete().eq('node_id', id)
+  }
 }
 
 async function bumpVersionViaService(id: string, fields: Record<string, unknown>) {
