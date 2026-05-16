@@ -72,33 +72,18 @@ describe('isValidProbeId (V1.x-E.2)', () => {
 })
 
 describe('runProbe (V1.x-E.2 — stub probes)', () => {
-  it('records workflow_expand as fail with probe_implementation_pending_v1xf', async () => {
-    const { svc, updates, insertedIds } = fakeSvc()
-    const { id, result } = await runProbe({
-      svc: svc as never,
-      probeId: 'workflow_expand',
-      triggeredBy: 'manual',
-    })
-    expect(insertedIds).toEqual([1])
-    expect(id).toBe(1)
-    expect(updates).toHaveLength(1)
-    expect(updates[0]?.outcome).toBe('fail')
-    expect(updates[0]?.failure_class).toBe('E')
-    expect(updates[0]?.error_message).toContain('probe_implementation_pending_v1xf')
-    expect(updates[0]?.metadata).toEqual({ deferred_to: 'V1.x-F' })
-    expect(result.outcome).toBe('fail')
-  })
-
-  it('records refine_accept as fail with probe_implementation_pending_v1xf', async () => {
-    const { svc, updates } = fakeSvc()
-    const { result } = await runProbe({
-      svc: svc as never,
-      probeId: 'refine_accept',
-      triggeredBy: 'manual',
-    })
-    expect(updates[0]?.error_message).toContain('probe_implementation_pending_v1xf')
-    expect(result.outcome).toBe('fail')
-  })
+  // V1.x-E.2 stub-probe coverage SUPERSEDED in V1.x-F.3.
+  //
+  // The original cases here ('records workflow_expand as fail with
+  // probe_implementation_pending_v1xf' + same for refine_accept) asserted
+  // the V1.x-E.2 pendingImplementation stub's failure shape. V1.x-F.3
+  // replaces those stubs with real implementations that create their
+  // own service-role client (so the fakeSvc here doesn't intercept
+  // their DB work), making the equivalent in-runner assertions either
+  // misleading (real DB calls fire) or trivially redundant with the
+  // dedicated fixture-gating coverage at tests/unit/v1x-f3-probe-fixtures-
+  // gating.test.ts. That file uses vi.mock() on @/lib/config/platform-config
+  // + @/lib/agent/runner to properly isolate the fixtures-absent path.
 
   it('records director_small as fail when ANTHROPIC_API_KEY is unset', async () => {
     const original = process.env.ANTHROPIC_API_KEY
