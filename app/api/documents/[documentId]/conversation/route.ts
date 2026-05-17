@@ -53,7 +53,7 @@ export async function GET(
   const { data: messages } = await service
     .from('conversation_messages')
     .select(
-      'id, role, content, sequence, tool_calls, workflow_id, turn_state, created_at, tokens_input, tokens_output, cost_usd',
+      'id, role, content, sequence, tool_calls, workflow_id, turn_state, event_type, event_payload, cause, created_at, tokens_input, tokens_output, cost_usd',
     )
     .eq('conversation_id', conv.id)
     .eq('turn_state', 'final')
