@@ -1,0 +1,1328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stelavox — Phase 7 Wireframe: Export (DOCX + EPUB + JSON + Outline) v1.0</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500&family=Cormorant+Garamond:ital,wght@1,300&family=Inter:wght@200;300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --ink:#0d1014; --deep:#131820; --surface:#1a2030; --hover:#1e2838; --selected:#1f2d45;
+  --border-s:#1e2535; --border-d:#253045; --border-str:#3a4a62;
+  --text-p:#ecf0f5; --text-s:#8aa0b8; --text-m:#4a6080; --text-dis:#2a3850;
+  --verd:#3d7858; --verd-h:#5aa87a; --verd-m:#1a3028;
+  --ag-run:#2e5a90; --st-rev:#b87030; --destr:#b83838; --destr-h:#d65454; --destr-bg:#2a1318;
+  --info:#3a6090; --info-bg:rgba(58,96,144,0.16);
+  --success:#3d7858; --warn:#b87030;
+  --spec-bg:#0a0d12; --spec-pan:#111520; --callout:#e8b840;
+}
+
+body { background: var(--spec-bg); color: var(--text-p); font-family: 'Inter', sans-serif; font-size: 13px; line-height: 1.5; }
+
+.doc-header { background: var(--spec-pan); border-bottom: 1px solid var(--border-d); padding: 24px 48px; display:flex; align-items:baseline; justify-content:space-between; }
+.wm-s { font-family:'Cinzel',serif; font-size:14px; font-weight:500; letter-spacing:.18em; color:var(--text-p); }
+.wm-v { font-family:'Cormorant Garamond',serif; font-style:italic; font-weight:300; font-size:16px; letter-spacing:.08em; color:var(--text-p); opacity:.82; }
+.doc-meta { font-size:11px; font-weight:300; letter-spacing:.2em; text-transform:uppercase; color:var(--text-m); }
+
+.section { padding: 40px 48px 0; }
+.slabel { font-size:9px; font-weight:400; letter-spacing:.45em; text-transform:uppercase; color:var(--text-m); margin-bottom:20px; padding-bottom:12px; border-bottom:1px solid var(--border-s); }
+.sub-label { font-size:9px; font-weight:400; letter-spacing:.38em; text-transform:uppercase; color:var(--text-m); padding:8px 0 12px; }
+
+.cn { display:inline-flex; align-items:center; justify-content:center; width:18px; height:18px; background:var(--callout); color:#0a0800; border-radius:50%; font-size:10px; font-weight:700; flex-shrink:0; }
+
+.stage-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; align-items: start; padding-bottom: 40px; }
+.stage-grid.full { grid-template-columns: 1fr; }
+.stage-grid.tri { grid-template-columns: 1fr 1fr 1fr; gap: 20px; }
+.stage-frame {
+  background: var(--ink);
+  border: 1px solid var(--border-s);
+  border-radius: 8px;
+  padding: 20px;
+  position: relative;
+}
+.stage-title { font-size: 10px; font-weight: 500; letter-spacing: .22em; text-transform: uppercase; color: var(--text-s); margin-bottom: 14px; }
+
+/* ── Modal frames ─────────────────────────────────────────────────── */
+.modal-frame {
+  background: var(--deep);
+  border: 1px solid var(--border-d);
+  border-radius: 8px;
+  width: 100%;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+  overflow: hidden;
+}
+.modal-header { padding: 16px 20px 12px; border-bottom: 1px solid var(--border-s); display: flex; align-items: center; justify-content: space-between; }
+.modal-title { font-size: 14px; font-weight: 500; color: var(--text-p); }
+.modal-close { color: var(--text-m); font-size: 18px; cursor: pointer; }
+.modal-body { padding: 16px 20px; }
+.modal-actions {
+  padding: 12px 20px;
+  background: var(--ink);
+  border-top: 1px solid var(--border-s);
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.modal-btn {
+  padding: 6px 14px;
+  border-radius: 3px;
+  font-size: 12px;
+  font-weight: 500;
+  border: 1px solid transparent;
+  cursor: pointer;
+}
+.btn-ghost { background: transparent; color: var(--text-s); border-color: var(--border-d); }
+.btn-ghost:hover { color: var(--text-p); }
+.btn-primary { background: var(--text-p); color: var(--ink); }
+.btn-destructive { background: var(--destr); color: #fff; }
+
+.form-row { margin: 12px 0; }
+.form-label { font-size: 10px; font-weight: 500; letter-spacing: .14em; text-transform: uppercase; color: var(--text-m); margin-bottom: 6px; }
+.form-help { font-size: 11px; color: var(--text-m); margin-top: 4px; font-style: italic; }
+.form-input, .form-select {
+  width: 100%; padding: 8px 10px;
+  background: var(--ink);
+  border: 1px solid var(--border-d);
+  border-radius: 3px;
+  color: var(--text-p);
+  font-family: 'Inter', sans-serif;
+  font-size: 12px;
+}
+
+/* Format selector tiles */
+.fmt-tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.fmt-tile {
+  padding: 12px;
+  border: 1px solid var(--border-d);
+  border-radius: 4px;
+  background: var(--surface);
+  cursor: pointer;
+}
+.fmt-tile.active { border-color: var(--text-m); background: var(--ink); }
+.fmt-tile.disabled { opacity: 0.4; cursor: not-allowed; }
+.fmt-tile-name { font-size: 13px; font-weight: 500; color: var(--text-p); }
+.fmt-tile-desc { font-size: 11px; color: var(--text-m); margin-top: 4px; }
+.fmt-tile-disabled-note { font-size: 10px; color: var(--st-rev); margin-top: 6px; font-style: italic; }
+
+/* Profile rows */
+.profile-row {
+  padding: 10px 12px;
+  border: 1px solid var(--border-s);
+  border-radius: 3px;
+  background: var(--surface);
+  margin: 6px 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+}
+.profile-row.active { background: var(--ink); border-color: var(--text-m); }
+.profile-row-name { flex: 1; font-size: 12px; color: var(--text-p); font-weight: 500; }
+.profile-row-meta { font-size: 10px; color: var(--text-m); font-style: italic; }
+.profile-builtin-tag {
+  font-size: 9px; font-weight: 500; letter-spacing: .12em; text-transform: uppercase;
+  background: var(--surface); color: var(--text-m);
+  padding: 2px 6px; border-radius: 2px; margin-right: 6px;
+}
+
+/* Toggle blocks */
+.toggle-block {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 8px 0;
+}
+.toggle-box { width: 16px; height: 16px; border: 1px solid var(--border-str); border-radius: 3px; background: var(--ink); display: flex; align-items: center; justify-content: center; font-size: 10px; color: var(--text-m); margin-top: 2px; flex-shrink: 0; }
+.toggle-box.checked { background: var(--text-p); border-color: var(--text-p); color: var(--ink); }
+.toggle-label { flex: 1; font-size: 12px; color: var(--text-s); }
+.toggle-label strong { color: var(--text-p); font-weight: 500; }
+.toggle-desc { color: var(--text-m); font-size: 11px; margin-top: 2px; }
+
+/* Progress chip (the bottom-right surface) */
+.chip-frame {
+  background: var(--deep);
+  border: 1px solid var(--border-d);
+  border-radius: 6px;
+  padding: 10px 14px;
+  width: 280px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+}
+.chip-title { font-size: 12px; font-weight: 500; color: var(--text-p); display: flex; align-items: center; gap: 8px; }
+.chip-doc { font-size: 11px; color: var(--text-m); margin-top: 2px; }
+.chip-progress-bar {
+  height: 3px; background: var(--surface); border-radius: 2px;
+  margin: 10px 0 4px; overflow: hidden;
+}
+.chip-progress-fill {
+  height: 100%; background: var(--ag-run); border-radius: 2px;
+}
+.chip-progress-text { font-size: 10px; color: var(--text-m); display: flex; justify-content: space-between; }
+.chip-actions { margin-top: 8px; display: flex; gap: 6px; }
+.chip-btn {
+  font-size: 10px;
+  padding: 4px 10px;
+  border-radius: 3px;
+  border: 1px solid var(--border-d);
+  background: transparent;
+  color: var(--text-s);
+  cursor: pointer;
+}
+.chip-btn.primary { background: var(--text-p); color: var(--ink); border-color: var(--text-p); font-weight: 500; }
+.chip-btn.destructive { color: var(--destr-h); border-color: var(--destr); }
+.chip-btn:hover { color: var(--text-p); }
+.chip-btn.destructive:hover { background: var(--destr-bg); }
+
+.chip-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.dot-queued { background: var(--text-m); animation: pulse 2s ease-in-out infinite; }
+.dot-running { background: var(--ag-run); animation: pulse 2s ease-in-out infinite; }
+.dot-done { background: var(--verd); }
+.dot-failed { background: var(--destr); }
+.dot-cancelled { background: var(--text-m); }
+@keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
+
+/* History panel */
+.hist-frame {
+  background: var(--deep);
+  border: 1px solid var(--border-s);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.hist-title { font-size: 10px; font-weight: 500; letter-spacing: .22em; text-transform: uppercase; color: var(--text-m); padding: 12px 16px; border-bottom: 1px solid var(--border-s); }
+.hist-row {
+  padding: 10px 16px;
+  display: grid;
+  grid-template-columns: 32px 1fr auto;
+  align-items: center;
+  gap: 12px;
+  border-bottom: 1px solid var(--border-s);
+}
+.hist-row:last-child { border-bottom: none; }
+.hist-row:hover { background: var(--hover); }
+.hist-icon { font-size: 14px; text-align: center; color: var(--text-s); }
+.hist-meta-1 { font-size: 12px; color: var(--text-p); }
+.hist-meta-2 { font-size: 10px; color: var(--text-m); margin-top: 2px; }
+.hist-action {
+  font-size: 10px; padding: 4px 10px; border-radius: 3px;
+  border: 1px solid var(--border-d); background: transparent;
+  color: var(--text-s); cursor: pointer;
+}
+.hist-action:hover { color: var(--text-p); }
+.hist-status { font-size: 10px; color: var(--text-m); font-style: italic; }
+.hist-status.failed { color: var(--destr-h); }
+
+/* Document toolbar (where Export button mounts) */
+.toolbar-frame {
+  background: var(--deep);
+  border: 1px solid var(--border-s);
+  border-radius: 6px;
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.toolbar-title { font-size: 14px; color: var(--text-p); font-weight: 500; }
+.toolbar-actions { display: flex; gap: 8px; }
+.toolbar-btn {
+  font-size: 11px; padding: 6px 12px; border-radius: 3px;
+  border: 1px solid var(--border-d); background: transparent;
+  color: var(--text-s); cursor: pointer;
+  display: inline-flex; align-items: center; gap: 6px;
+}
+.toolbar-btn:hover { color: var(--text-p); border-color: var(--text-m); }
+
+/* Annotations / decisions / inviolables (shared) */
+.annotations { background: var(--spec-pan); padding: 32px 48px; margin-top: 40px; border-top: 1px solid var(--border-d); }
+.annotations-title { font-size: 11px; font-weight: 500; letter-spacing: .38em; text-transform: uppercase; color: var(--text-s); margin-bottom: 16px; }
+.ann-grid { display: grid; gap: 14px; }
+.ann-row { display: grid; grid-template-columns: 28px 1fr; gap: 10px; align-items: start; }
+.ann-num { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; background: var(--callout); color: #0a0800; border-radius: 50%; font-size: 11px; font-weight: 700; }
+.ann-text { font-size: 12px; color: var(--text-s); line-height: 1.6; }
+.ann-text strong { color: var(--text-p); }
+.ann-text code { background: var(--ink); padding: 1px 5px; border-radius: 2px; color: var(--text-p); font-size: 11px; }
+
+.decisions { background: var(--spec-pan); padding: 32px 48px; border-top: 1px solid var(--border-d); }
+.decisions-title { font-size: 11px; font-weight: 500; letter-spacing: .38em; text-transform: uppercase; color: var(--text-s); margin-bottom: 16px; }
+.decision { background: var(--ink); border: 1px solid var(--border-s); border-left: 3px solid var(--verd); border-radius: 4px; padding: 12px 16px; margin-bottom: 10px; font-size: 12px; color: var(--text-s); line-height: 1.6; }
+.decision strong { color: var(--text-p); }
+.decision em { color: var(--verd-h); font-style: normal; font-weight: 500; }
+.decision code { background: var(--surface); padding: 1px 5px; border-radius: 2px; color: var(--text-p); font-size: 11px; }
+
+.inv-audit { background: var(--spec-pan); padding: 32px 48px; border-top: 1px solid var(--border-d); }
+.inv-row { display: grid; grid-template-columns: 28px 1fr 72px; gap: 12px; align-items: start; padding: 10px 0; border-bottom: 1px solid var(--border-s); font-size: 12px; color: var(--text-s); line-height: 1.6; }
+.inv-row code { background: var(--ink); padding: 1px 5px; border-radius: 2px; color: var(--text-p); font-size: 11px; }
+.inv-pass { color: var(--verd-h); font-size: 10px; font-weight: 600; letter-spacing: .22em; text-align: right; }
+
+.refs { background: var(--ink); padding: 24px 48px; border-top: 1px solid var(--border-d); font-size: 11px; color: var(--text-m); line-height: 1.7; }
+.refs strong { color: var(--text-s); }
+.refs code { background: var(--surface); padding: 1px 5px; border-radius: 2px; color: var(--text-s); font-size: 10px; }
+
+/* Warning banner (size limits) */
+.warn-banner {
+  background: var(--surface);
+  border-left: 3px solid var(--st-rev);
+  border-radius: 3px;
+  padding: 10px 14px;
+  margin: 10px 0;
+  font-size: 12px;
+  color: var(--text-s);
+}
+.warn-banner.error { border-left-color: var(--destr); }
+.warn-banner strong { color: var(--text-p); }
+</style>
+</head>
+<body>
+
+<!-- ── Document header ─────────────────────────────────────────────── -->
+<header class="doc-header">
+  <div>
+    <span class="wm-s">STELAVOX</span>
+    <span class="wm-v" style="margin-left: 14px;">phase 7 wireframe — export (docx + epub + json + outline)</span>
+  </div>
+  <div class="doc-meta">v1.0 · 2026-05-17 · pre-build · approval gate</div>
+</header>
+
+<!-- ── SECTION 01 · Trigger + modal ─────────────────────────────────── -->
+<section class="section">
+  <div class="slabel">§01 · Export trigger and modal — format + profile + Export</div>
+
+  <div class="stage-grid">
+
+    <div class="stage-frame">
+      <div class="stage-title">Document toolbar — Export button</div>
+      <div style="padding: 14px 0;">
+        <div class="toolbar-frame">
+          <div>
+            <div class="toolbar-title">The Mars Series — Book 1</div>
+            <div style="font-size: 11px; color: var(--text-m); margin-top: 2px;">112,400 words · 47 chapters · 312 scenes</div>
+          </div>
+          <div class="toolbar-actions">
+            <button class="toolbar-btn">⌘ Director</button>
+            <button class="toolbar-btn">📄 Export</button>
+          </div>
+        </div>
+      </div>
+      <div style="font-size: 11px; color: var(--text-s); margin-top: 6px; line-height: 1.5;">
+        <span class="cn" style="margin-right: 6px;">1</span>
+        Export button mounts on the document toolbar. Inter only; no verdigris. Single click opens the Export modal. Document toolbar location preserved across Edit / Director / Focus modes.
+      </div>
+    </div>
+
+    <div class="stage-frame">
+      <div class="stage-title">Export modal — primary view</div>
+      <div style="padding: 14px 0;">
+        <div class="modal-frame">
+          <div class="modal-header">
+            <div class="modal-title">Export "Mars — Book 1"</div>
+            <span class="modal-close">×</span>
+          </div>
+          <div class="modal-body">
+            <div class="form-row">
+              <div class="form-label">Format</div>
+              <div class="fmt-tiles">
+                <div class="fmt-tile active">
+                  <div class="fmt-tile-name">📄 DOCX</div>
+                  <div class="fmt-tile-desc">Word document for editors, contests, and submissions</div>
+                </div>
+                <div class="fmt-tile">
+                  <div class="fmt-tile-name">📚 EPUB</div>
+                  <div class="fmt-tile-desc">E-book for Kindle / Kobo / Apple Books</div>
+                </div>
+                <div class="fmt-tile">
+                  <div class="fmt-tile-name">{ } JSON</div>
+                  <div class="fmt-tile-desc">Full backup of all content + versions</div>
+                </div>
+                <div class="fmt-tile">
+                  <div class="fmt-tile-name">📋 Outline</div>
+                  <div class="fmt-tile-desc">Printable structural summary (Markdown)</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-label">Profile</div>
+              <select class="form-select">
+                <option>📐 Manuscript (editor handoff) — built-in</option>
+                <option>📐 Kindle / KDP (paperback) — built-in</option>
+                <option>──────────────────</option>
+                <option>"Submission to Tor.com" — yours</option>
+                <option>"Beta-reader copy" — yours</option>
+                <option>+ Save current settings as new profile…</option>
+                <option>⚙ Manage profiles…</option>
+              </select>
+              <div class="form-help">Choose a saved configuration, or use settings below.</div>
+            </div>
+          </div>
+          <div class="modal-actions">
+            <button class="modal-btn btn-ghost">Cancel</button>
+            <button class="modal-btn btn-primary">Export</button>
+          </div>
+        </div>
+      </div>
+      <div style="font-size: 11px; color: var(--text-s); margin-top: 6px; line-height: 1.5;">
+        <span class="cn" style="margin-right: 6px;">2</span>
+        Format selector first (4 tiles). Profile selector second. Built-in profiles tagged; author-saved appear after divider. The last two select-list items are actions ("Save current as new"; "Manage profiles…").
+      </div>
+      <div style="font-size: 11px; color: var(--text-s); margin-top: 8px; line-height: 1.5;">
+        <span class="cn" style="margin-right: 6px;">3</span>
+        Primary action <strong style="color:var(--text-p);">"Export"</strong> uses <code style="background:var(--surface);padding:1px 4px;border-radius:2px;color:var(--text-p);font-size:10px;">--color-text-primary</code> (neutral primary, NOT verdigris). Per Inviolable #2 — export is a structural action, not an affirmation against an agent/workflow proposal.
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ── SECTION 02 · DOCX configurability ────────────────────────────── -->
+<section class="section">
+  <div class="slabel">§02 · DOCX configurability — expanded settings (within modal or profile editor)</div>
+
+  <div class="stage-grid full">
+    <div class="stage-frame">
+      <div class="stage-title">DOCX settings panel</div>
+      <div style="padding: 14px 0; display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+
+        <div>
+          <div class="form-row">
+            <div class="form-label">Page size</div>
+            <select class="form-select">
+              <option>US Letter (8.5" × 11")</option>
+              <option>A4 (210 × 297 mm)</option>
+              <option>Trade paperback (6" × 9") — KDP</option>
+              <option>Mass market (4.25" × 6.87")</option>
+            </select>
+          </div>
+
+          <div class="form-row">
+            <div class="form-label">Margins</div>
+            <select class="form-select">
+              <option>Manuscript standard (1" all sides)</option>
+              <option>KDP paperback (0.5"/0.5"/0.5"/0.75" gutter)</option>
+              <option>Custom…</option>
+            </select>
+          </div>
+
+          <div class="form-row">
+            <div class="form-label">Font</div>
+            <select class="form-select">
+              <option>Cambria 12pt</option>
+              <option>Times New Roman 12pt</option>
+              <option>Garamond 12pt</option>
+              <option>Courier New 12pt (screenplay)</option>
+            </select>
+          </div>
+
+          <div class="form-row">
+            <div class="form-label">Line spacing</div>
+            <select class="form-select">
+              <option>Double (manuscript standard)</option>
+              <option>1.5</option>
+              <option>Single</option>
+            </select>
+          </div>
+
+          <div class="form-row">
+            <div class="form-label">Scene separator</div>
+            <select class="form-select">
+              <option>* * * (centred)</option>
+              <option># (centred)</option>
+              <option>Blank line only</option>
+              <option>Custom: __________</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <div class="form-row">
+            <div class="form-label">Chapter heading style</div>
+            <select class="form-select">
+              <option>Centred — "Chapter N: Name"</option>
+              <option>Centred — "Chapter N" + name on next line</option>
+              <option>Centred — name only (no number)</option>
+              <option>Left-aligned — "Chapter N: Name"</option>
+            </select>
+          </div>
+
+          <div class="toggle-block">
+            <div class="toggle-box checked">✓</div>
+            <div class="toggle-label">
+              <strong>Start each chapter on a new page</strong>
+              <div class="toggle-desc">Inserts page break before each chapter heading</div>
+            </div>
+          </div>
+
+          <div class="toggle-block">
+            <div class="toggle-box checked">✓</div>
+            <div class="toggle-label">
+              <strong>Include front matter</strong>
+              <div class="toggle-desc">Title page · copyright · dedication (from document settings)</div>
+            </div>
+          </div>
+
+          <div class="toggle-block">
+            <div class="toggle-box checked">✓</div>
+            <div class="toggle-label">
+              <strong>Page numbers</strong>
+              <div class="toggle-desc">Header: author surname / title / page</div>
+            </div>
+          </div>
+
+          <div class="toggle-block">
+            <div class="toggle-box">·</div>
+            <div class="toggle-label">
+              <strong>Blind submission mode</strong>
+              <div class="toggle-desc">Removes author name from header and front matter (for contests)</div>
+            </div>
+          </div>
+
+          <div class="toggle-block">
+            <div class="toggle-box">·</div>
+            <div class="toggle-label">
+              <strong>Generate Table of Contents</strong>
+              <div class="toggle-desc">Useful for non-fiction; usually disabled for fiction</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style="font-size: 11px; color: var(--text-s); margin-top: 6px; line-height: 1.5;">
+        <span class="cn" style="margin-right: 6px;">4</span>
+        <strong style="color:var(--text-p);">DOCX configurability surface</strong> — page size, margins, font, line spacing, scene separator, chapter heading style, page break per chapter, front matter, page numbers, blind mode, TOC. All settings persist to the active profile.
+      </div>
+      <div style="font-size: 11px; color: var(--text-s); margin-top: 8px; line-height: 1.5;">
+        <span class="cn" style="margin-right: 6px;">5</span>
+        <strong style="color:var(--text-p);">Acts / Books skip headings</strong> per locked decision Q2 from the deep-dive. Chapter = Heading 1; nodes above Chapter collapse into prose flow. Scenes / Beats separated by the chosen scene-separator (default: centred * * *).
+      </div>
+      <div style="font-size: 11px; color: var(--text-s); margin-top: 8px; line-height: 1.5;">
+        <span class="cn" style="margin-right: 6px;">6</span>
+        <strong style="color:var(--text-p);">Per-node author overrides honoured</strong> from Phase 1 columns: <code style="background:var(--surface);padding:1px 4px;border-radius:2px;color:var(--text-p);font-size:10px;">export_include = false</code> → node skipped; <code style="background:var(--surface);padding:1px 4px;border-radius:2px;color:var(--text-p);font-size:10px;">export_heading_override</code> → custom heading text; <code style="background:var(--surface);padding:1px 4px;border-radius:2px;color:var(--text-p);font-size:10px;">export_page_break_before</code> → force page break.
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── SECTION 03 · EPUB configurability ────────────────────────────── -->
+<section class="section">
+  <div class="slabel">§03 · EPUB configurability — typography + metadata</div>
+
+  <div class="stage-grid full">
+    <div class="stage-frame">
+      <div class="stage-title">EPUB settings panel</div>
+      <div style="padding: 14px 0; display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+
+        <div>
+          <div style="font-size: 11px; color: var(--text-m); font-style: italic; margin-bottom: 12px;">
+            E-books are reflowable — most page-level settings don't apply. Configure typography + metadata only.
+          </div>
+
+          <div class="form-row">
+            <div class="form-label">Body font</div>
+            <select class="form-select">
+              <option>Reader default (recommended)</option>
+              <option>Serif (Georgia / Times)</option>
+              <option>Sans-serif (Open Sans / Helvetica)</option>
+            </select>
+          </div>
+
+          <div class="form-row">
+            <div class="form-label">Paragraph indent</div>
+            <select class="form-select">
+              <option>First-line indent (manuscript-style)</option>
+              <option>Blank line between paragraphs (web-style)</option>
+            </select>
+          </div>
+
+          <div class="form-row">
+            <div class="form-label">Scene separator</div>
+            <select class="form-select">
+              <option>* * * (centred)</option>
+              <option>Decorative ornament (◆)</option>
+              <option>Blank line only</option>
+              <option>Custom…</option>
+            </select>
+          </div>
+
+          <div class="form-row">
+            <div class="form-label">Chapter heading style</div>
+            <select class="form-select">
+              <option>Centred — "Chapter N: Name"</option>
+              <option>Drop cap on first letter of chapter</option>
+              <option>Plain heading + space</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <div class="form-row">
+            <div class="form-label">Book title</div>
+            <input class="form-input" value="The Mars Series — Book 1: First Landing" />
+          </div>
+
+          <div class="form-row">
+            <div class="form-label">Author name(s)</div>
+            <input class="form-input" value="Sarah Kim" />
+          </div>
+
+          <div class="form-row">
+            <div class="form-label">ISBN (optional)</div>
+            <input class="form-input" placeholder="978-..." />
+          </div>
+
+          <div class="form-row">
+            <div class="form-label">Description / blurb</div>
+            <textarea class="form-input" style="min-height: 60px; resize: vertical;" placeholder="Short book description..."></textarea>
+          </div>
+
+          <div class="toggle-block">
+            <div class="toggle-box">·</div>
+            <div class="toggle-label">
+              <strong>Include cover image</strong>
+              <div class="toggle-desc">Upload PNG/JPG (V2 — placeholder for now)</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style="font-size: 11px; color: var(--text-s); margin-top: 6px; line-height: 1.5;">
+        <span class="cn" style="margin-right: 6px;">7</span>
+        <strong style="color:var(--text-p);">EPUB has a much smaller config surface than DOCX</strong>. No page size; no margins; no font size; no line spacing. Reflowable text is configured by the reader, not the author. Author controls: body font family (with reader-default option), paragraph style, scene break, chapter style, book metadata.
+      </div>
+      <div style="font-size: 11px; color: var(--text-s); margin-top: 8px; line-height: 1.5;">
+        <span class="cn" style="margin-right: 6px;">8</span>
+        <strong style="color:var(--text-p);">Cover image upload disabled for V1</strong> — placeholder shows the affordance but the toggle is non-functional. Cover-image upload + thumbnail preview is V2 (requires attachment-storage UX work).
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── SECTION 04 · Outline configurability ─────────────────────────── -->
+<section class="section">
+  <div class="slabel">§04 · Outline configurability — Markdown structural summary</div>
+
+  <div class="stage-grid">
+
+    <div class="stage-frame">
+      <div class="stage-title">Outline settings panel</div>
+      <div style="padding: 14px 0;">
+        <div class="form-row">
+          <div class="form-label">Depth limit</div>
+          <select class="form-select">
+            <option>Full depth (Book → Beat)</option>
+            <option>Acts + Chapters only</option>
+            <option>Chapters only</option>
+            <option>Custom: down to layer __</option>
+          </select>
+          <div class="form-help">High-level overview vs full beat-by-beat structure.</div>
+        </div>
+
+        <div class="toggle-block">
+          <div class="toggle-box">·</div>
+          <div class="toggle-label">
+            <strong>Include word count target per leaf</strong>
+            <div class="toggle-desc">Surfaces as "[target: 3000 words]" after the heading</div>
+          </div>
+        </div>
+
+        <div class="toggle-block">
+          <div class="toggle-box">·</div>
+          <div class="toggle-label">
+            <strong>Include status indicator</strong>
+            <div class="toggle-desc">Prefix with [✓] for approved, blank for draft</div>
+          </div>
+        </div>
+
+        <div class="form-help" style="margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border-s);">
+          Outline never includes prose, notes, context links, comments, or metadata.
+        </div>
+      </div>
+    </div>
+
+    <div class="stage-frame">
+      <div class="stage-title">Outline output preview</div>
+      <div style="padding: 14px 0;">
+        <div style="background: var(--ink); border: 1px solid var(--border-s); border-radius: 4px; padding: 14px; font-family: 'Courier New', monospace; font-size: 11px; color: var(--text-s); line-height: 1.7;">
+<div style="color: var(--text-p);"># The Mars Series — Book 1</div>
+<br>
+<div style="color: var(--text-p);">## Act 1: The Departure</div>
+<br>
+<div style="color: var(--text-m); font-style: italic;">&gt; The crew leaves Earth orbit and faces the first crisis.</div>
+<br>
+<div style="color: var(--text-p);">### Chapter 1: The Letter</div>
+<br>
+<div style="color: var(--text-m); font-style: italic;">&gt; A mysterious letter arrives at dawn at the launch facility.</div>
+<br>
+<div style="color: var(--text-p);">#### Scene 1.1: At the door</div>
+<br>
+<div style="color: var(--text-m); font-style: italic;">&gt; The postman knocks. Sarah hesitates.</div>
+<br>
+<div style="color: var(--text-p);">### Chapter 2: The Decision</div>
+<br>
+<div style="color: var(--text-m); font-style: italic;">&gt; Sarah commits to the mission despite her father's objections.</div>
+        </div>
+      </div>
+      <div style="font-size: 11px; color: var(--text-s); margin-top: 6px; line-height: 1.5;">
+        <span class="cn" style="margin-right: 6px;">9</span>
+        <strong style="color:var(--text-p);">Markdown output</strong> — heading depth matches structural depth (# Book → ## Act → ### Chapter → #### Scene). Summary text appears as blockquote (&gt;). Empty-summary nodes show heading with no blockquote. Empty-name AND empty-summary nodes skipped entirely.
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ── SECTION 05 · Progress chip states ────────────────────────────── -->
+<section class="section">
+  <div class="slabel">§05 · Progress chip — bottom-right surface (AppShellStatusIndicator pattern)</div>
+
+  <div class="stage-grid">
+
+    <div class="stage-frame">
+      <div class="stage-title">State 1 — Queued</div>
+      <div style="display: flex; justify-content: center; padding: 16px 0;">
+        <div class="chip-frame">
+          <div class="chip-title">
+            <span class="chip-dot dot-queued"></span>
+            Export queued
+          </div>
+          <div class="chip-doc">Mars — Book 1 · DOCX · Manuscript profile</div>
+          <div class="chip-progress-bar">
+            <div class="chip-progress-fill" style="width: 5%;"></div>
+          </div>
+          <div class="chip-progress-text">
+            <span>Planning…</span>
+            <span></span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="stage-frame">
+      <div class="stage-title">State 2 — Rendering with per-chapter detail</div>
+      <div style="display: flex; justify-content: center; padding: 16px 0;">
+        <div class="chip-frame">
+          <div class="chip-title">
+            <span class="chip-dot dot-running"></span>
+            Exporting…
+          </div>
+          <div class="chip-doc">Mars — Book 1 · DOCX · Manuscript profile</div>
+          <div class="chip-progress-bar">
+            <div class="chip-progress-fill" style="width: 28%;"></div>
+          </div>
+          <div class="chip-progress-text">
+            <span>Chapter 13 of 47: The Crossing</span>
+            <span>~3 min remaining</span>
+          </div>
+          <div class="chip-actions">
+            <button class="chip-btn destructive">Cancel</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="stage-grid">
+
+    <div class="stage-frame">
+      <div class="stage-title">State 3 — Assembling / Uploading</div>
+      <div style="display: flex; justify-content: center; padding: 16px 0;">
+        <div class="chip-frame">
+          <div class="chip-title">
+            <span class="chip-dot dot-running"></span>
+            Assembling Kindle file…
+          </div>
+          <div class="chip-doc">Mars — Book 1 · EPUB · Standard reader profile</div>
+          <div class="chip-progress-bar">
+            <div class="chip-progress-fill" style="width: 88%;"></div>
+          </div>
+          <div class="chip-progress-text">
+            <span>Finalising structure</span>
+            <span>~20s remaining</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="stage-frame">
+      <div class="stage-title">State 4 — Ready to download</div>
+      <div style="display: flex; justify-content: center; padding: 16px 0;">
+        <div class="chip-frame">
+          <div class="chip-title">
+            <span class="chip-dot dot-done"></span>
+            Export ready
+          </div>
+          <div class="chip-doc">Mars — Book 1 · DOCX · Manuscript profile</div>
+          <div style="font-size: 11px; color: var(--text-m); margin-top: 6px;">
+            mars-book-1.docx · 2.4 MB · expires in 7 days
+          </div>
+          <div class="chip-actions">
+            <button class="chip-btn primary">Download</button>
+            <button class="chip-btn">Dismiss</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="stage-grid">
+
+    <div class="stage-frame">
+      <div class="stage-title">State 5 — Failed</div>
+      <div style="display: flex; justify-content: center; padding: 16px 0;">
+        <div class="chip-frame">
+          <div class="chip-title">
+            <span class="chip-dot dot-failed"></span>
+            Export failed
+          </div>
+          <div class="chip-doc">Mars — Book 1 · DOCX · Manuscript profile</div>
+          <div style="font-size: 11px; color: var(--destr-h); margin-top: 6px; font-style: italic;">
+            Render timeout at Chapter 32. We've saved your progress;<br>
+            you can retry from where it stopped.
+          </div>
+          <div class="chip-actions">
+            <button class="chip-btn primary">Retry</button>
+            <button class="chip-btn">Dismiss</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="stage-frame">
+      <div class="stage-title">State 6 — Cancelled</div>
+      <div style="display: flex; justify-content: center; padding: 16px 0;">
+        <div class="chip-frame">
+          <div class="chip-title">
+            <span class="chip-dot dot-cancelled"></span>
+            Export cancelled
+          </div>
+          <div class="chip-doc">Mars — Book 1 · DOCX · Manuscript profile</div>
+          <div style="font-size: 11px; color: var(--text-m); margin-top: 6px;">
+            Cancelled at Chapter 13 of 47. No file was produced.
+          </div>
+          <div class="chip-actions">
+            <button class="chip-btn">Dismiss</button>
+            <button class="chip-btn">Re-run</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div style="padding: 0 4px 20px; font-size: 11px; color: var(--text-s); line-height: 1.5;">
+    <span class="cn" style="margin-right: 6px;">10</span>
+    <strong style="color:var(--text-p);">Six chip states.</strong> Queued (pre-render) · Rendering (per-chapter) · Assembling/Uploading (post-render) · Ready (terminal success) · Failed (terminal error) · Cancelled (terminal user-stop). All persist via <code style="background:var(--surface);padding:1px 4px;border-radius:2px;color:var(--text-p);font-size:10px;">export_jobs.progress</code> JSONB so state survives reload.
+  </div>
+  <div style="padding: 0 4px 20px; font-size: 11px; color: var(--text-s); line-height: 1.5;">
+    <span class="cn" style="margin-right: 6px;">11</span>
+    <strong style="color:var(--text-p);">Cancel button uses destructive token</strong> (red border + red text). <strong style="color:var(--text-p);">Download / Retry primary buttons use neutral primary</strong> (<code style="background:var(--surface);padding:1px 4px;border-radius:2px;color:var(--text-p);font-size:10px;">--color-text-primary</code>). NO verdigris on any chip surface.
+  </div>
+  <div style="padding: 0 4px 20px; font-size: 11px; color: var(--text-s); line-height: 1.5;">
+    <span class="cn" style="margin-right: 6px;">12</span>
+    <strong style="color:var(--text-p);">Multi-export stacking.</strong> Multiple concurrent exports stack vertically at bottom-right (each chip its own row). Dismissed chips disappear; in-progress chips persist until terminal state.
+  </div>
+</section>
+
+<!-- ── SECTION 06 · Size limits + EPUB fallback ─────────────────────── -->
+<section class="section">
+  <div class="slabel">§06 · Size limits — soft warning + hard fail with EPUB-as-fallback</div>
+
+  <div class="stage-grid">
+
+    <div class="stage-frame">
+      <div class="stage-title">Soft warning at 3,000+ pages (DOCX)</div>
+      <div style="padding: 14px 0;">
+        <div class="modal-frame">
+          <div class="modal-header">
+            <div class="modal-title">This is a large export</div>
+          </div>
+          <div class="modal-body">
+            <div class="warn-banner">
+              <strong>Heads up:</strong> "Mars — Book 1" has 3,200 pages estimated.
+              The export will take ~6-8 minutes and you'll see progress updates
+              along the way. You can keep working while it runs.
+            </div>
+          </div>
+          <div class="modal-actions">
+            <button class="modal-btn btn-ghost">Cancel</button>
+            <button class="modal-btn btn-primary">Continue</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="stage-frame">
+      <div class="stage-title">Hard fail at 5,000+ pages (DOCX) — suggest EPUB</div>
+      <div style="padding: 14px 0;">
+        <div class="modal-frame">
+          <div class="modal-header">
+            <div class="modal-title">Document too large for DOCX</div>
+          </div>
+          <div class="modal-body">
+            <div class="warn-banner error">
+              <strong>5,800 pages exceeds the DOCX export limit (5,000 pages).</strong>
+            </div>
+            <p style="font-size: 12px; color: var(--text-s); margin-top: 12px; line-height: 1.6;">
+              For <strong style="color:var(--text-p);">Kindle / KDP submission</strong>: EPUB is recommended
+              and handles your size. Switch to EPUB now?
+            </p>
+            <p style="font-size: 12px; color: var(--text-s); margin-top: 8px; line-height: 1.6;">
+              For <strong style="color:var(--text-p);">editor handoff</strong>: you'll need to split this
+              document into multiple parts (e.g. one DOCX per Act) and export each separately.
+            </p>
+          </div>
+          <div class="modal-actions">
+            <button class="modal-btn btn-ghost">Cancel</button>
+            <button class="modal-btn btn-primary">Switch to EPUB</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div style="padding: 0 4px 20px; font-size: 11px; color: var(--text-s); line-height: 1.5;">
+    <span class="cn" style="margin-right: 6px;">13</span>
+    <strong style="color:var(--text-p);">Pre-validation runs at Stage 1</strong> of the pipeline. Soft warning at 3,000+ pages doesn't block; user confirms and proceeds. Hard fail at 5,000+ pages (DOCX) / 15,000+ pages (EPUB) blocks with a clear path forward.
+  </div>
+  <div style="padding: 0 4px 20px; font-size: 11px; color: var(--text-s); line-height: 1.5;">
+    <span class="cn" style="margin-right: 6px;">14</span>
+    <strong style="color:var(--text-p);">EPUB-as-fallback suggestion</strong> is context-aware: prompts for switch when over DOCX limit but within EPUB limit. The copy explicitly differentiates publishing-path (EPUB fine) vs editor-handoff-path (must split). Decision Q9 (deep-dive) — author chooses; we advise.
+  </div>
+</section>
+
+<!-- ── SECTION 07 · Export history panel ────────────────────────────── -->
+<section class="section">
+  <div class="slabel">§07 · Export history per document — re-download, re-run</div>
+
+  <div class="stage-grid full">
+    <div class="stage-frame">
+      <div class="stage-title">Document export history (mounts in document settings or doc-level menu)</div>
+      <div style="padding: 14px 0;">
+        <div class="hist-frame">
+          <div class="hist-title">Export history — Mars — Book 1</div>
+
+          <div class="hist-row">
+            <div class="hist-icon">📄</div>
+            <div>
+              <div class="hist-meta-1">DOCX — Manuscript (editor handoff)</div>
+              <div class="hist-meta-2">today, 11:42 · 2.4 MB · expires in 7 days</div>
+            </div>
+            <button class="hist-action">Download</button>
+          </div>
+
+          <div class="hist-row">
+            <div class="hist-icon">📚</div>
+            <div>
+              <div class="hist-meta-1">EPUB — Standard e-reader</div>
+              <div class="hist-meta-2">yesterday, 16:09 · 1.8 MB · expires in 6 days</div>
+            </div>
+            <button class="hist-action">Download</button>
+          </div>
+
+          <div class="hist-row">
+            <div class="hist-icon">📄</div>
+            <div>
+              <div class="hist-meta-1">DOCX — Kindle / KDP (paperback)</div>
+              <div class="hist-meta-2">3 days ago · 2.1 MB · <span class="hist-status">URL expired — re-run to download</span></div>
+            </div>
+            <button class="hist-action">Re-run</button>
+          </div>
+
+          <div class="hist-row">
+            <div class="hist-icon">📋</div>
+            <div>
+              <div class="hist-meta-1">Outline — Structural overview</div>
+              <div class="hist-meta-2">5 days ago · 14 KB · <span class="hist-status">URL expired — re-run to download</span></div>
+            </div>
+            <button class="hist-action">Re-run</button>
+          </div>
+
+          <div class="hist-row">
+            <div class="hist-icon">📄</div>
+            <div>
+              <div class="hist-meta-1">DOCX — "Submission to Tor.com"</div>
+              <div class="hist-meta-2">7 days ago · <span class="hist-status failed">Failed: render timeout at Chapter 32</span></div>
+            </div>
+            <button class="hist-action">Retry</button>
+          </div>
+        </div>
+      </div>
+      <div style="font-size: 11px; color: var(--text-s); margin-top: 6px; line-height: 1.5;">
+        <span class="cn" style="margin-right: 6px;">15</span>
+        <strong style="color:var(--text-p);">History persists past expiry.</strong> The signed URL has a default 7-day TTL; after that, the row stays in history but Download becomes "Re-run" (re-renders with same config and produces a fresh URL).
+      </div>
+      <div style="font-size: 11px; color: var(--text-s); margin-top: 8px; line-height: 1.5;">
+        <span class="cn" style="margin-right: 6px;">16</span>
+        <strong style="color:var(--text-p);">Failed exports stay in history</strong> with their error message. Retry creates a new export_jobs row; the failed row stays for audit.
+      </div>
+      <div style="font-size: 11px; color: var(--text-s); margin-top: 8px; line-height: 1.5;">
+        <span class="cn" style="margin-right: 6px;">17</span>
+        <strong style="color:var(--text-p);">Mounts in document settings.</strong> Or accessible via a "View past exports" link in the Export modal. Inter only; no verdigris.
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── SECTION 08 · Profile editor ──────────────────────────────────── -->
+<section class="section">
+  <div class="slabel">§08 · Profile editor — manage saved profiles per project</div>
+
+  <div class="stage-grid">
+
+    <div class="stage-frame">
+      <div class="stage-title">Profile list (Manage profiles… from export modal)</div>
+      <div style="padding: 14px 0;">
+        <div style="background: var(--deep); border: 1px solid var(--border-s); border-radius: 6px; padding: 12px;">
+          <div style="font-size: 10px; font-weight: 500; letter-spacing: .22em; text-transform: uppercase; color: var(--text-m); margin-bottom: 10px;">Built-in profiles (read-only)</div>
+
+          <div class="profile-row">
+            <span style="color: var(--text-p);">📄</span>
+            <div style="flex: 1;">
+              <div class="profile-row-name">Manuscript (editor handoff)</div>
+              <div class="profile-row-meta">DOCX · US Letter · double · Cambria 12</div>
+            </div>
+            <span class="profile-builtin-tag">Built-in</span>
+          </div>
+
+          <div class="profile-row">
+            <span style="color: var(--text-p);">📄</span>
+            <div style="flex: 1;">
+              <div class="profile-row-name">Kindle / KDP (paperback)</div>
+              <div class="profile-row-meta">DOCX · 6×9 · single · Times New Roman 12</div>
+            </div>
+            <span class="profile-builtin-tag">Built-in</span>
+          </div>
+
+          <div class="profile-row">
+            <span style="color: var(--text-p);">📚</span>
+            <div style="flex: 1;">
+              <div class="profile-row-name">Standard e-reader</div>
+              <div class="profile-row-meta">EPUB · reader-default font</div>
+            </div>
+            <span class="profile-builtin-tag">Built-in</span>
+          </div>
+
+          <div class="profile-row">
+            <span style="color: var(--text-p);">📋</span>
+            <div style="flex: 1;">
+              <div class="profile-row-name">Structural overview</div>
+              <div class="profile-row-meta">Outline · full depth</div>
+            </div>
+            <span class="profile-builtin-tag">Built-in</span>
+          </div>
+
+          <div style="font-size: 10px; font-weight: 500; letter-spacing: .22em; text-transform: uppercase; color: var(--text-m); margin: 16px 0 10px;">Your profiles for this project</div>
+
+          <div class="profile-row">
+            <span style="color: var(--text-p);">📄</span>
+            <div style="flex: 1;">
+              <div class="profile-row-name">"Submission to Tor.com"</div>
+              <div class="profile-row-meta">DOCX · US Letter · double · Garamond 12 · blind mode</div>
+            </div>
+            <button class="chip-btn">Edit</button>
+            <button class="chip-btn destructive">Delete</button>
+          </div>
+
+          <div class="profile-row">
+            <span style="color: var(--text-p);">📄</span>
+            <div style="flex: 1;">
+              <div class="profile-row-name">"Beta-reader copy"</div>
+              <div class="profile-row-meta">DOCX · US Letter · 1.5 spacing · with cover note</div>
+            </div>
+            <button class="chip-btn">Edit</button>
+            <button class="chip-btn destructive">Delete</button>
+          </div>
+
+          <button style="margin-top: 12px; font-size: 11px; padding: 8px 14px; border-radius: 3px; border: 1px dashed var(--border-d); background: transparent; color: var(--text-s); cursor: pointer; width: 100%;">
+            + New profile
+          </button>
+        </div>
+      </div>
+      <div style="font-size: 11px; color: var(--text-s); margin-top: 6px; line-height: 1.5;">
+        <span class="cn" style="margin-right: 6px;">18</span>
+        <strong style="color:var(--text-p);">Built-in profiles are read-only.</strong> Can be selected from the export modal but not edited or deleted. Authors who want a tweaked manuscript profile copy + customise into their own.
+      </div>
+      <div style="font-size: 11px; color: var(--text-s); margin-top: 8px; line-height: 1.5;">
+        <span class="cn" style="margin-right: 6px;">19</span>
+        <strong style="color:var(--text-p);">Author profiles are per-project.</strong> A profile saved on "Mars — Book 1" doesn't appear on "Detective Story Draft". Cross-project sharing is V2.
+      </div>
+    </div>
+
+    <div class="stage-frame">
+      <div class="stage-title">Profile editor — create or edit</div>
+      <div style="padding: 14px 0;">
+        <div class="modal-frame">
+          <div class="modal-header">
+            <div class="modal-title">Edit profile</div>
+          </div>
+          <div class="modal-body">
+            <div class="form-row">
+              <div class="form-label">Profile name</div>
+              <input class="form-input" value="Submission to Tor.com" />
+            </div>
+
+            <div class="form-row">
+              <div class="form-label">Format</div>
+              <select class="form-select">
+                <option>📄 DOCX</option>
+                <option>📚 EPUB</option>
+                <option>📋 Outline</option>
+                <option>{ } JSON</option>
+              </select>
+            </div>
+
+            <div style="font-size: 11px; color: var(--text-m); font-style: italic; padding: 8px 0; border-top: 1px solid var(--border-s); margin: 12px 0 0;">
+              Format-specific settings (page size, margins, etc.) appear here based on selected format. Same panel shape as §02 / §03 / §04 above.
+            </div>
+          </div>
+          <div class="modal-actions">
+            <button class="modal-btn btn-ghost">Cancel</button>
+            <button class="modal-btn btn-primary">Save</button>
+          </div>
+        </div>
+      </div>
+      <div style="font-size: 11px; color: var(--text-s); margin-top: 6px; line-height: 1.5;">
+        <span class="cn" style="margin-right: 6px;">20</span>
+        <strong style="color:var(--text-p);">Editor reuses format settings panel.</strong> Same DOCX / EPUB / Outline settings as in the export modal — single source of truth for format-specific options. Save button uses neutral primary (NOT verdigris); profile save is structural, not affirmative-action.
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ── SECTION 09 · Saving + load-current-as-new ──────────────────────  -->
+<section class="section">
+  <div class="slabel">§09 · "Save current settings as new profile" flow</div>
+
+  <div class="stage-grid full">
+    <div class="stage-frame">
+      <div class="stage-title">Quick-save from export modal</div>
+      <div style="display: flex; justify-content: center; padding: 16px 0;">
+        <div class="modal-frame" style="max-width: 480px;">
+          <div class="modal-header">
+            <div class="modal-title">Save as new profile</div>
+          </div>
+          <div class="modal-body">
+            <p style="font-size: 12px; color: var(--text-s); line-height: 1.6;">
+              Your current export settings (DOCX, US Letter, 1.5 spacing, Garamond, blind mode) will
+              be saved as a reusable profile for this project.
+            </p>
+            <div class="form-row" style="margin-top: 16px;">
+              <div class="form-label">Profile name</div>
+              <input class="form-input" placeholder="e.g. Contest submission, Beta-reader copy" />
+            </div>
+          </div>
+          <div class="modal-actions">
+            <button class="modal-btn btn-ghost">Cancel</button>
+            <button class="modal-btn btn-primary">Save profile</button>
+          </div>
+        </div>
+      </div>
+      <div style="font-size: 11px; color: var(--text-s); margin-top: 8px; line-height: 1.5;">
+        <span class="cn" style="margin-right: 6px;">21</span>
+        <strong style="color:var(--text-p);">Quick-save flow.</strong> From the export modal's profile selector dropdown, choosing "+ Save current settings as new profile..." opens this lightweight dialog. Author names the profile; it appears in the project's profile list immediately. Author can continue with the export OR cancel out and just save.
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Annotations summary ─────────────────────────────────────────── -->
+<div class="annotations">
+  <div class="annotations-title">Annotation summary (21 callouts)</div>
+  <div class="ann-grid">
+
+    <div class="ann-row"><span class="ann-num">1</span><span class="ann-text">
+      <strong>Document toolbar Export button.</strong> Inter only; no verdigris; single click opens the export modal. Available across Edit / Director / Focus modes.
+    </span></div>
+
+    <div class="ann-row"><span class="ann-num">2</span><span class="ann-text">
+      <strong>Modal layout: format then profile.</strong> 4 format tiles; profile selector below; format-specific settings panel expands below (§02-§04). The "+ Save current as new" and "⚙ Manage profiles" select-list items are actions, not selectable values.
+    </span></div>
+
+    <div class="ann-row"><span class="ann-num">3</span><span class="ann-text">
+      <strong>Export primary action neutral.</strong> Uses <code>--color-text-primary</code> background. NOT verdigris. Export is structural (file generation), not an affirmation against an agent/workflow proposal — Inviolable #2 use #7 family does not extend here.
+    </span></div>
+
+    <div class="ann-row"><span class="ann-num">4</span><span class="ann-text">
+      <strong>DOCX configurability.</strong> Page size, margins, font, line spacing, scene separator, chapter heading style, page break per chapter, front matter, page numbers, blind mode, TOC. Settings persist to the active profile; quick changes in the export modal can be "Save as new profile" → new profile created.
+    </span></div>
+
+    <div class="ann-row"><span class="ann-num">5</span><span class="ann-text">
+      <strong>Layer mapping.</strong> Chapter = Heading 1. Acts / Books skip headings entirely per locked Q2. Scenes / Beats separated by scene-separator (* * * default, configurable).
+    </span></div>
+
+    <div class="ann-row"><span class="ann-num">6</span><span class="ann-text">
+      <strong>Per-node author overrides.</strong> Phase 1 columns <code>export_include</code>, <code>export_heading_override</code>, <code>export_page_break_before</code> are honoured by the tree walker regardless of profile settings.
+    </span></div>
+
+    <div class="ann-row"><span class="ann-num">7</span><span class="ann-text">
+      <strong>EPUB has a much smaller config surface.</strong> Reflowable text removes page size / margins / font size / line spacing concerns. Author controls typography style, scene break, chapter style, and book metadata only.
+    </span></div>
+
+    <div class="ann-row"><span class="ann-num">8</span><span class="ann-text">
+      <strong>EPUB cover image deferred to V2.</strong> Placeholder shows the affordance but the toggle is disabled. Cover-image upload + thumbnail preview ships with V2.
+    </span></div>
+
+    <div class="ann-row"><span class="ann-num">9</span><span class="ann-text">
+      <strong>Outline output is Markdown.</strong> Heading depth matches structural depth. Summaries appear as blockquotes; empty-summary nodes show heading with no blockquote; empty-name AND empty-summary nodes skipped.
+    </span></div>
+
+    <div class="ann-row"><span class="ann-num">10</span><span class="ann-text">
+      <strong>Six chip states.</strong> Queued / Rendering / Assembling / Ready / Failed / Cancelled. Persists via <code>export_jobs.progress</code> JSONB — state survives reload or tab close. UI subscribes via Supabase Realtime.
+    </span></div>
+
+    <div class="ann-row"><span class="ann-num">11</span><span class="ann-text">
+      <strong>Action button tokens.</strong> Cancel = destructive (red border + red text). Download / Retry primary = neutral primary (<code>--color-text-primary</code>). NO verdigris on any chip surface.
+    </span></div>
+
+    <div class="ann-row"><span class="ann-num">12</span><span class="ann-text">
+      <strong>Multi-export stacking.</strong> Multiple concurrent exports stack vertically at bottom-right. Each chip is independent. Dismissed chips disappear; in-progress chips persist until terminal state.
+    </span></div>
+
+    <div class="ann-row"><span class="ann-num">13</span><span class="ann-text">
+      <strong>Pre-validation runs at Stage 1.</strong> Counts chapters; estimates render time + output size. Soft warning at 3,000+ pages; hard fail at 5,000+ pages DOCX / 15,000+ pages EPUB. Validation happens before any render work — instant failure on doomed exports.
+    </span></div>
+
+    <div class="ann-row"><span class="ann-num">14</span><span class="ann-text">
+      <strong>EPUB-as-fallback suggestion.</strong> Context-aware copy distinguishes Kindle/KDP path (EPUB fine) vs editor-handoff path (must split document). Author chooses; we advise. Decision Q9.
+    </span></div>
+
+    <div class="ann-row"><span class="ann-num">15</span><span class="ann-text">
+      <strong>Export history per document.</strong> Persists past signed-URL expiry. Expired downloads become "Re-run" actions; failed exports stay for audit with a Retry action.
+    </span></div>
+
+    <div class="ann-row"><span class="ann-num">16</span><span class="ann-text">
+      <strong>Failed exports stay in history.</strong> Original failed row preserves its error message. Retry creates a new <code>export_jobs</code> row; original stays for audit / debugging.
+    </span></div>
+
+    <div class="ann-row"><span class="ann-num">17</span><span class="ann-text">
+      <strong>History panel mount.</strong> Reachable via document settings or "View past exports" link in the Export modal. Same Inter typography; no verdigris.
+    </span></div>
+
+    <div class="ann-row"><span class="ann-num">18</span><span class="ann-text">
+      <strong>Built-in profiles are read-only.</strong> Selectable in export modal but not editable / deletable. Authors who want a tweaked version copy the built-in → name + customise as their own.
+    </span></div>
+
+    <div class="ann-row"><span class="ann-num">19</span><span class="ann-text">
+      <strong>Author profiles are per-project.</strong> Saved profiles attach to <code>project_id</code>. Cross-project sharing or workspace-level profiles is V2.
+    </span></div>
+
+    <div class="ann-row"><span class="ann-num">20</span><span class="ann-text">
+      <strong>Profile editor reuses settings panel.</strong> Same DOCX / EPUB / Outline settings as in the export modal — single source of truth. Save button neutral primary (NOT verdigris).
+    </span></div>
+
+    <div class="ann-row"><span class="ann-num">21</span><span class="ann-text">
+      <strong>Quick-save flow from export modal.</strong> "+ Save current settings as new profile..." in profile dropdown opens a lightweight dialog. Author names profile; it's saved immediately. Convenient for "I just tweaked these settings for a specific submission and want to keep them."
+    </span></div>
+
+  </div>
+</div>
+
+<!-- ── Locked decisions ────────────────────────────────────────────── -->
+<div class="decisions">
+  <div class="decisions-title">Decisions locked in this session (12 — no further input needed)</div>
+
+  <div class="decision">
+    <strong>D1 · Four sub-phases on one branch.</strong> 7.A Foundation → 7.B JSON → 7.C Outline → 7.D Renderers (DOCX + EPUB). Merged at end of 7.D via <code>--no-ff</code>. <em>Locked.</em>
+  </div>
+
+  <div class="decision">
+    <strong>D2 · Option B atomization — resumable per-chapter pipeline.</strong> Plan → Render-per-chapter → Assemble → Upload → Finalize. Re-entrant runner picks up from <code>progress.current_chapter</code> across function-call boundaries via pg_cron. Handles documents up to assembly-stage ceiling (~5,000 pages DOCX / ~15,000 pages EPUB). <em>Locked.</em>
+  </div>
+
+  <div class="decision">
+    <strong>D3 · Realtime DB subscription for progress.</strong> Runner UPDATEs <code>export_jobs.progress</code> JSONB; UI subscribes via Supabase Realtime. Same pattern as V1.x-D NodeLifecycleBadge + V1.x-B agent_jobs. Persists across page reload. <em>Locked.</em>
+  </div>
+
+  <div class="decision">
+    <strong>D4 · Status chip at bottom-right.</strong> AppShellStatusIndicator pattern. Multi-export stacking. Six states (queued / rendering / assembling / ready / failed / cancelled). <em>Locked.</em>
+  </div>
+
+  <div class="decision">
+    <strong>D5 · Per-document export.</strong> Multi-doc / series-as-one-file is V2. Each export targets a single document. <em>Locked.</em>
+  </div>
+
+  <div class="decision">
+    <strong>D6 · Export profiles per-project, brought forward from Phase 4.</strong> Authors save named configurations for their project. Built-in presets (Manuscript / KDP / Standard EPUB / Structural Outline) ship at migration time as <code>is_builtin=TRUE</code>. <em>Locked.</em>
+  </div>
+
+  <div class="decision">
+    <strong>D7 · DOCX hard limit 5,000 pages.</strong> Validate at Stage 1; fail clearly with EPUB-as-fallback suggestion. Soft warning at 3,000+ pages ("this will take a few minutes"). <em>Locked.</em>
+  </div>
+
+  <div class="decision">
+    <strong>D8 · EPUB hard limit 15,000 pages.</strong> Uses <code>epub-gen</code> defaults (chapter-string-array in memory). Streaming implementation for truly-unbounded EPUB is V2 polish. <em>Locked.</em>
+  </div>
+
+  <div class="decision">
+    <strong>D9 · JSON V1 = export-only.</strong> Pure JSON (no zip), no attachments, single-doc, full version history (<code>node_versions</code> included), format version "1.0". Import path is V2. <em>Locked.</em>
+  </div>
+
+  <div class="decision">
+    <strong>D10 · Outline content scope.</strong> Name + summary always (summary as blockquote); word-count target + status as configurable profile toggles. Always excluded: prose, notes, context links, comments, metadata. Empty-summary nodes show heading only; empty-name AND empty-summary nodes skipped. <em>Locked.</em>
+  </div>
+
+  <div class="decision">
+    <strong>D11 · Skip Acts / Books as headings (DOCX/EPUB default).</strong> Chapter = Heading 1. Layers above Chapter collapse into the prose flow. <em>Locked.</em>
+  </div>
+
+  <div class="decision">
+    <strong>D12 · Built-in profiles: 4 (one per format).</strong> DOCX-Manuscript · DOCX-Kindle KDP · EPUB-Standard · Outline-Structural overview. Authors save more per-project as needed. <em>Locked.</em>
+  </div>
+
+</div>
+
+<!-- ── Inviolable audit ────────────────────────────────────────────── -->
+<div class="inv-audit">
+  <div class="annotations-title">Inviolable audit (Phase 7 wireframe)</div>
+
+  <div class="inv-row">
+    <span style="color: var(--callout); font-weight: 600;">1</span>
+    <span><strong style="color:var(--text-p);">Prose surface low-noise.</strong> No prose-surface changes in Phase 7. All new mounts are structural (toolbar button, modals, chips, history panel, profile editor).</span>
+    <span class="inv-pass">PASS</span>
+  </div>
+
+  <div class="inv-row">
+    <span style="color: var(--callout); font-weight: 600;">2</span>
+    <span><strong style="color:var(--text-p);">Verdigris in exactly nine places.</strong> Phase 7 adds <strong style="color:var(--verd-h);">ZERO</strong> new verdigris uses. Export modal primary action, status chip Download/Retry, profile-editor Save — all use <code>--color-text-primary</code> (neutral primary). Cancel + Delete use destructive token. Failure copy uses <code>--color-error</code>. Verdigris-use count remains <strong style="color:var(--verd-h);">9</strong>.</span>
+    <span class="inv-pass">PASS</span>
+  </div>
+
+  <div class="inv-row">
+    <span style="color: var(--callout); font-weight: 600;">3</span>
+    <span><strong style="color:var(--text-p);">Cinzel only in wordmark.</strong> No new wordmark surfaces. All Phase 7 copy in Inter.</span>
+    <span class="inv-pass">PASS</span>
+  </div>
+
+  <div class="inv-row">
+    <span style="color: var(--callout); font-weight: 600;">4</span>
+    <span><strong style="color:var(--text-p);">Typeface boundary.</strong> All Phase 7 surfaces are structural / informational — Inter only. The outline preview uses Courier-style monospace (Markdown source representation), NOT Lora. No prose-surface typography introduced.</span>
+    <span class="inv-pass">PASS</span>
+  </div>
+
+  <div class="inv-row" style="border-bottom: none;">
+    <span style="color: var(--callout); font-weight: 600;">5</span>
+    <span><strong style="color:var(--text-p);">No prose-editor toolbar.</strong> No prose-editor changes in Phase 7.</span>
+    <span class="inv-pass">PASS</span>
+  </div>
+</div>
+
+<!-- ── Refs ────────────────────────────────────────────────────────── -->
+<div class="refs">
+  <strong>Companion specs (to bump alongside Phase 7 ship):</strong>
+  TA v2.12 → v2.13 (schema — <code>export_profiles</code> table + extensions to <code>export_jobs.progress</code> JSONB shape + retention cron + 6 new <code>platform_config.export.*</code> keys; §9 Export Pipeline updated for Option B atomization + Realtime progress) ·
+  Component Spec v2.16 → v2.17 (NEW: <code>ExportModal</code>, <code>ExportProgressChip</code>, <code>ExportHistoryPanel</code>, <code>ExportProfileEditor</code>, <code>SizeLimitWarning</code>, <code>EpubFallbackSuggestion</code>) ·
+  Product Spec v1.15 → v1.16 (§4.13 export system — DOCX + EPUB + JSON + Outline shipped V1 with profiles; PDF / Markdown / KDP-as-separate-format stay V2/V4; §4.14 cloud backup remains V2) ·
+  CLAUDE.md v1.37 → v1.38 (Phase 7 SHIPPED entry).
+  <strong>Phase 7 sub-phasing:</strong> Shape — four sub-phases on a single branch, merged via <code>--no-ff</code> at the end of 7.D.
+  <strong>7.A Foundation</strong> (lib/export/ module + ContentBlock intermediate + tree walker + resumable runner + Storage integration + signed-URL retention cron + export_profiles + size validation + progress reporting substrate + status chip surface) ·
+  <strong>7.B JSON</strong> (pure-JSON renderer; format version 1.0; tested at all sizes) ·
+  <strong>7.C Outline</strong> (Markdown renderer; configurable depth/word-count/status) ·
+  <strong>7.D Renderers</strong> (DOCX renderer + EPUB renderer + built-in profiles seeded + export modal + profile editor + history panel + size-limit + EPUB-fallback UX).
+  <strong>Migration count expected:</strong> 157 → ~162 (5 migrations: export_profiles table + built-in profile seed + platform_config keys + retention cron + structured progress shape).
+  <strong>Memory references:</strong> <code>feedback_wireframe_first_for_ui.md</code> · <code>project_phase6_shipped.md</code> (Phase 6 substrate context) · TA v2.12 §11 Phase 7 row (acceptance criteria).
+</div>
+
+</body>
+</html>

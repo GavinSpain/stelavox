@@ -1,5 +1,25 @@
 # Stelavox — Product Specification
-## Version 1.15
+## Version 1.16
+
+> **Phase 7 close-out absorption (2026-05-17):** Export ships. **User-visible:**
+>
+> 1. **DOCX export with two profiles.** "DOCX — Manuscript" (Times New Roman 12pt, double-spaced, 1-inch margins, letter trim) for editor handoff; "DOCX — KDP Paperback" (Garamond 11pt, single-spaced, 0.75-inch margins, 6×9 trim) for KDP Print submission. Author selects format + profile in the Export modal; the runner writes to Supabase Storage and returns a signed URL valid for 168 hours (one week). DOCX is the V1 primary export format for editor handoff and for KDP Print.
+>
+> 2. **EPUB export.** Single "EPUB — Standard" profile (Lora typography). Kindle-ready — direct upload to KDP Digital, or convert to KFX via Kindle Direct. EPUB is the V1 primary export format for digital publishing. EPUB has a higher document-size ceiling than DOCX (~15,000 pages vs ~5,000); when a DOCX export hits the limit the validator suggests EPUB as a fallback with a "Switch to EPUB" affordance in the warning.
+>
+> 3. **JSON backup export.** "JSON — Full Backup" format version "1.0" — pure-JSON (no zip, no attachments, no images). Includes the full document state: documents row + nodes + node_versions + context_nodes_referenced + context_links + node_comments + node_author_locks + layer_stack. Wrapped in a `stelavox_backup` envelope with format version. **Import is V2** — the JSON shape is forward-compatible but no import flow ships in V1. Per author direction, this is for full-history backup + manual inspection in V1, not round-trip migration.
+>
+> 4. **Outline (Markdown) export.** "Outline — Structural" — Markdown heading tree (depth 1-6 configurable; default 3) with optional word-count and status markers on each line. For author + agent structural review.
+>
+> 5. **Resumable per-chapter pipeline.** Exports follow a 5-stage pipeline (Plan → Render → Assemble → Upload → Finalize) with progress tracked per chapter. Cancellation is supported at chapter boundaries (Cancel button on the progress chip). Failed exports stay in history with the error message + Retry action. A crashed export (server restart mid-render) is detected by the every-minute recovery sweep and marked `failed` with `failure_class='B'` so the author can Retry; the partial output is discarded.
+>
+> 6. **Progress chip bottom-right.** Active exports appear as a 280px chip in the bottom-right corner (sibling to the existing AppShellStatusIndicator). The author can navigate freely while an export runs; progress is Realtime-subscribed to the database. On completion the chip changes to a Download button; on failure it changes to Retry; on success the link is available for 168 hours (one week) before the signed URL expires.
+>
+> 7. **Per-project export profiles.** Four built-in profiles are seeded for every project; authors can save additional profiles in V1 (project-scoped, not org-scoped). Built-in profiles are immutable; author-saved profiles are editable + deletable.
+>
+> 8. **Keyboard shortcut Cmd+Shift+E (Ctrl+Shift+E)** opens the Export modal from anywhere in the document workspace.
+>
+> **Out of V1 (Backlog):** JSON import (V2 — round-trip migration of full backups); PDF export (Backlog — V2; OA-2 LibreOffice-on-Vercel hazard never materialised because DOCX uses pure-JS `docx` npm, but PDF would still need a headless office binary which Vercel can't host without a separate worker); KDP submission flow integration; per-export attachment bundling; cloud backup (auto-export-to-cloud-storage on schedule — Backlog/V2 per Product Spec §4.14).
 
 > **Phase 6 close-out absorption (2026-05-17):** Locking and Workflow ships. **User-visible:**
 >
