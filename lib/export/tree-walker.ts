@@ -210,12 +210,18 @@ export async function walkDocument(
       lastSceneParent = null
     }
 
-    // Summary (rendered for non-leaf overview nodes if present; renderer
-    // can choose to skip it or include it. Default: include summary as
-    // an italic paragraph for non-leaf structural nodes WITHOUT prose.
-    // For nodes that have prose, prose wins.)
+    // Prose only — emit paragraphs from node.prose. Planning-level
+    // summaries on Book / Act / Chapter (the structural overview layers)
+    // are NEVER part of the manuscript output; they are author notes.
+    // This matches the user's expectation: a DOCX/EPUB export is the
+    // finished prose, not planning intent.
+    //
+    // Earlier V1 versions emitted summary-as-italic for any non-heading
+    // node without prose (Book/Act summaries leaking into the front of
+    // the manuscript). Discovered 2026-05-17 during pre-Phase-8 test
+    // pass: the book's summary appeared italicised before Chapter 1
+    // even though the Book has no prose. Removed.
     const proseParagraphs = extractParagraphs(node.prose)
-    const summaryText = extractText(node.summary).trim()
 
     if (proseParagraphs.length > 0) {
       // Scene separator between sibling scenes (only when within a
@@ -240,21 +246,11 @@ export async function walkDocument(
         })
         totalWords += para.trim().split(/\s+/).filter(Boolean).length
       }
-    } else if (summaryText && !isHeadingNode) {
-      // No prose yet on a non-heading node — include the summary as
-      // an italic placeholder paragraph so the export reflects the
-      // author's planning intent. This is debatable; some authors
-      // prefer prose-only output. The behaviour is conservative —
-      // surface what's there. V1.x polish: configurable.
-      blocks.push({
-        type: 'paragraph',
-        text: summaryText,
-        nodeId: node.id,
-        nodeType: node.node_type,
-        formatting: { italic: true, indent: true },
-      })
-      totalWords += approxWordCount(node.summary)
     }
+    // approxWordCount() helper retained for future summary-based features
+    // (e.g. a profile-opt-in "include planning notes" flag). Mark it
+    // referenced to silence the unused-import gate.
+    void approxWordCount
   }
 
   return {
