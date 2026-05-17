@@ -20,7 +20,7 @@ import { isValidUuid } from '@/lib/validation/uuid'
 import { z } from 'zod'
 import { restoreNodeVersion } from '@/lib/versioning/restore'
 
-interface Context { params: Promise<{ nodeId: string; version: string }> }
+interface Context { params: Promise<{ nodeId: string; versionNumber: string }> }
 
 const restoreSchema = z.object({
   expected_version: z.number().int().min(1),
@@ -28,10 +28,10 @@ const restoreSchema = z.object({
 
 export async function POST(request: NextRequest, { params }: Context) {
   try {
-    const { nodeId, version } = await params
+    const { nodeId, versionNumber } = await params
     if (!isValidUuid(nodeId)) return err.invalidUuid()
 
-    const targetVersion = Number.parseInt(version, 10)
+    const targetVersion = Number.parseInt(versionNumber, 10)
     if (!Number.isFinite(targetVersion) || targetVersion < 1) {
       return err.invalidVersionNumber()
     }
