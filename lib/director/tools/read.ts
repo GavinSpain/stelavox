@@ -383,9 +383,18 @@ export async function execGetNodesByLayer(
   // launch-test bug where "next 10 scenes" returned scattered canonical
   // positions because PostgreSQL had no cross-parent tiebreak on "order".
   // Director Architecture v2.0 §7.1.
+  //
+  // 2026-05-17 extension: include has_prose / has_summary / status /
+  // word_count_actual / word_count_target on each row. Without these
+  // flags, questions like "do all beats in chapter 1 have prose?"
+  // forced the Director into one get_node call per node — observed in
+  // testing as a 25-iteration walk that exhausted the iteration cap.
+  // The flags are cheap (already on the row) and the Director system
+  // prompt already says this tool returns summary, so adding them is
+  // additive — no config bump required.
   let query = supabase
     .from('nodes_canonical')
-    .select('id, name, node_type, layer_index, parent_id, "order", summary')
+    .select('id, name, node_type, layer_index, parent_id, "order", summary, prose, status, word_count_actual, word_count_target')
     .eq('document_id', session.document_id)
     .eq('organisation_id', session.organisation_id)
     .eq('layer_index', args.layer_index)
@@ -409,16 +418,25 @@ export async function execGetNodesByLayer(
   return {
     ok: true,
     data: {
-      nodes: (data ?? []).map((n) => ({
-        id: n.id,
-        name: n.name,
-        node_type: n.node_type,
-        layer_index: n.layer_index,
-        parent_id: n.parent_id,
-        order: (n as { order: number }).order,
-        locked: lockedSet.has(n.id as string),
-        summary_text: extractText(n.summary),
-      })),
+      nodes: (data ?? []).map((n) => {
+        const summaryText = extractText(n.summary)
+        const proseText = extractText(n.prose)
+        return {
+          id: n.id,
+          name: n.name,
+          node_type: n.node_type,
+          layer_index: n.layer_index,
+          parent_id: n.parent_id,
+          order: (n as { order: number }).order,
+          locked: lockedSet.has(n.id as string),
+          summary_text: summaryText,
+          has_summary: summaryText.trim().length > 0,
+          has_prose: proseText.trim().length > 0,
+          status: (n as { status: string | null }).status,
+          word_count_actual: (n as { word_count_actual: number | null }).word_count_actual,
+          word_count_target: (n as { word_count_target: number | null }).word_count_target,
+        }
+      }),
     },
   }
 }
@@ -615,6 +633,135 @@ export async function execGetNodeTree(
   }
 
   return { ok: true, data: { tree: build(args.root_node_id, 0) } }
+}
+
+// ---------------------------------------------------------------------------
+// get_subtree_content — bulk prose / summary read across a subtree.
+// ---------------------------------------------------------------------------
+//
+// 2026-05-17. Added after testing surfaced a 25-iteration walk where the
+// Director was asked "do all beats in chapter 1 have prose?" — get_node
+// is heavyweight (full body + links + child_count + version per node)
+// and the model was forced to call it once per beat.
+//
+// get_subtree_content returns every descendant of root_node_id (plus the
+// root itself) with content fields in a single call. Capped at
+// max_nodes (default 50, ceiling 200) with `truncated:true` when the
+// cap is hit. Use this whenever the question is "read / summarise /
+// audit N nodes in a subtree".
+//
+// vs get_node_tree: tree returns shape only (no content). Use tree when
+// you only need the hierarchy.
+// vs get_node: single-node deep read with linked context, comments
+// surface in future, child_count, version. Use get_node for one node.
+
+export async function execGetSubtreeContent(
+  args: {
+    root_node_id: string
+    max_nodes?: number
+    include_prose?: boolean
+    include_summary?: boolean
+    layer_index?: number
+  },
+  session: DirectorSession,
+): Promise<ReadToolReturn> {
+  const supabase = createServiceRoleClient()
+  const maxNodes = Math.min(args.max_nodes ?? 50, 200)
+  const includeProse = args.include_prose ?? true
+  const includeSummary = args.include_summary ?? true
+
+  // Verify the root belongs to the session.
+  const { data: root } = await supabase
+    .from('nodes')
+    .select('id')
+    .eq('id', args.root_node_id)
+    .eq('organisation_id', session.organisation_id)
+    .eq('document_id', session.document_id)
+    .maybeSingle()
+  if (!root) return { ok: false, error: 'node_not_found' }
+
+  // One query for the whole document tree. Cheaper than N recursive calls;
+  // mirrors get_node_tree's pattern. nodes_canonical so we get ordinal_path
+  // ordering for stable traversal.
+  const { data: allNodes, error } = await supabase
+    .from('nodes_canonical')
+    .select(
+      'id, name, node_type, layer_index, parent_id, "order", depth, summary, prose, status, word_count_actual, word_count_target',
+    )
+    .eq('document_id', session.document_id)
+    .eq('organisation_id', session.organisation_id)
+    .order('ordinal_path')
+  if (error) return { ok: false, error: 'query_failed', reason: error.message }
+
+  const byParent = new Map<string | null, typeof allNodes>()
+  for (const n of allNodes ?? []) {
+    const p = n.parent_id as string | null
+    if (!byParent.has(p)) byParent.set(p, [])
+    byParent.get(p)!.push(n)
+  }
+
+  // DFS from the root, in ordinal_path order — already sorted by the
+  // query but the parent->children map preserves it.
+  const subtree: NonNullable<typeof allNodes> = []
+  const stack: string[] = [args.root_node_id]
+  while (stack.length > 0 && subtree.length < maxNodes + 1) {
+    const id = stack.shift()!
+    const node = (allNodes ?? []).find((n) => n.id === id)
+    if (!node) continue
+    subtree.push(node)
+    const children = byParent.get(id) ?? []
+    // Push in reverse so the next shift hits them in canonical order.
+    for (let i = children.length - 1; i >= 0; i--) {
+      stack.unshift(children[i].id as string)
+    }
+  }
+
+  const truncated = subtree.length > maxNodes
+  const capped = subtree.slice(0, maxNodes)
+
+  // Phase 6 lock state — one query for the document.
+  const { data: lockRows } = await supabase
+    .from('node_author_locks')
+    .select('node_id')
+    .eq('organisation_id', session.organisation_id)
+  const lockedSet = new Set((lockRows ?? []).map((r) => (r as { node_id: string }).node_id))
+
+  // Optional layer_index filter applied AFTER the subtree walk so the
+  // caller can still get e.g. all beats under chapter 1.
+  const filtered =
+    typeof args.layer_index === 'number'
+      ? capped.filter((n) => n.layer_index === args.layer_index)
+      : capped
+
+  return {
+    ok: true,
+    data: {
+      nodes: filtered.map((n) => {
+        const summaryText = extractText(n.summary)
+        const proseText = extractText(n.prose)
+        return {
+          id: n.id,
+          name: n.name,
+          node_type: n.node_type,
+          layer_index: n.layer_index,
+          parent_id: n.parent_id,
+          order: (n as { order: number }).order,
+          depth: (n as { depth: number | null }).depth,
+          locked: lockedSet.has(n.id as string),
+          status: (n as { status: string | null }).status,
+          has_summary: summaryText.trim().length > 0,
+          has_prose: proseText.trim().length > 0,
+          summary_text: includeSummary ? summaryText : null,
+          prose_text: includeProse ? proseText : null,
+          word_count_actual: (n as { word_count_actual: number | null }).word_count_actual,
+          word_count_target: (n as { word_count_target: number | null }).word_count_target,
+        }
+      }),
+      total: filtered.length,
+      truncated,
+      max_nodes: maxNodes,
+    },
+  }
 }
 
 // ---------------------------------------------------------------------------

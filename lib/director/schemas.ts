@@ -275,6 +275,15 @@ export const ToolInputSchemas = {
       max_depth: z.number().int().positive().max(10).optional(),
     })
     .strict(),
+  get_subtree_content: z
+    .object({
+      root_node_id: uuidSchema,
+      max_nodes: z.number().int().positive().max(200).optional(),
+      include_prose: z.boolean().optional(),
+      include_summary: z.boolean().optional(),
+      layer_index: nonNegativeIntSchema.optional(),
+    })
+    .strict(),
   assess_downstream_impact: z
     .object({
       node_id: uuidSchema,

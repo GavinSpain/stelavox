@@ -34,6 +34,7 @@ import {
   execGetNodeTree,
   execGetNodesByLayer,
   execGetProjectProfile,
+  execGetSubtreeContent,
   execGetWorkflowHistory,
 } from '@/lib/director/tools/read'
 import {
@@ -102,8 +103,15 @@ const readTools: DirectorToolDefinition[] = [
     name: 'get_node_tree',
     kind: 'read',
     description:
-      'Get a recursive tree from a root_node_id, capped at max_depth. Returns nested {id, name, node_type, layer_index, locked, children}. Useful for understanding a subtree\'s shape without making one query per node.',
+      'Get a recursive tree from a root_node_id, capped at max_depth. Returns nested {id, name, node_type, layer_index, locked, children}. Useful for understanding a subtree\'s shape without making one query per node. Returns SHAPE ONLY — no prose, no summary. If you need content for many nodes, use get_subtree_content instead.',
     input_schema: toolInputSchemaFor('get_node_tree'),
+  },
+  {
+    name: 'get_subtree_content',
+    kind: 'read',
+    description:
+      'Bulk content read across a subtree. Returns descendants of root_node_id (plus the root) in one call, each with summary_text + prose_text + has_summary + has_prose + status + word_count_actual + word_count_target + locked. Use this whenever you need to read / audit / summarise / aggregate content across many nodes (e.g. "do all beats in chapter 1 have prose?", "review the dialogue across scenes 5-10", "total word count of chapter 3"). Defaults: max_nodes=50 (ceiling 200), include_prose=true, include_summary=true. Set include_prose=false when you only need completion flags (cheaper response). Optional layer_index filter narrows to a single layer (e.g. only beats). Returns truncated:true when the cap is hit — narrow the root_node_id if so. Prefer this over N get_node calls.',
+    input_schema: toolInputSchemaFor('get_subtree_content'),
   },
   {
     name: 'assess_downstream_impact',
@@ -236,6 +244,7 @@ const TOOL_EXECUTORS: Record<string, ToolExecutor> = {
   get_nodes_by_layer: execGetNodesByLayer as ToolExecutor,
   find_node_by_name: execFindNodeByName as ToolExecutor,
   get_node_tree: execGetNodeTree as ToolExecutor,
+  get_subtree_content: execGetSubtreeContent as ToolExecutor,
   assess_downstream_impact: execAssessDownstreamImpact as ToolExecutor,
   get_conversation_history: execGetConversationHistory as ToolExecutor,
   get_workflow_history: execGetWorkflowHistory as ToolExecutor,
