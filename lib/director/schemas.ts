@@ -262,6 +262,13 @@ export const ToolInputSchemas = {
       parent_node_id: uuidSchema.optional(),
     })
     .strict(),
+  find_node_by_name: z
+    .object({
+      query: z.string().min(1).max(200),
+      node_type: z.string().min(1).max(50).optional(),
+      layer_index: nonNegativeIntSchema.optional(),
+    })
+    .strict(),
   get_node_tree: z
     .object({
       root_node_id: uuidSchema,

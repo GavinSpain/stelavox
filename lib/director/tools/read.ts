@@ -424,6 +424,126 @@ export async function execGetNodesByLayer(
 }
 
 // ---------------------------------------------------------------------------
+// find_node_by_name — case-insensitive name search across all layers.
+// ---------------------------------------------------------------------------
+//
+// Added 2026-05-17 after user testing showed the Director hallucinating
+// node ids when forced to find a user-named node without a resolved
+// @-mention id. With only get_nodes_by_layer + get_node available, the
+// Director had to:
+//   1. Guess which layer the name lived in (scene? beat? chapter?)
+//   2. List all nodes at that layer (53 rows for scenes in Shadow Protocol)
+//   3. Visually pick a match — which is where Haiku hallucinated.
+//
+// find_node_by_name does the search server-side and returns each match
+// with its FULL ancestor path so the Director can disambiguate
+// definitively without having to read or hallucinate.
+//
+// Ranking:
+//   1. Exact case-insensitive name match
+//   2. Prefix match (name starts with query)
+//   3. Substring match
+// Capped at 20 results.
+
+export async function execFindNodeByName(
+  args: { query: string; node_type?: string; layer_index?: number },
+  session: DirectorSession,
+): Promise<ReadToolReturn> {
+  const supabase = createServiceRoleClient()
+  const q = (args.query ?? '').trim()
+  if (q.length === 0) {
+    return { ok: false, error: 'invalid_input', reason: 'query is required' }
+  }
+
+  // Load all candidate nodes (project-scoped — we want context nodes too).
+  // For a typical document (≤200 nodes) this is one fast query.
+  let query = supabase
+    .from('nodes_canonical')
+    .select('id, name, node_type, node_category, layer_index, parent_id, document_id, "order"')
+    .eq('organisation_id', session.organisation_id)
+    .or(`document_id.eq.${session.document_id},document_id.is.null`)
+    .ilike('name', `%${q}%`)
+
+  if (args.node_type) query = query.eq('node_type', args.node_type)
+  if (typeof args.layer_index === 'number') query = query.eq('layer_index', args.layer_index)
+
+  const { data: matches, error } = await query.limit(50)
+  if (error) {
+    return { ok: false, error: 'query_failed', reason: error.message }
+  }
+  if (!matches || matches.length === 0) {
+    return { ok: true, data: { matches: [], total: 0, query: q } }
+  }
+
+  // Load every node in the document so we can walk parent chains for
+  // path computation. Single query keeps this O(N) in document size.
+  const { data: allNodes } = await supabase
+    .from('nodes_canonical')
+    .select('id, name, node_type, parent_id')
+    .eq('organisation_id', session.organisation_id)
+    .eq('document_id', session.document_id)
+
+  const idMap = new Map<string, { id: string; name: string | null; node_type: string; parent_id: string | null }>()
+  for (const n of allNodes ?? []) {
+    idMap.set(n.id as string, n as unknown as { id: string; name: string | null; node_type: string; parent_id: string | null })
+  }
+
+  function buildPath(nodeId: string): string {
+    const parts: string[] = []
+    const seen = new Set<string>()
+    let cursor: string | null = nodeId
+    let safety = 10
+    while (cursor && !seen.has(cursor) && safety-- > 0) {
+      seen.add(cursor)
+      const node = idMap.get(cursor)
+      if (!node) break
+      const label = node.name ?? `(${node.node_type})`
+      parts.unshift(label)
+      cursor = node.parent_id
+    }
+    return parts.join(' > ')
+  }
+
+  // Rank by match quality.
+  const qLower = q.toLowerCase()
+  const ranked = matches.map((n) => {
+    const nameLower = (n.name as string | null)?.toLowerCase() ?? ''
+    let rank = 3 // substring (default)
+    if (nameLower === qLower) rank = 1 // exact
+    else if (nameLower.startsWith(qLower)) rank = 2 // prefix
+    return { node: n, rank }
+  }).sort((a, b) => a.rank - b.rank || ((a.node.name as string) ?? '').localeCompare((b.node.name as string) ?? ''))
+
+  const top = ranked.slice(0, 20)
+
+  // Phase 6 lock state.
+  const { data: lockRows } = await supabase
+    .from('node_author_locks')
+    .select('node_id')
+    .eq('organisation_id', session.organisation_id)
+  const lockedSet = new Set((lockRows ?? []).map(r => (r as { node_id: string }).node_id))
+
+  return {
+    ok: true,
+    data: {
+      matches: top.map(({ node }) => ({
+        id: node.id,
+        name: node.name,
+        node_type: node.node_type,
+        node_category: node.node_category,
+        layer_index: node.layer_index,
+        parent_id: node.parent_id,
+        path: buildPath(node.id as string),
+        locked: lockedSet.has(node.id as string),
+      })),
+      total: matches.length,
+      truncated: matches.length > top.length,
+      query: q,
+    },
+  }
+}
+
+// ---------------------------------------------------------------------------
 // get_node_tree (recursive, capped)
 // ---------------------------------------------------------------------------
 

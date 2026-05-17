@@ -26,6 +26,7 @@ import type {
 } from '@/lib/director/types'
 import {
   execAssessDownstreamImpact,
+  execFindNodeByName,
   execGetBriefState,
   execGetConversationHistory,
   execGetDocumentState,
@@ -89,6 +90,13 @@ const readTools: DirectorToolDefinition[] = [
     description:
       'Get all nodes at a given layer (e.g. layer_index=2 for chapters in a typical novel). Optionally scope by parent_node_id to get only the children of a specific node. Useful for breadth-first exploration of structural layers.',
     input_schema: toolInputSchemaFor('get_nodes_by_layer'),
+  },
+  {
+    name: 'find_node_by_name',
+    kind: 'read',
+    description:
+      'Find nodes by name (case-insensitive substring match) across ALL layers. Returns each match with its full ancestor path (e.g. "Shadow Protocol > Act One > Salvage > The Bonding > The Visions") so you can disambiguate definitively without guessing. Use this FIRST whenever the user names a node and you don\'t already have its id from iteration_state.user_message.mentioned_node_ids. Ranks exact-match > prefix > substring; capped at 20 results. Optional node_type or layer_index filters narrow the search.',
+    input_schema: toolInputSchemaFor('find_node_by_name'),
   },
   {
     name: 'get_node_tree',
@@ -226,6 +234,7 @@ const TOOL_EXECUTORS: Record<string, ToolExecutor> = {
   get_document_state: execGetDocumentState as ToolExecutor,
   get_node: execGetNode as ToolExecutor,
   get_nodes_by_layer: execGetNodesByLayer as ToolExecutor,
+  find_node_by_name: execFindNodeByName as ToolExecutor,
   get_node_tree: execGetNodeTree as ToolExecutor,
   assess_downstream_impact: execAssessDownstreamImpact as ToolExecutor,
   get_conversation_history: execGetConversationHistory as ToolExecutor,
