@@ -6,14 +6,12 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 
-type AnyClient = SupabaseClient<any, any, any>
-
 export type RestoreResult =
   | { ok: true; newVersion: number; restoredFrom: number }
   | { ok: false; error: string; details: Record<string, unknown> | null }
 
 export async function restoreNodeVersion(
-  supabase: AnyClient,
+  supabase: SupabaseClient,
   args: { nodeId: string; targetVersion: number; expectedVersion: number },
 ): Promise<RestoreResult> {
   const { data, error } = await supabase.rpc('restore_node_version', {

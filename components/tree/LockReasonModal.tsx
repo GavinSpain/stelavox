@@ -13,7 +13,7 @@
  * a 423 with `conflicts`, the caller renders LockConflictModal.
  */
 
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog'
@@ -42,20 +42,47 @@ export function LockReasonModal({
   onLocked,
   onConflict,
 }: LockReasonModalProps) {
+  // When `open` flips true, we want fresh state. Rather than mutating
+  // state from an effect (which lint flags as cascading-render anti-
+  // pattern), use a key-based remount handled by the Dialog mount —
+  // we render the body only when open and bind state to the open
+  // transition via initial values. Simple here: mount returns nothing
+  // when closed, so each open is a fresh component instance.
+  if (!open) {
+    return (
+      <Dialog open={false} onOpenChange={() => {}}>
+        <DialogContent />
+      </Dialog>
+    )
+  }
+  return <LockReasonModalBody
+    open={open}
+    nodeId={nodeId}
+    nodeName={nodeName}
+    descendantIds={descendantIds}
+    descendantCount={descendantCount}
+    reasonSuggestions={reasonSuggestions}
+    onClose={onClose}
+    onLocked={onLocked}
+    onConflict={onConflict}
+  />
+}
+
+function LockReasonModalBody({
+  open,
+  nodeId,
+  nodeName,
+  descendantIds = [],
+  descendantCount,
+  reasonSuggestions,
+  onClose,
+  onLocked,
+  onConflict,
+}: LockReasonModalProps) {
   const [reason, setReason] = useState('')
   const [withDescendants, setWithDescendants] = useState(false)
   const [busy, setBusy] = useState(false)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
-
-  // Reset state each time the modal reopens.
-  useEffect(() => {
-    if (open) {
-      setReason('')
-      setWithDescendants(false)
-      setBusy(false)
-      setErrorMsg(null)
-    }
-  }, [open])
 
   async function submit() {
     setBusy(true)

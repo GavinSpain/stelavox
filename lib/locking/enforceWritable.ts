@@ -16,10 +16,8 @@ import type { NextResponse } from 'next/server'
 import { err } from '@/lib/api/errors'
 import { checkNodeWritable } from './checkWritable'
 
-type AnyClient = SupabaseClient<any, any, any>
-
 export async function enforceWritable(
-  supabase: AnyClient,
+  supabase: SupabaseClient,
   nodeId: string,
   requestingUserId: string,
 ): Promise<NextResponse | null> {

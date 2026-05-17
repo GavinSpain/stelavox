@@ -8,8 +8,6 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 
-type AnyClient = SupabaseClient<any, any, any>
-
 export interface LockConflictJob {
   job_id: string
   node_id: string
@@ -20,7 +18,7 @@ export interface LockConflictJob {
 }
 
 export async function proposeAuthorLockConflicts(
-  supabase: AnyClient,
+  supabase: SupabaseClient,
   nodeIds: string[],
 ): Promise<LockConflictJob[]> {
   const { data, error } = await supabase.rpc('propose_author_lock_conflicts', {
@@ -31,7 +29,7 @@ export async function proposeAuthorLockConflicts(
 }
 
 export async function applyAuthorLock(
-  supabase: AnyClient,
+  supabase: SupabaseClient,
   args: { nodeId: string; reason?: string | null },
 ): Promise<void> {
   const { error } = await supabase.rpc('apply_author_lock', {
@@ -42,7 +40,7 @@ export async function applyAuthorLock(
 }
 
 export async function applyAuthorLockBulk(
-  supabase: AnyClient,
+  supabase: SupabaseClient,
   args: { nodeId: string; reason?: string | null; descendantIds: string[] },
 ): Promise<{ bulkOperationId: string; lockedCount: number }> {
   const { data, error } = await supabase.rpc('apply_author_lock_bulk', {
@@ -56,7 +54,7 @@ export async function applyAuthorLockBulk(
 }
 
 export async function releaseAuthorLock(
-  supabase: AnyClient,
+  supabase: SupabaseClient,
   nodeId: string,
 ): Promise<void> {
   const { error } = await supabase.rpc('release_author_lock', { p_node_id: nodeId })
@@ -64,7 +62,7 @@ export async function releaseAuthorLock(
 }
 
 export async function releaseBulkOperation(
-  supabase: AnyClient,
+  supabase: SupabaseClient,
   bulkOperationId: string,
 ): Promise<{ releasedCount: number }> {
   const { data, error } = await supabase.rpc('release_bulk_operation', {
@@ -76,7 +74,7 @@ export async function releaseBulkOperation(
 }
 
 export async function forceUnlock(
-  supabase: AnyClient,
+  supabase: SupabaseClient,
   args: { nodeId: string; reason?: string | null },
 ): Promise<void> {
   const { error } = await supabase.rpc('force_unlock', {
