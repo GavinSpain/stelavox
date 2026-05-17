@@ -73,6 +73,18 @@ export function BriefProposalCard({
   // it emits in subsequent stages of this Brief.
   const [autoApproveSubsequent, setAutoApproveSubsequent] = useState(false)
 
+  // Reject / dismiss state. Tracked client-side via localStorage so the
+  // proposal artefact persists in the conversation_messages row (no DB
+  // mutation — the user might want to scroll back and see what was
+  // proposed) but the card collapses to a one-line dismissed note.
+  // Key uses the proposal goal_text as a stable identifier (same shape
+  // the brief-for-proposal lookup uses).
+  const dismissKey = `brief-proposal-dismissed:${documentId}:${proposal.goal_text}`
+  const [dismissed, setDismissed] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false
+    return window.localStorage.getItem(dismissKey) === '1'
+  })
+
   // On mount, ask the server whether a Brief has already been created
   // from this proposal. If so, render the Brief's current state instead
   // of the Approve button.
@@ -95,6 +107,13 @@ export function BriefProposalCard({
     })()
     return () => { cancelled = true }
   }, [documentId, proposal.goal_text])
+
+  function dismiss() {
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem(dismissKey, '1')
+    }
+    setDismissed(true)
+  }
 
   async function approve() {
     setSubmitting(true)
@@ -121,6 +140,23 @@ export function BriefProposalCard({
     } finally {
       setSubmitting(false)
     }
+  }
+
+  // Dismissed state — user clicked Reject. Collapse to a one-line note
+  // so the conversation thread doesn't keep showing a stale proposal but
+  // the author can still see what was proposed earlier on scroll-back.
+  if (dismissed && !existingBrief) {
+    return (
+      <div
+        data-testid="brief-proposal-card"
+        data-state="dismissed"
+        style={{ ...cardStyle, padding: '8px 14px' }}
+      >
+        <span style={{ fontSize: 11, color: 'var(--color-text-muted)', fontStyle: 'italic' }}>
+          Brief proposal dismissed.
+        </span>
+      </div>
+    )
   }
 
   // Loading state — keep card minimal until we know whether to show
@@ -323,6 +359,30 @@ export function BriefProposalCard({
               : concurrentEditWarning
                 ? 'Approve anyway'
                 : 'Approve Brief'}
+          </button>
+          {/* Reject button — neutral ghost. Local-dismiss only; the
+             proposal artefact stays in the message row so scroll-back
+             still shows what the Director offered. NOT verdigris;
+             rejection is not an affirmative-action trigger. */}
+          <button
+            type="button"
+            data-testid="brief-proposal-reject"
+            disabled={submitting}
+            onClick={dismiss}
+            style={{
+              background: 'transparent',
+              color: 'var(--color-text-secondary)',
+              border: '1px solid var(--color-border-default)',
+              padding: '8px 16px',
+              borderRadius: 4,
+              fontSize: 13,
+              fontWeight: 400,
+              cursor: submitting ? 'not-allowed' : 'pointer',
+              opacity: submitting ? 0.5 : 1,
+              fontFamily: 'var(--font-inter), Inter, sans-serif',
+            }}
+          >
+            Reject
           </button>
         </div>
       </div>
