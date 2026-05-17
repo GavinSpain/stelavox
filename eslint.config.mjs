@@ -18,6 +18,30 @@ const eslintConfig = defineConfig([
     // checkout, producing tens-of-thousands of duplicate problems.
     ".claude/worktrees/**",
   ]),
+  // Project-wide convention: underscore-prefixed args / vars are
+  // intentionally unused. They satisfy a function signature, a mock
+  // contract, or a callback shape where the parameter is required
+  // syntactically but not consumed. The `_` prefix is the established
+  // signal in this codebase (and the broader TS community).
+  //
+  // Without this config, @typescript-eslint/no-unused-vars defaults
+  // produced ~20 warnings on intentional `_col`, `_val`, `_ctx`,
+  // `_session`, `_request`, etc. across test mocks and lib internals.
+  // Phase 6 cleanup pass (post-merge 2026-05-17) added this rule scope
+  // to recognise the convention.
+  {
+    rules: {
+      "@typescript-eslint/no-unused-vars": [
+        "warn",
+        {
+          argsIgnorePattern: "^_",
+          varsIgnorePattern: "^_",
+          caughtErrorsIgnorePattern: "^_",
+          destructuredArrayIgnorePattern: "^_",
+        },
+      ],
+    },
+  },
   // Round-3 audit B1.3 — H-01 guardrail scoped to lib/data/.
   //
   // Background: a broad rule firing on every .single() across the

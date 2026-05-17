@@ -86,6 +86,13 @@ export default async function PlanSettingsPage() {
   let byokKeyLastValidatedAt: string | null = null
   let byokKeyLastFour: string | null = null
 
+  // This file is a Next.js Server Component — it renders once per
+  // request, not on a client re-render. The react-x/no-impure-render
+  // rule's idempotency-during-render concern doesn't apply: there's
+  // no "subsequent render" that could produce a different result.
+  // Date.now() at request-render time is the intended behaviour.
+  // eslint-disable-next-line react-hooks/purity
+  const now = Date.now()
   const periodLengthDays = await safeConfigInt('plan.period_length_days', 30)
 
   if (orgId) {
@@ -102,7 +109,7 @@ export default async function PlanSettingsPage() {
       if (currentPeriodStart) {
         const start = new Date(currentPeriodStart)
         const end = new Date(start.getTime() + periodLengthDays * 24 * 60 * 60 * 1000)
-        const ms = end.getTime() - Date.now()
+        const ms = end.getTime() - now
         daysRemaining = Math.max(0, Math.ceil(ms / (24 * 60 * 60 * 1000)))
         if (currentPlan === 'trial') {
           trialDaysRemaining = daysRemaining

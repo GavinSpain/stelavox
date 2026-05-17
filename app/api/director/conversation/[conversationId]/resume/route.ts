@@ -21,7 +21,6 @@ export const maxDuration = 300
 
 import { NextResponse, type NextRequest } from 'next/server'
 
-import { computeCostUsd } from '@/lib/llm/cost'
 import { getProvider } from '@/lib/llm/factory'
 import {
   buildConversationContext,
@@ -35,7 +34,7 @@ import { encodeHeartbeat, encodeSse, turnEventToSse } from '@/lib/director/sse'
 import { SecurityViolationError } from '@/lib/security/canary'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { createClient } from '@/lib/supabase/server'
-import type { DirectorConfig, DirectorSession } from '@/lib/director/types'
+import type { DirectorConfig } from '@/lib/director/types'
 
 export async function POST(
   req: NextRequest,
@@ -148,7 +147,10 @@ export async function POST(
   const directorConfig = configRow as unknown as DirectorConfig
   // V1.x-B.1.2 — pass user.id so the factory routes via the BYOK Edge
   // Function when the user has a per-user Anthropic key on file.
-  const { provider, modelId } = await getProvider(
+  // Only modelId is used; provider is resolved per-iteration inside
+  // the iteration runner. Call getProvider() to apply the V1.x-B.1.2
+  // BYOK Edge Function routing as a side effect of factory resolution.
+  const { modelId } = await getProvider(
     { id: conversation.organisation_id },
     'director',
     directorConfig.model_id,
@@ -163,13 +165,9 @@ export async function POST(
     .update({ turn_state: 'interim' })
     .eq('id', interrupted.id)
 
-  // ---- Build session + context ----------------------------------------
-  const session: DirectorSession = {
-    conversation_id: conversationId,
-    document_id: conversation.document_id,
-    organisation_id: conversation.organisation_id,
-    user_id: user.id,
-  }
+  // V1.x-B.2.1 — DirectorSession is no longer constructed here. The
+  // per-iteration runner builds its own session from organisationId +
+  // documentId + conversationId passed via startDirectorTurn below.
 
   // Conversation context up to but NOT including the interrupted row
   // (we'll feed the interrupted row's partial content as part of the

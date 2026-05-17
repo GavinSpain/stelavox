@@ -44,34 +44,6 @@ async function getUserOrgId(email: string): Promise<string> {
   return data!.organisation_id
 }
 
-async function newConversation(orgId: string, name = 'V1.x-B.2.4 integration'): Promise<{
-  documentId: string
-  conversationId: string
-}> {
-  const admin = adminClient()
-  const { data: project } = await admin
-    .from('projects')
-    .insert({ organisation_id: orgId, name })
-    .select()
-    .single()
-  const { data: docRpc, error } = await admin.rpc('create_document_with_layer_stack', {
-    p_project_id: project!.id,
-    p_organisation_id: orgId,
-    p_name: name,
-    p_description: null as unknown as string,
-    p_document_type: 'novel',
-    p_authors: [],
-  })
-  if (error) throw new Error(`create_document RPC failed: ${error.message}`)
-  const docId = (docRpc as { document: { id: string } }).document.id
-  const { data: conv } = await admin
-    .from('conversations')
-    .insert({ organisation_id: orgId, document_id: docId })
-    .select()
-    .single()
-  return { documentId: docId, conversationId: conv!.id }
-}
-
 test.describe('V1.x-B.2.4 — end-to-end integration', () => {
   let orgA: string
   test.beforeAll(async () => { orgA = await getUserOrgId(USERS.A.email) })

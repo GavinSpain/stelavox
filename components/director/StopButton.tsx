@@ -39,10 +39,12 @@ export function StopButton({ turnId, onStopped, compact = false }: StopButtonPro
   // RLS-scoped read on director_turns; degrades gracefully if the read
   // fails.
   useEffect(() => {
-    if (!open) {
-      setIterationCount(null)
-      return
-    }
+    // No reset on close — when the modal is closed iterationCount is
+    // not rendered, so its stale value is invisible. The next open
+    // triggers a fresh fetch below that overwrites it. Removing the
+    // explicit setIterationCount(null) eliminates the synchronous
+    // setState in effect (react-hooks/set-state-in-effect).
+    if (!open) return
     let cancelled = false
     const supabase = createClient()
     void supabase

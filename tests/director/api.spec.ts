@@ -8,7 +8,6 @@
 import { test, expect } from '@playwright/test'
 import { USERS } from '../helpers/auth'
 import {
-  type DirectorFixture,
   dispose,
   getUserId,
   getUserOrgId,
@@ -291,7 +290,7 @@ test.describe('Phase 5b — TC-B Cross-org RLS tests', () => {
     }
   })
 
-  test('TC-B-04 — Bob (same org) cannot approve Alice\'s workflow (author gate)', async ({ request, browser }) => {
+  test('TC-B-04 — Bob (same org) cannot approve Alice\'s workflow (author gate)', async ({ request }) => {
     // For TC-B-04 we need user B (same org as user A — but USERS.B is in
     // a separate org by default). This test exercises the
     // not_conversation_author check; if no same-org-different-user fixture
@@ -390,11 +389,6 @@ test.describe('Phase 5b — TC-D Data integrity / Zod tests', () => {
 })
 
 test.describe('Phase 5b — TC-S Security tests (non-LLM)', () => {
-  let orgA: string
-  test.beforeAll(async () => {
-    orgA = await getUserOrgId(USERS.A.email)
-  })
-
   test('TC-S-08 — Director system prompt does not name the model', async () => {
     const sb = adminClient()
     const { data } = await sb

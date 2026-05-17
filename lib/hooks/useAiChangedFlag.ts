@@ -18,7 +18,7 @@
  * device"). Cross-device sync is V2.
  */
 
-import { useEffect, useState } from 'react'
+import { useSyncExternalStore } from 'react'
 
 const STORAGE_KEY_PREFIX = 'node-viewed:'
 
@@ -26,17 +26,24 @@ function storageKey(nodeId: string): string {
   return `${STORAGE_KEY_PREFIX}${nodeId}`
 }
 
-function readLastViewed(nodeId: string): Date | null {
+function readLastViewedIso(nodeId: string): string | null {
   if (typeof window === 'undefined') return null
   try {
-    const value = window.localStorage.getItem(storageKey(nodeId))
-    if (!value) return null
-    const date = new Date(value)
-    if (Number.isNaN(date.getTime())) return null
-    return date
+    return window.localStorage.getItem(storageKey(nodeId))
   } catch {
     return null
   }
+}
+
+// useSyncExternalStore subscribe: cross-tab updates via the `storage`
+// event. Same-tab markNodeAsViewed() writes don't fire storage events
+// in the writing tab; that's fine for V1 because the row-click that
+// triggers markNodeAsViewed also navigates / re-renders the host
+// component, which re-reads localStorage anyway.
+function subscribeToStorage(callback: () => void): () => void {
+  if (typeof window === 'undefined') return () => {}
+  window.addEventListener('storage', callback)
+  return () => window.removeEventListener('storage', callback)
 }
 
 export function markNodeAsViewed(nodeId: string): void {
@@ -62,23 +69,22 @@ export function useAiChangedFlag(
   nodeId: string,
   lastAiChangeAt: string | null | undefined,
 ): boolean {
-  // SSR returns false to avoid hydration mismatch. Client effect updates
-  // the state on mount.
-  const [aiChanged, setAiChanged] = useState(false)
+  // useSyncExternalStore reads the snapshot during render (no useEffect
+  // + setState cascade). Server snapshot returns null to match SSR;
+  // client snapshot reads localStorage directly. The first client
+  // render replaces the SSR-rendered "no flag" with the localStorage-
+  // derived value via the standard hydration mechanism.
+  const lastViewedIso = useSyncExternalStore(
+    subscribeToStorage,
+    () => readLastViewedIso(nodeId),
+    () => null,
+  )
 
-  useEffect(() => {
-    if (!lastAiChangeAt) {
-      setAiChanged(false)
-      return
-    }
-    const aiChangeDate = new Date(lastAiChangeAt)
-    if (Number.isNaN(aiChangeDate.getTime())) {
-      setAiChanged(false)
-      return
-    }
-    const lastViewed = readLastViewed(nodeId)
-    setAiChanged(!lastViewed || aiChangeDate > lastViewed)
-  }, [nodeId, lastAiChangeAt])
-
-  return aiChanged
+  if (!lastAiChangeAt) return false
+  const aiChangeDate = new Date(lastAiChangeAt)
+  if (Number.isNaN(aiChangeDate.getTime())) return false
+  if (!lastViewedIso) return true
+  const lastViewed = new Date(lastViewedIso)
+  if (Number.isNaN(lastViewed.getTime())) return true
+  return aiChangeDate > lastViewed
 }
