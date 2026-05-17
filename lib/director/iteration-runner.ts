@@ -345,6 +345,27 @@ export async function* runIteration(
     .eq('id', jobId)
     .in('queue_status', ['dispatched', 'queued'])
 
+  // Periodic heartbeat ticker. M-165's recovery sweep kills iterations
+  // whose last_heartbeat_at is older than 60s — but the iteration's
+  // single LLM call can legitimately take longer than that (extended
+  // thinking + multiple parallel tool calls in a complex request).
+  // Without periodic heartbeats, healthy iterations get false-positive
+  // killed mid-flight. Tick every 15s (¼ the threshold) so a single
+  // missed tick doesn't trip the sweep.
+  //
+  // Discovered 2026-05-17 during continued testing — multi-scene
+  // review iterations were getting heartbeat-stale-crashed even though
+  // they were running correctly. The runner had only ever set the
+  // heartbeat once at the start.
+  const heartbeatTicker = setInterval(() => {
+    void supabase
+      .from('agent_jobs')
+      .update({ last_heartbeat_at: new Date().toISOString() })
+      .eq('id', jobId)
+      .in('queue_status', ['running'])
+      .then(() => undefined, () => undefined) // swallow; the next tick retries
+  }, 15_000)
+
   // Per-iteration accumulators
   const turnToolCalls: ToolCall[] = []
   const iterationThinkingBlocks: AssembledContentBlock[] = []
@@ -399,6 +420,7 @@ export async function* runIteration(
       }
     }
   } catch (err) {
+    clearInterval(heartbeatTicker)
     const msg = err instanceof Error ? err.message : 'unknown_provider_error'
     console.error('[iteration-runner] provider error', { jobId, msg })
     yield { type: 'error', error: 'provider_error', message: msg, failure_class: 'A' }
@@ -425,6 +447,7 @@ export async function* runIteration(
         actual_output_tokens: iterationUsage.tokens_output,
       })
       .eq('id', jobId)
+    clearInterval(heartbeatTicker)
     yield { type: 'iteration_done', iteration_number: jobRow.iteration_number ?? 1, next_iteration_job_id: null, stop_reason: 'stop_requested_post_receipt', usage: iterationUsage, cost_usd: 0, assistant_message_id: assistantMessageId, turn_complete: true, cancelled: true }
     await markJobCancelled(supabase, jobId, 'stop_requested')
     await markTurnCancelled(supabase, jobRow.director_turn_id)
@@ -683,6 +706,7 @@ export async function* runIteration(
     const maxIterations = await getConfigInt('agent.director_max_tool_iterations')
 
     if (nextIterationNumber > maxIterations) {
+      clearInterval(heartbeatTicker)
       yield { type: 'error', error: 'max_iterations_reached', message: `iteration cap ${maxIterations} reached`, failure_class: 'D' }
       await markJobFailed(supabase, jobId, 'max_iterations_reached', 'D')
       await markTurnFailed(supabase, jobRow.director_turn_id)
@@ -758,6 +782,9 @@ export async function* runIteration(
       } as unknown as Record<string, unknown>,
     })
     .eq('id', jobId)
+
+  // Clear periodic heartbeat — iteration terminated successfully.
+  clearInterval(heartbeatTicker)
 
   yield {
     type: 'iteration_done',
