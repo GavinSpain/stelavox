@@ -323,11 +323,15 @@ export async function execGetNode(
     return { ok: false, error: 'node_not_found' }
   }
 
-  // Linked context node IDs
+  // Linked context node IDs. Bug fix 2026-05-17: this previously queried
+  // a non-existent `context_links` table with the wrong column names;
+  // Supabase swallowed the error and returned an empty array, so
+  // every get_node return claimed the node had zero context links.
+  // Real table is node_context_links(source_node_id → target_node_id).
   const { data: links } = await supabase
-    .from('context_links')
-    .select('context_node_id')
-    .eq('structural_node_id', args.node_id)
+    .from('node_context_links')
+    .select('target_node_id')
+    .eq('source_node_id', args.node_id)
 
   // Child count
   const { count: childCount } = await supabase
@@ -335,13 +339,20 @@ export async function execGetNode(
     .select('*', { count: 'exact', head: true })
     .eq('parent_id', args.node_id)
 
-  // Phase 6: locked derived from node_author_locks.
+  // Phase 6: locked derived from node_author_locks. Full row so callers
+  // can see who locked it, when, and why — not just a boolean.
   const { data: lockRow } = await supabase
     .from('node_author_locks')
-    .select('node_id')
+    .select('locked_by_user_id, locked_at, lock_reason')
     .eq('node_id', args.node_id)
     .maybeSingle()
-  const isLocked = !!lockRow
+
+  // Ancestor path. The user prompt's grounding rule cares about
+  // "where am I in the tree" disambiguation — find_node_by_name
+  // already returns this for name lookups; surfacing it on get_node
+  // too means the Director doesn't need a second call when it
+  // already has the id.
+  const path = await buildAncestorPath(supabase, args.node_id, session)
 
   return {
     ok: true,
@@ -354,18 +365,59 @@ export async function execGetNode(
       depth: node.depth,
       order: node.order,
       parent_id: node.parent_id,
-      locked: isLocked,
+      path,
+      locked: !!lockRow,
+      lock_info: lockRow
+        ? {
+            locked_by_user_id: lockRow.locked_by_user_id,
+            locked_at: lockRow.locked_at,
+            lock_reason: lockRow.lock_reason,
+          }
+        : null,
       status: node.status,
       summary_text: extractText(node.summary),
       prose_text: extractText(node.prose),
       notes_text: extractText(node.notes),
       metadata: node.metadata,
+      word_count_actual: node.word_count_actual,
       word_count_target: node.word_count_target,
-      linked_context_node_ids: (links ?? []).map((l) => l.context_node_id),
+      linked_context_node_ids: (links ?? []).map((l) => l.target_node_id),
       child_count: childCount ?? 0,
       version: node.version,
+      updated_at: node.updated_at,
+      last_modified_by: node.last_modified_by,
     },
   }
+}
+
+// Build a "Book > Act > Chapter > Scene > Beat" path string by walking
+// parent_id. Single document-scope fetch + client-side walk; matches
+// find_node_by_name's pattern.
+async function buildAncestorPath(
+  supabase: ReturnType<typeof createServiceRoleClient>,
+  nodeId: string,
+  session: DirectorSession,
+): Promise<string> {
+  const { data: allNodes } = await supabase
+    .from('nodes')
+    .select('id, name, node_type, parent_id')
+    .eq('organisation_id', session.organisation_id)
+    .eq('document_id', session.document_id)
+  if (!allNodes) return ''
+  const byId = new Map<string, { id: string; name: string | null; node_type: string; parent_id: string | null }>()
+  for (const n of allNodes) byId.set(n.id as string, n as unknown as { id: string; name: string | null; node_type: string; parent_id: string | null })
+  const parts: string[] = []
+  const seen = new Set<string>()
+  let cursor: string | null = nodeId
+  let safety = 12
+  while (cursor && !seen.has(cursor) && safety-- > 0) {
+    seen.add(cursor)
+    const n = byId.get(cursor)
+    if (!n) break
+    parts.unshift(n.name ?? `(${n.node_type})`)
+    cursor = n.parent_id
+  }
+  return parts.join(' > ')
 }
 
 // ---------------------------------------------------------------------------
@@ -571,6 +623,9 @@ interface TreeNode {
   node_type: string
   layer_index: number | null
   locked: boolean
+  child_count: number
+  word_count_actual: number | null
+  word_count_target: number | null
   children: TreeNode[]
 }
 
@@ -594,10 +649,13 @@ export async function execGetNodeTree(
     return { ok: false, error: 'node_not_found' }
   }
 
-  // Load all descendants in one batched query (cheaper than N recursive calls)
+  // Load all descendants in one batched query (cheaper than N recursive
+  // calls). Now also pulls word_count_actual + word_count_target so
+  // "total word count of chapter 3" and "scenes with no beats" become
+  // single-tool-call answers.
   const { data: allDescendants } = await supabase
     .from('nodes')
-    .select('id, name, node_type, layer_index, parent_id, "order", depth')
+    .select('id, name, node_type, layer_index, parent_id, "order", depth, word_count_actual, word_count_target')
     .eq('document_id', session.document_id)
     .eq('organisation_id', session.organisation_id)
     .order('order')
@@ -618,9 +676,10 @@ export async function execGetNodeTree(
 
   function build(nodeId: string, depth: number): TreeNode {
     const node = (allDescendants ?? []).find((n) => n.id === nodeId)!
+    const directChildren = byParent.get(nodeId) ?? []
     const children =
       depth < maxDepth
-        ? (byParent.get(nodeId) ?? []).map((c) => build(c.id, depth + 1))
+        ? directChildren.map((c) => build(c.id, depth + 1))
         : []
     return {
       id: node.id,
@@ -628,6 +687,9 @@ export async function execGetNodeTree(
       node_type: node.node_type,
       layer_index: node.layer_index,
       locked: lockedSet.has(node.id),
+      child_count: directChildren.length,
+      word_count_actual: (node as { word_count_actual: number | null }).word_count_actual,
+      word_count_target: (node as { word_count_target: number | null }).word_count_target,
       children,
     }
   }
@@ -760,6 +822,112 @@ export async function execGetSubtreeContent(
       total: filtered.length,
       truncated,
       max_nodes: maxNodes,
+    },
+  }
+}
+
+// ---------------------------------------------------------------------------
+// find_context_references — reverse lookup on node_context_links.
+// ---------------------------------------------------------------------------
+//
+// Given a context node id, return every structural node in the document
+// that references it. Closes the "where does Bracket appear?" /
+// "show me all scenes that reference the World setting" gap. Authors
+// think in characters and themes; without this tool the Director can't
+// answer those questions at all.
+
+export async function execFindContextReferences(
+  args: { context_node_id: string; max_results?: number },
+  session: DirectorSession,
+): Promise<ReadToolReturn> {
+  const supabase = createServiceRoleClient()
+  const maxResults = Math.min(args.max_results ?? 50, 200)
+
+  // Verify the context node exists in this org (cross-document OK because
+  // context nodes can be project-scoped — document_id may be NULL).
+  const { data: target } = await supabase
+    .from('nodes')
+    .select('id, name, node_type, node_category')
+    .eq('id', args.context_node_id)
+    .eq('organisation_id', session.organisation_id)
+    .maybeSingle()
+  if (!target) return { ok: false, error: 'node_not_found' }
+
+  // Reverse lookup: links where target_node_id is the context node.
+  const { data: links, error } = await supabase
+    .from('node_context_links')
+    .select('source_node_id, link_type, created_at')
+    .eq('organisation_id', session.organisation_id)
+    .eq('target_node_id', args.context_node_id)
+    .limit(maxResults + 1)
+  if (error) return { ok: false, error: 'query_failed', reason: error.message }
+
+  const truncated = (links?.length ?? 0) > maxResults
+  const capped = (links ?? []).slice(0, maxResults)
+  if (capped.length === 0) {
+    return { ok: true, data: { target, references: [], total: 0 } }
+  }
+
+  // Pull source-node details + ancestor path so each reference is
+  // self-describing (the path is the key disambiguator).
+  const sourceIds = capped.map((l) => l.source_node_id)
+  const { data: sources } = await supabase
+    .from('nodes')
+    .select('id, name, node_type, layer_index, parent_id, document_id')
+    .in('id', sourceIds)
+    .eq('organisation_id', session.organisation_id)
+
+  // For path computation, load the full node set per document. Most
+  // refs probably live in one document; build the map once.
+  const docIds = Array.from(new Set((sources ?? []).map((s) => s.document_id).filter((d): d is string => !!d)))
+  const pathsByNodeId = new Map<string, string>()
+  for (const docId of docIds) {
+    const { data: docNodes } = await supabase
+      .from('nodes')
+      .select('id, name, node_type, parent_id')
+      .eq('organisation_id', session.organisation_id)
+      .eq('document_id', docId)
+    if (!docNodes) continue
+    const byId = new Map<string, { id: string; name: string | null; node_type: string; parent_id: string | null }>()
+    for (const n of docNodes) byId.set(n.id as string, n as unknown as { id: string; name: string | null; node_type: string; parent_id: string | null })
+    for (const sourceId of sourceIds) {
+      if (pathsByNodeId.has(sourceId)) continue
+      const parts: string[] = []
+      const seen = new Set<string>()
+      let cursor: string | null = sourceId
+      let safety = 12
+      while (cursor && !seen.has(cursor) && safety-- > 0) {
+        seen.add(cursor)
+        const n = byId.get(cursor)
+        if (!n) break
+        parts.unshift(n.name ?? `(${n.node_type})`)
+        cursor = n.parent_id
+      }
+      if (parts.length > 0) pathsByNodeId.set(sourceId, parts.join(' > '))
+    }
+  }
+
+  const sourceById = new Map<string, { id: string; name: string | null; node_type: string; layer_index: number | null }>()
+  for (const s of sources ?? []) sourceById.set(s.id as string, s as unknown as { id: string; name: string | null; node_type: string; layer_index: number | null })
+
+  return {
+    ok: true,
+    data: {
+      target,
+      references: capped.map((l) => {
+        const s = sourceById.get(l.source_node_id)
+        return {
+          source_node_id: l.source_node_id,
+          name: s?.name ?? null,
+          node_type: s?.node_type ?? null,
+          layer_index: s?.layer_index ?? null,
+          path: pathsByNodeId.get(l.source_node_id) ?? null,
+          link_type: l.link_type,
+          created_at: l.created_at,
+        }
+      }),
+      total: capped.length,
+      truncated,
     },
   }
 }

@@ -26,6 +26,7 @@ import type {
 } from '@/lib/director/types'
 import {
   execAssessDownstreamImpact,
+  execFindContextReferences,
   execFindNodeByName,
   execGetBriefState,
   execGetConversationHistory,
@@ -112,6 +113,13 @@ const readTools: DirectorToolDefinition[] = [
     description:
       'Bulk content read across a subtree. Returns descendants of root_node_id (plus the root) in one call, each with summary_text + prose_text + has_summary + has_prose + status + word_count_actual + word_count_target + locked. Use this whenever you need to read / audit / summarise / aggregate content across many nodes (e.g. "do all beats in chapter 1 have prose?", "review the dialogue across scenes 5-10", "total word count of chapter 3"). Defaults: max_nodes=50 (ceiling 200), include_prose=true, include_summary=true. Set include_prose=false when you only need completion flags (cheaper response). Optional layer_index filter narrows to a single layer (e.g. only beats). Returns truncated:true when the cap is hit — narrow the root_node_id if so. Prefer this over N get_node calls.',
     input_schema: toolInputSchemaFor('get_subtree_content'),
+  },
+  {
+    name: 'find_context_references',
+    kind: 'read',
+    description:
+      'Find every structural node that references a given context node. Use to answer "where does character X appear?", "which scenes reference the World setting?", "what uses this theme node?". Returns each referencing node with its ancestor path so it\'s self-describing. Capped at max_results (default 50, ceiling 200) with truncated:true when the cap is hit.',
+    input_schema: toolInputSchemaFor('find_context_references'),
   },
   {
     name: 'assess_downstream_impact',
@@ -245,6 +253,7 @@ const TOOL_EXECUTORS: Record<string, ToolExecutor> = {
   find_node_by_name: execFindNodeByName as ToolExecutor,
   get_node_tree: execGetNodeTree as ToolExecutor,
   get_subtree_content: execGetSubtreeContent as ToolExecutor,
+  find_context_references: execFindContextReferences as ToolExecutor,
   assess_downstream_impact: execAssessDownstreamImpact as ToolExecutor,
   get_conversation_history: execGetConversationHistory as ToolExecutor,
   get_workflow_history: execGetWorkflowHistory as ToolExecutor,

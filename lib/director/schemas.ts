@@ -284,6 +284,12 @@ export const ToolInputSchemas = {
       layer_index: nonNegativeIntSchema.optional(),
     })
     .strict(),
+  find_context_references: z
+    .object({
+      context_node_id: uuidSchema,
+      max_results: z.number().int().positive().max(200).optional(),
+    })
+    .strict(),
   assess_downstream_impact: z
     .object({
       node_id: uuidSchema,
