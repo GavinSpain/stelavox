@@ -21,6 +21,7 @@ import { useEffect, useState } from 'react'
 import { NodeTree } from '@/components/tree/NodeTree'
 import { NodeDetailPanel } from '@/components/detail/NodeDetailPanel'
 import { DirectorPanel } from '@/components/director/DirectorPanel'
+import { DocumentExportButton } from '@/components/export/DocumentExportButton'
 import { useRightSlot, useSidebarProject } from '@/components/layout/AppShell'
 import { useMode } from '@/components/layout/ModeContext'
 
@@ -110,11 +111,29 @@ export function DocumentClient({
   ])
 
   return (
-    <NodeTree
-      documentId={documentId}
-      documentType={documentType}
-      onSelect={setSelectedNodeId}
-      refreshKey={refreshKey}
-    />
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'flex-end',
+          padding: '8px 12px',
+          borderBottom: '1px solid var(--color-border-subtle)',
+        }}
+      >
+        <DocumentExportButton
+          documentId={documentId}
+          documentName={documentName}
+          projectId={projectId}
+        />
+      </div>
+      <div style={{ flex: 1, minHeight: 0 }}>
+        <NodeTree
+          documentId={documentId}
+          documentType={documentType}
+          onSelect={setSelectedNodeId}
+          refreshKey={refreshKey}
+        />
+      </div>
+    </div>
   )
 }

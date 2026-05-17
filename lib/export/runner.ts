@@ -127,7 +127,7 @@ export async function runExportJob(exportJobId: string): Promise<void> {
       return
     }
 
-    let lastCancellationCheck = Date.now()
+    const renderStartedAt = Date.now()
     const totalChapters = walked.total_chapters
     let currentChapter = 0
 
@@ -135,7 +135,7 @@ export async function runExportJob(exportJobId: string): Promise<void> {
     // call this when they cross a chapter boundary.
     const onChapterRendered = async (chapterName: string | null) => {
       currentChapter += 1
-      const elapsed = Date.now() - lastCancellationCheck
+      const elapsed = Date.now() - renderStartedAt
       // Rough estimate: linearly extrapolate remaining time from elapsed
       const fractionDone = currentChapter / Math.max(totalChapters, 1)
       const totalEstimateMs = elapsed / Math.max(fractionDone, 0.01)

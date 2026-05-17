@@ -18,7 +18,6 @@ import { z } from 'zod'
 
 import { createClient } from '@/lib/supabase/server'
 import { err } from '@/lib/api/errors'
-import { isValidUuid } from '@/lib/validation/uuid'
 import { runExportJob } from '@/lib/export/runner'
 
 const exportPostSchema = z.object({

@@ -45,6 +45,7 @@ import { Sidebar } from './Sidebar'
 import { PanelResizer } from './PanelResizer'
 import { ModeProvider } from './ModeContext'
 import { AppShellStatusIndicator } from './AppShellStatusIndicator'
+import { ExportProgressStack } from '@/components/export/ExportProgressStack'
 import { createClient } from '@/lib/supabase/client'
 import { useAgentJobsRealtime } from '@/lib/hooks/useAgentJobsRealtime'
 
@@ -279,6 +280,9 @@ function AppShellInner({ userEmail, children }: AppShellProps) {
       {/* V1.x-B.1.1 — persistent bottom-right status indicator. Fixed-position;
           non-blocking; visible from every screen (CS v2.10 §17.1). */}
       <AppShellStatusIndicator />
+      {/* Phase 7 — bottom-right export progress chips. Multi-export stack
+          per wireframe §05; subscribes to active export_jobs via Realtime. */}
+      <ExportProgressStack />
       </div>
     </RightSlotContext.Provider>
     </SidebarProjectContext.Provider>
