@@ -270,6 +270,25 @@ export async function advanceWorkflow(workflowId: string): Promise<void> {
             completed_at: new Date().toISOString(),
           })
           .eq('id', workflowId)
+
+        // Brief stage propagation: when a workflow completes, fire the
+        // push-model evaluator (M-120) which marks the linked brief_stage
+        // 'completed' and inserts a director_iteration for the next stage's
+        // trigger. The RPC short-circuits with no_linked_stage when the
+        // workflow isn't tied to a stage.
+        //
+        // Discovered during Phase 7 review when Stage 2 of a 2-stage Brief
+        // failed to auto-promote — the DB-side RPCs have existed since
+        // V1.x-B.1.1 (M-097) + V1.x-B.2 (M-120) but the TS caller was
+        // never wired in.
+        const { error: rpcError } = await supabase
+          .rpc('complete_brief_stage_workflow', { p_workflow_id: workflowId })
+        if (rpcError) {
+          console.warn('[advanceWorkflow] complete_brief_stage_workflow failed', {
+            workflowId,
+            error: rpcError.message,
+          })
+        }
       }
     }
     return

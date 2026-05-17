@@ -215,7 +215,20 @@ export async function GET(request: NextRequest, { params }: Context) {
     // Phase 3 v1.1: decorate every row with is_leaf (API Contract §2.12).
     // Single layer-stack lookup for the document; applied to every row.
     const maxIdx = await getDocumentMaxLayerIndex(supabase, documentId)
-    const decorated = sorted.map(row => decorateWithLeaf(row, maxIdx))
+
+    // Phase 6 v1.2: include Author Lock state. The legacy `nodes.locked`
+    // column was dropped in M-154; lock state now lives in the dedicated
+    // `node_author_locks` table. One LEFT-JOIN-shaped fetch keyed by
+    // node_id; merged into the decorated row as `locked: boolean`.
+    const { data: locks } = await supabase
+      .from('node_author_locks')
+      .select('node_id')
+    const lockedSet = new Set((locks ?? []).map(l => l.node_id))
+
+    const decorated = sorted.map(row => ({
+      ...decorateWithLeaf(row, maxIdx),
+      locked: lockedSet.has(row.id),
+    }))
 
     return NextResponse.json({ nodes: decorated })
   } catch {

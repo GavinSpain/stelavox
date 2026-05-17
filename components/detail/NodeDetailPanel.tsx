@@ -81,7 +81,9 @@ interface NodeDetailPanelProps {
   onClose?: () => void
 }
 
-const STATUS_VALUES = ['draft', 'in_review', 'approved', 'locked'] as const
+// Phase 6 D7 reduced the status enum from 4 values to 2.
+// 'in_review' and 'locked' were vestigial; the DB CHECK rejects them.
+const STATUS_VALUES = ['draft', 'approved'] as const
 
 // Order per Component Spec §5.1 + Build Checklist T-5.2:
 // Content, Agent, Comments, History (versions), Jobs, Context.
