@@ -357,7 +357,23 @@ export async function* runIteration(
   // review iterations were getting heartbeat-stale-crashed even though
   // they were running correctly. The runner had only ever set the
   // heartbeat once at the start.
+  //
+  // Stall detection (added same day, after surfacing the inverse bug):
+  // a hung LLM call now stays "alive" forever from the sweep's
+  // perspective because the ticker pings every 15s regardless of
+  // whether the response stream is producing tokens. The ticker now
+  // only updates the heartbeat if a stream chunk was received within
+  // STREAM_STALL_THRESHOLD_MS. If the stream goes silent, we stop
+  // heartbeating and the recovery sweep kills the iteration after its
+  // own 60s threshold — total stall-to-killed time ~120s upper bound.
+  const STREAM_STALL_THRESHOLD_MS = 60_000
+  let lastStreamChunkAt = Date.now()
   const heartbeatTicker = setInterval(() => {
+    const silentMs = Date.now() - lastStreamChunkAt
+    if (silentMs > STREAM_STALL_THRESHOLD_MS) {
+      // Don't heartbeat — let the sweep do its job.
+      return
+    }
     void supabase
       .from('agent_jobs')
       .update({ last_heartbeat_at: new Date().toISOString() })
@@ -379,6 +395,7 @@ export async function* runIteration(
   // ---- 6. Stream LLM response ------------------------------------------
   try {
     for await (const chunk of provider.streamWithTools(prompt)) {
+      lastStreamChunkAt = Date.now()
       switch (chunk.type) {
         case 'text': {
           if (!chunk.text) break
