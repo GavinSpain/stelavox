@@ -2,7 +2,7 @@ import { test, expect, request as playwrightRequest } from '@playwright/test'
 import { adminClient } from '../helpers/db'
 import { findUserByEmail, getOrganisationIdForUser } from '../helpers/isolation'
 import { createIsolatedDoc } from '../helpers/isolation'
-import { setupJ3Fixture, type J3Fixture } from '../helpers/j3-fixture'
+import { setupJ3Fixture } from '../helpers/j3-fixture'
 import { APP_URL, USERS } from '../helpers/auth'
 
 // Phase 5d — J4 Context system journey.

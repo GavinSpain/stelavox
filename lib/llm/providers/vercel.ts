@@ -24,12 +24,10 @@ import {
 export type VercelProviderName = 'openai' | 'google' | 'mistral'
 
 export class VercelProvider implements LLMProvider {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   constructor(_provider: VercelProviderName, _apiKey: string, _modelId: string) {
     // V2 work — constructor accepts the params for forward-compat.
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async complete(_prompt: AssembledPrompt): Promise<LLMResponse> {
     throw new NotImplementedError(
       'VercelProvider.complete()',

@@ -51,8 +51,6 @@ function depthFirstSort<T extends { id: string; parent_id: string | null; order:
   return result
 }
 
-type SupabaseRouteClient = Awaited<ReturnType<typeof createClient>>
-
 interface LayerEntry { node_type: string }
 
 // ─── POST ─────────────────────────────────────────────────────────────

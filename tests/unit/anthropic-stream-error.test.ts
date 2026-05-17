@@ -135,7 +135,6 @@ describe('B3.2 — F-34 / F-37: anthropic stream error events must throw', () =>
           tools: [{ name: 't', description: 'd', input_schema: {} }],
         },
       }
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       for await (const _chunk of provider.streamWithTools!(promptWithTools)) {
         // consume
       }

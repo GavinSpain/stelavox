@@ -171,7 +171,11 @@ export function AdminDashboard() {
   }, [windowKey])
 
   useEffect(() => {
-    void load()
+    // queueMicrotask defers the initial load past the effect body so
+    // setState inside `load` doesn't run synchronously during the effect
+    // (satisfies react-hooks/set-state-in-effect for the canonical
+    // fetch-on-mount pattern; one-microtask delay is invisible).
+    queueMicrotask(() => { void load() })
     const id = window.setInterval(load, POLL_MS)
     return () => window.clearInterval(id)
   }, [load])

@@ -103,6 +103,7 @@ export function DocumentClient({
     refreshKey,
     documentId,
     documentName,
+    profileId,
     setContent,
     setMinWidthOverride,
     setMode,

@@ -12,7 +12,7 @@
 
 import 'server-only'
 
-import { NextResponse, type NextRequest } from 'next/server'
+import { type NextRequest } from 'next/server'
 
 import { ConversationMessageAppendSchema } from '@/lib/director/schemas'
 import { apiError, isUuid } from '@/lib/director/route-helpers'

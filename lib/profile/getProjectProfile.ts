@@ -8,7 +8,7 @@ import 'server-only'
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js'
-import type { ProjectProfile, ProfileAmendment, ProjectProfilePayload } from './types'
+import type { ProjectProfile, ProjectProfilePayload } from './types'
 
 const RECENT_AMENDMENTS_LIMIT = 5
 

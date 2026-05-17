@@ -29,7 +29,6 @@ import { NextResponse, type NextRequest } from 'next/server'
 
 import { getConfigInt } from '@/lib/config/platform-config'
 import { getProvider } from '@/lib/llm/factory'
-import { computeCostUsd } from '@/lib/llm/cost'
 import { checkTokenBudget } from '@/lib/llm/token-budget'
 import { startDirectorTurn } from '@/lib/director/executor'
 import { runIteration, type IterationEvent } from '@/lib/director/iteration-runner'
@@ -48,7 +47,7 @@ import { MessageRequestSchema } from '@/lib/director/schemas'
 import { SecurityViolationError } from '@/lib/security/canary'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import { createClient } from '@/lib/supabase/server'
-import type { DirectorConfig, DirectorSession } from '@/lib/director/types'
+import type { DirectorConfig } from '@/lib/director/types'
 
 export async function POST(req: NextRequest): Promise<Response> {
   // ---- 1. Auth ---------------------------------------------------------
@@ -265,13 +264,10 @@ export async function POST(req: NextRequest): Promise<Response> {
   )
   const assistantRow = await createInterimAssistantMessage(service, conversation.id)
 
-  // ---- 11. Build session + conversation context ------------------------
-  const session: DirectorSession = {
-    conversation_id: conversation.id,
-    document_id,
-    organisation_id: organisationId,
-    user_id: user.id,
-  }
+  // ---- 11. Build conversation context ------------------------
+  // V1.x-B.2.1 — DirectorSession is no longer constructed here. The
+  // per-iteration runner builds its own from organisationId +
+  // documentId + conversationId passed via startDirectorTurn below.
   const conversationContext = await buildConversationContext(
     service,
     conversation.id,

@@ -350,7 +350,6 @@ export class AnthropicProvider implements LLMProvider {
    * streamWithTools() exclusively. Reserved for admin tooling, replay
    * tests, and V2 batch operations (Phase 5b API Contract G-13).
    */
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async completeWithTools(_prompt: AssembledPrompt): Promise<LLMResponse> {
     throw new NotImplementedError(
       'AnthropicProvider.completeWithTools()',

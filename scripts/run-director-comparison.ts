@@ -203,7 +203,7 @@ async function main() {
           encoding: 'utf8',
         },
       )
-    } catch (err) {
+    } catch {
       console.warn(`[compare] run on ${model} exited non-zero — capturing whatever was written.`)
     }
     try {
