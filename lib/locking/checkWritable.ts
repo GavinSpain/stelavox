@@ -16,10 +16,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { WriteGateResult } from './types'
 
-type AnyClient = SupabaseClient<any, any, any>
-
 export async function checkNodeWritable(
-  supabase: AnyClient,
+  supabase: SupabaseClient,
   nodeId: string,
   requestingUserId: string,
 ): Promise<WriteGateResult> {

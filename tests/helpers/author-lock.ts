@@ -14,10 +14,8 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 
-type AnyClient = SupabaseClient<any, any, any>
-
 export async function setAuthorLockDirect(
-  svc: AnyClient,
+  svc: SupabaseClient,
   args: {
     nodeId: string
     organisationId: string
@@ -36,6 +34,6 @@ export async function setAuthorLockDirect(
   if (error) throw new Error(`setAuthorLockDirect: ${error.message}`)
 }
 
-export async function clearAuthorLockDirect(svc: AnyClient, nodeId: string) {
+export async function clearAuthorLockDirect(svc: SupabaseClient, nodeId: string) {
   await svc.from('node_author_locks').delete().eq('node_id', nodeId)
 }
