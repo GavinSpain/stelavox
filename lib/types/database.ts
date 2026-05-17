@@ -1330,43 +1330,61 @@ export type Database = {
       }
       export_jobs: {
         Row: {
+          attempt_count: number
+          cancellation_requested_at: string | null
           completed_at: string | null
           created_at: string
           document_id: string
           error_message: string | null
           format: string
           id: string
+          last_active_at: string | null
           organisation_id: string
+          profile_id: string | null
+          progress: Json
           signed_url: string | null
           signed_url_expires_at: string | null
           status: string
           storage_path: string | null
+          total_chapters: number | null
         }
         Insert: {
+          attempt_count?: number
+          cancellation_requested_at?: string | null
           completed_at?: string | null
           created_at?: string
           document_id: string
           error_message?: string | null
           format: string
           id?: string
+          last_active_at?: string | null
           organisation_id: string
+          profile_id?: string | null
+          progress?: Json
           signed_url?: string | null
           signed_url_expires_at?: string | null
           status?: string
           storage_path?: string | null
+          total_chapters?: number | null
         }
         Update: {
+          attempt_count?: number
+          cancellation_requested_at?: string | null
           completed_at?: string | null
           created_at?: string
           document_id?: string
           error_message?: string | null
           format?: string
           id?: string
+          last_active_at?: string | null
           organisation_id?: string
+          profile_id?: string | null
+          progress?: Json
           signed_url?: string | null
           signed_url_expires_at?: string | null
           status?: string
           storage_path?: string | null
+          total_chapters?: number | null
         }
         Relationships: [
           {
@@ -1381,6 +1399,67 @@ export type Database = {
             columns: ["organisation_id"]
             isOneToOne: false
             referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "export_jobs_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "export_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      export_profiles: {
+        Row: {
+          config: Json
+          created_at: string
+          created_by_user_id: string | null
+          format: string
+          id: string
+          is_builtin: boolean
+          name: string
+          organisation_id: string | null
+          project_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          config?: Json
+          created_at?: string
+          created_by_user_id?: string | null
+          format: string
+          id?: string
+          is_builtin?: boolean
+          name: string
+          organisation_id?: string | null
+          project_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          config?: Json
+          created_at?: string
+          created_by_user_id?: string | null
+          format?: string
+          id?: string
+          is_builtin?: boolean
+          name?: string
+          organisation_id?: string | null
+          project_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "export_profiles_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "export_profiles_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
             referencedColumns: ["id"]
           },
         ]
@@ -3165,6 +3244,7 @@ export type Database = {
         }
         Returns: Json
       }
+      delete_export_profile: { Args: { p_id: string }; Returns: Json }
       delete_org_anthropic_key: { Args: { p_org_id: string }; Returns: Json }
       delete_user_anthropic_key: { Args: never; Returns: Json }
       disable_org_byok: { Args: { p_org_id: string }; Returns: Json }
@@ -3204,7 +3284,9 @@ export type Database = {
         Args: { p_node_ids: string[] }
         Returns: Json
       }
+      purge_expired_exports: { Args: never; Returns: number }
       purge_raw_metric_samples: { Args: never; Returns: Json }
+      recovery_sweep_exports: { Args: never; Returns: number }
       release_author_lock: { Args: { p_node_id: string }; Returns: Json }
       release_bulk_operation: {
         Args: { p_bulk_operation_id: string }
@@ -3217,10 +3299,27 @@ export type Database = {
         Args: { p_probe_id: string }
         Returns: undefined
       }
+      restore_node_version: {
+        Args: {
+          p_expected_version: number
+          p_node_id: string
+          p_target_version: number
+        }
+        Returns: Json
+      }
       rollover_org_periods: { Args: never; Returns: Json }
       rollup_metrics_minute: {
         Args: { p_bucket_started_at?: string }
         Returns: number
+      }
+      save_export_profile: {
+        Args: {
+          p_config: Json
+          p_format: string
+          p_name: string
+          p_project_id: string
+        }
+        Returns: Json
       }
       save_org_anthropic_key: {
         Args: {
@@ -3239,6 +3338,10 @@ export type Database = {
         Returns: number
       }
       scheduler_sweep_throttle_reservations: { Args: never; Returns: number }
+      update_export_profile: {
+        Args: { p_config: Json; p_id: string; p_name: string }
+        Returns: Json
+      }
     }
     Enums: {
       [_ in never]: never
