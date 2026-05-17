@@ -30,7 +30,7 @@ export default async function ProjectPage({ params }: Props) {
 
   return (
     <div style={{ maxWidth: '800px', margin: '0 auto' }}>
-      <ProjectSidebarSetup projectId={projectId} />
+      <ProjectSidebarSetup projectId={projectId} projectName={project.name} />
       <div style={{ marginBottom: 'var(--space-5)' }}>
         <Link href="/dashboard" style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-secondary)', textDecoration: 'none' }}>
           ← Projects

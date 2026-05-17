@@ -36,17 +36,23 @@ export function Header({ userEmail }: HeaderProps) {
         zIndex: 10,
       }}
     >
-      <span
+      {/* Wordmark links to /dashboard — global home affordance. Fixes
+         the dead-end on /settings/* (no other way back to the project
+         list without the browser back button). */}
+      <Link
+        href="/dashboard"
+        aria-label="Stelavox — home"
         style={{
           marginRight: '28px',
           fontWeight: 500,
           fontSize: '16px',
           color: 'var(--color-text-primary)',
           letterSpacing: '-0.01em',
+          textDecoration: 'none',
         }}
       >
         Stelavox
-      </span>
+      </Link>
 
       <div style={{ flex: 1 }} aria-hidden="true" />
 
