@@ -35,6 +35,34 @@ import type {
 type WriteToolReturn = WriteToolResult | ToolErrorResult
 
 /** Lightweight target-node existence + org/document scope check. */
+// 2026-05-18 M-180: FK-verification at propose_brief boundary. Checks
+// that every target_node_id in a Brief's workflow steps exists within
+// the session's org+document. Catches the cross-turn ID-hallucination
+// failure shape (model "remembers" a UUID from a prior turn that's
+// actually a confabulation; the UUID is well-formed so the M-177
+// sentinel-UUID guard doesn't catch it). Returned shape gives the
+// caller the list of missing IDs so the rejection message can teach
+// the model what to do next.
+export async function verifyProposedTargetNodeIds(
+  session: DirectorSession,
+  ids: string[],
+): Promise<{ ok: true } | { ok: false; missingIds: string[] }> {
+  if (ids.length === 0) return { ok: true }
+  const supabase = createServiceRoleClient()
+  // De-duplicate before query — same id may appear in multiple steps.
+  const unique = Array.from(new Set(ids))
+  const { data: existing } = await supabase
+    .from('nodes')
+    .select('id')
+    .eq('organisation_id', session.organisation_id)
+    .eq('document_id', session.document_id)
+    .in('id', unique)
+  const existingIds = new Set((existing ?? []).map((n) => n.id as string))
+  const missingIds = unique.filter((id) => !existingIds.has(id))
+  if (missingIds.length === 0) return { ok: true }
+  return { ok: false, missingIds }
+}
+
 async function verifyTargetNode(
   nodeId: string,
   session: DirectorSession,
@@ -350,6 +378,29 @@ export async function execProposeBrief(
       if (workflow?.steps) {
         for (const step of workflow.steps) {
           if (step.target_node_id) proposedTargetNodeIds.push(step.target_node_id)
+        }
+      }
+    }
+
+    // 2026-05-18 M-180: FK verification at the propose_brief boundary.
+    // The individual create_*_step tools verify target_node_id via
+    // verifyTargetNode, but the model can hand-roll a propose_brief
+    // payload directly (skipping the per-step tools), bypassing those
+    // guards. Without this check, hallucinated target_node_ids from
+    // cross-turn memory pass shape validation and only surface as
+    // not_found at execution time. Loud rejection here gives the model
+    // a teaching error that names find_node_by_name as the right next
+    // move.
+    if (proposedTargetNodeIds.length > 0) {
+      const verify = await verifyProposedTargetNodeIds(
+        session,
+        proposedTargetNodeIds,
+      )
+      if (!verify.ok) {
+        return {
+          ok: false,
+          error: 'target_node_ids_not_found',
+          reason: `${verify.missingIds.length} target_node_id(s) in this Brief do not exist in document ${session.document_id}: ${verify.missingIds.join(', ')}. Do NOT rely on node_ids you "remember" from prior turns — the conversation rolling window may not include those tool results, and any "remembered" id may be a hallucination. Call find_node_by_name (or another read tool) to re-ground the ids in THIS turn's tool results, then retry propose_brief.`,
         }
       }
     }
