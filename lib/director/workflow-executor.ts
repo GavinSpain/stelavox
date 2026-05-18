@@ -468,7 +468,11 @@ async function dispatchAgentJobForStep(
   // Synchronous step types: comment + node_reorder run as direct DB
   // writes (no agent_jobs row, no LLM call). They're fast enough to
   // complete inline; the executor marks them complete immediately.
-  if (step.operation_type === 'comment' || step.operation_type === 'node_reorder') {
+  if (
+    step.operation_type === 'comment' ||
+    step.operation_type === 'node_reorder' ||
+    step.operation_type === 'node_rename'
+  ) {
     await executeSynchronousStep(supabase, workflow, step)
     return
   }
@@ -858,6 +862,41 @@ async function executeSynchronousStep(
         p_position: params.new_order - 1,
       })
       if (rpcErr) throw new Error(`move_node_failed:${rpcErr.message}`)
+    } else if (step.operation_type === 'node_rename' && step.target_node_id) {
+      // M-179 / 2026-05-18: rename a node's `name` field. Metadata
+      // operation — does NOT bump version (M-023 trigger ignores
+      // name changes; matches TC-A-47). The Director propose-tool
+      // already trim+validated 1-200 chars; defensive re-check here.
+      const params = (step.parameters ?? {}) as { new_name?: string }
+      const trimmed = (params.new_name ?? '').trim()
+      if (trimmed.length === 0) {
+        throw new Error('node_rename_step_missing_new_name')
+      }
+      if (trimmed.length > 200) {
+        throw new Error('node_rename_new_name_too_long')
+      }
+      // Writability gate via M-150 RPC. The RPC takes a requesting_user_id
+      // for Edit Session bookkeeping; pass NULL — Director-driven workflow
+      // executions are system-actor-equivalent, so they shouldn't be
+      // blocked by another user being in an Edit Session on the node.
+      // The author_locked / node_in_progress branches still fire.
+      // Cast: SQL function accepts NULL UUID (NULL-safe inequality in
+      // the Edit Session check yields no rows = bypass), but Supabase's
+      // generated TS type insists on non-null.
+      const { data: gate, error: gateErr } = await supabase.rpc('check_node_writable', {
+        p_node_id: step.target_node_id,
+        p_requesting_user_id: null as unknown as string,
+      })
+      if (gateErr) throw new Error(`node_rename_write_gate_failed:${gateErr.message}`)
+      const gateRow = (gate ?? {}) as { writable?: boolean; blocker?: string | null }
+      if (gateRow.writable === false) {
+        throw new Error(`node_rename_blocked:${gateRow.blocker ?? 'unknown'}`)
+      }
+      const { error: updErr } = await supabase
+        .from('nodes')
+        .update({ name: trimmed })
+        .eq('id', step.target_node_id)
+      if (updErr) throw new Error(`node_rename_update_failed:${updErr.message}`)
     }
 
     await supabase

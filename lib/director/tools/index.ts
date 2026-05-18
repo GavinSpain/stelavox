@@ -45,6 +45,7 @@ import {
   execCreateContextStep,
   execCreateExpandStep,
   execCreateNodeReorderStep,
+  execCreateRenameStep,
   execCreateRefineStep,
   execCreateSynthesiseStep,
   execProposeBrief,
@@ -200,6 +201,13 @@ const writeTools: DirectorToolDefinition[] = [
     input_schema: toolInputSchemaFor('create_node_reorder_step'),
   },
   {
+    name: 'create_rename_step',
+    kind: 'write',
+    description:
+      "Propose a step that renames a node by updating its `name` field. new_name is trimmed and must be 1-200 characters. Renaming is a metadata operation — it does NOT bump the node's content version (matches the API-side behaviour). Use for cases like disambiguating multiple nodes that share the same name, fixing typos, or restructuring names for clarity. Returns a workflow step proposal; nothing executes until approved.",
+    input_schema: toolInputSchemaFor('create_rename_step'),
+  },
+  {
     name: 'propose_brief',
     kind: 'write',
     description:
@@ -273,6 +281,7 @@ const TOOL_EXECUTORS: Record<string, ToolExecutor> = {
   create_context_step: execCreateContextStep as ToolExecutor,
   create_comment_step: execCreateCommentStep as ToolExecutor,
   create_node_reorder_step: execCreateNodeReorderStep as ToolExecutor,
+  create_rename_step: execCreateRenameStep as ToolExecutor,
   propose_brief: execProposeBrief as ToolExecutor,
   propose_profile_amendment: execProposeProfileAmendment as ToolExecutor,
   cancel_brief: execCancelBrief as ToolExecutor,

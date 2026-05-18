@@ -14,6 +14,7 @@ export type WorkflowStepOperationType =
   | 'generate_context'
   | 'comment'
   | 'node_reorder'
+  | 'node_rename'
 
 export type WorkflowStatus =
   | 'draft'

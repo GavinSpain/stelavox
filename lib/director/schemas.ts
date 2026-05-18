@@ -132,6 +132,13 @@ export const NodeReorderStepProposalSchema = ProposalCommonSchema.extend({
   }),
 })
 
+export const NodeRenameStepProposalSchema = ProposalCommonSchema.extend({
+  operation_type: z.literal('node_rename'),
+  parameters: z.object({
+    new_name: z.string().transform((s) => s.trim()).pipe(z.string().min(1).max(200)),
+  }),
+})
+
 export const WorkflowStepProposalSchema = z.discriminatedUnion('operation_type', [
   ExpandStepProposalSchema,
   SynthesiseStepProposalSchema,
@@ -213,7 +220,7 @@ export type BriefCancellationProposalParsed = z.infer<typeof BriefCancellationPr
 // V1.x-A.1: BriefProposal shape is now operation-level. Stage 1's workflow
 // is required; stages 2..N may have workflow:null (just-in-time planning).
 const _ProposalWorkflowStepSchema = z.object({
-  operation_type: z.enum(['expand', 'synthesise', 'refine', 'generate_context', 'comment', 'node_reorder']),
+  operation_type: z.enum(['expand', 'synthesise', 'refine', 'generate_context', 'comment', 'node_reorder', 'node_rename']),
   target_node_id: z.string().uuid(),
   description: z.string().min(1).max(2_000),
   estimated_duration_seconds: z.number().int().nonnegative(),
@@ -388,6 +395,17 @@ export const ToolInputSchemas = {
       estimated_duration_seconds: nonNegativeIntSchema,
     })
     .strict(),
+  create_rename_step: z
+    .object({
+      target_node_id: uuidSchema,
+      // new_name: trim, 1-200 chars after trim. Mirrors the API-side
+      // nameField constraint in lib/validation/nodes.ts so the
+      // Director can't propose a name the PATCH route would reject.
+      new_name: z.string().transform((s) => s.trim()).pipe(z.string().min(1).max(200)),
+      description: z.string().min(1).max(2_000),
+      estimated_duration_seconds: nonNegativeIntSchema,
+    })
+    .strict(),
 
   // V1.x-A Brief write-proposal tools (2). Validators in
   // lib/brief/proposalBuilder.ts perform additional structural checks
@@ -450,6 +468,7 @@ export const WRITE_TOOL_NAMES: readonly ToolName[] = [
   'create_context_step',
   'create_comment_step',
   'create_node_reorder_step',
+  'create_rename_step',
   'propose_brief',
   'propose_profile_amendment',
   'cancel_brief',

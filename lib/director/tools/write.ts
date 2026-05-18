@@ -266,6 +266,54 @@ export async function execCreateNodeReorderStep(
 }
 
 // ---------------------------------------------------------------------------
+// create_rename_step (M-179, 2026-05-18)
+// ---------------------------------------------------------------------------
+//
+// Propose a step that renames a node. Per H-08, this is PROPOSAL ONLY —
+// the workflow-executor performs the actual UPDATE when the user
+// approves the Brief. Renaming is a metadata operation (not content),
+// so the M-023 / M-090 version-bump trigger deliberately ignores it
+// (matches TC-A-47 "rename does not bump version").
+
+export async function execCreateRenameStep(
+  args: {
+    target_node_id: string
+    new_name: string
+    description: string
+    estimated_duration_seconds: number
+  },
+  session: DirectorSession,
+): Promise<WriteToolReturn> {
+  const v = await verifyTargetNode(args.target_node_id, session)
+  if (!v.ok) return { ok: false, error: v.error }
+  if (v.locked) return { ok: false, error: 'node_locked' }
+
+  // The Zod input schema already trim+min(1)+max(200) the new_name, but
+  // defensive re-trim here so the proposal artefact carries the
+  // trimmed value verbatim (no leading/trailing whitespace surprises).
+  const trimmed = args.new_name.trim()
+  if (trimmed.length === 0) {
+    return { ok: false, error: 'invalid_new_name', reason: 'new_name is empty after trim' }
+  }
+  if (trimmed.length > 200) {
+    return { ok: false, error: 'invalid_new_name', reason: 'new_name exceeds 200 characters' }
+  }
+
+  return {
+    ok: true,
+    proposal: {
+      operation_type: 'node_rename',
+      target_node_id: args.target_node_id,
+      parameters: {
+        new_name: trimmed,
+      },
+      description: args.description,
+      estimated_duration_seconds: args.estimated_duration_seconds,
+    },
+  }
+}
+
+// ---------------------------------------------------------------------------
 // propose_brief (V1.x-A.1) — operation-level Brief proposal.
 // ---------------------------------------------------------------------------
 
