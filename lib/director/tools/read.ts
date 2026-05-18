@@ -309,6 +309,22 @@ export async function execGetNode(
   args: { node_id: string },
   session: DirectorSession,
 ): Promise<ReadToolReturn> {
+  // Reject sentinel UUIDs that the model commonly hallucinates as
+  // placeholders (all-zeros, all-fs, repeated digits). The runtime
+  // surfacing here is a teaching signal — the error reason names the
+  // right next move so the model doesn't have to re-derive it.
+  // 2026-05-18 — added after testing showed the model passing
+  // ffffffff-ffff-ffff-ffff-ffffffffffff when it should have called
+  // find_node_by_name.
+  if (isPlaceholderUuid(args.node_id)) {
+    return {
+      ok: false,
+      error: 'placeholder_uuid_rejected',
+      reason:
+        'You passed a sentinel/placeholder UUID. Never invent a node_id. Call find_node_by_name({ query: "<name>" }) to resolve a name to an id, then call get_node with the id from THAT result.',
+    }
+  }
+
   const supabase = createServiceRoleClient()
 
   const { data: node, error } = await supabase
@@ -550,7 +566,11 @@ export async function execFindNodeByName(
   session: DirectorSession,
 ): Promise<ReadToolReturn> {
   const supabase = createServiceRoleClient()
-  const q = (args.query ?? '').trim()
+  // Strip a leading `@` so the model can pass the raw @-mention text
+  // (e.g. "@the ghost burns dark") without first parsing it. 2026-05-18
+  // — added after testing showed the model getting confused by `@`
+  // prefix and hallucinating an id instead of calling this tool.
+  const q = (args.query ?? '').trim().replace(/^@/, '').trim()
   if (q.length === 0) {
     return { ok: false, error: 'invalid_input', reason: 'query is required' }
   }
@@ -1374,6 +1394,32 @@ export async function execGetWorkflowHistory(
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// Placeholder-UUID detection.
+// ---------------------------------------------------------------------------
+//
+// Catches the "model invents an id" anti-pattern at the get_node entry
+// point. The model historically reaches for all-zeros or all-fs UUIDs
+// when it can't find a real id; we surface a teaching error instead
+// of running the query and returning generic node_not_found.
+
+const PLACEHOLDER_UUID_PATTERNS = new Set<string>([
+  '00000000-0000-0000-0000-000000000000',
+  'ffffffff-ffff-ffff-ffff-ffffffffffff',
+  '11111111-1111-1111-1111-111111111111',
+])
+
+export function isPlaceholderUuid(value: unknown): boolean {
+  if (typeof value !== 'string') return false
+  const v = value.trim().toLowerCase()
+  if (PLACEHOLDER_UUID_PATTERNS.has(v)) return true
+  // Catch single-character repeats — any UUID whose hex chars are all
+  // the same is almost certainly a placeholder.
+  const hex = v.replace(/-/g, '')
+  if (hex.length === 32 && /^([0-9a-f])\1{31}$/.test(hex)) return true
+  return false
+}
 
 // ---------------------------------------------------------------------------
 // Leaf-layer + aggregate helpers (2026-05-18, leaf-only-prose clarity fix).
