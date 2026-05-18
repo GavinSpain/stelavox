@@ -783,12 +783,22 @@ export async function* runIteration(
   // from the B.2.1 substrate that wrote dollars into the credits column).
   // Now writes the actual pricing_rates-derived credit cost. `cost_usd`
   // is also written so the BYOK dollar surface picks it up.
+  //
+  // 2026-05-18 (H-26 audit fix): model_id is also written here. The
+  // factory.ts getProvider() call above resolves modelId from
+  // director_configs.model_id, but the original V1.x-B.2.1 completion
+  // path didn't persist it to agent_jobs.model_id. Result: every
+  // director_iteration agent_job had NULL model_id, breaking per-model
+  // cost attribution and rate-limit analytics. Workflow agent jobs
+  // (expand/synthesise/refine/generate_context) write model_id via the
+  // older agent runner path and are unaffected.
   await supabase
     .from('agent_jobs')
     .update({
       queue_status: 'completed',
       status: 'completed',
       completed_at: new Date().toISOString(),
+      model_id: modelId,
       actual_input_tokens: iterationUsage.tokens_input,
       actual_output_tokens: iterationUsage.tokens_output,
       cost_credits: costCredits ?? null,
