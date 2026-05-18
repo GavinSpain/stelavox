@@ -592,7 +592,10 @@ export async function execFindNodeByName(
     return { ok: false, error: 'query_failed', reason: error.message }
   }
   if (!matches || matches.length === 0) {
-    return { ok: true, data: { matches: [], total: 0, query: q } }
+    return {
+      ok: true,
+      data: { matches: [], total: 0, query: q, ambiguous: false, ambiguity_reason: null },
+    }
   }
 
   // Load every node in the document so we can walk parent chains for
@@ -643,6 +646,12 @@ export async function execFindNodeByName(
     .eq('organisation_id', session.organisation_id)
   const lockedSet = new Set((lockRows ?? []).map(r => (r as { node_id: string }).node_id))
 
+  // 2026-05-18 — ambiguity signal. When the top quality bucket has
+  // more than one match, the model has no quality-based way to choose
+  // and should consult conversation context or ask the user. See
+  // computeFindNodeAmbiguity below for the rule.
+  const ambiguity = computeFindNodeAmbiguity(top.map((t) => t.rank))
+
   return {
     ok: true,
     data: {
@@ -659,8 +668,30 @@ export async function execFindNodeByName(
       total: matches.length,
       truncated: matches.length > top.length,
       query: q,
+      ambiguous: ambiguity.ambiguous,
+      ambiguity_reason: ambiguity.reason,
     },
   }
+}
+
+// Pure helper for the ambiguity signal on find_node_by_name. Exported
+// for layer-1 testing. Input is the rank of each returned match
+// (1=exact, 2=prefix, 3=substring). Ambiguous when the top quality
+// bucket has 2+ matches.
+export function computeFindNodeAmbiguity(
+  ranks: number[],
+): { ambiguous: boolean; reason: string | null } {
+  if (ranks.length < 2) return { ambiguous: false, reason: null }
+  const topRank = Math.min(...ranks)
+  const countAtTop = ranks.filter((r) => r === topRank).length
+  if (countAtTop < 2) return { ambiguous: false, reason: null }
+  const reason =
+    topRank === 1
+      ? 'multiple_exact_matches'
+      : topRank === 2
+        ? 'multiple_prefix_matches'
+        : 'multiple_substring_matches'
+  return { ambiguous: true, reason }
 }
 
 // ---------------------------------------------------------------------------
