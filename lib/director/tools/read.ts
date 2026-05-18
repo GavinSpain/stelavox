@@ -354,6 +354,20 @@ export async function execGetNode(
   // already has the id.
   const path = await buildAncestorPath(supabase, args.node_id, session)
 
+  // Leaf-layer + aggregate word count (2026-05-18). Non-leaf nodes
+  // have word_count_actual=0 because prose only lives at the leaf
+  // layer; word_count_aggregate sums descendant actuals so the
+  // Director can compare against word_count_target meaningfully.
+  const leafLayerIndex = await getLeafLayerIndex(supabase, session.document_id)
+  const isLeaf =
+    leafLayerIndex !== null && node.layer_index === leafLayerIndex
+  const { data: allNodes } = await supabase
+    .from('nodes')
+    .select('id, parent_id, word_count_actual, node_category')
+    .eq('organisation_id', session.organisation_id)
+    .eq('document_id', session.document_id)
+  const aggregateMap = buildWordCountAggregateMap(allNodes ?? [])
+
   return {
     ok: true,
     data: {
@@ -379,7 +393,9 @@ export async function execGetNode(
       prose_text: extractText(node.prose),
       notes_text: extractText(node.notes),
       metadata: node.metadata,
+      is_leaf: isLeaf,
       word_count_actual: node.word_count_actual,
+      word_count_aggregate: aggregateMap.get(node.id) ?? node.word_count_actual ?? 0,
       word_count_target: node.word_count_target,
       linked_context_node_ids: (links ?? []).map((l) => l.target_node_id),
       child_count: childCount ?? 0,
@@ -467,12 +483,24 @@ export async function execGetNodesByLayer(
     .eq('organisation_id', session.organisation_id)
   const lockedSet = new Set((lockRows ?? []).map(r => (r as { node_id: string }).node_id))
 
+  // Leaf-layer detection + word-count aggregates over the whole document
+  // (one extra query — needed because we aggregate descendants whose
+  // layer_index is below the requested one).
+  const leafLayerIndex = await getLeafLayerIndex(supabase, session.document_id)
+  const { data: allNodes } = await supabase
+    .from('nodes')
+    .select('id, parent_id, word_count_actual, node_category')
+    .eq('organisation_id', session.organisation_id)
+    .eq('document_id', session.document_id)
+  const aggregateMap = buildWordCountAggregateMap(allNodes ?? [])
+
   return {
     ok: true,
     data: {
       nodes: (data ?? []).map((n) => {
         const summaryText = extractText(n.summary)
         const proseText = extractText(n.prose)
+        const wcActual = (n as { word_count_actual: number | null }).word_count_actual
         return {
           id: n.id,
           name: n.name,
@@ -485,7 +513,9 @@ export async function execGetNodesByLayer(
           has_summary: summaryText.trim().length > 0,
           has_prose: proseText.trim().length > 0,
           status: (n as { status: string | null }).status,
-          word_count_actual: (n as { word_count_actual: number | null }).word_count_actual,
+          is_leaf: leafLayerIndex !== null && n.layer_index === leafLayerIndex,
+          word_count_actual: wcActual,
+          word_count_aggregate: aggregateMap.get(n.id as string) ?? wcActual ?? 0,
           word_count_target: (n as { word_count_target: number | null }).word_count_target,
         }
       }),
@@ -623,8 +653,10 @@ interface TreeNode {
   node_type: string
   layer_index: number | null
   locked: boolean
+  is_leaf: boolean
   child_count: number
   word_count_actual: number | null
+  word_count_aggregate: number
   word_count_target: number | null
   children: TreeNode[]
 }
@@ -667,6 +699,18 @@ export async function execGetNodeTree(
     .eq('organisation_id', session.organisation_id)
   const lockedSet = new Set((lockRows ?? []).map(r => (r as { node_id: string }).node_id))
 
+  // Leaf-layer + aggregate map. Aggregate is computed over the full
+  // document tree so even max_depth-truncated subtrees report their
+  // full descendant sum.
+  const leafLayerIndex = await getLeafLayerIndex(supabase, session.document_id)
+  const aggregateMap = buildWordCountAggregateMap(
+    (allDescendants ?? []).map((n) => ({
+      id: n.id as string,
+      parent_id: (n as { parent_id: string | null }).parent_id,
+      word_count_actual: (n as { word_count_actual: number | null }).word_count_actual,
+    })),
+  )
+
   const byParent = new Map<string | null, typeof allDescendants>()
   for (const n of allDescendants ?? []) {
     const p = n.parent_id
@@ -681,14 +725,17 @@ export async function execGetNodeTree(
       depth < maxDepth
         ? directChildren.map((c) => build(c.id, depth + 1))
         : []
+    const wcActual = (node as { word_count_actual: number | null }).word_count_actual
     return {
       id: node.id,
       name: node.name,
       node_type: node.node_type,
       layer_index: node.layer_index,
       locked: lockedSet.has(node.id),
+      is_leaf: leafLayerIndex !== null && node.layer_index === leafLayerIndex,
       child_count: directChildren.length,
-      word_count_actual: (node as { word_count_actual: number | null }).word_count_actual,
+      word_count_actual: wcActual,
+      word_count_aggregate: aggregateMap.get(node.id) ?? wcActual ?? 0,
       word_count_target: (node as { word_count_target: number | null }).word_count_target,
       children,
     }
@@ -788,6 +835,18 @@ export async function execGetSubtreeContent(
     .eq('organisation_id', session.organisation_id)
   const lockedSet = new Set((lockRows ?? []).map((r) => (r as { node_id: string }).node_id))
 
+  // Leaf-layer detection + aggregate map — the aggregate is computed
+  // over allNodes (not just the capped subtree) so a non-leaf returned
+  // at the cap boundary still reports a correct descendant sum.
+  const leafLayerIndex = await getLeafLayerIndex(supabase, session.document_id)
+  const aggregateMap = buildWordCountAggregateMap(
+    (allNodes ?? []).map((n) => ({
+      id: n.id as string,
+      parent_id: (n as { parent_id: string | null }).parent_id,
+      word_count_actual: (n as { word_count_actual: number | null }).word_count_actual,
+    })),
+  )
+
   // Optional layer_index filter applied AFTER the subtree walk so the
   // caller can still get e.g. all beats under chapter 1.
   const filtered =
@@ -801,6 +860,7 @@ export async function execGetSubtreeContent(
       nodes: filtered.map((n) => {
         const summaryText = extractText(n.summary)
         const proseText = extractText(n.prose)
+        const wcActual = (n as { word_count_actual: number | null }).word_count_actual
         return {
           id: n.id,
           name: n.name,
@@ -811,11 +871,13 @@ export async function execGetSubtreeContent(
           depth: (n as { depth: number | null }).depth,
           locked: lockedSet.has(n.id as string),
           status: (n as { status: string | null }).status,
+          is_leaf: leafLayerIndex !== null && n.layer_index === leafLayerIndex,
           has_summary: summaryText.trim().length > 0,
           has_prose: proseText.trim().length > 0,
           summary_text: includeSummary ? summaryText : null,
           prose_text: includeProse ? proseText : null,
-          word_count_actual: (n as { word_count_actual: number | null }).word_count_actual,
+          word_count_actual: wcActual,
+          word_count_aggregate: aggregateMap.get(n.id as string) ?? wcActual ?? 0,
           word_count_target: (n as { word_count_target: number | null }).word_count_target,
         }
       }),
@@ -1066,6 +1128,103 @@ export async function execGetWorkflowHistory(
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// Leaf-layer + aggregate helpers (2026-05-18, leaf-only-prose clarity fix).
+// ---------------------------------------------------------------------------
+//
+// Prose lives only at the leaf layer (per H-15 and the leaf-only-mounting
+// design). A chapter or scene has word_count_actual=0 because it has no
+// direct prose of its own; the meaningful number for an author asking
+// "what's the chapter 1 word count?" is the sum of descendant beat
+// word counts.
+//
+// These helpers expose:
+//   is_leaf — whether the node sits at the leaf layer of its document
+//   word_count_aggregate — sum of word_count_actual over the subtree
+//     rooted at the node (including the node itself; equals
+//     word_count_actual for leaves).
+
+interface NodeForAggregate {
+  id: string
+  parent_id: string | null
+  word_count_actual: number | null
+  node_category?: string | null
+}
+
+// Build an O(N) post-order aggregate map. Each node's aggregate is its
+// own word_count_actual plus the sum of all descendants'. Structural
+// nodes only — context-node trees are independent and shouldn't roll up
+// into chapter totals.
+export function buildWordCountAggregateMap(
+  allNodes: NodeForAggregate[],
+): Map<string, number> {
+  const byParent = new Map<string | null, NodeForAggregate[]>()
+  for (const n of allNodes) {
+    if ((n.node_category ?? 'structural') !== 'structural') continue
+    const arr = byParent.get(n.parent_id) ?? []
+    arr.push(n)
+    byParent.set(n.parent_id, arr)
+  }
+
+  const out = new Map<string, number>()
+  const stack: Array<{ id: string; state: 'enter' | 'exit' }> = []
+
+  // Seed with all roots (parent_id IS NULL within the structural set).
+  for (const r of byParent.get(null) ?? []) {
+    stack.push({ id: r.id, state: 'enter' })
+  }
+
+  while (stack.length > 0) {
+    const frame = stack.pop()!
+    if (frame.state === 'enter') {
+      // Push exit marker first so we process children before summing.
+      stack.push({ id: frame.id, state: 'exit' })
+      for (const c of byParent.get(frame.id) ?? []) {
+        stack.push({ id: c.id, state: 'enter' })
+      }
+    } else {
+      const node = allNodes.find((n) => n.id === frame.id)
+      if (!node) continue
+      let sum = node.word_count_actual ?? 0
+      for (const c of byParent.get(frame.id) ?? []) {
+        sum += out.get(c.id) ?? 0
+      }
+      out.set(frame.id, sum)
+    }
+  }
+
+  // Defensive fallback for any orphaned structural node (parent missing).
+  for (const n of allNodes) {
+    if ((n.node_category ?? 'structural') !== 'structural') continue
+    if (!out.has(n.id)) out.set(n.id, n.word_count_actual ?? 0)
+  }
+
+  return out
+}
+
+// Determine the leaf-layer index for a document by reading its layer
+// stack. Leaf = max(layer.index). Single round-trip; tools that already
+// hold the document_id can call this once per request.
+export async function getLeafLayerIndex(
+  supabase: ReturnType<typeof createServiceRoleClient>,
+  documentId: string,
+): Promise<number | null> {
+  const { data: doc } = await supabase
+    .from('documents')
+    .select('layer_stack_id')
+    .eq('id', documentId)
+    .maybeSingle()
+  if (!doc?.layer_stack_id) return null
+  const { data: stack } = await supabase
+    .from('layer_stacks')
+    .select('layers')
+    .eq('id', doc.layer_stack_id)
+    .maybeSingle()
+  const layers = stack?.layers as Array<{ index: number }> | null
+  if (!layers || layers.length === 0) return null
+  return Math.max(...layers.map((l) => l.index))
+}
 
 function approxWords(value: unknown): number {
   if (!value) return 0
