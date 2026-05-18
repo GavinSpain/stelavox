@@ -995,6 +995,252 @@ export async function execFindContextReferences(
 }
 
 // ---------------------------------------------------------------------------
+// get_subtree_stats — lightweight structural-summary tool.
+// ---------------------------------------------------------------------------
+//
+// 2026-05-18. Added after testing showed the Director defaulting to
+// content-heavy tools for shape questions (e.g. "which chapters in
+// Act A don't have prose yet"), then misinterpreting per-node fields
+// when the result truncated. The fix is progressive zoom: get shape
+// first, drill into content only on the subtrees that need it.
+//
+// Returns a tree mirroring get_node_tree's shape but each node carries
+// counts (not content):
+//   is_leaf — whether this node sits at the leaf layer
+//   direct_child_count — immediate children
+//   leaf_descendant_count — leaves in subtree (excluding self)
+//   leaf_descendants_with_prose — leaves with word_count_actual > 0
+//   subtree_counts_by_layer — per-layer count + with_prose at leaf layer
+//   children — recursive (capped by max_depth)
+//
+// Aggregates are ALWAYS computed full-depth; max_depth only controls
+// whether children appear in the response. With max_depth=1 you get
+// root + immediate children's stats; max_depth=null (default) returns
+// the whole tree.
+
+interface SubtreeStatsLayerEntry {
+  layer_index: number
+  node_type: string
+  count: number
+  with_prose?: number
+}
+
+interface SubtreeStatsNode {
+  id: string
+  name: string | null
+  node_type: string
+  layer_index: number | null
+  is_leaf: boolean
+  direct_child_count: number
+  leaf_descendant_count: number
+  leaf_descendants_with_prose: number
+  subtree_counts_by_layer: SubtreeStatsLayerEntry[]
+  children: SubtreeStatsNode[]
+}
+
+interface NodeForStats {
+  id: string
+  name: string | null
+  node_type: string
+  layer_index: number | null
+  parent_id: string | null
+  node_category: string | null
+  word_count_actual: number | null
+}
+
+export async function execGetSubtreeStats(
+  args: { root_node_id: string; max_depth?: number },
+  session: DirectorSession,
+): Promise<ReadToolReturn> {
+  const supabase = createServiceRoleClient()
+  const maxDepth = args.max_depth ?? null
+
+  // Validate root.
+  const { data: root } = await supabase
+    .from('nodes')
+    .select('id')
+    .eq('id', args.root_node_id)
+    .eq('organisation_id', session.organisation_id)
+    .eq('document_id', session.document_id)
+    .maybeSingle()
+  if (!root) return { ok: false, error: 'node_not_found' }
+
+  const leafLayerIndex = await getLeafLayerIndex(supabase, session.document_id)
+
+  // Load structural nodes only (no prose/summary — this is a shape tool).
+  // word_count_actual is the cheap signal for "has prose" (M-172 trigger
+  // maintains it; no need to fetch the prose JSONB).
+  const { data: allNodes, error } = await supabase
+    .from('nodes')
+    .select('id, name, node_type, layer_index, parent_id, node_category, word_count_actual')
+    .eq('organisation_id', session.organisation_id)
+    .eq('document_id', session.document_id)
+  if (error) return { ok: false, error: 'query_failed', reason: error.message }
+
+  // Build parent → children index, structural only. Context nodes live
+  // in their own trees and shouldn't roll up into chapter aggregates.
+  const byParent = new Map<string | null, NodeForStats[]>()
+  const byId = new Map<string, NodeForStats>()
+  for (const n of allNodes ?? []) {
+    const cat = (n.node_category as string | null) ?? 'structural'
+    if (cat !== 'structural') continue
+    const node: NodeForStats = {
+      id: n.id as string,
+      name: (n.name as string | null) ?? null,
+      node_type: n.node_type as string,
+      layer_index: (n.layer_index as number | null) ?? null,
+      parent_id: (n.parent_id as string | null) ?? null,
+      node_category: cat,
+      word_count_actual: (n.word_count_actual as number | null) ?? null,
+    }
+    byId.set(node.id, node)
+    const arr = byParent.get(node.parent_id) ?? []
+    arr.push(node)
+    byParent.set(node.parent_id, arr)
+  }
+
+  function isLeafNode(n: NodeForStats): boolean {
+    return leafLayerIndex !== null && n.layer_index === leafLayerIndex
+  }
+
+  // Recursive build. Aggregates are computed full-depth regardless of
+  // max_depth; children inclusion is the only thing max_depth controls.
+  function build(nodeId: string, depth: number): SubtreeStatsNode {
+    const node = byId.get(nodeId)!
+    const directChildren = byParent.get(nodeId) ?? []
+
+    // Walk all descendants to compute aggregates. Leaf counts EXCLUDE
+    // self per the contract (is_leaf tells the caller if self is a
+    // leaf; the counts describe what's below).
+    let leafDescendantCount = 0
+    let leafDescendantsWithProse = 0
+    const layerMap = new Map<number, { node_type: string; count: number; with_prose: number; is_leaf: boolean }>()
+    function walk(currentId: string) {
+      for (const c of byParent.get(currentId) ?? []) {
+        const cIsLeaf = isLeafNode(c)
+        const layerKey = c.layer_index ?? -1
+        const entry =
+          layerMap.get(layerKey) ?? { node_type: c.node_type, count: 0, with_prose: 0, is_leaf: cIsLeaf }
+        entry.count += 1
+        if (cIsLeaf && (c.word_count_actual ?? 0) > 0) entry.with_prose += 1
+        layerMap.set(layerKey, entry)
+
+        if (cIsLeaf) {
+          leafDescendantCount += 1
+          if ((c.word_count_actual ?? 0) > 0) leafDescendantsWithProse += 1
+        }
+        walk(c.id)
+      }
+    }
+    walk(nodeId)
+
+    const subtreeCountsByLayer: SubtreeStatsLayerEntry[] = Array.from(layerMap.entries())
+      .sort((a, b) => a[0] - b[0])
+      .map(([layer_index, v]) => ({
+        layer_index,
+        node_type: v.node_type,
+        count: v.count,
+        ...(v.is_leaf ? { with_prose: v.with_prose } : {}),
+      }))
+
+    const includeChildren = maxDepth === null || depth < maxDepth
+    const childrenStats = includeChildren
+      ? directChildren.map((c) => build(c.id, depth + 1))
+      : []
+
+    return {
+      id: node.id,
+      name: node.name,
+      node_type: node.node_type,
+      layer_index: node.layer_index,
+      is_leaf: isLeafNode(node),
+      direct_child_count: directChildren.length,
+      leaf_descendant_count: leafDescendantCount,
+      leaf_descendants_with_prose: leafDescendantsWithProse,
+      subtree_counts_by_layer: subtreeCountsByLayer,
+      children: childrenStats,
+    }
+  }
+
+  return { ok: true, data: build(args.root_node_id, 0) as unknown as Record<string, unknown> }
+}
+
+// Pure-function variant for layer-1 tests. Operates on an already-loaded
+// NodeForStats list rather than hitting the DB. The leaf layer must be
+// passed in.
+export function buildSubtreeStats(
+  rootNodeId: string,
+  allNodes: NodeForStats[],
+  leafLayerIndex: number | null,
+  maxDepth: number | null = null,
+): SubtreeStatsNode | null {
+  const byParent = new Map<string | null, NodeForStats[]>()
+  const byId = new Map<string, NodeForStats>()
+  for (const n of allNodes) {
+    if ((n.node_category ?? 'structural') !== 'structural') continue
+    byId.set(n.id, n)
+    const arr = byParent.get(n.parent_id) ?? []
+    arr.push(n)
+    byParent.set(n.parent_id, arr)
+  }
+  if (!byId.has(rootNodeId)) return null
+
+  function isLeafNode(n: NodeForStats): boolean {
+    return leafLayerIndex !== null && n.layer_index === leafLayerIndex
+  }
+
+  function build(nodeId: string, depth: number): SubtreeStatsNode {
+    const node = byId.get(nodeId)!
+    const directChildren = byParent.get(nodeId) ?? []
+    let leafDescendantCount = 0
+    let leafDescendantsWithProse = 0
+    const layerMap = new Map<number, { node_type: string; count: number; with_prose: number; is_leaf: boolean }>()
+    function walk(currentId: string) {
+      for (const c of byParent.get(currentId) ?? []) {
+        const cIsLeaf = isLeafNode(c)
+        const layerKey = c.layer_index ?? -1
+        const entry =
+          layerMap.get(layerKey) ?? { node_type: c.node_type, count: 0, with_prose: 0, is_leaf: cIsLeaf }
+        entry.count += 1
+        if (cIsLeaf && (c.word_count_actual ?? 0) > 0) entry.with_prose += 1
+        layerMap.set(layerKey, entry)
+        if (cIsLeaf) {
+          leafDescendantCount += 1
+          if ((c.word_count_actual ?? 0) > 0) leafDescendantsWithProse += 1
+        }
+        walk(c.id)
+      }
+    }
+    walk(nodeId)
+    const subtreeCountsByLayer: SubtreeStatsLayerEntry[] = Array.from(layerMap.entries())
+      .sort((a, b) => a[0] - b[0])
+      .map(([layer_index, v]) => ({
+        layer_index,
+        node_type: v.node_type,
+        count: v.count,
+        ...(v.is_leaf ? { with_prose: v.with_prose } : {}),
+      }))
+    const includeChildren = maxDepth === null || depth < maxDepth
+    const childrenStats = includeChildren
+      ? directChildren.map((c) => build(c.id, depth + 1))
+      : []
+    return {
+      id: node.id,
+      name: node.name,
+      node_type: node.node_type,
+      layer_index: node.layer_index,
+      is_leaf: isLeafNode(node),
+      direct_child_count: directChildren.length,
+      leaf_descendant_count: leafDescendantCount,
+      leaf_descendants_with_prose: leafDescendantsWithProse,
+      subtree_counts_by_layer: subtreeCountsByLayer,
+      children: childrenStats,
+    }
+  }
+  return build(rootNodeId, 0)
+}
+
+// ---------------------------------------------------------------------------
 // assess_downstream_impact
 // ---------------------------------------------------------------------------
 

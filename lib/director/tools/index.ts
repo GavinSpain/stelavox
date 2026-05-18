@@ -36,6 +36,7 @@ import {
   execGetNodesByLayer,
   execGetProjectProfile,
   execGetSubtreeContent,
+  execGetSubtreeStats,
   execGetWorkflowHistory,
 } from '@/lib/director/tools/read'
 import {
@@ -120,6 +121,13 @@ const readTools: DirectorToolDefinition[] = [
     description:
       'Find every structural node that references a given context node. Use to answer "where does character X appear?", "which scenes reference the World setting?", "what uses this theme node?". Returns each referencing node with its ancestor path so it\'s self-describing. Capped at max_results (default 50, ceiling 200) with truncated:true when the cap is hit.',
     input_schema: toolInputSchemaFor('find_context_references'),
+  },
+  {
+    name: 'get_subtree_stats',
+    kind: 'read',
+    description:
+      'Lightweight structural-summary tool. Returns the shape of any subtree (per-layer node counts, leaf-descendant count, leaves-with-prose count) WITHOUT fetching content. Use this FIRST when answering completeness / coverage / "what\'s left" questions across multiple nodes — it lets you categorise each child as empty (leaf_descendant_count=0), partial (with_prose < count), or complete (with_prose === count) from the counts alone, then drill into specifics with get_subtree_content only on the subtrees that need detail. Defaults: max_depth=full (returns the whole subtree); cap with max_depth=1 to get root + immediate children only. Aggregates are always computed full-depth regardless of max_depth.',
+    input_schema: toolInputSchemaFor('get_subtree_stats'),
   },
   {
     name: 'assess_downstream_impact',
@@ -254,6 +262,7 @@ const TOOL_EXECUTORS: Record<string, ToolExecutor> = {
   get_node_tree: execGetNodeTree as ToolExecutor,
   get_subtree_content: execGetSubtreeContent as ToolExecutor,
   find_context_references: execFindContextReferences as ToolExecutor,
+  get_subtree_stats: execGetSubtreeStats as ToolExecutor,
   assess_downstream_impact: execAssessDownstreamImpact as ToolExecutor,
   get_conversation_history: execGetConversationHistory as ToolExecutor,
   get_workflow_history: execGetWorkflowHistory as ToolExecutor,

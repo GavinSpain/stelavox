@@ -290,6 +290,12 @@ export const ToolInputSchemas = {
       max_results: z.number().int().positive().max(200).optional(),
     })
     .strict(),
+  get_subtree_stats: z
+    .object({
+      root_node_id: uuidSchema,
+      max_depth: z.number().int().min(0).max(10).optional(),
+    })
+    .strict(),
   assess_downstream_impact: z
     .object({
       node_id: uuidSchema,
