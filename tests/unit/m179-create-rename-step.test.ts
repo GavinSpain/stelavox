@@ -227,6 +227,89 @@ describe.skipIf(!hasServiceKey)('M-179 execCreateRenameStep — layer 2', () => 
 // Layer 3 — invariant: rename via DB UPDATE preserves version
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Layer 1.b — buildBriefProposal must accept node_rename steps
+// (regression guard for the M-179 second-enum-copy near-miss).
+// ---------------------------------------------------------------------------
+
+describe('M-179 buildBriefProposal accepts node_rename — layer 1', () => {
+  it('Brief with a single node_rename step validates', async () => {
+    const { buildBriefProposal } = await import('@/lib/brief/proposalBuilder')
+    const brief = {
+      goal_text: 'Rename a node for clarity.',
+      preferences: {},
+      stages: [
+        {
+          order: 1,
+          title: 'Rename one node',
+          description: 'Single rename for testing',
+          trigger_type: 'manual',
+          trigger_config: {},
+          workflow: {
+            title: 'Rename',
+            description: 'Apply the rename.',
+            impact_summary: 'One node renamed.',
+            estimated_total_minutes: 1,
+            steps: [
+              {
+                order: 1,
+                operation_type: 'node_rename',
+                target_node_id: '550e8400-e29b-41d4-a716-446655440000',
+                description: 'Rename this node',
+                estimated_duration_seconds: 30,
+                parameters: { new_name: 'New Name' },
+              },
+            ],
+          },
+        },
+      ],
+    }
+    expect(() => buildBriefProposal(brief)).not.toThrow()
+  })
+
+  it('Brief with a mixed-op-type workflow including node_rename validates', async () => {
+    const { buildBriefProposal } = await import('@/lib/brief/proposalBuilder')
+    const brief = {
+      goal_text: 'Mixed workflow including a rename.',
+      preferences: {},
+      stages: [
+        {
+          order: 1,
+          title: 'Mixed',
+          description: 'Comment then rename',
+          trigger_type: 'manual',
+          trigger_config: {},
+          workflow: {
+            title: 'Mixed',
+            description: '',
+            impact_summary: '',
+            estimated_total_minutes: 1,
+            steps: [
+              {
+                order: 1,
+                operation_type: 'comment',
+                target_node_id: '550e8400-e29b-41d4-a716-446655440000',
+                description: 'Flag for rename',
+                estimated_duration_seconds: 5,
+                parameters: { comment_type: 'note', content: 'Renaming next.' },
+              },
+              {
+                order: 2,
+                operation_type: 'node_rename',
+                target_node_id: '550e8400-e29b-41d4-a716-446655440000',
+                description: 'Rename',
+                estimated_duration_seconds: 5,
+                parameters: { new_name: 'Renamed' },
+              },
+            ],
+          },
+        },
+      ],
+    }
+    expect(() => buildBriefProposal(brief)).not.toThrow()
+  })
+})
+
 describe.skipIf(!hasServiceKey)('M-179 rename invariants — layer 3', () => {
   it('UPDATE nodes SET name does NOT bump version (matches TC-A-47 / M-023 exclusion)', async () => {
     // Pick any beat with prose so version > 1; rename it; assert

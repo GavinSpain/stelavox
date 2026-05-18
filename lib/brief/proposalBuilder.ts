@@ -22,7 +22,13 @@ import { detectStageTriggerCycles } from './cycleDetector'
 const TriggerTypeSchema = z.enum(['after_stage', 'scheduled_at', 'manual', 'compound'])
 
 const StepSchema = z.object({
-  operation_type: z.enum(['expand', 'synthesise', 'refine', 'generate_context', 'comment', 'node_reorder']),
+  // Must mirror the enum in lib/director/schemas.ts (_ProposalWorkflowStepSchema).
+  // Two copies exist because this validator runs at the propose_brief
+  // tool boundary; schemas.ts is the input-schema source-of-truth that
+  // the LLM sees. M-179 added 'node_rename' to both. Keep in sync —
+  // drift will surface as invalid_brief_proposal at runtime even when
+  // every other layer accepts the new op type.
+  operation_type: z.enum(['expand', 'synthesise', 'refine', 'generate_context', 'comment', 'node_reorder', 'node_rename']),
   target_node_id: z.string().uuid(),
   description: z.string().min(1).max(2000),
   estimated_duration_seconds: z.number().int().nonnegative(),
