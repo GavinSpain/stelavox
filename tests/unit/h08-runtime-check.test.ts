@@ -20,10 +20,22 @@ import { describe, it, expect } from 'vitest'
 import { isWriteTool } from '@/lib/director/schemas'
 
 describe('B5.4 — F-100: H-08 runtime check shape detection', () => {
-  it('isWriteTool returns true for known write tools', () => {
-    expect(isWriteTool('create_synthesise_step')).toBe(true)
-    expect(isWriteTool('create_expand_step')).toBe(true)
-    expect(isWriteTool('create_refine_step')).toBe(true)
+  it('isWriteTool returns true for known write tools (Phase 2: card-surfacing only)', () => {
+    expect(isWriteTool('propose_brief')).toBe(true)
+    expect(isWriteTool('propose_profile_amendment')).toBe(true)
+    expect(isWriteTool('cancel_brief')).toBe(true)
+    expect(isWriteTool('propose_brief_amendment')).toBe(true)
+    expect(isWriteTool('report_capability_limit')).toBe(true)
+  })
+
+  it('Phase 2: create_*_step tools are NOT registered as write tools (deprecated)', () => {
+    expect(isWriteTool('create_expand_step')).toBe(false)
+    expect(isWriteTool('create_synthesise_step')).toBe(false)
+    expect(isWriteTool('create_refine_step')).toBe(false)
+    expect(isWriteTool('create_context_step')).toBe(false)
+    expect(isWriteTool('create_comment_step')).toBe(false)
+    expect(isWriteTool('create_node_reorder_step')).toBe(false)
+    expect(isWriteTool('create_rename_step')).toBe(false)
   })
 
   it('isWriteTool returns false for read tools', () => {

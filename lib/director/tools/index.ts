@@ -41,18 +41,14 @@ import {
 } from '@/lib/director/tools/read'
 import {
   execCancelBrief,
-  execCreateCommentStep,
-  execCreateContextStep,
-  execCreateExpandStep,
-  execCreateNodeReorderStep,
-  execCreateRenameStep,
-  execCreateRefineStep,
-  execCreateSynthesiseStep,
   execProposeBrief,
   execProposeBriefAmendment,
   execProposeProfileAmendment,
   execReportCapabilityLimit,
 } from '@/lib/director/tools/write'
+// Phase 2: execCreate* helpers no longer imported here — they remain
+// exported from lib/director/tools/write.ts as helpers callable from
+// tests, but they're no longer registered as tools the LLM can invoke.
 import { toolInputSchemaFor } from '@/lib/director/tool-schema'
 
 // ---------------------------------------------------------------------------
@@ -158,55 +154,17 @@ const readTools: DirectorToolDefinition[] = [
 // ---------------------------------------------------------------------------
 
 const writeTools: DirectorToolDefinition[] = [
-  {
-    name: 'create_expand_step',
-    kind: 'write',
-    description:
-      'Propose a step that runs the expand agent on a structural node — generates child nodes one layer down. Returns a workflow step proposal; nothing executes until the author approves.',
-    input_schema: toolInputSchemaFor('create_expand_step'),
-  },
-  {
-    name: 'create_synthesise_step',
-    kind: 'write',
-    description:
-      'Propose a step that runs the synthesise agent on a leaf node — generates prose from the node\'s summary + linked context. Returns a workflow step proposal; nothing executes until approved.',
-    input_schema: toolInputSchemaFor('create_synthesise_step'),
-  },
-  {
-    name: 'create_refine_step',
-    kind: 'write',
-    description:
-      'Propose a step that runs the refine agent on a single field of a node (summary | prose | notes | metadata) with a specific instruction. Returns a workflow step proposal; nothing executes until approved.',
-    input_schema: toolInputSchemaFor('create_refine_step'),
-  },
-  {
-    name: 'create_context_step',
-    kind: 'write',
-    description:
-      'Propose a step that generates a context node\'s content from scratch or from a partial seed. context_type must be one of the V1 core types. Returns a workflow step proposal; nothing executes until approved.',
-    input_schema: toolInputSchemaFor('create_context_step'),
-  },
-  {
-    name: 'create_comment_step',
-    kind: 'write',
-    description:
-      'Propose a step that posts an editorial comment on a node — useful for surfacing concerns or notes to the author without modifying content. Comments are admitted on locked nodes. Returns a workflow step proposal; nothing executes until approved.',
-    input_schema: toolInputSchemaFor('create_comment_step'),
-  },
-  {
-    name: 'create_node_reorder_step',
-    kind: 'write',
-    description:
-      'Propose a step that reorders a node within its current parent (or moves it to a new parent if parent_id is provided). new_order is 1-indexed (Phase 2 convention). Returns a workflow step proposal; nothing executes until approved.',
-    input_schema: toolInputSchemaFor('create_node_reorder_step'),
-  },
-  {
-    name: 'create_rename_step',
-    kind: 'write',
-    description:
-      "Propose a step that renames a node by updating its `name` field. new_name is trimmed and must be 1-200 characters. Renaming is a metadata operation — it does NOT bump the node's content version (matches the API-side behaviour). Use for cases like disambiguating multiple nodes that share the same name, fixing typos, or restructuring names for clarity. Returns a workflow step proposal; nothing executes until approved.",
-    input_schema: toolInputSchemaFor('create_rename_step'),
-  },
+  // 2026-05-19 Phase 2 of create_*_step deprecation refactor:
+  // the six per-step tools are no longer registered. Every workflow
+  // step is now embedded directly in propose_brief's workflow.steps
+  // array — single, predictable write pattern. The executors remain
+  // exported from lib/director/tools/write.ts as helpers (callable
+  // from tests; not exposed to the LLM).
+  //
+  // Validation that previously lived in create_*_step (per-op-type
+  // parameters, target-node existence, author-lock check) moved to
+  // execProposeBrief in Phase 1 — see lib/brief/proposalBuilder.ts
+  // StepSchema (discriminated union) and buildBriefStepDiagnostics.
   {
     name: 'propose_brief',
     kind: 'write',
@@ -274,14 +232,11 @@ const TOOL_EXECUTORS: Record<string, ToolExecutor> = {
   assess_downstream_impact: execAssessDownstreamImpact as ToolExecutor,
   get_conversation_history: execGetConversationHistory as ToolExecutor,
   get_workflow_history: execGetWorkflowHistory as ToolExecutor,
-  // write
-  create_expand_step: execCreateExpandStep as ToolExecutor,
-  create_synthesise_step: execCreateSynthesiseStep as ToolExecutor,
-  create_refine_step: execCreateRefineStep as ToolExecutor,
-  create_context_step: execCreateContextStep as ToolExecutor,
-  create_comment_step: execCreateCommentStep as ToolExecutor,
-  create_node_reorder_step: execCreateNodeReorderStep as ToolExecutor,
-  create_rename_step: execCreateRenameStep as ToolExecutor,
+  // write — Phase 2 of create_*_step deprecation removed the six
+  // create_*_step executors from the dispatch map. The executor
+  // functions themselves are still exported from
+  // lib/director/tools/write.ts as helpers (tests still call them
+  // directly), but they're no longer reachable from a tool_use call.
   propose_brief: execProposeBrief as ToolExecutor,
   propose_profile_amendment: execProposeProfileAmendment as ToolExecutor,
   cancel_brief: execCancelBrief as ToolExecutor,

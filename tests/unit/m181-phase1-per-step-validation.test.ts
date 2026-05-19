@@ -270,9 +270,11 @@ describe.skipIf(!hasServiceKey)('Phase 1 — per-step author-lock check', () => 
   let lockedNodeId: string | null = null
 
   beforeAll(async () => {
-    lockedNodeId = await findId('Salvage', 'chapter')
+    // Lock a less-trafficked node so parallel test suites (M-180,
+    // M-176) reading their own counts on Salvage aren't tripped by
+    // residual lock state.
+    lockedNodeId = await findId('The Iron Ghost', 'scene')
     if (!lockedNodeId) return
-    // Insert a lock; tear down after the suite.
     const { error } = await svc.from('node_author_locks').insert({
       node_id: lockedNodeId,
       organisation_id: ORG_ID,

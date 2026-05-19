@@ -461,14 +461,16 @@ export const READ_TOOL_NAMES: readonly ToolName[] = [
   'get_workflow_history',
 ] as const
 
+// Phase 2 (2026-05-19): create_*_step removed from the LLM-facing write
+// surface. Workflow steps embed directly inside propose_brief's
+// workflow.steps array; propose_brief validates per-op-type parameters
+// + target_node existence + author-lock state at the proposal
+// boundary, with per_step_errors diagnostics on failure.
+// The ToolInputSchemas entries for create_* remain because the
+// individual executor helpers still use them (and existing tests
+// reference them); they're just not visible to the LLM via
+// WRITE_TOOL_NAMES or the tool registry.
 export const WRITE_TOOL_NAMES: readonly ToolName[] = [
-  'create_expand_step',
-  'create_synthesise_step',
-  'create_refine_step',
-  'create_context_step',
-  'create_comment_step',
-  'create_node_reorder_step',
-  'create_rename_step',
   'propose_brief',
   'propose_profile_amendment',
   'cancel_brief',

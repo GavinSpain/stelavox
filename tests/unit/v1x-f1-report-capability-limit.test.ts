@@ -100,9 +100,9 @@ describe('report_capability_limit registry wiring (V1.x-F.1)', () => {
     expect(isWriteTool('report_capability_limit')).toBe(true)
   })
 
-  it('appears in WRITE_TOOL_NAMES (12 total post-M-179: V1.x-F.1 11 + create_rename_step)', () => {
+  it('appears in WRITE_TOOL_NAMES (5 total after Phase 2 of create_*_step deprecation)', () => {
     expect(WRITE_TOOL_NAMES).toContain('report_capability_limit')
-    expect(WRITE_TOOL_NAMES.length).toBe(12)
+    expect(WRITE_TOOL_NAMES.length).toBe(5)
   })
 
   it('zod schema accepts a valid artefact', () => {
