@@ -21,20 +21,107 @@ import { detectStageTriggerCycles } from './cycleDetector'
 
 const TriggerTypeSchema = z.enum(['after_stage', 'scheduled_at', 'manual', 'compound'])
 
-const StepSchema = z.object({
-  // Must mirror the enum in lib/director/schemas.ts (_ProposalWorkflowStepSchema).
-  // Two copies exist because this validator runs at the propose_brief
-  // tool boundary; schemas.ts is the input-schema source-of-truth that
-  // the LLM sees. M-179 added 'node_rename' to both. Keep in sync —
-  // drift will surface as invalid_brief_proposal at runtime even when
-  // every other layer accepts the new op type.
-  operation_type: z.enum(['expand', 'synthesise', 'refine', 'generate_context', 'comment', 'node_reorder', 'node_rename']),
+// ---------------------------------------------------------------------------
+// Per-operation-type parameter schemas.
+// ---------------------------------------------------------------------------
+//
+// 2026-05-19 (Phase 1 of create_*_step deprecation): validation moves
+// from the per-step create_*_step input schemas (one Zod schema per
+// tool) into a discriminated union here, at the propose_brief boundary.
+// The model can no longer "build a step and forget to propose it" —
+// because the only path to a card is propose_brief, and propose_brief
+// validates every step's parameters strictly.
+//
+// Each schema mirrors the corresponding create_*_step input schema in
+// lib/director/schemas.ts (which is still the LLM's tool input schema
+// while create_*_step remains in the registry; Phase 2 removes them).
+// Same comment as M-179 applies: keep these in sync until create_*_step
+// is fully retired.
+
+const ExpandParamsSchema = z.object({
+  child_count_target: z.number().int().positive().max(20).optional(),
+}).strict()
+
+const SynthesiseParamsSchema = z.object({}).strict()
+
+const RefineParamsSchema = z.object({
+  target_field: z.enum(['summary', 'prose', 'notes', 'metadata']),
+  instruction: z.string().min(1).max(2000),
+}).strict()
+
+const GenerateContextParamsSchema = z.object({
+  context_type: z.enum(['character', 'location', 'organisation', 'theme', 'plot_thread', 'world']),
+  seed_content: z.string().max(10_000).optional(),
+}).strict()
+
+const CommentParamsSchema = z.object({
+  comment_type: z.enum(['instruction', 'question', 'note', 'critique', 'approval']),
+  content: z.string().min(1).max(5000),
+}).strict()
+
+const NodeReorderParamsSchema = z.object({
+  new_order: z.number().int().positive(),
+  parent_id: z.string().uuid().optional(),
+}).strict()
+
+const NodeRenameParamsSchema = z.object({
+  new_name: z.string().transform((s) => s.trim()).pipe(z.string().min(1).max(200)),
+}).strict()
+
+// ---------------------------------------------------------------------------
+// Step schema as a discriminated union by operation_type.
+// ---------------------------------------------------------------------------
+//
+// Discriminated union (vs the previous open-parameters object) means
+// Zod errors carry a precise path like ['parameters', 'instruction'] for
+// any invalid parameters value — the model can act on the diagnostic
+// without guessing which field is wrong. Adding a new op_type adds one
+// variant here + one workflow-executor branch; no new tool needed.
+
+const baseStepFields = {
   target_node_id: z.string().uuid(),
   description: z.string().min(1).max(2000),
   estimated_duration_seconds: z.number().int().nonnegative(),
-  parameters: z.record(z.string(), z.unknown()).optional().default({}),
   depends_on_step_orders: z.array(z.number().int().positive()).optional(),
-})
+}
+
+const StepSchema = z.discriminatedUnion('operation_type', [
+  z.object({
+    ...baseStepFields,
+    operation_type: z.literal('expand'),
+    parameters: ExpandParamsSchema.optional().default({}),
+  }),
+  z.object({
+    ...baseStepFields,
+    operation_type: z.literal('synthesise'),
+    parameters: SynthesiseParamsSchema.optional().default({}),
+  }),
+  z.object({
+    ...baseStepFields,
+    operation_type: z.literal('refine'),
+    parameters: RefineParamsSchema,
+  }),
+  z.object({
+    ...baseStepFields,
+    operation_type: z.literal('generate_context'),
+    parameters: GenerateContextParamsSchema,
+  }),
+  z.object({
+    ...baseStepFields,
+    operation_type: z.literal('comment'),
+    parameters: CommentParamsSchema,
+  }),
+  z.object({
+    ...baseStepFields,
+    operation_type: z.literal('node_reorder'),
+    parameters: NodeReorderParamsSchema,
+  }),
+  z.object({
+    ...baseStepFields,
+    operation_type: z.literal('node_rename'),
+    parameters: NodeRenameParamsSchema,
+  }),
+])
 
 const WorkflowSchema = z.object({
   title: z.string().min(1).max(200),

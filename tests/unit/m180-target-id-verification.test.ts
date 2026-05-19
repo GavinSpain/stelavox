@@ -146,14 +146,20 @@ describe.skipIf(!hasServiceKey)('M-180 execProposeBrief integration — layer 2'
     }
   }
 
-  it('rejects propose_brief with hallucinated target_node_id', async () => {
+  it('rejects propose_brief with hallucinated target_node_id (Phase 1: per_step_errors)', async () => {
     const fake = '7a5e55c5-1bb0-4ebc-9234-a9b97e8f0b8f'
     const r = await execProposeBrief(briefWithTarget(fake), session)
     expect(r.ok).toBe(false)
     if (!r.ok) {
-      expect(r.error).toBe('target_node_ids_not_found')
-      expect(r.reason).toContain(fake)
-      expect(r.reason).toContain('find_node_by_name')
+      expect(r.error).toBe('invalid_brief_proposal')
+      expect(r.per_step_errors).toBeTruthy()
+      expect(r.per_step_errors).toHaveLength(1)
+      const e = r.per_step_errors![0]
+      expect(e.error).toBe('target_node_not_found')
+      expect(e.target_node_id).toBe(fake)
+      expect(e.stage_order).toBe(1)
+      expect(e.step_index).toBe(0)
+      expect(e.reason).toContain('find_node_by_name')
     }
   })
 
@@ -221,11 +227,20 @@ describe.skipIf(!hasServiceKey)('M-180 execProposeBrief integration — layer 2'
     const r = await execProposeBrief(observed, session)
     expect(r.ok).toBe(false)
     if (!r.ok) {
-      expect(r.error).toBe('target_node_ids_not_found')
-      // All three hallucinated IDs are flagged.
-      expect(r.reason).toContain('7a5e55c5')
-      expect(r.reason).toContain('3d5f4e72')
-      expect(r.reason).toContain('9c8e2b1a')
+      expect(r.error).toBe('invalid_brief_proposal')
+      expect(r.per_step_errors).toBeTruthy()
+      expect(r.per_step_errors).toHaveLength(3)
+      // Each per_step_errors entry pins (stage_order, step_index) +
+      // the hallucinated id that didn't exist.
+      const ids = r.per_step_errors!.map((e) => e.target_node_id)
+      expect(ids).toContain('7a5e55c5-1bb0-4ebc-9234-a9b97e8f0b8f')
+      expect(ids).toContain('3d5f4e72-0f1c-4c3a-8c56-2f8b1d4a9e6c')
+      expect(ids).toContain('9c8e2b1a-5f3d-4e7c-9a1d-6b2f8c4a1e9d')
+      // Each lands at step_index 0/1/2 in stage_order 1.
+      const stepIndices = r.per_step_errors!.map((e) => e.step_index).sort()
+      expect(stepIndices).toEqual([0, 1, 2])
+      expect(r.per_step_errors!.every((e) => e.stage_order === 1)).toBe(true)
+      expect(r.per_step_errors!.every((e) => e.error === 'target_node_not_found')).toBe(true)
     }
   })
 })

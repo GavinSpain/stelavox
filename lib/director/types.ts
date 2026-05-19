@@ -156,6 +156,40 @@ export interface ToolErrorResult {
   ok: false
   error: string
   reason?: string
+  /**
+   * Per-step diagnostics for write tools that validate a list of
+   * workflow steps (propose_brief, propose_brief_amendment with
+   * add_stage / modify_pending_stage). Populated when one or more
+   * steps fail shape, target-id, or lock checks; absent when the
+   * error is at the proposal-level (e.g. missing first stage).
+   *
+   * Each entry carries the location (stage_order + step_index) so the
+   * model can match the diagnostic back to the JSON it sent without
+   * re-parsing the whole structure.
+   */
+  per_step_errors?: PerStepError[]
+}
+
+/**
+ * 2026-05-19 — per-step diagnostic for write-tool validation failures.
+ * Phase 1 of the create_*_step deprecation refactor. The model gets
+ * structured, actionable feedback for every problematic step in a
+ * Brief proposal in one tool_result, instead of trial-and-error
+ * one-error-at-a-time iterations.
+ */
+export interface PerStepError {
+  /** Stage's `order` field as the model supplied it (1-indexed). */
+  stage_order: number
+  /** Step's 0-indexed position in the stage's workflow.steps array. */
+  step_index: number
+  /** Short error code: e.g. 'invalid_parameters', 'target_node_not_found', 'node_locked', 'node_in_progress'. */
+  error: string
+  /** Human-readable reason — what's wrong and how to fix it. */
+  reason: string
+  /** When the issue is on a specific field, the path inside the step (e.g. ['parameters', 'instruction']). */
+  path?: (string | number)[]
+  /** When the issue is target_node_not_found, the id that didn't exist. */
+  target_node_id?: string
 }
 
 export type ToolResult = ReadToolResult | WriteToolResult | ToolErrorResult

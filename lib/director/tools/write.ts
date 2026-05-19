@@ -24,9 +24,14 @@
 
 import 'server-only'
 
+import { z } from 'zod'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import type {
+  BriefProposal,
+} from '@/lib/brief/types'
+import type {
   DirectorSession,
+  PerStepError,
   ToolErrorResult,
   WorkflowStepProposal,
   WriteToolResult,
@@ -35,32 +40,167 @@ import type {
 type WriteToolReturn = WriteToolResult | ToolErrorResult
 
 /** Lightweight target-node existence + org/document scope check. */
-// 2026-05-18 M-180: FK-verification at propose_brief boundary. Checks
-// that every target_node_id in a Brief's workflow steps exists within
-// the session's org+document. Catches the cross-turn ID-hallucination
-// failure shape (model "remembers" a UUID from a prior turn that's
-// actually a confabulation; the UUID is well-formed so the M-177
-// sentinel-UUID guard doesn't catch it). Returned shape gives the
-// caller the list of missing IDs so the rejection message can teach
-// the model what to do next.
+// 2026-05-18 M-180: FK-verification at propose_brief boundary. Catches
+// the cross-turn ID-hallucination failure shape (model "remembers" a
+// UUID from a prior turn that's actually a confabulation; the UUID is
+// well-formed so the M-177 sentinel-UUID guard doesn't catch it).
+// 2026-05-19 Phase 1: refactored to share checkNodesExist with the new
+// per-step diagnostics helper. External signature unchanged so
+// existing M-180 layer-2 tests still pass.
 export async function verifyProposedTargetNodeIds(
   session: DirectorSession,
   ids: string[],
 ): Promise<{ ok: true } | { ok: false; missingIds: string[] }> {
   if (ids.length === 0) return { ok: true }
-  const supabase = createServiceRoleClient()
-  // De-duplicate before query — same id may appear in multiple steps.
   const unique = Array.from(new Set(ids))
-  const { data: existing } = await supabase
+  const existingIds = await checkNodesExist(session, unique)
+  const missingIds = unique.filter((id) => !existingIds.has(id))
+  if (missingIds.length === 0) return { ok: true }
+  return { ok: false, missingIds }
+}
+
+/** Bulk existence check scoped to the session's org + document. */
+async function checkNodesExist(
+  session: DirectorSession,
+  ids: string[],
+): Promise<Set<string>> {
+  if (ids.length === 0) return new Set()
+  const supabase = createServiceRoleClient()
+  const unique = Array.from(new Set(ids))
+  const { data } = await supabase
     .from('nodes')
     .select('id')
     .eq('organisation_id', session.organisation_id)
     .eq('document_id', session.document_id)
     .in('id', unique)
-  const existingIds = new Set((existing ?? []).map((n) => n.id as string))
-  const missingIds = unique.filter((id) => !existingIds.has(id))
-  if (missingIds.length === 0) return { ok: true }
-  return { ok: false, missingIds }
+  return new Set((data ?? []).map((n) => n.id as string))
+}
+
+/** Bulk author-lock check for a set of node ids. */
+async function checkNodeLocks(
+  ids: string[],
+): Promise<Map<string, { locked_by_user_id: string; lock_reason: string | null }>> {
+  if (ids.length === 0) return new Map()
+  const supabase = createServiceRoleClient()
+  const unique = Array.from(new Set(ids))
+  const { data } = await supabase
+    .from('node_author_locks')
+    .select('node_id, locked_by_user_id, lock_reason')
+    .in('node_id', unique)
+  return new Map(
+    (data ?? []).map((r) => [
+      r.node_id as string,
+      {
+        locked_by_user_id: r.locked_by_user_id as string,
+        lock_reason: r.lock_reason as string | null,
+      },
+    ]),
+  )
+}
+
+/**
+ * 2026-05-19 Phase 1 — walk a Brief proposal and produce per-step
+ * diagnostics for any step with a missing or locked target_node_id.
+ * Caller is responsible for surfacing the diagnostics in the tool
+ * return; this helper just builds the list.
+ *
+ * Locks are checked only for nodes that actually exist (no point
+ * locking a non-existent id). The two checks are independent — both
+ * may report on the same step.
+ */
+async function buildBriefStepDiagnostics(
+  session: DirectorSession,
+  proposal: BriefProposal,
+): Promise<PerStepError[]> {
+  const allTargets: string[] = []
+  for (const stage of proposal.stages) {
+    if (!stage.workflow) continue
+    for (const step of stage.workflow.steps) {
+      if (step.target_node_id) allTargets.push(step.target_node_id)
+    }
+  }
+  if (allTargets.length === 0) return []
+
+  const existingIds = await checkNodesExist(session, allTargets)
+  const locks = await checkNodeLocks(Array.from(existingIds))
+
+  const errors: PerStepError[] = []
+  for (const stage of proposal.stages) {
+    if (!stage.workflow) continue
+    for (let i = 0; i < stage.workflow.steps.length; i++) {
+      const step = stage.workflow.steps[i]
+      if (!step.target_node_id) continue
+      if (!existingIds.has(step.target_node_id)) {
+        errors.push({
+          stage_order: stage.order,
+          step_index: i,
+          error: 'target_node_not_found',
+          reason: `target_node_id ${step.target_node_id} does not exist in this document. Re-call find_node_by_name to ground the id in THIS turn's tool result; do not rely on remembered ids from prior turns.`,
+          target_node_id: step.target_node_id,
+        })
+        continue
+      }
+      const lock = locks.get(step.target_node_id)
+      if (lock) {
+        errors.push({
+          stage_order: stage.order,
+          step_index: i,
+          error: 'node_locked',
+          reason: `Target node is locked${lock.lock_reason ? ` (reason: ${lock.lock_reason})` : ''}. The author must unlock it before this step can run. Surface this in your prose summary and ask whether to skip the step or wait.`,
+          target_node_id: step.target_node_id,
+        })
+      }
+    }
+  }
+  return errors
+}
+
+/**
+ * 2026-05-19 Phase 1 — map Zod issues from buildBriefProposal failure
+ * into per_step_errors (when the path points at a specific step) and
+ * a list of other issues (proposal-level errors).
+ *
+ * Path shape for step-level issues: ['stages', N, 'workflow', 'steps', M, ...rest]
+ * — stage index at path[1], step index at path[4]. We pull stage_order
+ * from the raw input args (the model-supplied `order` field on the
+ * stage) so the diagnostic uses the model's reference frame, not the
+ * post-Zod-parse positional one.
+ */
+function parseZodIssuesToStepErrors(
+  args: Record<string, unknown>,
+  issues: z.ZodIssue[],
+): { stepErrors: PerStepError[]; otherIssues: string[] } {
+  const stepErrors: PerStepError[] = []
+  const otherIssues: string[] = []
+  const stagesArg = (args as { stages?: Array<{ order?: unknown }> }).stages ?? []
+
+  for (const issue of issues) {
+    const path = issue.path
+    if (
+      path.length >= 5 &&
+      path[0] === 'stages' &&
+      path[2] === 'workflow' &&
+      path[3] === 'steps' &&
+      typeof path[1] === 'number' &&
+      typeof path[4] === 'number'
+    ) {
+      const stageIndex = path[1]
+      const stepIndex = path[4]
+      const stageOrderRaw = stagesArg[stageIndex]?.order
+      const stageOrder =
+        typeof stageOrderRaw === 'number' && stageOrderRaw > 0 ? stageOrderRaw : stageIndex + 1
+      stepErrors.push({
+        stage_order: stageOrder,
+        step_index: stepIndex,
+        error: 'invalid_step_shape',
+        reason: issue.message,
+        path: path.slice(5) as (string | number)[],
+      })
+    } else {
+      otherIssues.push(`${path.join('.')}: ${issue.message}`)
+    }
+  }
+  return { stepErrors, otherIssues }
 }
 
 async function verifyTargetNode(
@@ -367,75 +507,91 @@ export async function execProposeBrief(
   // already in another active Brief's pending workflow steps; the
   // Director surfaces these in the BriefProposalCard pre-approval.
 
+  // ---- Phase 1: Zod shape + per-op-type parameter validation -----------
+  //
+  // 2026-05-19 Phase 1 of the create_*_step deprecation refactor.
+  // buildBriefProposal now validates each workflow step's parameters
+  // against a discriminated-union schema keyed by operation_type. A
+  // refine step missing `parameters.instruction`, an expand step with
+  // a non-integer `parameters.child_count_target`, etc., are all
+  // caught here — with structured Zod paths that map cleanly to
+  // (stage_order, step_index, [parameters, fieldname]).
   const { buildBriefProposal } = await import('@/lib/brief/proposalBuilder')
+  let proposal: BriefProposal
   try {
-    const proposal = buildBriefProposal(args)
-
-    // Collect target node IDs across all stages' workflow steps.
-    const proposedTargetNodeIds: string[] = []
-    for (const stage of proposal.stages) {
-      const workflow = (stage as { workflow?: { steps?: Array<{ target_node_id?: string }> } }).workflow
-      if (workflow?.steps) {
-        for (const step of workflow.steps) {
-          if (step.target_node_id) proposedTargetNodeIds.push(step.target_node_id)
-        }
-      }
-    }
-
-    // 2026-05-18 M-180: FK verification at the propose_brief boundary.
-    // The individual create_*_step tools verify target_node_id via
-    // verifyTargetNode, but the model can hand-roll a propose_brief
-    // payload directly (skipping the per-step tools), bypassing those
-    // guards. Without this check, hallucinated target_node_ids from
-    // cross-turn memory pass shape validation and only surface as
-    // not_found at execution time. Loud rejection here gives the model
-    // a teaching error that names find_node_by_name as the right next
-    // move.
-    if (proposedTargetNodeIds.length > 0) {
-      const verify = await verifyProposedTargetNodeIds(
-        session,
-        proposedTargetNodeIds,
-      )
-      if (!verify.ok) {
-        return {
-          ok: false,
-          error: 'target_node_ids_not_found',
-          reason: `${verify.missingIds.length} target_node_id(s) in this Brief do not exist in document ${session.document_id}: ${verify.missingIds.join(', ')}. Do NOT rely on node_ids you "remember" from prior turns — the conversation rolling window may not include those tool results, and any "remembered" id may be a hallucination. Call find_node_by_name (or another read tool) to re-ground the ids in THIS turn's tool results, then retry propose_brief.`,
-        }
-      }
-    }
-
-    let concurrentEditWarning: unknown = null
-    if (proposedTargetNodeIds.length > 0) {
-      const { detectConcurrentEditWarning } = await import('@/lib/brief/nodeReservationWarnings')
-      concurrentEditWarning = await detectConcurrentEditWarning(session.document_id, proposedTargetNodeIds)
-    }
-
-    return {
-      ok: true,
-      brief_proposal: {
-        goal_text: proposal.goal_text,
-        preferences: {},
-        stages: proposal.stages.map((s) => ({
-          order: s.order,
-          title: s.title,
-          description: s.description,
-          trigger_type: s.trigger_type,
-          trigger_config: s.trigger_config as Record<string, unknown>,
-        })),
-      },
-      brief_proposal_full: {
-        ...(proposal as unknown as Record<string, unknown>),
-        ...(concurrentEditWarning ? { concurrent_edit_warning: concurrentEditWarning } : {}),
-      } as Record<string, unknown>,
-    } as WriteToolReturn
+    proposal = buildBriefProposal(args)
   } catch (e: unknown) {
+    if (e instanceof z.ZodError) {
+      const { stepErrors, otherIssues } = parseZodIssuesToStepErrors(args, e.issues)
+      return {
+        ok: false,
+        error: 'invalid_brief_proposal',
+        reason:
+          otherIssues.length > 0
+            ? otherIssues.join('; ')
+            : `${stepErrors.length} workflow step(s) failed shape validation; see per_step_errors. Each entry names the (stage_order, step_index, path) where the problem is.`,
+        ...(stepErrors.length > 0 ? { per_step_errors: stepErrors } : {}),
+      }
+    }
     return {
       ok: false,
       error: 'invalid_brief_proposal',
       reason: e instanceof Error ? e.message : String(e),
     }
   }
+
+  // ---- Phase 2: DB existence + author-lock checks per step --------------
+  //
+  // Replaces the M-180 single-error-code path. Now produces per-step
+  // diagnostics so the model sees every problem in one round-trip.
+  // Existence errors win over lock errors (you can't lock a node that
+  // doesn't exist).
+  const stepDiagnostics = await buildBriefStepDiagnostics(session, proposal)
+  if (stepDiagnostics.length > 0) {
+    return {
+      ok: false,
+      error: 'invalid_brief_proposal',
+      reason: `${stepDiagnostics.length} workflow step(s) failed DB validation; see per_step_errors. Common causes: target_node_id not in this document (re-ground via find_node_by_name); target node is currently locked.`,
+      per_step_errors: stepDiagnostics,
+    }
+  }
+
+  // ---- Phase 3: concurrent-edit warning (soft, non-blocking) ------------
+  const proposedTargetNodeIds: string[] = []
+  for (const stage of proposal.stages) {
+    if (stage.workflow?.steps) {
+      for (const step of stage.workflow.steps) {
+        if (step.target_node_id) proposedTargetNodeIds.push(step.target_node_id)
+      }
+    }
+  }
+  let concurrentEditWarning: unknown = null
+  if (proposedTargetNodeIds.length > 0) {
+    const { detectConcurrentEditWarning } = await import('@/lib/brief/nodeReservationWarnings')
+    concurrentEditWarning = await detectConcurrentEditWarning(
+      session.document_id,
+      proposedTargetNodeIds,
+    )
+  }
+
+  return {
+    ok: true,
+    brief_proposal: {
+      goal_text: proposal.goal_text,
+      preferences: {},
+      stages: proposal.stages.map((s) => ({
+        order: s.order,
+        title: s.title,
+        description: s.description,
+        trigger_type: s.trigger_type,
+        trigger_config: s.trigger_config as Record<string, unknown>,
+      })),
+    },
+    brief_proposal_full: {
+      ...(proposal as unknown as Record<string, unknown>),
+      ...(concurrentEditWarning ? { concurrent_edit_warning: concurrentEditWarning } : {}),
+    } as Record<string, unknown>,
+  } as WriteToolReturn
 }
 
 // ---------------------------------------------------------------------------
