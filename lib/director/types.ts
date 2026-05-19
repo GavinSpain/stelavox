@@ -34,15 +34,13 @@ export type WorkflowStepStatus =
 
 export type ConversationMessageRole = 'user' | 'assistant'
 
-/** Output of write-tool executors — accumulated by the agentic loop. */
-export interface WorkflowStepProposal {
-  operation_type: WorkflowStepOperationType
-  target_node_id: string
-  parameters: Record<string, unknown>
-  description: string
-  estimated_duration_seconds: number
-  depends_on_step_orders?: number[]
-}
+// 2026-05-19 Phase 3 cleanup: `WorkflowStepProposal` interface removed.
+// It was the create_*_step return shape (Phase 2 dropped those tools)
+// and is no longer used anywhere in lib/. The Zod
+// `WorkflowStepProposalSchema` in lib/director/schemas.ts is separate
+// and stays — it's used by the legacy `<workflow_proposal>` XML
+// parser as a defensive fallback (parse-message-proposals.ts) for
+// model responses that emit the older XML block format.
 
 /** Tool registry entry. */
 export type ToolKind = 'read' | 'write'
@@ -71,19 +69,21 @@ export interface ReadToolResult {
 /**
  * Output of a write tool — produces a proposal artefact, no DB write.
  *
- * V1.x-A.1: brief_amendment_proposal replaced by profile_amendment_proposal
- * (V1.x-A's Brief amendments are no longer modelled; Brief amendments
- * become a V1.x-B candidate). Two optional fields are mutually exclusive
- * for the Director's proposal stream:
- *   - `proposal` — legacy workflow-step shape (kept for any in-flight
- *     uses; not emitted by V1.x-A.1 tools directly)
- *   - `brief_proposal` — operation-level Brief artefact (full proposal
- *     including stages + first-stage workflow lives in `brief_proposal_full`)
- *   - `profile_amendment_proposal` — Profile preference / goal_text delta
+ * 2026-05-19 Phase 3 cleanup: the legacy `proposal?: WorkflowStepProposal`
+ * field is removed. It was the V1.x-A vintage shape emitted by the
+ * `create_*_step` tools; Phase 2 removed those tools from the registry,
+ * so no producer remains. Workflow steps now embed directly inside
+ * propose_brief's workflow.steps and are validated at that boundary.
+ *
+ * Card-surfacing artefacts (one per write tool, mutually exclusive):
+ *   - brief_proposal + brief_proposal_full — propose_brief
+ *   - profile_amendment_proposal — propose_profile_amendment
+ *   - brief_cancellation_proposal — cancel_brief
+ *   - brief_amendment_proposal — propose_brief_amendment
+ *   - capability_limit_proposal — report_capability_limit
  */
 export interface WriteToolResult {
   ok: true
-  proposal?: WorkflowStepProposal
   brief_proposal?: BriefProposalArtefact
   /** Full validated Brief proposal — serialised onto tool_result.content. */
   brief_proposal_full?: Record<string, unknown>

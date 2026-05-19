@@ -331,83 +331,15 @@ export const ToolInputSchemas = {
     })
     .strict(),
 
-  // Write tools (6) — input is the proposal-construction parameters; the
-  // executor wraps the result as a WorkflowStepProposal
-  create_expand_step: z
-    .object({
-      target_node_id: uuidSchema,
-      child_count_target: z.number().int().positive().max(20).optional(),
-      description: z.string().min(1).max(2_000),
-      estimated_duration_seconds: nonNegativeIntSchema,
-    })
-    .strict(),
-  create_synthesise_step: z
-    .object({
-      target_node_id: uuidSchema,
-      description: z.string().min(1).max(2_000),
-      estimated_duration_seconds: nonNegativeIntSchema,
-    })
-    .strict(),
-  create_refine_step: z
-    .object({
-      target_node_id: uuidSchema,
-      target_field: z.enum(['summary', 'prose', 'notes', 'metadata']),
-      instruction: z.string().min(1).max(2_000),
-      description: z.string().min(1).max(2_000),
-      estimated_duration_seconds: nonNegativeIntSchema,
-    })
-    .strict(),
-  create_context_step: z
-    .object({
-      target_node_id: uuidSchema,
-      context_type: z.enum([
-        'character',
-        'location',
-        'organisation',
-        'theme',
-        'plot_thread',
-        'world',
-      ]),
-      seed_content: z.string().max(10_000).optional(),
-      description: z.string().min(1).max(2_000),
-      estimated_duration_seconds: nonNegativeIntSchema,
-    })
-    .strict(),
-  create_comment_step: z
-    .object({
-      target_node_id: uuidSchema,
-      // F-242 (round-3 audit): aligned to the 5-type set the UI exposes.
-      // Pre-fix admitted only 'instruction' | 'note' — Director couldn't
-      // create question/critique/approval comments via workflow-step.
-      // DB CHECK constraint (Migration 046) enforces the same whitelist.
-      comment_type: z.enum(['instruction', 'question', 'note', 'critique', 'approval']),
-      content: z.string().min(1).max(5_000),
-      description: z.string().min(1).max(2_000),
-      estimated_duration_seconds: nonNegativeIntSchema,
-    })
-    .strict(),
-  create_node_reorder_step: z
-    .object({
-      target_node_id: uuidSchema,
-      new_order: positiveIntSchema,
-      parent_id: uuidSchema.optional(),
-      description: z.string().min(1).max(2_000),
-      estimated_duration_seconds: nonNegativeIntSchema,
-    })
-    .strict(),
-  create_rename_step: z
-    .object({
-      target_node_id: uuidSchema,
-      // new_name: trim, 1-200 chars after trim. Mirrors the API-side
-      // nameField constraint in lib/validation/nodes.ts so the
-      // Director can't propose a name the PATCH route would reject.
-      new_name: z.string().transform((s) => s.trim()).pipe(z.string().min(1).max(200)),
-      description: z.string().min(1).max(2_000),
-      estimated_duration_seconds: nonNegativeIntSchema,
-    })
-    .strict(),
-
-  // V1.x-A Brief write-proposal tools (2). Validators in
+  // Write tools — input is the proposal-construction parameters.
+  // 2026-05-19 Phase 3 of the create_*_step deprecation refactor:
+  // the 7 create_*_step input-schemas removed. Per-op-type parameter
+  // validation now lives in lib/brief/proposalBuilder.ts (look for
+  // StepSchema's discriminated-union variants) — those schemas
+  // mirror the parameter shapes the create_*_step input-schemas
+  // used to enforce. Git history preserves the originals.
+  //
+  // V1.x-A Brief write-proposal tools. Validators in
   // lib/brief/proposalBuilder.ts perform additional structural checks
   // (cycle detection, dangling refs, value-shape per amendment_type).
   // V1.x-A.1: operation-level Brief. Stage 1's workflow is required;

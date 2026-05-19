@@ -517,10 +517,12 @@ export async function* runIteration(
     }
 
     // H-08 invariant guard (round-3 audit F-100).
+    // 2026-05-19 Phase 3 cleanup: legacy `proposal` field removed from
+    // WriteToolResult after Phase 2 retired the create_*_step tools.
+    // The remaining card-surfacing artefacts are listed below.
     if (result.ok && isWriteTool(call.name)) {
-      const r = result as { proposal?: unknown; brief_proposal?: unknown; profile_amendment_proposal?: unknown; brief_cancellation_proposal?: unknown; brief_amendment_proposal?: unknown; capability_limit_proposal?: unknown; data?: unknown }
+      const r = result as { brief_proposal?: unknown; profile_amendment_proposal?: unknown; brief_cancellation_proposal?: unknown; brief_amendment_proposal?: unknown; capability_limit_proposal?: unknown; data?: unknown }
       const hasProposalArtefact =
-        r.proposal !== undefined ||
         r.brief_proposal !== undefined ||
         r.profile_amendment_proposal !== undefined ||
         r.brief_cancellation_proposal !== undefined ||
@@ -533,7 +535,7 @@ export async function* runIteration(
           organisation_id: session.organisation_id,
           document_id: session.document_id,
           conversation_id: session.conversation_id,
-          metadata: { tool: call.name, has_data: r.data !== undefined, has_proposal: r.proposal !== undefined, has_brief_proposal: r.brief_proposal !== undefined, has_profile_amendment_proposal: r.profile_amendment_proposal !== undefined, has_brief_cancellation_proposal: r.brief_cancellation_proposal !== undefined, has_brief_amendment_proposal: r.brief_amendment_proposal !== undefined, has_capability_limit_proposal: r.capability_limit_proposal !== undefined },
+          metadata: { tool: call.name, has_data: r.data !== undefined, has_brief_proposal: r.brief_proposal !== undefined, has_profile_amendment_proposal: r.profile_amendment_proposal !== undefined, has_brief_cancellation_proposal: r.brief_cancellation_proposal !== undefined, has_brief_amendment_proposal: r.brief_amendment_proposal !== undefined, has_capability_limit_proposal: r.capability_limit_proposal !== undefined },
         })
         result = { ok: false, error: 'h08_invariant_violation', reason: `Write tool ${call.name} returned a result shape that breaches H-08.` }
       }
@@ -546,10 +548,10 @@ export async function* runIteration(
     yield { type: 'tool_use_complete', tool_call_id: call.id, name: call.name, validation_result: 'allowed', result_summary: summary, ...(artefact !== undefined ? { proposal_artefact: artefact } : {}) }
 
     // Atom-size guardrail (V1.x-B.1.1 session 3b).
+    // 2026-05-19 Phase 3 cleanup: legacy `proposal` field removed.
     const serialisedToolResult = JSON.stringify(
       result.ok
         ? (result as { data?: unknown }).data ??
-          (result as { proposal?: unknown }).proposal ??
           (result as { brief_proposal_full?: unknown }).brief_proposal_full ??
           (result as { brief_proposal?: unknown }).brief_proposal ??
           (result as { profile_amendment_proposal?: unknown }).profile_amendment_proposal ??
@@ -875,9 +877,6 @@ function summariseToolResult(toolName: string, result: ToolResult): string {
   if ('data' in result) {
     const dataLen = JSON.stringify(result.data).length
     return `${toolName}: returned ${dataLen} chars of data`
-  }
-  if ('proposal' in result && result.proposal) {
-    return `${toolName}: proposal for ${result.proposal.operation_type} on ${result.proposal.target_node_id}`
   }
   if ('brief_proposal' in result && result.brief_proposal) {
     return `${toolName}: brief proposal — ${result.brief_proposal.stages.length} stages`

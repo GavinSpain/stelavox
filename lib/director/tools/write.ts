@@ -3,23 +3,33 @@
  *
  * Source: stelavox_phase5b_api_contract_v1_0.md §1, §2.11 invariant I-2.
  *         stelavox_technical_architecture_v1_9.md §8.3 write tools, H-08.
- * Build Checklist: T-5.
  *
  * Write tools NEVER execute database writes inside the agentic loop (H-08).
- * They produce a WorkflowStepProposal that the executor accumulates; on
- * end-of-turn the accumulated proposals become a workflow row with
- * status='draft' and workflow_steps rows. Execution happens only after
- * the author approves.
+ * They produce a proposal artefact that the iteration runner extracts
+ * and the UI renders as an approvable card. Execution happens only after
+ * the author approves (via the per-tool RPC: accept_brief,
+ * apply_brief_amendment, apply_profile_amendment, cancel_brief).
+ *
+ * 2026-05-19 Phase 3 of the create_*_step deprecation refactor: the
+ * seven create_*_step executors (one per step op_type) were dead code
+ * after Phase 2 removed them from the registry — deleted here. The
+ * step-validation logic they performed (verifyTargetNode + per-op-type
+ * parameter check + lock check) now lives in propose_brief's per-step
+ * validation pass (Phase 1, lib/brief/proposalBuilder.ts StepSchema
+ * + buildBriefStepDiagnostics in this file).
+ *
+ * Five write tools remain, each surfaces exactly one card:
+ *   - propose_brief                — BriefProposalCard
+ *   - propose_profile_amendment    — ProjectProfileAmendmentCard
+ *   - cancel_brief                 — BriefCancellationProposalCard
+ *   - propose_brief_amendment      — BriefAmendmentCard
+ *   - report_capability_limit      — CapabilityLimitCard
  *
  * Each executor:
  *   1. Validates args via lib/director/schemas.ts (already done by the
  *      executor's caller — validateToolCall — but we trust-and-verify).
- *   2. Verifies target_node_id belongs to caller's org/document via a
- *      lightweight lookup. (Cross-org / cross-document is also blocked
- *      at validateToolCall, but the tool re-checks for defence in depth.)
- *   3. Constructs the WorkflowStepProposal and returns it.
- *
- * No state, no side effects.
+ *   2. Per-tool: verifies referenced node ids exist + are writable.
+ *   3. Returns the artefact field that surfaces the card.
  */
 
 import 'server-only'
@@ -33,7 +43,6 @@ import type {
   DirectorSession,
   PerStepError,
   ToolErrorResult,
-  WorkflowStepProposal,
   WriteToolResult,
 } from '@/lib/director/types'
 
@@ -203,284 +212,36 @@ function parseZodIssuesToStepErrors(
   return { stepErrors, otherIssues }
 }
 
-async function verifyTargetNode(
-  nodeId: string,
-  session: DirectorSession,
-): Promise<{ ok: true; locked: boolean } | { ok: false; error: string }> {
-  const supabase = createServiceRoleClient()
-  const { data, error } = await supabase
-    .from('nodes')
-    .select('id, organisation_id, document_id')
-    .eq('id', nodeId)
-    .maybeSingle()
-
-  if (error || !data) return { ok: false, error: 'target_node_not_found' }
-  if (data.organisation_id !== session.organisation_id) {
-    return { ok: false, error: 'cross_org_access_denied' }
-  }
-  if (data.document_id !== session.document_id) {
-    return { ok: false, error: 'cross_document_access_denied' }
-  }
-  // Phase 6: lock state from node_author_locks (nodes.locked dropped).
-  const { data: lockRow } = await supabase
-    .from('node_author_locks').select('node_id').eq('node_id', nodeId).maybeSingle()
-  return { ok: true, locked: !!lockRow }
-}
+// 2026-05-19 Phase 3 cleanup: the single-target verifyTargetNode helper
+// removed. It was used by the seven deleted create_*_step executors.
+// Equivalent checks for propose_brief now go through the bulk helpers
+// checkNodesExist + checkNodeLocks (above) — both run as one SQL
+// query each, walked per-step to build per_step_errors. The other
+// remaining write tools (cancel_brief, propose_brief_amendment,
+// propose_profile_amendment, report_capability_limit) don't take a
+// raw target_node_id; their own validators query the relevant rows.
 
 // ---------------------------------------------------------------------------
-// create_expand_step
-// ---------------------------------------------------------------------------
-
-export async function execCreateExpandStep(
-  args: {
-    target_node_id: string
-    child_count_target?: number
-    description: string
-    estimated_duration_seconds: number
-  },
-  session: DirectorSession,
-): Promise<WriteToolReturn> {
-  const v = await verifyTargetNode(args.target_node_id, session)
-  if (!v.ok) return { ok: false, error: v.error }
-  if (v.locked) return { ok: false, error: 'node_locked' }
-
-  const proposal: WorkflowStepProposal = {
-    operation_type: 'expand',
-    target_node_id: args.target_node_id,
-    parameters: {
-      ...(args.child_count_target !== undefined
-        ? { child_count_target: args.child_count_target }
-        : {}),
-    },
-    description: args.description,
-    estimated_duration_seconds: args.estimated_duration_seconds,
-  }
-
-  return { ok: true, proposal }
-}
-
-// ---------------------------------------------------------------------------
-// create_synthesise_step
-// ---------------------------------------------------------------------------
-
-export async function execCreateSynthesiseStep(
-  args: {
-    target_node_id: string
-    description: string
-    estimated_duration_seconds: number
-  },
-  session: DirectorSession,
-): Promise<WriteToolReturn> {
-  const v = await verifyTargetNode(args.target_node_id, session)
-  if (!v.ok) return { ok: false, error: v.error }
-  if (v.locked) return { ok: false, error: 'node_locked' }
-
-  return {
-    ok: true,
-    proposal: {
-      operation_type: 'synthesise',
-      target_node_id: args.target_node_id,
-      parameters: {},
-      description: args.description,
-      estimated_duration_seconds: args.estimated_duration_seconds,
-    },
-  }
-}
-
-// ---------------------------------------------------------------------------
-// create_refine_step
-// ---------------------------------------------------------------------------
-
-export async function execCreateRefineStep(
-  args: {
-    target_node_id: string
-    target_field: 'summary' | 'prose' | 'notes' | 'metadata'
-    instruction: string
-    description: string
-    estimated_duration_seconds: number
-  },
-  session: DirectorSession,
-): Promise<WriteToolReturn> {
-  const v = await verifyTargetNode(args.target_node_id, session)
-  if (!v.ok) return { ok: false, error: v.error }
-  if (v.locked) return { ok: false, error: 'node_locked' }
-
-  return {
-    ok: true,
-    proposal: {
-      operation_type: 'refine',
-      target_node_id: args.target_node_id,
-      parameters: {
-        target_field: args.target_field,
-        instruction: args.instruction,
-      },
-      description: args.description,
-      estimated_duration_seconds: args.estimated_duration_seconds,
-    },
-  }
-}
-
-// ---------------------------------------------------------------------------
-// create_context_step
-// ---------------------------------------------------------------------------
-
-export async function execCreateContextStep(
-  args: {
-    target_node_id: string
-    context_type:
-      | 'character'
-      | 'location'
-      | 'organisation'
-      | 'theme'
-      | 'plot_thread'
-      | 'world'
-    seed_content?: string
-    description: string
-    estimated_duration_seconds: number
-  },
-  session: DirectorSession,
-): Promise<WriteToolReturn> {
-  const v = await verifyTargetNode(args.target_node_id, session)
-  if (!v.ok) return { ok: false, error: v.error }
-  if (v.locked) return { ok: false, error: 'node_locked' }
-
-  return {
-    ok: true,
-    proposal: {
-      operation_type: 'generate_context',
-      target_node_id: args.target_node_id,
-      parameters: {
-        context_type: args.context_type,
-        ...(args.seed_content !== undefined
-          ? { seed_content: args.seed_content }
-          : {}),
-      },
-      description: args.description,
-      estimated_duration_seconds: args.estimated_duration_seconds,
-    },
-  }
-}
-
-// ---------------------------------------------------------------------------
-// create_comment_step
-// ---------------------------------------------------------------------------
-
-export async function execCreateCommentStep(
-  args: {
-    target_node_id: string
-    comment_type: 'instruction' | 'note'
-    content: string
-    description: string
-    estimated_duration_seconds: number
-  },
-  session: DirectorSession,
-): Promise<WriteToolReturn> {
-  const v = await verifyTargetNode(args.target_node_id, session)
-  if (!v.ok) return { ok: false, error: v.error }
-  // Comments are admitted on locked nodes — they don't modify the node.
-
-  return {
-    ok: true,
-    proposal: {
-      operation_type: 'comment',
-      target_node_id: args.target_node_id,
-      parameters: {
-        comment_type: args.comment_type,
-        content: args.content,
-      },
-      description: args.description,
-      estimated_duration_seconds: args.estimated_duration_seconds,
-    },
-  }
-}
-
-// ---------------------------------------------------------------------------
-// create_node_reorder_step (SU-37 — added for J5 narrative)
-// ---------------------------------------------------------------------------
-
-export async function execCreateNodeReorderStep(
-  args: {
-    target_node_id: string
-    new_order: number
-    parent_id?: string
-    description: string
-    estimated_duration_seconds: number
-  },
-  session: DirectorSession,
-): Promise<WriteToolReturn> {
-  const v = await verifyTargetNode(args.target_node_id, session)
-  if (!v.ok) return { ok: false, error: v.error }
-  if (v.locked) return { ok: false, error: 'node_locked' }
-
-  // If parent_id is provided, verify it too (cross-parent reorder).
-  if (args.parent_id) {
-    const pv = await verifyTargetNode(args.parent_id, session)
-    if (!pv.ok) return { ok: false, error: 'parent_' + pv.error }
-  }
-
-  return {
-    ok: true,
-    proposal: {
-      operation_type: 'node_reorder',
-      target_node_id: args.target_node_id,
-      parameters: {
-        new_order: args.new_order,
-        ...(args.parent_id !== undefined ? { parent_id: args.parent_id } : {}),
-      },
-      description: args.description,
-      estimated_duration_seconds: args.estimated_duration_seconds,
-    },
-  }
-}
-
-// ---------------------------------------------------------------------------
-// create_rename_step (M-179, 2026-05-18)
-// ---------------------------------------------------------------------------
+// HISTORICAL NOTE — create_*_step executors removed 2026-05-19 (Phase 3
+// of the create_*_step deprecation refactor):
 //
-// Propose a step that renames a node. Per H-08, this is PROPOSAL ONLY —
-// the workflow-executor performs the actual UPDATE when the user
-// approves the Brief. Renaming is a metadata operation (not content),
-// so the M-023 / M-090 version-bump trigger deliberately ignores it
-// (matches TC-A-47 "rename does not bump version").
-
-export async function execCreateRenameStep(
-  args: {
-    target_node_id: string
-    new_name: string
-    description: string
-    estimated_duration_seconds: number
-  },
-  session: DirectorSession,
-): Promise<WriteToolReturn> {
-  const v = await verifyTargetNode(args.target_node_id, session)
-  if (!v.ok) return { ok: false, error: v.error }
-  if (v.locked) return { ok: false, error: 'node_locked' }
-
-  // The Zod input schema already trim+min(1)+max(200) the new_name, but
-  // defensive re-trim here so the proposal artefact carries the
-  // trimmed value verbatim (no leading/trailing whitespace surprises).
-  const trimmed = args.new_name.trim()
-  if (trimmed.length === 0) {
-    return { ok: false, error: 'invalid_new_name', reason: 'new_name is empty after trim' }
-  }
-  if (trimmed.length > 200) {
-    return { ok: false, error: 'invalid_new_name', reason: 'new_name exceeds 200 characters' }
-  }
-
-  return {
-    ok: true,
-    proposal: {
-      operation_type: 'node_rename',
-      target_node_id: args.target_node_id,
-      parameters: {
-        new_name: trimmed,
-      },
-      description: args.description,
-      estimated_duration_seconds: args.estimated_duration_seconds,
-    },
-  }
-}
-
+//   execCreateExpandStep, execCreateSynthesiseStep, execCreateRefineStep,
+//   execCreateContextStep, execCreateCommentStep,
+//   execCreateNodeReorderStep, execCreateRenameStep
+//
+// All seven were thin wrappers that did verifyTargetNode + parameter
+// validation + returned a WorkflowStepProposal. After Phase 2 dropped
+// them from the registry, no caller remained — Phase 1 had already
+// moved the validation logic into propose_brief's discriminated-union
+// StepSchema + buildBriefStepDiagnostics. The executors were dead code.
+//
+// To exercise the equivalent validation behaviour today, build a
+// propose_brief input with the step shape inline and call
+// execProposeBrief. Per-op-type parameter rules live in
+// lib/brief/proposalBuilder.ts (look for StepSchema). The git history
+// preserves the original implementations if you need to reference
+// them.
+//
 // ---------------------------------------------------------------------------
 // propose_brief (V1.x-A.1) — operation-level Brief proposal.
 // ---------------------------------------------------------------------------

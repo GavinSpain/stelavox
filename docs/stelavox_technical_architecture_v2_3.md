@@ -2892,6 +2892,28 @@ Documented in `docs/stelavox_director_architecture_v2_0.md` §13.5.
 
 ---
 
+### H-27 — Architecture ambiguity in tool surface
+
+**What happens:** A user-facing tool surface exposes two ways to accomplish the same task — e.g. (a) build incrementally via per-step tools then wrap, or (b) submit the whole thing in one call. The LLM consuming the tool surface can confuse them: it may use only path (a) and forget step (b), or mix the two in invalid ways. Symptoms include the model believing it has surfaced an approvable card when no card actually exists; or proposing a structure that passes shape validation but references confabulated identifiers because the per-step guards lived only on path (a).
+
+**Why:** Tool ambiguity composes badly with the LLM's conversation-rolling-window memory. The model picks a path based on the last tool it remembers using, not based on the architectural intent. Every "improvement" to the prompt teaching the model to use one path correctly is fragile — a future paragraph elsewhere in the prompt that lists both paths in the same clause re-introduces the parallelism. Multiple instances of this pattern observed in May 2026: SU-46 (custom XML protocol vs. Anthropic-native tool_use), M-175 (chapter `word_count_actual=0` vs `word_count_aggregate`), M-178 (`find_node_by_name` ambiguous-match), M-180 (cross-turn id confabulation through `propose_brief`), and M-181 (the `create_*_step` + `propose_brief` dual-path that motivated this entry).
+
+**The fix:** Reduce the tool surface so there is exactly one way to perform each kind of write. Two principles:
+
+1. **One write tool, one approvable card.** Every registered write tool emits an artefact that surfaces as an approvable card. There are no "building block" tools that return artefacts the caller has to wrap in another tool call. If a tool returns `{ok: true}` and the LLM thinks it's done, a card must actually have appeared.
+
+2. **Validation at the surfacing boundary.** Per-element validation (parameter shape per item, FK existence, lock state, etc.) lives in the same tool that surfaces the card. The model gets all errors in one tool call via a `per_step_errors`-shaped diagnostic structure so it can correct everything before retrying — never one-error-at-a-time iteration.
+
+When a candidate write needs multi-element composition, the elements are JSON inside the surfacing tool's input — not separate tool calls. The discriminated-union schema on each element gives the model precise per-field error paths. Adding a new element type requires (a) one new variant in the discriminated union, (b) one new branch in the workflow executor — no new tool registration.
+
+**Implementation status:** Applied 2026-05-19 in three commits. Phase 1 (additive): `propose_brief` validation strengthened — discriminated-union StepSchema for per-op-type parameter validation; FK + lock check moved to the propose_brief boundary with `per_step_errors` diagnostics. Phase 2: seven `create_*_step` tools removed from the registry (tool count 24 → 17). Phase 3: legacy `WorkflowStepProposal` interface + `proposal?` field on `WriteToolResult` + the seven `create_*_step` executors removed entirely. Director config v1.21 → v1.22 (M-181) updates the system prompt with a "Workflow steps embed inside propose_brief" section and removes the false-parallelism in the cross-turn re-grounding paragraph.
+
+**Related hazards:** H-08 (Director write tools never execute inside the agentic loop) — reinforced; the surface is now smaller, with no incremental-validation tools that could be misread as approvable. Compounds the M-180 cross-turn re-grounding fix.
+
+**Scope:** Every part of the LLM-facing tool surface. Before adding a new write tool, ask: is there a single existing tool that should accept this as a parameter shape inside its input? If so, extend that tool's input schema instead of adding a new tool. Multiple paths to the same outcome are the hazard.
+
+---
+
 ## 6. AI Integration Layer
 
 ### 6.1 Architecture Overview

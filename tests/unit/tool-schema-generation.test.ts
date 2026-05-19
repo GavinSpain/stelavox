@@ -33,49 +33,24 @@ describe('B6.1 — F-81: tool input schemas are generated from Zod', () => {
     expect(schema.additionalProperties).toBe(false)
   })
 
-  it('create_refine_step pins the V1 target_field enum', () => {
-    const schema = toolInputSchemaFor('create_refine_step')
-    const props = schema.properties as Record<string, { enum?: string[] }>
-    expect(props.target_field?.enum).toEqual(['summary', 'prose', 'notes', 'metadata'])
-    expect(schema.required).toEqual(
-      expect.arrayContaining([
-        'target_node_id',
-        'target_field',
-        'instruction',
-        'description',
-        'estimated_duration_seconds',
-      ]),
-    )
-  })
+  // 2026-05-19 Phase 3 of create_*_step deprecation: the per-step
+  // input-schemas were removed from ToolInputSchemas. Per-op-type
+  // parameter validation now lives in propose_brief's StepSchema
+  // (lib/brief/proposalBuilder.ts), exercised by the m181-phase1
+  // tests directly against execProposeBrief.
+  it.skip('SUPERSEDED — create_refine_step input schema (Phase 3 removed; replaced by StepSchema in proposalBuilder)', () => {})
+  it.skip('SUPERSEDED — create_context_step input schema (Phase 3 removed)', () => {})
+  it.skip('SUPERSEDED — create_node_reorder_step input schema (Phase 3 removed)', () => {})
 
-  it('create_context_step pins the V1 context_type whitelist', () => {
-    const schema = toolInputSchemaFor('create_context_step')
-    const props = schema.properties as Record<string, { enum?: string[] }>
-    expect(props.context_type?.enum).toEqual([
-      'character',
-      'location',
-      'organisation',
-      'theme',
-      'plot_thread',
-      'world',
-    ])
-  })
-
-  it('create_node_reorder_step has new_order with positive integer constraint', () => {
-    const schema = toolInputSchemaFor('create_node_reorder_step')
-    const props = schema.properties as Record<string, { type?: string; minimum?: number; exclusiveMinimum?: number }>
-    expect(props.new_order?.type).toBe('integer')
-    // Zod's `.positive()` emits exclusiveMinimum=0 in JSON Schema (i.e. > 0).
-    // Equivalent to minimum=1 for integers but expressed differently.
-    expect(props.new_order?.exclusiveMinimum ?? props.new_order?.minimum).toBeDefined()
-  })
-
-  it('all 13 V1 tools generate without error', () => {
+  it('current ToolInputSchemas entries all generate without error', () => {
     const names = [
-      'get_document_state', 'get_node', 'get_nodes_by_layer', 'get_node_tree',
+      'get_project_profile', 'get_brief_state', 'get_document_state',
+      'get_node', 'get_nodes_by_layer', 'find_node_by_name',
+      'get_node_tree', 'get_subtree_content', 'find_context_references',
+      'get_subtree_stats',
       'assess_downstream_impact', 'get_conversation_history', 'get_workflow_history',
-      'create_expand_step', 'create_synthesise_step', 'create_refine_step',
-      'create_context_step', 'create_comment_step', 'create_node_reorder_step',
+      'propose_brief', 'propose_profile_amendment', 'cancel_brief',
+      'propose_brief_amendment', 'report_capability_limit',
     ] as const
     for (const name of names) {
       const schema = toolInputSchemaFor(name)
