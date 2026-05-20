@@ -38,6 +38,7 @@ import { z } from 'zod'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import type {
   BriefProposal,
+  BriefProposalStepInput,
 } from '@/lib/brief/types'
 import type {
   DirectorSession,
@@ -83,6 +84,105 @@ async function checkNodesExist(
     .eq('document_id', session.document_id)
     .in('id', unique)
   return new Set((data ?? []).map((n) => n.id as string))
+}
+
+/**
+ * 2026-05-20 — bulk fetch of (parent_id, order) for canonical-position
+ * lookup. Used by sortWorkflowStepsByCanonicalPosition to give the
+ * Director's emitted workflow steps a deterministic, predictable order
+ * regardless of what array order the model produced.
+ *
+ * Scope: same org + document as the session, mirroring checkNodesExist.
+ * Returns a Map keyed by node id. Nodes not in the result (e.g. invalid
+ * ids) are absent from the map — callers must guard the lookup.
+ *
+ * `order` is a SQL reserved word; we quote it via the alias 'order_index'
+ * to avoid surprises.
+ */
+async function fetchNodeCanonicalPositions(
+  session: DirectorSession,
+  ids: string[],
+): Promise<Map<string, { parent_id: string | null; order_index: number }>> {
+  if (ids.length === 0) return new Map()
+  const supabase = createServiceRoleClient()
+  const unique = Array.from(new Set(ids))
+  const { data } = await supabase
+    .from('nodes')
+    .select('id, parent_id, order')
+    .eq('organisation_id', session.organisation_id)
+    .eq('document_id', session.document_id)
+    .in('id', unique)
+  const result = new Map<string, { parent_id: string | null; order_index: number }>()
+  for (const row of data ?? []) {
+    result.set(row.id as string, {
+      parent_id: (row as { parent_id: string | null }).parent_id,
+      order_index: (row as { order: number }).order,
+    })
+  }
+  return result
+}
+
+/**
+ * 2026-05-20 — canonical-order discipline (Issue 1 fix).
+ *
+ * Background: the Director system prompt's "Canonical range discipline"
+ * section tells the model to plan a contiguous canonical range, but did
+ * not explicitly say the steps must be EMITTED in canonical order within
+ * the workflow.steps array. The workflow executor runs steps strictly in
+ * array order (persistDraftWorkflow assigns `order = i + 1`). A user-driven
+ * test on 2026-05-20 hit the failure: 4 expand steps targeting siblings
+ * landed in canonical positions 2, 4, 1, 3 — work executed out of
+ * narrative order.
+ *
+ * This sort is the predictability backstop. The Director system prompt
+ * (Director config v1.23) also teaches the discipline; the server-side
+ * sort ensures the right outcome even if the model fails to follow it.
+ *
+ * Discipline:
+ *   1. Group consecutive same-op_type steps into "runs". Cross-run order
+ *      (e.g., generate_context first, then expand) is preserved because
+ *      it usually encodes the model's setup-then-act sequencing.
+ *   2. Within each run, sort by (parent_id, order_index). Siblings of
+ *      the same parent get canonical sibling order; cross-parent
+ *      fallback is lexicographic parent UUID for determinism.
+ *   3. Skip the sort entirely if any step has explicit
+ *      `depends_on_step_orders` — the model declared a dependency graph
+ *      and presumably had considered ordering. Respect intent.
+ *
+ * Nodes missing from `positions` (shouldn't happen post-Phase-2 since
+ * existence is validated) are kept in their original relative order
+ * within their run.
+ */
+function sortWorkflowStepsByCanonicalPosition(
+  steps: BriefProposalStepInput[],
+  positions: Map<string, { parent_id: string | null; order_index: number }>,
+): BriefProposalStepInput[] {
+  if (steps.length <= 1) return steps
+  const hasExplicitDeps = steps.some(
+    (s) => (s.depends_on_step_orders ?? []).length > 0,
+  )
+  if (hasExplicitDeps) return steps
+
+  const result: BriefProposalStepInput[] = []
+  let i = 0
+  while (i < steps.length) {
+    const opType = steps[i].operation_type
+    let j = i
+    while (j < steps.length && steps[j].operation_type === opType) j++
+    const run = steps.slice(i, j)
+    const sortedRun = [...run].sort((a, b) => {
+      const ap = positions.get(a.target_node_id)
+      const bp = positions.get(b.target_node_id)
+      if (!ap || !bp) return 0
+      const pa = ap.parent_id ?? ''
+      const pb = bp.parent_id ?? ''
+      if (pa !== pb) return pa < pb ? -1 : 1
+      return ap.order_index - bp.order_index
+    })
+    result.push(...sortedRun)
+    i = j
+  }
+  return result
 }
 
 /** Bulk author-lock check for a set of node ids. */
@@ -314,6 +414,56 @@ export async function execProposeBrief(
       error: 'invalid_brief_proposal',
       reason: `${stepDiagnostics.length} workflow step(s) failed DB validation; see per_step_errors. Common causes: target_node_id not in this document (re-ground via find_node_by_name); target node is currently locked.`,
       per_step_errors: stepDiagnostics,
+    }
+  }
+
+  // ---- Phase 2b: canonical-order normalisation (Issue 1 fix, 2026-05-20)
+  //
+  // After per-step DB validation but before artefact emission, sort each
+  // stage's workflow.steps so that contiguous same-op_type runs are in
+  // canonical position order. The Director prompt also teaches this
+  // discipline (Director config v1.23+), but the server-side sort is the
+  // predictability backstop so a sloppy model emission still runs in the
+  // right order.
+  //
+  // No-op when the model declared explicit depends_on_step_orders on
+  // any step in the stage — see sortWorkflowStepsByCanonicalPosition
+  // header for the rationale.
+  //
+  // Positions are fetched in one query covering all target node ids
+  // across all stages (existence is already guaranteed post-Phase-2).
+  const allTargetIdsForSort: string[] = []
+  for (const stage of proposal.stages) {
+    if (!stage.workflow) continue
+    for (const step of stage.workflow.steps) {
+      if (step.target_node_id) allTargetIdsForSort.push(step.target_node_id)
+    }
+  }
+  if (allTargetIdsForSort.length > 0) {
+    const positions = await fetchNodeCanonicalPositions(session, allTargetIdsForSort)
+    for (const stage of proposal.stages) {
+      if (!stage.workflow) continue
+      const beforeIds = stage.workflow.steps.map((s) => s.target_node_id)
+      const sortedSteps = sortWorkflowStepsByCanonicalPosition(
+        stage.workflow.steps,
+        positions,
+      )
+      const reordered = sortedSteps.some(
+        (s, idx) => s.target_node_id !== beforeIds[idx],
+      )
+      if (reordered) {
+        // Surface in the dev log so authors / operators see when the
+        // model emitted an out-of-canonical sequence the server had to
+        // correct. Telemetry only — never blocks; the user sees the
+        // corrected order on the PlanCard.
+        console.warn(
+          '[propose_brief] sort: corrected stage',
+          stage.order,
+          'workflow step order',
+          { before: beforeIds, after: sortedSteps.map((s) => s.target_node_id) },
+        )
+      }
+      stage.workflow.steps = sortedSteps
     }
   }
 
@@ -669,3 +819,12 @@ export async function execProposeProfileAmendment(
     }
   }
 }
+
+// ---------------------------------------------------------------------------
+// Test-only re-exports.
+//
+// Pure helpers that the unit test suite exercises directly. Prefixed
+// with __test_ to make it obvious these are NOT part of the public
+// surface; production code never imports these names.
+// ---------------------------------------------------------------------------
+export { sortWorkflowStepsByCanonicalPosition as __test_sortWorkflowStepsByCanonicalPosition }
