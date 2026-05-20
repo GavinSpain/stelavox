@@ -68,6 +68,7 @@ import {
   type WorkflowSuppressionState,
 } from '@/lib/director/agentic-helpers'
 import { isDirectorTurnStopRequested } from '@/lib/scheduler/stopRequests'
+import { releaseClass1Slot } from '@/lib/scheduler/reserved-slots'
 import { preflightCheck } from '@/lib/constraints/preflight'
 import { recordViolation } from '@/lib/constraints/recordViolation'
 import { getProvider } from '@/lib/llm/factory'
@@ -145,20 +146,89 @@ interface RunIterationContext {
   provider?: never  // reserved; B.2.1 always re-fetches per iteration for simplicity
 }
 
+/**
+ * Public entry point. Thin wrapper that owns Class 1 reserved-slot
+ * lifecycle. The actual iteration body lives in runIterationInner.
+ *
+ * Slot release hygiene (H-17 — Class 1 reserved-slot leak):
+ *
+ * The WFQ dispatcher claims a Class 1 reserved slot before invoking the
+ * runner (see lib/scheduler/dispatcher.ts §4b — claimClass1Slot). Without
+ * an explicit release on every exit path the slot leaks; once
+ * class_1_reserved_slots.in_use reaches agent.class_1_max_concurrent_total
+ * the dispatcher refuses to dispatch new Class 1 tickets and the Director
+ * loop stalls. This was first observed 2026-05-20 when a user-driven
+ * 2-stage Brief test left stage 2's director_iteration permanently
+ * queued — every dispatcher tick saw the Class 1 pool exhausted (in_use=5
+ * against total_slots=3, max_concurrent_total=5) and skipped.
+ *
+ * Inline-route Director turns (app/api/director/message/route.ts) call
+ * runIteration WITHOUT the dispatcher — those iterations carry
+ * reservation_id=NULL and DON'T hold a slot. Releasing in that case would
+ * over-release; releaseClass1Slot clamps at 0 but the drift still masks
+ * the real in_use count.
+ *
+ * Discrimination: the inner generator sets slotHeld=true after observing
+ * a non-null reservation_id on the loaded agent_jobs row (the dispatcher
+ * writes reservation_id atomically with queue_status='dispatched'). The
+ * outer try/finally releases exactly once on exit, idempotent via the
+ * released flag.
+ */
 export async function* runIteration(
   jobId: string,
-  _ctx?: RunIterationContext,
+  ctx?: RunIterationContext,
+): AsyncGenerator<IterationEvent, void, void> {
+  let slotHeld = false
+  let slotReleased = false
+  const setSlotHeld = () => {
+    slotHeld = true
+  }
+  const releaseSlotOnce = async () => {
+    if (slotReleased || !slotHeld) return
+    slotReleased = true
+    try {
+      await releaseClass1Slot()
+    } catch (err) {
+      // Telemetry-only failure; never block iteration completion on it.
+      console.error(
+        '[iteration-runner] releaseClass1Slot failed',
+        err instanceof Error ? err.message : String(err),
+      )
+    }
+  }
+
+  try {
+    yield* runIterationInner(jobId, ctx, setSlotHeld)
+  } finally {
+    await releaseSlotOnce()
+  }
+}
+
+async function* runIterationInner(
+  jobId: string,
+  _ctx: RunIterationContext | undefined,
+  setSlotHeld: () => void,
 ): AsyncGenerator<IterationEvent, void, void> {
   const supabase = createServiceRoleClient()
 
   // ---- 1. Load the agent_jobs row + iteration_state ----------------------
+  // `reservation_id` and `traffic_class` are read so the outer wrapper can
+  // decide whether to release a Class 1 reserved slot on exit. Only
+  // dispatcher-invoked iterations carry a non-null reservation_id.
   const { data: jobRow, error: jobErr } = await supabase
     .from('agent_jobs')
     .select(
-      'id, organisation_id, document_id, operation_type, queue_status, iteration_number, director_turn_id, parent_iteration_id, iteration_state',
+      'id, organisation_id, document_id, operation_type, queue_status, iteration_number, director_turn_id, parent_iteration_id, iteration_state, reservation_id, traffic_class',
     )
     .eq('id', jobId)
     .maybeSingle()
+
+  // Slot release gate. Defensive double-check on traffic_class even though
+  // director_iteration is class 1 by invariant — guards against a future
+  // mis-insertion writing a wrong traffic_class.
+  if (jobRow?.reservation_id && jobRow?.traffic_class === 1) {
+    setSlotHeld()
+  }
 
   if (jobErr || !jobRow) {
     yield { type: 'error', error: 'job_not_found', message: `agent_jobs ${jobId} not found`, failure_class: 'E' }
