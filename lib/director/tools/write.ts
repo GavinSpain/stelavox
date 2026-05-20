@@ -376,11 +376,46 @@ export async function execProposeBriefAmendment(
   if (!briefId || typeof briefId !== 'string') {
     return { ok: false, error: 'invalid_brief_id', reason: 'brief_id required' }
   }
-  const { data: brief } = await supabase
+  // 2026-05-20 — drift fix. The original SELECT included `preferences`,
+  // a column that briefs has not had since V1.x-A.1 (M-080 moved
+  // preferences off briefs onto project_profiles). PostgREST returns
+  // an error for the unknown column, the Supabase client surfaces
+  // { data: null, error: <...> }, and the unchecked `!brief` branch
+  // below interpreted that as "brief not in session scope" — a
+  // misleading error message that masked the real bug. Every
+  // propose_brief_amendment call since V1.x-B.3 shipped (2026-05-15)
+  // hit this dead code path: brief_amendments has zero rows.
+  //
+  // brief.preferences is dead code locally — never read by this
+  // function. Removing it from the SELECT is the minimal fix.
+  //
+  // The 'preferences' amendment_type itself is a separate latent
+  // issue — apply_brief_amendment's RPC body still tries to
+  // UPDATE briefs.preferences and will fail at apply time for that
+  // specific amendment_type. The other four types (goal_text,
+  // add_stage, modify_pending_stage, remove_pending_stage) work
+  // correctly. Tracked separately; not in scope for this fix.
+  const { data: brief, error: briefErr } = await supabase
     .from('briefs')
-    .select('id, document_id, organisation_id, goal_text, preferences, status')
+    .select('id, document_id, organisation_id, goal_text, status')
     .eq('id', briefId)
     .maybeSingle()
+  if (briefErr) {
+    // Surface the underlying error so future schema/code drift
+    // doesn't silently degrade to brief_not_found_in_session_scope
+    // again. The model gets a precise diagnostic; the dev log
+    // captures the full Postgres error.
+    console.error('[propose_brief_amendment] briefs lookup failed', {
+      brief_id: briefId,
+      error: briefErr.message,
+      code: briefErr.code,
+    })
+    return {
+      ok: false,
+      error: 'brief_lookup_failed',
+      reason: `Could not load brief ${briefId}: ${briefErr.message}. This is a server-side error, not a user-facing input problem; surface it to the user with the recommendation to retry, and report it if it persists.`,
+    }
+  }
   if (!brief || brief.organisation_id !== session.organisation_id || brief.document_id !== session.document_id) {
     return { ok: false, error: 'brief_not_found_in_session_scope' }
   }
