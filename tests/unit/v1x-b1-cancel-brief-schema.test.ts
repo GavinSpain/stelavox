@@ -65,11 +65,13 @@ describe('cancel_brief tool registration', () => {
     expect(isWriteTool('cancel_brief')).toBe(true)
   })
 
-  it('total write-tool count is 5 after Phase 2 of create_*_step deprecation', () => {
-    // Phase 2 (2026-05-19): the 6 create_*_step tools and create_rename_step
-    // are removed from WRITE_TOOL_NAMES. Workflow steps embed directly
-    // inside propose_brief. Remaining: propose_brief, propose_profile_amendment,
-    // cancel_brief, propose_brief_amendment, report_capability_limit.
+  it('total write-tool count is 5 (post-2026-05-21 simplification)', () => {
+    // Phase 2 (2026-05-19) removed the 7 create_*_step tools from
+    // WRITE_TOOL_NAMES.
+    // 2026-05-21 simplification: propose_brief_amendment dropped,
+    // propose_workflow added for system-driven stage planning. Count
+    // stays at 5: propose_brief, propose_profile_amendment,
+    // cancel_brief, propose_workflow, report_capability_limit.
     expect(WRITE_TOOL_NAMES.length).toBe(5)
   })
 })

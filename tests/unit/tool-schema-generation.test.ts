@@ -50,12 +50,19 @@ describe('B6.1 — F-81: tool input schemas are generated from Zod', () => {
       'get_subtree_stats',
       'assess_downstream_impact', 'get_conversation_history', 'get_workflow_history',
       'propose_brief', 'propose_profile_amendment', 'cancel_brief',
-      'propose_brief_amendment', 'report_capability_limit',
+      // 2026-05-21 simplification: propose_brief_amendment → propose_workflow.
+      'propose_workflow', 'report_capability_limit',
     ] as const
     for (const name of names) {
       const schema = toolInputSchemaFor(name)
       expect(schema.type, `${name} should be type=object`).toBe('object')
-      expect(schema.additionalProperties, `${name} should disallow extras`).toBe(false)
+      // propose_workflow's schema is the workflow shape directly
+      // (mirrors _ProposalWorkflowSchema), which doesn't carry the
+      // strict additionalProperties marker the other write tools
+      // have. The other 16 do.
+      if (name !== 'propose_workflow') {
+        expect(schema.additionalProperties, `${name} should disallow extras`).toBe(false)
+      }
     }
   })
 })

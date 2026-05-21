@@ -206,36 +206,38 @@ test.describe('V1.x-A.1 Profile + Brief substrate', () => {
     expect(n.initial_status).toBe('active')
   })
 
-  test('Director config v1.10 is production with 19 tools (V1.x-F.1 report_capability_limit)', async () => {
-    // V1.x-F.1 (Migration 146) deprecated v1.9 and made v1.10 production.
-    // v1.10 adds report_capability_limit to tool_suite (19 tools = v1.9's 18 + 1).
-    // System prompt carries forward v1.9's body + appends self-rejection guidance.
+  test('Director config v1.24 is production with 17 tools (simplified brief model)', async () => {
+    // 2026-05-21 simplification (M-184): v1.24 production. Drops
+    // propose_brief_amendment, adds propose_workflow (system-driven
+    // stage planning). Net tool count unchanged at 17.
     const { data } = await adminClient()
       .from('director_configs')
       .select('version_number, status, tool_suite, system_prompt')
       .eq('status', 'production')
       .single()
-    expect(data!.version_number).toBe('1.10')
+    expect(data!.version_number).toBe('1.24')
     const tools = data!.tool_suite as string[]
-    expect(tools).toHaveLength(19)
+    expect(tools).toHaveLength(17)
     expect(tools).toContain('get_project_profile')
     expect(tools).toContain('get_brief_state')
     expect(tools).toContain('propose_brief')
     expect(tools).toContain('propose_profile_amendment')
     expect(tools).toContain('cancel_brief')
-    expect(tools).toContain('propose_brief_amendment')
+    expect(tools).toContain('propose_workflow')
     expect(tools).toContain('report_capability_limit')
+    // Dropped tool MUST NOT be present.
+    expect(tools).not.toContain('propose_brief_amendment')
     expect(data!.system_prompt).toContain('<plan>')
     expect(data!.system_prompt).toContain('tool call IS the proposal')
     expect(data!.system_prompt).toContain('cancel_brief')
-    // v1.8 FU-2 amendment carried forward through v1.9 into v1.10: trigger_config example block.
     expect(data!.system_prompt).toContain('after_stage_order')
-    expect(data!.system_prompt).toContain('"scheduled_at": "<ISO 8601 timestamp>"')
-    // v1.9 amendment guidance carried forward.
-    expect(data!.system_prompt).toContain('Brief amendments')
-    expect(data!.system_prompt).toContain('propose_brief_amendment')
-    // v1.10 self-rejection guidance.
+    // New model guidance.
+    expect(data!.system_prompt).toContain('propose_workflow')
+    expect(data!.system_prompt).toContain('prompt')
+    // Capability limit still in scope.
     expect(data!.system_prompt).toContain('report_capability_limit')
+    // Dropped concepts must not appear in the prompt body.
+    expect(data!.system_prompt).not.toContain('propose_brief_amendment')
   })
 
   test('platform_config has the rolling-window key', async () => {

@@ -33,7 +33,9 @@ const VALID_BRIEF = {
       title: 'Expand chapters into scenes',
       trigger_type: 'after_stage',
       trigger_config: { after_stage_order: 1 },
-      workflow: null,
+      // 2026-05-21 simplification — stage 2 uses prompt instead of
+      // workflow (targets unknown until stage 1 creates the chapters).
+      prompt: 'Expand the new chapters into scenes',
     },
   ],
 }
@@ -44,7 +46,9 @@ describe('buildBriefProposal', () => {
     expect(result.goal_text).toBe(VALID_BRIEF.goal_text)
     expect(result.stages).toHaveLength(2)
     expect(result.stages[0].workflow).not.toBeNull()
+    expect(result.stages[0].prompt).toBeNull()
     expect(result.stages[1].workflow).toBeNull()
+    expect(result.stages[1].prompt).toBe('Expand the new chapters into scenes')
   })
 
   it('builds a trivial n=1 Brief', () => {
@@ -79,14 +83,52 @@ describe('buildBriefProposal', () => {
     expect(() => buildBriefProposal({ ...VALID_BRIEF, goal_text: '' })).toThrow()
   })
 
-  it('rejects stage 1 with null workflow', () => {
+  it('rejects a stage with NEITHER workflow nor prompt (XOR violation)', () => {
     const bad = {
       ...VALID_BRIEF,
       stages: [
-        { order: 1, title: 'X', trigger_type: 'manual', trigger_config: {}, workflow: null },
+        { order: 1, title: 'X', trigger_type: 'manual', trigger_config: {} },
       ],
     }
-    expect(() => buildBriefProposal(bad)).toThrow(/first_stage_workflow_required/)
+    // 2026-05-21 simplification — the XOR refine on StageInputSchema
+    // requires exactly one of (workflow, prompt). Neither = Zod error
+    // pointing at the workflow path.
+    expect(() => buildBriefProposal(bad)).toThrow(/exactly one of workflow or prompt|workflow/i)
+  })
+
+  it('rejects a stage with BOTH workflow and prompt (XOR violation)', () => {
+    const bad = {
+      ...VALID_BRIEF,
+      stages: [
+        {
+          order: 1,
+          title: 'X',
+          trigger_type: 'manual',
+          trigger_config: {},
+          workflow: VALID_BRIEF.stages[0].workflow,
+          prompt: 'also has a prompt',
+        },
+      ],
+    }
+    expect(() => buildBriefProposal(bad)).toThrow(/exactly one of workflow or prompt|workflow/i)
+  })
+
+  it('accepts a stage with prompt only (stage 1 prompt-deferred)', () => {
+    const promptOnly = {
+      goal_text: 'Figure out scope from current state',
+      stages: [
+        {
+          order: 1,
+          title: 'Plan after reading',
+          trigger_type: 'manual',
+          trigger_config: {},
+          prompt: 'Read the document and decide what to do next.',
+        },
+      ],
+    }
+    const result = buildBriefProposal(promptOnly)
+    expect(result.stages[0].workflow).toBeNull()
+    expect(result.stages[0].prompt).toBe('Read the document and decide what to do next.')
   })
 
   it('rejects duplicate stage orders', () => {

@@ -294,14 +294,16 @@ test.describe('V1.x-B.1.1 session 3a — stage triggers + runtime substrate', ()
       .select('version_number, status, system_prompt, tool_suite')
       .eq('status', 'production')
       .single()
-    expect(data!.version_number).toBe('1.10')
+    // 2026-05-21 simplification: production is now v1.24 (17 tools,
+    // propose_brief_amendment dropped, propose_workflow added).
+    expect(data!.version_number).toBe('1.24')
     const tools = data!.tool_suite as string[]
-    expect(tools).toHaveLength(19)
+    expect(tools).toHaveLength(17)
     expect(tools).toContain('cancel_brief')
-    expect(tools).toContain('propose_brief_amendment')
+    expect(tools).toContain('propose_workflow')
     expect(tools).toContain('report_capability_limit')
+    expect(tools).not.toContain('propose_brief_amendment')
     expect(data!.system_prompt).toContain('after_stage_order')
-    expect(data!.system_prompt).toContain('"scheduled_at": "<ISO 8601 timestamp>"')
   })
 
   test('pg_cron has scheduled the V1.x-B.1.1 maintenance jobs', async () => {

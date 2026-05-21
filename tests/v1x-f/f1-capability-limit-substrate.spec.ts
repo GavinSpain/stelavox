@@ -37,11 +37,13 @@ test.describe('V1.x-F.1 — report_capability_limit substrate', () => {
       .eq('version_number', '1.10')
       .single()
     const tools = data!.tool_suite as string[]
+    // v1.10 was the V1.x-F.1 release config at the time of writing this test.
+    // 2026-05-21 simplification didn't touch v1.10 (it's deprecated history),
+    // so the original 19-tool shape including propose_brief_amendment is
+    // still correct on the v1.10 row.
     expect(tools.length).toBe(19)
     expect(tools).toContain('report_capability_limit')
-    // Carry-over from v1.9.
     expect(tools).toContain('propose_brief_amendment')
-    // Carry-over from v1.8.
     expect(tools).toContain('cancel_brief')
   })
 

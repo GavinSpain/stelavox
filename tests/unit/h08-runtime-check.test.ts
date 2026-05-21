@@ -24,7 +24,10 @@ describe('B5.4 — F-100: H-08 runtime check shape detection', () => {
     expect(isWriteTool('propose_brief')).toBe(true)
     expect(isWriteTool('propose_profile_amendment')).toBe(true)
     expect(isWriteTool('cancel_brief')).toBe(true)
-    expect(isWriteTool('propose_brief_amendment')).toBe(true)
+    // 2026-05-21 simplification: propose_brief_amendment dropped;
+    // propose_workflow added for system-driven stage planning.
+    expect(isWriteTool('propose_workflow')).toBe(true)
+    expect(isWriteTool('propose_brief_amendment')).toBe(false)
     expect(isWriteTool('report_capability_limit')).toBe(true)
   })
 
