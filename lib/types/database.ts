@@ -708,62 +708,6 @@ export type Database = {
           },
         ]
       }
-      brief_amendments: {
-        Row: {
-          after: Json | null
-          amendment_type: string
-          applied_at: string | null
-          approved_at: string | null
-          approved_by_user_id: string | null
-          before: Json | null
-          brief_id: string
-          id: string
-          proposed_at: string
-          proposed_by_user_id: string | null
-          reason: string
-          status: string
-          target_path: string | null
-        }
-        Insert: {
-          after?: Json | null
-          amendment_type: string
-          applied_at?: string | null
-          approved_at?: string | null
-          approved_by_user_id?: string | null
-          before?: Json | null
-          brief_id: string
-          id?: string
-          proposed_at?: string
-          proposed_by_user_id?: string | null
-          reason: string
-          status?: string
-          target_path?: string | null
-        }
-        Update: {
-          after?: Json | null
-          amendment_type?: string
-          applied_at?: string | null
-          approved_at?: string | null
-          approved_by_user_id?: string | null
-          before?: Json | null
-          brief_id?: string
-          id?: string
-          proposed_at?: string
-          proposed_by_user_id?: string | null
-          reason?: string
-          status?: string
-          target_path?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "brief_amendments_brief_id_fkey"
-            columns: ["brief_id"]
-            isOneToOne: false
-            referencedRelation: "briefs"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       brief_stages: {
         Row: {
           brief_id: string
@@ -772,6 +716,7 @@ export type Database = {
           description: string | null
           id: string
           order: number
+          prompt: string | null
           started_at: string | null
           status: string
           title: string
@@ -786,6 +731,7 @@ export type Database = {
           description?: string | null
           id?: string
           order: number
+          prompt?: string | null
           started_at?: string | null
           status?: string
           title: string
@@ -800,6 +746,7 @@ export type Database = {
           description?: string | null
           id?: string
           order?: number
+          prompt?: string | null
           started_at?: string | null
           status?: string
           title?: string
@@ -2708,45 +2655,61 @@ export type Database = {
       }
       throttle_reservations: {
         Row: {
+          agent_job_id: string | null
           consumed_at: string | null
           created_at: string
+          estimated_tokens: number | null
           expires_at: string
           id: string
           organisation_id: string | null
+          pool_key: string | null
           released_at: string | null
-          route: string
+          route: string | null
           slots_reserved: number
           tokens_reserved: number
           traffic_class: number | null
           user_id: string | null
         }
         Insert: {
+          agent_job_id?: string | null
           consumed_at?: string | null
           created_at?: string
+          estimated_tokens?: number | null
           expires_at: string
           id?: string
           organisation_id?: string | null
+          pool_key?: string | null
           released_at?: string | null
-          route: string
+          route?: string | null
           slots_reserved?: number
           tokens_reserved?: number
           traffic_class?: number | null
           user_id?: string | null
         }
         Update: {
+          agent_job_id?: string | null
           consumed_at?: string | null
           created_at?: string
+          estimated_tokens?: number | null
           expires_at?: string
           id?: string
           organisation_id?: string | null
+          pool_key?: string | null
           released_at?: string | null
-          route?: string
+          route?: string | null
           slots_reserved?: number
           tokens_reserved?: number
           traffic_class?: number | null
           user_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "throttle_reservations_agent_job_id_fkey"
+            columns: ["agent_job_id"]
+            isOneToOne: false
+            referencedRelation: "agent_jobs"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "throttle_reservations_organisation_id_fkey"
             columns: ["organisation_id"]
@@ -3178,7 +3141,6 @@ export type Database = {
         }
         Returns: Json
       }
-      apply_brief_amendment: { Args: { p_amendment_id: string }; Returns: Json }
       apply_profile_amendment: {
         Args: {
           p_after: Json
@@ -3233,6 +3195,7 @@ export type Database = {
         }
         Returns: number
       }
+      compute_node_depth: { Args: { p_parent_id: string }; Returns: number }
       create_document_with_layer_stack: {
         Args: {
           p_authors: string[]
@@ -3338,6 +3301,7 @@ export type Database = {
         Returns: number
       }
       scheduler_sweep_throttle_reservations: { Args: never; Returns: number }
+      tiptap_word_count: { Args: { doc: Json }; Returns: number }
       update_export_profile: {
         Args: { p_config: Json; p_id: string; p_name: string }
         Returns: Json
