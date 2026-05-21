@@ -792,11 +792,18 @@ async function* runIterationInner(
         if (cancelCall) {
           yield { type: 'brief_cancellation_proposal', proposal: cancelCall.proposal_artefact as BriefCancellationProposalArtefactEvent }
         } else {
-          // 2026-05-21 simplification — propose_workflow yields a
-          // workflow_proposal event with the stage_link metadata so
-          // the persist + auto-approve logic at the top of this
-          // section can route it correctly. propose_workflow is only
-          // called in system-driven stage-planning turns.
+          // 2026-05-21 simplification — propose_workflow path.
+          //
+          // The executor returned an artefact with the workflow + the
+          // stage_link metadata (brief_id, stage_id, etc.). The runner:
+          //   1. Persists the workflow (workflows + workflow_steps rows)
+          //   2. Links brief_stages.workflow_id and transitions the
+          //      stage from 'planning' → 'planned'
+          //   3. If brief.auto_approve_workflow_proposals is true,
+          //      POSTs to the auto-approve route which approves the
+          //      workflow + queues its agent_jobs
+          //   4. Yields a workflow_proposal event with stage_link metadata
+          //      so any downstream observer can see what happened
           const proposeWorkflowCall = [...accumulatedToolCalls].reverse().find((c) => c.name === 'propose_workflow' && c.proposal_artefact !== undefined)
           if (proposeWorkflowCall) {
             const artefact = proposeWorkflowCall.proposal_artefact as {
@@ -806,14 +813,64 @@ async function* runIterationInner(
               stage_title: string
               workflow: unknown
             }
-            // Re-validate the workflow shape before yielding. The
-            // executor already parsed it, but doing it again here
-            // gives us a typed WorkflowProposalParsed for the event.
             const wf = WorkflowProposalSchema.safeParse(artefact.workflow)
             if (wf.success) {
+              let stageWorkflowId: string | undefined
+              try {
+                stageWorkflowId = await persistDraftWorkflow({
+                  supabase,
+                  organisationId: conversation.organisation_id,
+                  documentId: conversation.document_id,
+                  conversationId: conversation.id,
+                  proposal: wf.data,
+                })
+                // Link the persisted workflow to the planning stage and
+                // transition the stage back to 'planned' (workflow ready
+                // to dispatch). Guard the UPDATE on status='planning'
+                // so concurrent fires don't double-write.
+                await supabase
+                  .from('brief_stages')
+                  .update({ workflow_id: stageWorkflowId, status: 'planned' })
+                  .eq('id', artefact.stage_id)
+                  .eq('status', 'planning')
+
+                // Annotate the assistant message with the workflow_id
+                // (matches the legacy XML path's behaviour).
+                await supabase
+                  .from('conversation_messages')
+                  .update({ workflow_id: stageWorkflowId })
+                  .eq('id', assistantMessageId)
+
+                // Auto-approve if the brief is configured for it. Same
+                // route that handles propose_brief auto-approve.
+                try {
+                  const briefCheck = await supabase
+                    .from('briefs')
+                    .select('id, auto_approve_workflow_proposals')
+                    .eq('id', artefact.brief_id)
+                    .maybeSingle()
+                  if (briefCheck.data?.auto_approve_workflow_proposals) {
+                    const cronToken = process.env.CRON_AUTH_TOKEN
+                    const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
+                    await fetch(`${baseUrl}/api/director/turns/${jobRow.director_turn_id}/auto-approve-workflow`, {
+                      method: 'POST',
+                      headers: cronToken
+                        ? { 'content-type': 'application/json', authorization: `Bearer ${cronToken}` }
+                        : { 'content-type': 'application/json' },
+                      body: '{}',
+                    })
+                  }
+                } catch (err) {
+                  console.error('[iteration-runner] propose_workflow auto-approve check failed', err instanceof Error ? err.message : String(err))
+                }
+              } catch (err) {
+                console.error('[iteration-runner] propose_workflow persistDraftWorkflow failed', { stage_id: artefact.stage_id, error: err instanceof Error ? err.message : String(err) })
+              }
+
               yield {
                 type: 'workflow_proposal',
                 proposal: wf.data,
+                workflow_id: stageWorkflowId,
                 stage_link: {
                   brief_id: artefact.brief_id,
                   stage_id: artefact.stage_id,

@@ -13,7 +13,6 @@
 import type {
   BriefProposalStageInput,
   BriefStageTriggerConfigAfterStage,
-  BriefStageTriggerConfigCompound,
 } from './types'
 
 export type CycleCheckResult = { ok: true } | { ok: false; cycle: number[] }
