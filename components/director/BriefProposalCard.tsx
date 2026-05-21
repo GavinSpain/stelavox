@@ -37,11 +37,10 @@ interface BriefProposalCardProps {
   onApproved?: () => void
 }
 
+// 2026-05-21 simplification (M-183): trigger_type narrowed.
 const TRIGGER_LABEL: Record<string, string> = {
   after_stage: 'After previous',
-  scheduled_at: 'Scheduled',
   manual: 'Manual',
-  compound: 'Compound',
 }
 
 const STATUS_LABEL: Record<string, string> = {
@@ -240,10 +239,29 @@ export function BriefProposalCard({
                     {s.description ? (
                       <div style={{ fontSize: 11, color: 'var(--color-text-secondary)', lineHeight: 1.4 }}>{s.description}</div>
                     ) : null}
+                    {/* 2026-05-21 simplification — stage is either
+                        workflow-bound (concrete steps planned now)
+                        or prompt-deferred (system plans when trigger
+                        fires). Render the prompt when present so the
+                        author sees what's queued for later. */}
+                    {s.prompt ? (
+                      <div
+                        style={{
+                          fontSize: 11,
+                          color: 'var(--color-text-secondary)',
+                          lineHeight: 1.4,
+                          fontStyle: 'italic',
+                          marginTop: 2,
+                        }}
+                        data-testid="brief-proposal-stage-prompt"
+                      >
+                        Prompt: “{s.prompt}”
+                      </div>
+                    ) : null}
                     <div style={{ marginTop: 2, fontSize: 10, color: 'var(--color-text-muted)' }}>
                       {TRIGGER_LABEL[s.trigger_type] ?? s.trigger_type}
-                      {s.order === 1
-                        ? ` · ${s.workflow ? `${s.workflow.steps.length} steps planned` : 'workflow planned'}`
+                      {s.workflow
+                        ? ` · ${s.workflow.steps.length} steps planned`
                         : ' · workflow planned just-in-time when this stage activates'}
                     </div>
                   </div>
