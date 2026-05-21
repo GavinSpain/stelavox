@@ -18,7 +18,7 @@
 //
 // On any mutation, calls onMutated() so NodeTree re-fetches the tree.
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import {
   Dialog,
   DialogContent,
@@ -66,8 +66,73 @@ export function NodeMoreMenu({
 
   const dialogOpen = renameOpen || deleteOpen || lockOpen || conflictOpen
 
-  // Anchor position: place menu directly below the More button.
+  // Anchor position: place menu directly below the More button by
+  // default. The useLayoutEffect below measures the menu's actual size
+  // post-mount and flips it above when the row is too close to the
+  // viewport bottom for the menu to fit. Right-edge horizontal
+  // overflow is handled the same way.
+  //
+  // 2026-05-21 — author-reported viewport overflow on rows near the
+  // bottom of the screen. Pre-fix the menu unconditionally rendered
+  // 4px below the anchor and clipped off-screen for the bottom ~3-5
+  // rows depending on viewport height + whether the Status submenu
+  // was expanded.
   const rect = anchor.getBoundingClientRect()
+  const [pos, setPos] = useState<{ top: number; left: number }>({
+    top: rect.bottom + 4,
+    left: rect.left,
+  })
+  useLayoutEffect(() => {
+    if (!ref.current) return
+    const menuRect = ref.current.getBoundingClientRect()
+    const viewportH = window.innerHeight
+    const viewportW = window.innerWidth
+    const VIEWPORT_PAD = 8 // breathing room from edges
+
+    // Vertical placement: prefer below, flip above on overflow.
+    const spaceBelow = viewportH - rect.bottom
+    const spaceAbove = rect.top
+    let nextTop: number
+    if (menuRect.height + 4 <= spaceBelow - VIEWPORT_PAD) {
+      // Fits below — default placement.
+      nextTop = rect.bottom + 4
+    } else if (menuRect.height + 4 <= spaceAbove - VIEWPORT_PAD) {
+      // Doesn't fit below but fits above — flip up.
+      nextTop = rect.top - menuRect.height - 4
+    } else {
+      // Doesn't fit either way (very tall menu / very short viewport).
+      // Pin to whichever side has more space. The menu will be clipped
+      // either way, but better to be clipped at the bottom of a
+      // mostly-visible menu than to be entirely off-screen.
+      nextTop =
+        spaceBelow >= spaceAbove
+          ? rect.bottom + 4
+          : Math.max(VIEWPORT_PAD, viewportH - menuRect.height - VIEWPORT_PAD)
+    }
+
+    // Horizontal placement: prefer left-aligned to anchor; shift left
+    // when the menu would overflow the right edge.
+    let nextLeft = rect.left
+    if (nextLeft + menuRect.width > viewportW - VIEWPORT_PAD) {
+      nextLeft = Math.max(VIEWPORT_PAD, viewportW - menuRect.width - VIEWPORT_PAD)
+    }
+
+    // Only call setPos if something changed — avoids an infinite loop
+    // (a setPos here triggers re-render, which re-runs the effect).
+    if (nextTop !== pos.top || nextLeft !== pos.left) {
+      setPos({ top: nextTop, left: nextLeft })
+    }
+  }, [
+    // showStatus toggles the Status submenu, changing the menu height.
+    showStatus,
+    // Anchor position is captured once at mount but include in deps so
+    // the effect re-runs if the parent re-renders with a new anchor.
+    rect.bottom,
+    rect.top,
+    rect.left,
+    pos.top,
+    pos.left,
+  ])
 
   // Click-outside dismissal. Suspended while a dialog is open so a
   // click on the dialog backdrop / inputs doesn't unmount the menu
@@ -180,8 +245,8 @@ export function NodeMoreMenu({
         role="menu"
         style={{
           position: 'fixed',
-          top: rect.bottom + 4,
-          left: rect.left,
+          top: pos.top,
+          left: pos.left,
           background: 'var(--color-bg-elevated)',
           border: '1px solid var(--color-border-default)',
           borderRadius: '6px',
