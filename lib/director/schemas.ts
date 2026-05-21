@@ -179,7 +179,8 @@ export const BriefProposalSchema = z.object({
         order: positiveIntSchema,
         title: z.string().min(1).max(200),
         description: z.string().max(2_000).optional(),
-        trigger_type: z.enum(['after_stage', 'scheduled_at', 'manual', 'compound']),
+        // 2026-05-21 simplification (M-183): trigger_type narrowed.
+        trigger_type: z.enum(['after_stage', 'manual']),
         trigger_config: z.record(z.string(), z.unknown()).optional(),
       }),
     )
@@ -236,14 +237,32 @@ const _ProposalWorkflowSchema = z.object({
   steps: z.array(_ProposalWorkflowStepSchema).min(1).max(30),
 })
 
-const _ProposalStageSchema = z.object({
-  order: positiveIntSchema,
-  title: z.string().min(1).max(200),
-  description: z.string().max(2_000).optional(),
-  trigger_type: z.enum(['after_stage', 'scheduled_at', 'manual', 'compound']),
-  trigger_config: z.record(z.string(), z.unknown()).optional().default({}),
-  workflow: _ProposalWorkflowSchema.nullable(),
-})
+// V1.x post-simplification (M-183/M-184): each stage has EITHER a
+// workflow (targets known at brief-proposal time) OR a prompt (targets
+// known only after earlier stages complete). The refine() enforces
+// exactly-one-of, matching the DB-level
+// brief_stages_planning_source_check constraint.
+//
+// trigger_type narrowed to ('after_stage', 'manual'). scheduled_at +
+// compound dropped per M-183. trigger_config kept open so scheduled_at
+// can land post-V1 without a schema change.
+const _ProposalStageSchema = z
+  .object({
+    order: positiveIntSchema,
+    title: z.string().min(1).max(200),
+    description: z.string().max(2_000).optional(),
+    trigger_type: z.enum(['after_stage', 'manual']),
+    trigger_config: z.record(z.string(), z.unknown()).optional().default({}),
+    workflow: _ProposalWorkflowSchema.optional(),
+    prompt: z.string().min(1).max(2_000).optional(),
+  })
+  .refine(
+    (s) => (s.workflow !== undefined) !== (s.prompt !== undefined),
+    {
+      message: 'each stage must have exactly one of workflow or prompt (not both, not neither)',
+      path: ['workflow'],
+    },
+  )
 
 // Operation-level Brief proposal — replaces v2.0's project-level Brief
 // proposal schema.
@@ -252,6 +271,16 @@ export const BriefProposalV1xA1Schema = z.object({
   stages: z.array(_ProposalStageSchema).min(1).max(20),
 })
 export type BriefProposalV1xA1Parsed = z.infer<typeof BriefProposalV1xA1Schema>
+
+// V1.x post-simplification — propose_workflow input schema.
+// The Director calls this ONLY when the system has invoked it via a
+// stage_trigger_fired event for a prompt-deferred stage. The system
+// looks up the unique stage with status='planning' on the active
+// brief and attaches the workflow to it. No brief_id or stage_id in
+// the input — the active stage is unambiguous (single-active-brief +
+// at-most-one-planning-stage invariants).
+export const ProposeWorkflowSchema = _ProposalWorkflowSchema
+export type ProposeWorkflowParsed = z.infer<typeof ProposeWorkflowSchema>
 
 // ---------------------------------------------------------------------------
 // Tool input schemas — one per registered tool. Used by validateToolCall().
@@ -349,23 +378,12 @@ export const ToolInputSchemas = {
   propose_profile_amendment: ProfileAmendmentProposalSchema.strict(),
   // V1.x-B.1.1: cancel_brief — destructive proposal-only.
   cancel_brief: BriefCancellationProposalSchema.strict(),
-  // V1.x-B.3: propose_brief_amendment — modify active Brief in-flight.
-  propose_brief_amendment: z
-    .object({
-      brief_id: uuidSchema,
-      amendment_type: z.enum([
-        'goal_text',
-        'preferences',
-        'add_stage',
-        'modify_pending_stage',
-        'remove_pending_stage',
-      ]),
-      target_path: z.string().nullish(),
-      before: z.record(z.string(), z.unknown()).nullish(),
-      after: z.record(z.string(), z.unknown()),
-      reason: z.string().min(1).max(1024),
-    })
-    .strict(),
+  // 2026-05-21 simplification (M-183/M-184): propose_brief_amendment
+  // dropped. Replaced by propose_workflow — emitted by the Director
+  // when the system invokes it via a stage_trigger_fired event for a
+  // prompt-deferred stage. The system attaches the resulting workflow
+  // to the unique 'planning' stage on the active brief.
+  propose_workflow: ProposeWorkflowSchema,
   // V1.x-F.1: report_capability_limit — synthetic propose-only tool the
   // Director invokes when it detects the user's request exceeds its
   // capability boundaries (per-iteration cap, token budget, tool count,
@@ -406,7 +424,7 @@ export const WRITE_TOOL_NAMES: readonly ToolName[] = [
   'propose_brief',
   'propose_profile_amendment',
   'cancel_brief',
-  'propose_brief_amendment',
+  'propose_workflow',
   'report_capability_limit',
 ] as const
 

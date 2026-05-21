@@ -69,18 +69,18 @@ export interface ReadToolResult {
 /**
  * Output of a write tool — produces a proposal artefact, no DB write.
  *
- * 2026-05-19 Phase 3 cleanup: the legacy `proposal?: WorkflowStepProposal`
- * field is removed. It was the V1.x-A vintage shape emitted by the
- * `create_*_step` tools; Phase 2 removed those tools from the registry,
- * so no producer remains. Workflow steps now embed directly inside
- * propose_brief's workflow.steps and are validated at that boundary.
- *
  * Card-surfacing artefacts (one per write tool, mutually exclusive):
  *   - brief_proposal + brief_proposal_full — propose_brief
  *   - profile_amendment_proposal — propose_profile_amendment
  *   - brief_cancellation_proposal — cancel_brief
- *   - brief_amendment_proposal — propose_brief_amendment
+ *   - workflow_proposal — propose_workflow (system-driven stage planning)
  *   - capability_limit_proposal — report_capability_limit
+ *
+ * 2026-05-19 Phase 3 cleanup: the legacy `proposal?: WorkflowStepProposal`
+ * field was removed.
+ * 2026-05-21 simplification: `brief_amendment_proposal?` (V1.x-B.3) was
+ * removed; the amendment surface is gone. Replaced by `workflow_proposal`
+ * for the system-driven stage-planning path.
  */
 export interface WriteToolResult {
   ok: true
@@ -90,10 +90,34 @@ export interface WriteToolResult {
   profile_amendment_proposal?: ProfileAmendmentProposalArtefact
   /** V1.x-B.1.1 — destructive Brief cancellation proposal (H-08: propose-only). */
   brief_cancellation_proposal?: BriefCancellationProposalArtefact
-  /** V1.x-B.3 — Brief amendment proposal (H-08: propose-only). */
-  brief_amendment_proposal?: Record<string, unknown>
+  /**
+   * 2026-05-21 simplification — workflow proposal emitted when the
+   * Director plans a prompt-deferred stage's workflow (stage_trigger_fired
+   * system event in the conversation). The iteration runner attaches
+   * the workflow to brief_stages.workflow_id; if brief.auto_approve_workflow_proposals
+   * is true the workflow runs immediately, otherwise the author sees a PlanCard.
+   *
+   * Shape: { brief_id, stage_id, stage_order, stage_title, workflow }.
+   * `workflow` is the full WorkflowProposalParsed shape.
+   */
+  workflow_proposal?: WorkflowProposalForStageArtefact
   /** V1.x-F.1 — Capability-limit synthetic proposal (H-08: propose-only). */
   capability_limit_proposal?: CapabilityLimitArtefact
+}
+
+/**
+ * 2026-05-21 — propose_workflow artefact for system-driven stage planning.
+ * The executor resolves which stage is being planned (the unique
+ * status='planning' row on the active brief) and includes the stage's
+ * id + order + title in the artefact so the iteration runner doesn't
+ * have to re-look-up.
+ */
+export type WorkflowProposalForStageArtefact = {
+  brief_id: string
+  stage_id: string
+  stage_order: number
+  stage_title: string
+  workflow: Record<string, unknown>
 }
 
 /**
@@ -118,7 +142,8 @@ export type BriefProposalArtefact = {
     order: number
     title: string
     description?: string
-    trigger_type: 'after_stage' | 'scheduled_at' | 'manual' | 'compound'
+    // 2026-05-21 simplification (M-183): trigger_type narrowed.
+    trigger_type: 'after_stage' | 'manual'
     trigger_config?: Record<string, unknown>
   }>
 }

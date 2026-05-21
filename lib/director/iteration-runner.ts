@@ -55,6 +55,7 @@ import { validateToolCall } from '@/lib/security/tool-validator'
 import { writeAuditLogEntry } from '@/lib/security/audit'
 import {
   type WorkflowProposalParsed,
+  WorkflowProposalSchema,
   BriefProposalV1xA1Schema,
   type BriefProposalV1xA1Parsed,
   ProfileAmendmentProposalSchema,
@@ -117,11 +118,28 @@ export type IterationEvent =
       result_summary: string
       proposal_artefact?: unknown
     }
-  | { type: 'workflow_proposal'; proposal: WorkflowProposalParsed; workflow_id?: string }
+  | {
+      type: 'workflow_proposal'
+      proposal: WorkflowProposalParsed
+      workflow_id?: string
+      /**
+       * 2026-05-21 simplification — when set, this workflow_proposal was
+       * produced by propose_workflow for a prompt-deferred stage. The
+       * iteration runner links the persisted workflow to
+       * brief_stages.workflow_id on this stage, transitions the stage
+       * from 'planning' to 'planned' (or directly approves it if
+       * brief.auto_approve_workflow_proposals=true).
+       */
+      stage_link?: {
+        brief_id: string
+        stage_id: string
+        stage_order: number
+        stage_title: string
+      }
+    }
   | { type: 'brief_proposal'; proposal: BriefProposalV1xA1Parsed }
   | { type: 'profile_amendment_proposal'; proposal: ProfileAmendmentProposalParsed }
   | { type: 'brief_cancellation_proposal'; proposal: BriefCancellationProposalArtefactEvent }
-  | { type: 'brief_amendment_proposal'; proposal: Record<string, unknown> }
   | { type: 'capability_limit_proposal'; proposal: Record<string, unknown> }
   | { type: 'iteration_boundary'; iteration: number }
   | {
@@ -587,16 +605,15 @@ async function* runIterationInner(
     }
 
     // H-08 invariant guard (round-3 audit F-100).
-    // 2026-05-19 Phase 3 cleanup: legacy `proposal` field removed from
-    // WriteToolResult after Phase 2 retired the create_*_step tools.
-    // The remaining card-surfacing artefacts are listed below.
+    // 2026-05-21 simplification: brief_amendment_proposal replaced by
+    // workflow_proposal in the surviving artefacts list.
     if (result.ok && isWriteTool(call.name)) {
-      const r = result as { brief_proposal?: unknown; profile_amendment_proposal?: unknown; brief_cancellation_proposal?: unknown; brief_amendment_proposal?: unknown; capability_limit_proposal?: unknown; data?: unknown }
+      const r = result as { brief_proposal?: unknown; profile_amendment_proposal?: unknown; brief_cancellation_proposal?: unknown; workflow_proposal?: unknown; capability_limit_proposal?: unknown; data?: unknown }
       const hasProposalArtefact =
         r.brief_proposal !== undefined ||
         r.profile_amendment_proposal !== undefined ||
         r.brief_cancellation_proposal !== undefined ||
-        r.brief_amendment_proposal !== undefined ||
+        r.workflow_proposal !== undefined ||
         r.capability_limit_proposal !== undefined
       if (r.data !== undefined || !hasProposalArtefact) {
         await writeAuditLogEntry({
@@ -605,20 +622,20 @@ async function* runIterationInner(
           organisation_id: session.organisation_id,
           document_id: session.document_id,
           conversation_id: session.conversation_id,
-          metadata: { tool: call.name, has_data: r.data !== undefined, has_brief_proposal: r.brief_proposal !== undefined, has_profile_amendment_proposal: r.profile_amendment_proposal !== undefined, has_brief_cancellation_proposal: r.brief_cancellation_proposal !== undefined, has_brief_amendment_proposal: r.brief_amendment_proposal !== undefined, has_capability_limit_proposal: r.capability_limit_proposal !== undefined },
+          metadata: { tool: call.name, has_data: r.data !== undefined, has_brief_proposal: r.brief_proposal !== undefined, has_profile_amendment_proposal: r.profile_amendment_proposal !== undefined, has_brief_cancellation_proposal: r.brief_cancellation_proposal !== undefined, has_workflow_proposal: r.workflow_proposal !== undefined, has_capability_limit_proposal: r.capability_limit_proposal !== undefined },
         })
         result = { ok: false, error: 'h08_invariant_violation', reason: `Write tool ${call.name} returned a result shape that breaches H-08.` }
       }
     }
 
     const summary = summariseToolResult(call.name, result)
-    const r = result as { brief_proposal_full?: unknown; profile_amendment_proposal?: unknown; brief_cancellation_proposal?: unknown; brief_amendment_proposal?: unknown; capability_limit_proposal?: unknown }
-    const artefact = r.brief_proposal_full ?? r.profile_amendment_proposal ?? r.brief_cancellation_proposal ?? r.brief_amendment_proposal ?? r.capability_limit_proposal ?? undefined
+    const r = result as { brief_proposal_full?: unknown; profile_amendment_proposal?: unknown; brief_cancellation_proposal?: unknown; workflow_proposal?: unknown; capability_limit_proposal?: unknown }
+    const artefact = r.brief_proposal_full ?? r.profile_amendment_proposal ?? r.brief_cancellation_proposal ?? r.workflow_proposal ?? r.capability_limit_proposal ?? undefined
     accumulatedToolCalls.push({ id: call.id, name: call.name, arguments: call.arguments, validation_result: 'allowed', executed_at: new Date().toISOString(), result_summary: summary, ...(artefact !== undefined ? { proposal_artefact: artefact } : {}) })
     yield { type: 'tool_use_complete', tool_call_id: call.id, name: call.name, validation_result: 'allowed', result_summary: summary, ...(artefact !== undefined ? { proposal_artefact: artefact } : {}) }
 
     // Atom-size guardrail (V1.x-B.1.1 session 3b).
-    // 2026-05-19 Phase 3 cleanup: legacy `proposal` field removed.
+    // 2026-05-21 simplification: brief_amendment_proposal → workflow_proposal.
     const serialisedToolResult = JSON.stringify(
       result.ok
         ? (result as { data?: unknown }).data ??
@@ -626,7 +643,7 @@ async function* runIterationInner(
           (result as { brief_proposal?: unknown }).brief_proposal ??
           (result as { profile_amendment_proposal?: unknown }).profile_amendment_proposal ??
           (result as { brief_cancellation_proposal?: unknown }).brief_cancellation_proposal ??
-          (result as { brief_amendment_proposal?: unknown }).brief_amendment_proposal ??
+          (result as { workflow_proposal?: unknown }).workflow_proposal ??
           (result as { capability_limit_proposal?: unknown }).capability_limit_proposal
         : result,
     )
@@ -775,9 +792,36 @@ async function* runIterationInner(
         if (cancelCall) {
           yield { type: 'brief_cancellation_proposal', proposal: cancelCall.proposal_artefact as BriefCancellationProposalArtefactEvent }
         } else {
-          const briefAmendmentCall = [...accumulatedToolCalls].reverse().find((c) => c.name === 'propose_brief_amendment' && c.proposal_artefact !== undefined)
-          if (briefAmendmentCall) {
-            yield { type: 'brief_amendment_proposal', proposal: briefAmendmentCall.proposal_artefact as Record<string, unknown> }
+          // 2026-05-21 simplification — propose_workflow yields a
+          // workflow_proposal event with the stage_link metadata so
+          // the persist + auto-approve logic at the top of this
+          // section can route it correctly. propose_workflow is only
+          // called in system-driven stage-planning turns.
+          const proposeWorkflowCall = [...accumulatedToolCalls].reverse().find((c) => c.name === 'propose_workflow' && c.proposal_artefact !== undefined)
+          if (proposeWorkflowCall) {
+            const artefact = proposeWorkflowCall.proposal_artefact as {
+              brief_id: string
+              stage_id: string
+              stage_order: number
+              stage_title: string
+              workflow: unknown
+            }
+            // Re-validate the workflow shape before yielding. The
+            // executor already parsed it, but doing it again here
+            // gives us a typed WorkflowProposalParsed for the event.
+            const wf = WorkflowProposalSchema.safeParse(artefact.workflow)
+            if (wf.success) {
+              yield {
+                type: 'workflow_proposal',
+                proposal: wf.data,
+                stage_link: {
+                  brief_id: artefact.brief_id,
+                  stage_id: artefact.stage_id,
+                  stage_order: artefact.stage_order,
+                  stage_title: artefact.stage_title,
+                },
+              }
+            }
           } else {
             const capabilityLimitCall = [...accumulatedToolCalls].reverse().find((c) => c.name === 'report_capability_limit' && c.proposal_artefact !== undefined)
             if (capabilityLimitCall) {
@@ -958,9 +1002,10 @@ function summariseToolResult(toolName: string, result: ToolResult): string {
     const c = result.brief_cancellation_proposal
     return `${toolName}: cancel proposal — brief ${c.brief_id} (${c.cascade_preview.pending_stages} pending, ${c.cascade_preview.completed_stages} completed${c.cascade_preview.queued_brief_will_promote ? ', queued promote' : ''})`
   }
-  if ('brief_amendment_proposal' in result && result.brief_amendment_proposal) {
-    const a = result.brief_amendment_proposal as { amendment_type?: string; brief_id?: string }
-    return `${toolName}: amendment proposal — ${a.amendment_type ?? 'unknown'} on brief ${a.brief_id ?? '?'}`
+  if ('workflow_proposal' in result && result.workflow_proposal) {
+    const wp = result.workflow_proposal as { stage_order?: number; stage_title?: string; workflow?: { steps?: unknown[] } }
+    const nSteps = wp.workflow?.steps?.length ?? 0
+    return `${toolName}: workflow proposal for stage ${wp.stage_order ?? '?'} (${wp.stage_title ?? 'untitled'}) — ${nSteps} steps`
   }
   if ('capability_limit_proposal' in result && result.capability_limit_proposal) {
     const c = result.capability_limit_proposal as { detected_limit?: string }

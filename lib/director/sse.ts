@@ -88,7 +88,6 @@ export function turnEventToSse(
     case 'brief_proposal':
     case 'profile_amendment_proposal':
     case 'brief_cancellation_proposal':
-    case 'brief_amendment_proposal':
     case 'capability_limit_proposal':
       return null
     default:

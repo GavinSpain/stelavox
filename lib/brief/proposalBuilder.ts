@@ -19,7 +19,12 @@ import type {
 } from './types'
 import { detectStageTriggerCycles } from './cycleDetector'
 
-const TriggerTypeSchema = z.enum(['after_stage', 'scheduled_at', 'manual', 'compound'])
+// 2026-05-21 simplification (M-183): trigger_type narrowed to
+// (after_stage, manual). scheduled_at + compound dropped — neither
+// was exercised in V1.x. The trigger_config JSONB column stays
+// schema-flexible so scheduled_at can land post-V1 without a DB
+// change.
+const TriggerTypeSchema = z.enum(['after_stage', 'manual'])
 
 // ---------------------------------------------------------------------------
 // Per-operation-type parameter schemas.
@@ -131,14 +136,28 @@ const WorkflowSchema = z.object({
   steps: z.array(StepSchema).min(1).max(30),                    // 30 = agent.director_max_workflow_steps
 })
 
-const StageInputSchema = z.object({
-  order: z.number().int().positive(),
-  title: z.string().min(1).max(200),
-  description: z.string().max(2000).optional(),
-  trigger_type: TriggerTypeSchema,
-  trigger_config: z.record(z.string(), z.unknown()).optional().default({}),
-  workflow: WorkflowSchema.nullable(),
-})
+// 2026-05-21 simplification — each stage has EITHER a workflow OR a
+// prompt (refine() enforces XOR). Stage 1's workflow MUST be set (or a
+// prompt — though "I don't know what to do for stage 1 yet" is rarely
+// useful; common case is workflow on stage 1). Stages 2..N typically
+// have prompts when their targets depend on stage 1's outputs.
+const StageInputSchema = z
+  .object({
+    order: z.number().int().positive(),
+    title: z.string().min(1).max(200),
+    description: z.string().max(2000).optional(),
+    trigger_type: TriggerTypeSchema,
+    trigger_config: z.record(z.string(), z.unknown()).optional().default({}),
+    workflow: WorkflowSchema.optional(),
+    prompt: z.string().min(1).max(2000).optional(),
+  })
+  .refine(
+    (s) => (s.workflow !== undefined) !== (s.prompt !== undefined),
+    {
+      message: 'each stage must have exactly one of workflow or prompt (not both, not neither)',
+      path: ['workflow'],
+    },
+  )
 
 export const ProposeBriefInputSchema = z.object({
   goal_text: z.string().min(1).max(2000),
@@ -160,13 +179,14 @@ export type ProposeBriefInput = z.infer<typeof ProposeBriefInputSchema>
 export function buildBriefProposal(input: unknown): BriefProposal {
   const parsed = ProposeBriefInputSchema.parse(input)
 
-  // Stage 1's workflow is required.
+  // Stage 1 must exist. The XOR refine on StageInputSchema already
+  // enforced that stage 1 has either a workflow or a prompt — both
+  // are valid starting points. Common case is workflow; prompt-only
+  // stage 1 is allowed for the rare "I'll figure it out when I look
+  // at the document" scenario.
   const firstStage = parsed.stages.find((s) => s.order === 1)
   if (!firstStage) {
     throw new Error('missing_first_stage: stages must include order=1')
-  }
-  if (firstStage.workflow == null) {
-    throw new Error('first_stage_workflow_required: stage 1 must have a fully-specified workflow')
   }
 
   // Stage order uniqueness.
@@ -192,16 +212,17 @@ export function buildBriefProposal(input: unknown): BriefProposal {
     }
   }
 
-  // Stage 2..N may have null workflow (just-in-time).
-  // Stage 1 already verified above.
-
+  // Each stage carries workflow OR prompt (XOR enforced by the
+  // schema's .refine()). Map into the artefact shape; downstream
+  // consumers see null for the unset side.
   const stages: BriefProposalStageInput[] = parsed.stages.map((s) => ({
     order: s.order,
     title: s.title,
     description: s.description,
     trigger_type: s.trigger_type,
     trigger_config: s.trigger_config as BriefProposalStageInput['trigger_config'],
-    workflow: s.workflow as BriefProposalWorkflowInput | null,
+    workflow: (s.workflow ?? null) as BriefProposalWorkflowInput | null,
+    prompt: s.prompt ?? null,
   }))
 
   const cycleCheck = detectStageTriggerCycles(stages)

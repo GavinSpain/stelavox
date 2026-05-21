@@ -13,16 +13,20 @@ export type BriefStatus = 'planned' | 'queued' | 'active' | 'completed' | 'cance
 
 export type BriefCause = 'user_initial' | 'sequence_promotion'
 
+// 2026-05-21 simplification (M-183): trigger_type narrowed to
+// (after_stage, manual). scheduled_at + compound were never exercised
+// in V1.x. trigger_config JSONB column kept schema-flexible so
+// scheduled_at can land post-V1 without a schema change.
 export type BriefStageTriggerType =
   | 'after_stage'
-  | 'scheduled_at'
   | 'manual'
-  | 'compound'
 
+// 2026-05-21 simplification (M-183): 'proposing' renamed to 'planning'.
+// In the new model, a stage is 'planning' when the system has invoked
+// the Director to plan its workflow (prompt-deferred stages only).
 export type BriefStageStatus =
   | 'planned'
-  | 'proposing'
-  | 'proposed'
+  | 'planning'
   | 'approved'
   | 'scheduled'
   | 'running'
@@ -79,6 +83,13 @@ export interface BriefStage {
   trigger_config: BriefStageTriggerConfig
   status: BriefStageStatus
   workflow_id: string | null
+  /**
+   * 2026-05-21 simplification — non-null when the stage is
+   * prompt-deferred (targets only known after earlier stages complete).
+   * The DB CHECK constraint requires exactly one of (workflow_id, prompt)
+   * to be set on non-terminal stages.
+   */
+  prompt: string | null
   started_at: string | null
   completed_at: string | null
   created_at: string
@@ -101,7 +112,7 @@ export interface BriefStatePayload {
   cause: BriefCause
   current_stage: Pick<BriefStage, 'order' | 'title' | 'status'> | null
   stages: Array<
-    Pick<BriefStage, 'order' | 'title' | 'description' | 'trigger_type' | 'status' | 'workflow_id'> & {
+    Pick<BriefStage, 'order' | 'title' | 'description' | 'trigger_type' | 'status' | 'workflow_id' | 'prompt'> & {
       trigger_config: BriefStageTriggerConfig
     }
   >
@@ -154,8 +165,16 @@ export interface BriefProposalStageInput {
   description?: string
   trigger_type: BriefStageTriggerType
   trigger_config?: BriefStageTriggerConfig
-  /** Stage 1's workflow is required; stages 2..N may have null (just-in-time planning). */
+  /**
+   * 2026-05-21 simplification — each stage has EITHER a workflow (targets
+   * known at brief-proposal time, Director plans the concrete steps now)
+   * OR a prompt (targets only knowable after earlier stages run; the
+   * system invokes the Director with the prompt when this stage's
+   * trigger fires, and the Director responds via propose_workflow).
+   * The proposalBuilder enforces exactly one of the two is set.
+   */
   workflow: BriefProposalWorkflowInput | null
+  prompt: string | null
 }
 
 /** Workflow shape inside a stage (mirrors existing WorkflowStepProposal vocabulary). */

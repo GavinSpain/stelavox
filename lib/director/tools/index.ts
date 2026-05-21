@@ -42,8 +42,8 @@ import {
 import {
   execCancelBrief,
   execProposeBrief,
-  execProposeBriefAmendment,
   execProposeProfileAmendment,
+  execProposeWorkflow,
   execReportCapabilityLimit,
 } from '@/lib/director/tools/write'
 // Phase 2: execCreate* helpers no longer imported here — they remain
@@ -187,11 +187,11 @@ const writeTools: DirectorToolDefinition[] = [
     input_schema: toolInputSchemaFor('cancel_brief'),
   },
   {
-    name: 'propose_brief_amendment',
+    name: 'propose_workflow',
     kind: 'write',
     description:
-      "V1.x-B.3 — propose an in-flight modification to an active or planned Brief. Required: brief_id (the Brief to amend) + amendment_type (one of 'goal_text' | 'preferences' | 'add_stage' | 'modify_pending_stage' | 'remove_pending_stage') + after (the new shape; for goal_text: { goal_text: string }; for preferences: a partial object that deep-merges; for add_stage: full stage payload; for modify/remove_pending_stage: the stage UUID goes in target_path) + reason (one sentence). Already-running stages CANNOT be amended (only status='planned' stages); already-completed stages cannot be removed. The user approves via BriefAmendmentCard before apply_brief_amendment RPC fires. Use when: the user wants to extend an active Brief with another stage; the user wants to refine the goal_text or preferences on an in-flight Brief; the user wants to drop or modify a pending (not-yet-running) stage. NOT for cancelling a Brief (use cancel_brief) or for proposing a new Brief (use propose_brief).",
-    input_schema: toolInputSchemaFor('propose_brief_amendment'),
+      "Emit a workflow proposal for a stage whose prompt has fired. ONLY call this when the system has invoked you via a `stage_trigger_fired` event for a prompt-deferred stage — the active Brief has exactly one stage in status='planning' waiting for its workflow. The system attaches the resulting workflow to that stage automatically (no brief_id or stage_id in the input; the active planning stage is unambiguous because of the single-active-brief invariant). Required: steps (1-30 entries, each with operation_type + target_node_id + parameters per the op-type schema) + title (short label naming the canonical range, e.g. 'Expand scenes 11-20 into beats'). Optional: description, impact_summary, estimated_total_minutes. Steps array order MUST match canonical target position. The runner will dispatch the steps in array order; mis-ordered arrays run out of narrative sequence. If brief.auto_approve_workflow_proposals is true, the workflow runs immediately; otherwise the author sees a PlanCard. Do NOT call propose_workflow for user-driven planning — that's propose_brief's job.",
+    input_schema: toolInputSchemaFor('propose_workflow'),
   },
   {
     name: 'report_capability_limit',
@@ -240,7 +240,7 @@ const TOOL_EXECUTORS: Record<string, ToolExecutor> = {
   propose_brief: execProposeBrief as ToolExecutor,
   propose_profile_amendment: execProposeProfileAmendment as ToolExecutor,
   cancel_brief: execCancelBrief as ToolExecutor,
-  propose_brief_amendment: execProposeBriefAmendment as ToolExecutor,
+  propose_workflow: execProposeWorkflow as ToolExecutor,
   report_capability_limit: execReportCapabilityLimit as ToolExecutor,
 }
 

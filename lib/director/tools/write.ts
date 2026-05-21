@@ -506,185 +506,167 @@ export async function execProposeBrief(
 }
 
 // ---------------------------------------------------------------------------
-// propose_brief_amendment (V1.x-B.3) — propose-only mutation of active Brief.
+// propose_workflow (2026-05-21 simplification) — emit a workflow proposal
+// for a prompt-deferred stage whose trigger has fired.
 // ---------------------------------------------------------------------------
-// Per H-08, write tools never execute. The Director recommends an
-// amendment; the user approves via BriefAmendmentCard before
-// apply_brief_amendment SECURITY DEFINER RPC (M-128) fires.
 //
-// 5 amendment types (validated by lib/brief/amendments.ts:validateBriefAmendmentProposal):
-//   goal_text / preferences / add_stage / modify_pending_stage / remove_pending_stage
+// Per H-08, write tools never execute. This executor validates the
+// proposed workflow shape, resolves the unique 'planning' stage on the
+// document's active brief, and returns the artefact + planning_stage_id
+// for the iteration runner to attach.
+//
+// The Director's system prompt v1.24 teaches: only call propose_workflow
+// when a stage_trigger_fired event has put you in stage-planning mode.
+// The active brief has at most one stage in status='planning' at a
+// time (the system enforces this via the push-model evaluator). If
+// there's no planning stage when this executor runs, the call is
+// rejected — the model has confused user-driven planning with
+// stage-planning.
 
-export async function execProposeBriefAmendment(
+export async function execProposeWorkflow(
   args: Record<string, unknown>,
   session: DirectorSession,
 ): Promise<WriteToolReturn> {
   const supabase = createServiceRoleClient()
 
-  // Validate brief_id belongs to this org's documents.
-  const briefId = args.brief_id as string | undefined
-  if (!briefId || typeof briefId !== 'string') {
-    return { ok: false, error: 'invalid_brief_id', reason: 'brief_id required' }
-  }
-  // 2026-05-20 — drift fix. The original SELECT included `preferences`,
-  // a column that briefs has not had since V1.x-A.1 (M-080 moved
-  // preferences off briefs onto project_profiles). PostgREST returns
-  // an error for the unknown column, the Supabase client surfaces
-  // { data: null, error: <...> }, and the unchecked `!brief` branch
-  // below interpreted that as "brief not in session scope" — a
-  // misleading error message that masked the real bug. Every
-  // propose_brief_amendment call since V1.x-B.3 shipped (2026-05-15)
-  // hit this dead code path: brief_amendments has zero rows.
-  //
-  // brief.preferences is dead code locally — never read by this
-  // function. Removing it from the SELECT is the minimal fix.
-  //
-  // The 'preferences' amendment_type itself is a separate latent
-  // issue — apply_brief_amendment's RPC body still tries to
-  // UPDATE briefs.preferences and will fail at apply time for that
-  // specific amendment_type. The other four types (goal_text,
-  // add_stage, modify_pending_stage, remove_pending_stage) work
-  // correctly. Tracked separately; not in scope for this fix.
-  const { data: brief, error: briefErr } = await supabase
+  // Resolve the active brief on this document. The
+  // briefs_strict_one_active_per_document_uidx index (M-183) guarantees
+  // at most one row matches.
+  const { data: activeBrief, error: briefErr } = await supabase
     .from('briefs')
-    .select('id, document_id, organisation_id, goal_text, status')
-    .eq('id', briefId)
+    .select('id, status')
+    .eq('document_id', session.document_id)
+    .eq('organisation_id', session.organisation_id)
+    .eq('status', 'active')
     .maybeSingle()
   if (briefErr) {
-    // Surface the underlying error so future schema/code drift
-    // doesn't silently degrade to brief_not_found_in_session_scope
-    // again. The model gets a precise diagnostic; the dev log
-    // captures the full Postgres error.
-    console.error('[propose_brief_amendment] briefs lookup failed', {
-      brief_id: briefId,
+    console.error('[propose_workflow] briefs lookup failed', {
+      document_id: session.document_id,
       error: briefErr.message,
       code: briefErr.code,
     })
     return {
       ok: false,
       error: 'brief_lookup_failed',
-      reason: `Could not load brief ${briefId}: ${briefErr.message}. This is a server-side error, not a user-facing input problem; surface it to the user with the recommendation to retry, and report it if it persists.`,
+      reason: `Could not load the active brief for this document: ${briefErr.message}. This is a server-side error, not a user-facing input problem.`,
     }
   }
-  if (!brief || brief.organisation_id !== session.organisation_id || brief.document_id !== session.document_id) {
-    return { ok: false, error: 'brief_not_found_in_session_scope' }
-  }
-  if (brief.status !== 'active' && brief.status !== 'planned') {
+  if (!activeBrief) {
     return {
       ok: false,
-      error: 'brief_not_amendable',
-      reason: `Brief status is ${brief.status}; only active or planned Briefs can be amended.`,
+      error: 'no_active_brief',
+      reason: 'propose_workflow can only be called when the system has invoked you to plan a stage of an active brief (you would have seen a `stage_trigger_fired` system event). There is no active brief on this document. For user-driven planning, call propose_brief instead.',
     }
   }
 
-  // Build + validate the proposal artefact.
-  const { validateBriefAmendmentProposal } = await import('@/lib/brief/amendments')
-  const artefact = {
-    brief_id: briefId,
-    amendment_type: args.amendment_type as
-      | 'goal_text' | 'preferences' | 'add_stage' | 'modify_pending_stage' | 'remove_pending_stage',
-    target_path: (args.target_path as string | undefined) ?? null,
-    before: (args.before as Record<string, unknown> | undefined) ?? null,
-    after: (args.after as Record<string, unknown>) ?? {},
-    reason: (args.reason as string | undefined) ?? '',
-  }
-  try {
-    validateBriefAmendmentProposal(artefact)
-  } catch (e: unknown) {
+  // Find the unique brief_stages row in status='planning' on this brief.
+  const { data: planningStages } = await supabase
+    .from('brief_stages')
+    .select('id, "order", title, prompt, status')
+    .eq('brief_id', activeBrief.id)
+    .eq('status', 'planning')
+  const planningRows = (planningStages ?? []) as Array<{
+    id: string
+    order: number
+    title: string
+    prompt: string | null
+    status: string
+  }>
+  if (planningRows.length === 0) {
     return {
       ok: false,
-      error: 'invalid_brief_amendment_proposal',
-      reason: e instanceof Error ? e.message : String(e),
+      error: 'no_planning_stage',
+      reason: 'propose_workflow is reserved for system-invoked stage planning. The active brief has no stage in status="planning" right now. If a user has asked for new work, call propose_brief instead.',
+    }
+  }
+  if (planningRows.length > 1) {
+    // Schema invariant violation — the push-model evaluator must never
+    // mark two stages as 'planning' simultaneously. Surface loudly.
+    console.error('[propose_workflow] multiple planning stages found', {
+      brief_id: activeBrief.id,
+      stage_ids: planningRows.map((s) => s.id),
+    })
+    return {
+      ok: false,
+      error: 'multiple_planning_stages',
+      reason: `Brief ${activeBrief.id} has multiple stages in status='planning' simultaneously, which violates the system invariant. This is a server-side bookkeeping error — surface to the user and report.`,
+    }
+  }
+  const planningStage = planningRows[0]
+
+  // The args themselves were already validated against ProposeWorkflowSchema
+  // by validateToolCall before reaching this executor. Trust-and-verify: we
+  // re-parse here so the executor stays standalone-testable.
+  const { ProposeWorkflowSchema } = await import('@/lib/director/schemas')
+  const parsed = ProposeWorkflowSchema.safeParse(args)
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: 'invalid_workflow_proposal',
+      reason: `Workflow shape rejected: ${parsed.error.message}. Check each step's operation_type and parameters against the Step shapes in the system prompt.`,
     }
   }
 
-  // Defensive: for modify/remove_pending_stage, confirm the target stage
-  // exists + is still planned. This is a planning-time hint to the model;
-  // the M-128 RPC re-validates at apply time.
-  //
-  // 2026-05-21 — target_path resolution: accept EITHER stage UUID OR
-  // stage order. get_brief_state (lib/brief/getBriefState.ts) returns
-  // stages with `order`, `title`, `status`, `workflow_id` etc. but
-  // strips out the UUID id — so the Director has no way to discover
-  // a stage UUID and naturally passes target_path as the stage order
-  // (e.g. "2" for stage 2). Pre-fix the executor only looked up by
-  // UUID, returning target_stage_not_found for every push-model
-  // amendment call. Every propose_brief_amendment from a push-model
-  // stage trigger silently failed.
-  //
-  // Resolution order:
-  //   1. If target_path matches UUID shape, look up by id.
-  //   2. If that returns nothing AND target_path is a positive
-  //      integer string, fall back to lookup by (brief_id, order).
-  //   3. On resolution via order, normalise artefact.target_path
-  //      to the resolved UUID so downstream consumers (the M-128
-  //      apply_brief_amendment RPC, the brief_amendments table row)
-  //      get a stable UUID form regardless of what the model sent.
-  if (artefact.amendment_type === 'modify_pending_stage' || artefact.amendment_type === 'remove_pending_stage') {
-    const targetPath = artefact.target_path
-    if (targetPath) {
-      const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-      const ORDER_RE = /^[1-9]\d{0,3}$/ // positive integer, up to 4 digits
-      let stage: { id: string; status: string } | null = null
-
-      if (UUID_RE.test(targetPath)) {
-        const { data } = await supabase
-          .from('brief_stages')
-          .select('id, status')
-          .eq('id', targetPath)
-          .eq('brief_id', briefId)
-          .maybeSingle()
-        stage = data as { id: string; status: string } | null
-      }
-
-      if (!stage && ORDER_RE.test(targetPath)) {
-        const orderNum = Number.parseInt(targetPath, 10)
-        // `order` is both a PostgreSQL reserved word AND a PostgREST URL
-        // reserved query parameter (?order=…). PostgREST treats
-        // ?order=eq.X as a sort directive, not a filter. We sidestep
-        // the URL-encoding ambiguity by fetching all stages of the
-        // brief (typically 1-5 rows, capped by the M-097 evaluator) and
-        // filtering client-side. Cheap and obvious.
-        const { data } = await supabase
-          .from('brief_stages')
-          .select('id, status, "order"')
-          .eq('brief_id', briefId)
-        const rows = (data ?? []) as Array<{ id: string; status: string; order: number }>
-        const found = rows.find((r) => r.order === orderNum)
-        if (found) {
-          stage = { id: found.id, status: found.status }
-          // Normalise to UUID so the apply RPC + amendments row store
-          // a stable canonical form. The artefact returned to the
-          // model also carries the canonical UUID for transparency.
-          artefact.target_path = found.id
-        }
-      }
-
-      if (!stage) {
-        return {
-          ok: false,
-          error: 'target_stage_not_found',
-          reason: `No stage matched target_path="${targetPath}" on brief ${briefId}. target_path should be the stage's "order" (e.g. "2") as exposed by get_brief_state.stages[].order. Re-call get_brief_state to confirm the stage you intended is still 'planned' and use its order value.`,
-        }
-      }
-      if (stage.status !== 'planned') {
-        return {
-          ok: false,
-          error: 'cannot_modify_non_pending_stage',
-          reason: `Stage status is ${stage.status}; only 'planned' stages can be amended.`,
-        }
+  // Defensive: validate that every step's target_node_id exists in this
+  // document. Mirrors the per-step diagnostics that propose_brief does.
+  const targetIds = parsed.data.steps
+    .map((s) => s.target_node_id)
+    .filter((id): id is string => typeof id === 'string')
+  if (targetIds.length > 0) {
+    const existing = await checkNodesExist(session, targetIds)
+    const missing = targetIds.filter((id) => !existing.has(id))
+    if (missing.length > 0) {
+      return {
+        ok: false,
+        error: 'invalid_workflow_proposal',
+        reason: `The following target_node_ids don't exist in this document: ${missing.join(', ')}. Re-call find_node_by_name THIS turn to ground them.`,
       }
     }
+  }
+
+  // Sort each contiguous same-op-type run of steps by canonical
+  // (parent_id, order) — same backstop as propose_brief. Workflow
+  // executor runs steps in array order; canonical-order discipline
+  // is enforced server-side regardless of how the model emitted them.
+  if (parsed.data.steps.length > 1) {
+    const positions = await fetchNodeCanonicalPositions(session, targetIds)
+    const sorted = sortWorkflowStepsByCanonicalPosition(
+      parsed.data.steps as unknown as BriefProposalStepInput[],
+      positions,
+    )
+    parsed.data.steps = sorted as unknown as typeof parsed.data.steps
   }
 
   return {
     ok: true,
-    // Use the existing brief_proposal_full slot to round-trip the artefact
-    // to the tool_result; iteration-runner pulls it out as the
-    // proposal_artefact for the BriefAmendmentCard.
-    brief_amendment_proposal: artefact as Record<string, unknown>,
+    workflow_proposal: {
+      brief_id: activeBrief.id,
+      stage_id: planningStage.id,
+      stage_order: planningStage.order,
+      stage_title: planningStage.title,
+      workflow: parsed.data as unknown as Record<string, unknown>,
+    },
   } as WriteToolReturn
 }
+
+// ---------------------------------------------------------------------------
+// LEGACY (removed 2026-05-21): execProposeBriefAmendment.
+// ---------------------------------------------------------------------------
+// The propose_brief_amendment surface and its 5 amendment_types
+// (goal_text / preferences / add_stage / modify_pending_stage /
+// remove_pending_stage) produced four schema-vs-code drift bugs in 48
+// hours of testing. The dominant use case (modify_pending_stage to
+// attach a workflow to a stage whose trigger fired) is now handled by
+// execProposeWorkflow above — the system manages the brief↔stage
+// linkage server-side, the LLM only emits the workflow shape.
+//
+// The other four amendment types had no live users in V1.x. If a real
+// scenario emerges (e.g. mid-flight goal_text edits), it'll come back
+// as a fresh, focused tool — not a rebuild of the old surface.
+//
+// Git history preserves the implementation if anyone needs to
+// reference it: `git show HEAD~N:lib/director/tools/write.ts` will
+// show the pre-simplification body.
 
 // ---------------------------------------------------------------------------
 // report_capability_limit (V1.x-F.1) — synthetic propose-only self-rejection.
