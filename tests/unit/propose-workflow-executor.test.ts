@@ -242,7 +242,7 @@ describe.skipIf(!hasServiceKey)(
           session,
         )
         expect(result.ok, JSON.stringify(result)).toBe(true)
-        const r = result as { workflow_proposal: { brief_id: string; stage_id: string; stage_order: number; stage_title: string; workflow: { steps: unknown[] } } }
+        const r = result as unknown as { workflow_proposal: { brief_id: string; stage_id: string; stage_order: number; stage_title: string; workflow: { steps: unknown[] } } }
         expect(r.workflow_proposal.brief_id).toBe(fx.briefId)
         expect(r.workflow_proposal.stage_id).toBe(fx.stage2Id)
         expect(r.workflow_proposal.stage_order).toBe(2)
@@ -407,7 +407,7 @@ describe.skipIf(!hasServiceKey)(
           session,
         )
         expect(result.ok).toBe(true)
-        const r = result as { workflow_proposal: { workflow: { steps: Array<{ target_node_id: string }> } } }
+        const r = result as unknown as { workflow_proposal: { workflow: { steps: Array<{ target_node_id: string }> } } }
         expect(r.workflow_proposal.workflow.steps.map((s) => s.target_node_id)).toEqual(fx.sceneIds)
       } finally {
         await cleanup(fx)
