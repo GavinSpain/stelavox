@@ -243,6 +243,134 @@ describe.skipIf(!hasServiceKey)(
       }
     })
 
+    it('2026-05-21 — modify_pending_stage accepts target_path as stage ORDER (string)', async () => {
+      // Discovery: get_brief_state strips brief_stages.id from its
+      // output and only exposes `order`. The Director naturally passed
+      // target_path="2" (the stage order as a string) to
+      // propose_brief_amendment; the executor only looked up by UUID
+      // and rejected every call with target_stage_not_found.
+      //
+      // Fix: resolution falls back to (brief_id, order) when target_path
+      // is a positive integer string. The artefact's target_path is
+      // normalised to the resolved stage UUID for downstream consumers
+      // (apply_brief_amendment RPC + brief_amendments row).
+      const fx = await seedBrief(orgA, `exec-order-${Date.now()}`)
+      try {
+        const session: DirectorSession = {
+          conversation_id: '00000000-0000-0000-0000-000000000000',
+          document_id: fx.docId,
+          organisation_id: orgA,
+          user_id: '',
+        }
+        const result = await execProposeBriefAmendment(
+          {
+            brief_id: fx.briefId,
+            amendment_type: 'modify_pending_stage',
+            target_path: '2', // stage ORDER, not UUID — matches what get_brief_state exposes
+            after: {
+              workflow: {
+                title: 'Synthesise beats',
+                description: 'Generate prose',
+                steps: [
+                  {
+                    operation_type: 'synthesise',
+                    target_node_id: fx.targetNodeId,
+                    description: 'synthesise',
+                    estimated_duration_seconds: 45,
+                    parameters: {},
+                  },
+                ],
+              },
+            },
+            reason: 'order-based target_path',
+          },
+          session,
+        )
+        expect(result.ok, JSON.stringify(result)).toBe(true)
+        const artefact = (
+          result as { brief_amendment_proposal: Record<string, unknown> }
+        ).brief_amendment_proposal
+        // CRITICAL: target_path was normalised from "2" → the stage's UUID
+        // so the downstream RPC + amendments row store the canonical form.
+        expect(artefact.target_path).toBe(fx.stage2Id)
+      } finally {
+        await cleanup(fx)
+      }
+    })
+
+    it('2026-05-21 — modify_pending_stage with target_path as UUID still works (backward compat)', async () => {
+      // UUID lookup is tried first. This case ensures the order-fallback
+      // didn't break the UUID path.
+      const fx = await seedBrief(orgA, `exec-uuid-${Date.now()}`)
+      try {
+        const session: DirectorSession = {
+          conversation_id: '00000000-0000-0000-0000-000000000000',
+          document_id: fx.docId,
+          organisation_id: orgA,
+          user_id: '',
+        }
+        const result = await execProposeBriefAmendment(
+          {
+            brief_id: fx.briefId,
+            amendment_type: 'modify_pending_stage',
+            target_path: fx.stage2Id, // UUID form
+            after: {
+              workflow: {
+                title: 'Synthesise',
+                description: 'Generate prose',
+                steps: [
+                  {
+                    operation_type: 'synthesise',
+                    target_node_id: fx.targetNodeId,
+                    description: 'synthesise',
+                    estimated_duration_seconds: 45,
+                    parameters: {},
+                  },
+                ],
+              },
+            },
+            reason: 'uuid-based target_path',
+          },
+          session,
+        )
+        expect(result.ok, JSON.stringify(result)).toBe(true)
+        const artefact = (
+          result as { brief_amendment_proposal: Record<string, unknown> }
+        ).brief_amendment_proposal
+        expect(artefact.target_path).toBe(fx.stage2Id)
+      } finally {
+        await cleanup(fx)
+      }
+    })
+
+    it('2026-05-21 — unknown stage order returns target_stage_not_found with instructive reason', async () => {
+      const fx = await seedBrief(orgA, `exec-badorder-${Date.now()}`)
+      try {
+        const session: DirectorSession = {
+          conversation_id: '00000000-0000-0000-0000-000000000000',
+          document_id: fx.docId,
+          organisation_id: orgA,
+          user_id: '',
+        }
+        const result = await execProposeBriefAmendment(
+          {
+            brief_id: fx.briefId,
+            amendment_type: 'modify_pending_stage',
+            target_path: '99', // no stage with order=99 on this brief
+            after: { workflow: { title: 'X', steps: [] } },
+            reason: 'bad order',
+          },
+          session,
+        )
+        expect(result.ok).toBe(false)
+        expect((result as { error: string }).error).toBe('target_stage_not_found')
+        // The new reason must guide the model toward the right input shape.
+        expect((result as { reason?: string }).reason).toMatch(/order/i)
+      } finally {
+        await cleanup(fx)
+      }
+    })
+
     it('goal_text amendment returns artefact (no preferences column needed)', async () => {
       // Directly preferences-adjacent: pre-fix the SELECT crashed on
       // briefs.preferences regardless of the amendment_type. The

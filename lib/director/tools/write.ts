@@ -601,17 +601,71 @@ export async function execProposeBriefAmendment(
   // Defensive: for modify/remove_pending_stage, confirm the target stage
   // exists + is still planned. This is a planning-time hint to the model;
   // the M-128 RPC re-validates at apply time.
+  //
+  // 2026-05-21 — target_path resolution: accept EITHER stage UUID OR
+  // stage order. get_brief_state (lib/brief/getBriefState.ts) returns
+  // stages with `order`, `title`, `status`, `workflow_id` etc. but
+  // strips out the UUID id — so the Director has no way to discover
+  // a stage UUID and naturally passes target_path as the stage order
+  // (e.g. "2" for stage 2). Pre-fix the executor only looked up by
+  // UUID, returning target_stage_not_found for every push-model
+  // amendment call. Every propose_brief_amendment from a push-model
+  // stage trigger silently failed.
+  //
+  // Resolution order:
+  //   1. If target_path matches UUID shape, look up by id.
+  //   2. If that returns nothing AND target_path is a positive
+  //      integer string, fall back to lookup by (brief_id, order).
+  //   3. On resolution via order, normalise artefact.target_path
+  //      to the resolved UUID so downstream consumers (the M-128
+  //      apply_brief_amendment RPC, the brief_amendments table row)
+  //      get a stable UUID form regardless of what the model sent.
   if (artefact.amendment_type === 'modify_pending_stage' || artefact.amendment_type === 'remove_pending_stage') {
-    const targetStageId = artefact.target_path
-    if (targetStageId) {
-      const { data: stage } = await supabase
-        .from('brief_stages')
-        .select('id, status')
-        .eq('id', targetStageId)
-        .eq('brief_id', briefId)
-        .maybeSingle()
+    const targetPath = artefact.target_path
+    if (targetPath) {
+      const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+      const ORDER_RE = /^[1-9]\d{0,3}$/ // positive integer, up to 4 digits
+      let stage: { id: string; status: string } | null = null
+
+      if (UUID_RE.test(targetPath)) {
+        const { data } = await supabase
+          .from('brief_stages')
+          .select('id, status')
+          .eq('id', targetPath)
+          .eq('brief_id', briefId)
+          .maybeSingle()
+        stage = data as { id: string; status: string } | null
+      }
+
+      if (!stage && ORDER_RE.test(targetPath)) {
+        const orderNum = Number.parseInt(targetPath, 10)
+        // `order` is both a PostgreSQL reserved word AND a PostgREST URL
+        // reserved query parameter (?order=…). PostgREST treats
+        // ?order=eq.X as a sort directive, not a filter. We sidestep
+        // the URL-encoding ambiguity by fetching all stages of the
+        // brief (typically 1-5 rows, capped by the M-097 evaluator) and
+        // filtering client-side. Cheap and obvious.
+        const { data } = await supabase
+          .from('brief_stages')
+          .select('id, status, "order"')
+          .eq('brief_id', briefId)
+        const rows = (data ?? []) as Array<{ id: string; status: string; order: number }>
+        const found = rows.find((r) => r.order === orderNum)
+        if (found) {
+          stage = { id: found.id, status: found.status }
+          // Normalise to UUID so the apply RPC + amendments row store
+          // a stable canonical form. The artefact returned to the
+          // model also carries the canonical UUID for transparency.
+          artefact.target_path = found.id
+        }
+      }
+
       if (!stage) {
-        return { ok: false, error: 'target_stage_not_found' }
+        return {
+          ok: false,
+          error: 'target_stage_not_found',
+          reason: `No stage matched target_path="${targetPath}" on brief ${briefId}. target_path should be the stage's "order" (e.g. "2") as exposed by get_brief_state.stages[].order. Re-call get_brief_state to confirm the stage you intended is still 'planned' and use its order value.`,
+        }
       }
       if (stage.status !== 'planned') {
         return {
