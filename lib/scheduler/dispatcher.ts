@@ -100,6 +100,16 @@ export async function runDispatcherTick(): Promise<DispatcherTickResult> {
       'id, organisation_id, document_id, operation_type, traffic_class, execution_intent, scheduled_at, route, director_turn_id, parent_iteration_id, iteration_number, queued_at',
     )
     .eq('queue_status', 'queued')
+    // 2026-05-22 — defence-in-depth: refuse to consider any row that
+    // already has completed_at set. The terminal-state write in
+    // persistFinalResult / persistFailure / persistCancellation /
+    // accept_agent_job sets queue_status to a terminal value as of
+    // 2026-05-22, so this should never match in steady state. But if
+    // a pre-fix zombie row exists (status='completed', queue_status=
+    // 'queued', completed_at set), this guard prevents the dispatcher
+    // from resurrecting it. See lib/agent/job-lifecycle.ts header for
+    // the full root-cause explanation.
+    .is('completed_at', null)
     .or('scheduled_at.is.null,scheduled_at.lte.' + new Date().toISOString())
     .order('queued_at', { ascending: true })
     .limit(candidatePoolSize)
@@ -233,18 +243,37 @@ export async function runDispatcherTick(): Promise<DispatcherTickResult> {
     }
 
     // 5. Atomic claim — flip queue_status='queued' → 'dispatched' with CAS.
+    // 2026-05-22 — dispatcher owns QUEUE lifecycle (queue_status); the
+    // runner owns BUSINESS lifecycle (status). Pre-fix the dispatcher
+    // also wrote status='running' + started_at=now as part of the
+    // claim, which violated the M-106 two-column separation. The
+    // runner's loadJobAndProfile + persistRunningStart both filter on
+    // status='pending'; with status='running' set by the dispatcher,
+    // loadJobAndProfile returned { kind: 'job_not_pending' } and the
+    // runner SKIPPED the job entirely. User surfaced 2026-05-22 on the
+    // "Into the Ice" stage 2 expand step: dispatched at 09:13:26,
+    // status='running' / queue_status='dispatched', last_heartbeat_at
+    // never written, dev log showed `[agent-runner] job not in pending
+    // state, skipping`.
+    //
+    // Director iteration handoff (lib/director/iteration-runner) was
+    // unaffected because it manages its own status transitions on
+    // entry — line 432 unconditionally sets status='running'. Only the
+    // runAgentJob path was broken.
     const { data: claimed, error: claimErr } = await supabase
       .from('agent_jobs')
       .update({
         queue_status: 'dispatched',
-        status: 'running',
         dispatched_at: new Date().toISOString(),
-        started_at: new Date().toISOString(),
         reservation_id: reservation.reservationId,
         wfq_vft_at_dispatch: pick.computedVft,
       })
       .eq('id', pickedRow.id)
       .eq('queue_status', 'queued')
+      // 2026-05-22 — defence-in-depth: same `completed_at IS NULL` guard
+      // as the candidate query above. Belt-and-braces against zombie
+      // resurrection.
+      .is('completed_at', null)
       .select('id')
       .maybeSingle()
 

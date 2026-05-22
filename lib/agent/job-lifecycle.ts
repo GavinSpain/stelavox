@@ -163,7 +163,24 @@ export async function persistRunningStart(
   const now = new Date().toISOString()
   const { error, count } = await supabase
     .from('agent_jobs')
-    .update({ status: 'running', started_at: now, last_heartbeat_at: now }, { count: 'exact' })
+    .update(
+      {
+        status: 'running',
+        // 2026-05-22 — mirror M-106's documented lifecycle:
+        // queued → dispatched → running → terminal. The dispatcher's
+        // CAS transitions queue_status to 'dispatched'; the runner's
+        // start transitions it to 'running'. Pre-fix the runner only
+        // wrote `status`, leaving queue_status stuck at 'dispatched'
+        // through completion — which combined with the
+        // workflow-executor's bypass path (INSERTs with DEFAULT
+        // queue_status='queued') produced the phantom-redispatch
+        // zombies cleaned up in M-190.
+        queue_status: 'running',
+        started_at: now,
+        last_heartbeat_at: now,
+      },
+      { count: 'exact' },
+    )
     .eq('id', jobId)
     .eq('status', 'pending')
 
@@ -248,6 +265,18 @@ export async function persistFinalResult(
       cost_usd: params.costUsd,
       cost_credits: params.costCredits ?? null,
       status: 'completed',
+      // 2026-05-22 — set queue_status='completed' alongside status. Pre-
+      // fix this column stayed at whatever it was (often 'queued' for
+      // workflow-step jobs INSERTed by the workflow-executor's bypass
+      // path, which uses the DEFAULT 'queued' and calls runAgentJob via
+      // waitUntil without going through the dispatcher). Result was
+      // zombies: status='completed', completed_at set, queue_status=
+      // 'queued' — and the dispatcher's CAS `.eq('queue_status','queued')`
+      // happily re-claimed them, resurrecting status to 'running' and
+      // permanently locking the target node via check_node_writable's
+      // node_in_progress branch. User surfaced via two phantom expands
+      // on "The Fracture" scene blocking beat deletes.
+      queue_status: 'completed',
       completed_at: new Date().toISOString(),
     })
     .eq('id', jobId)
@@ -273,6 +302,9 @@ export async function persistFailure(
     .from('agent_jobs')
     .update({
       status: 'failed',
+      // 2026-05-22 — set queue_status='failed' alongside status. Same
+      // rationale as persistFinalResult above.
+      queue_status: 'failed',
       error_message: errorMessage,
       completed_at: new Date().toISOString(),
     })
@@ -302,6 +334,8 @@ export async function persistCancellation(
     .from('agent_jobs')
     .update({
       status: 'cancelled',
+      // 2026-05-22 — set queue_status='cancelled' alongside status.
+      queue_status: 'cancelled',
       error_message: reason,
       completed_at: new Date().toISOString(),
     })

@@ -49,12 +49,27 @@ export async function acceptBrief(
   documentId: string,
   proposal: BriefProposal,
 ): Promise<BriefRpcResult & { initial_status?: string; queue_position?: number }> {
+  // 2026-05-22 — include `prompt` in the RPC payload. M-183 added the
+  // brief_stages.prompt column and M-189 rewrote accept_brief to read
+  // `v_stage->>'prompt'`, but THIS mapper was a V1.x-A.1-era leftover
+  // and stripped the field entirely. Result: every prompt-deferred
+  // stage 2..N landed with NULL prompt, and evaluate_ready_stage_triggers
+  // refused to fire them (defence-in-depth NULL-prompt check). User
+  // surfaced this 2026-05-22 — stage 1 completed but stage 2 never
+  // triggered, despite the Director's propose_brief artefact carrying
+  // the full prompt text.
+  //
+  // workflow is intentionally NOT in the payload — accept_brief only
+  // inserts brief_stages rows; the route handler creates the workflow
+  // row + UPDATEs brief_stages.workflow_id afterward, separately for
+  // stage 1.
   const stagesForRpc = proposal.stages.map((s) => ({
     order: s.order,
     title: s.title,
     description: s.description,
     trigger_type: s.trigger_type,
     trigger_config: s.trigger_config,
+    prompt: s.prompt,
   }))
 
   const { data, error } = await supabase.rpc('accept_brief', {

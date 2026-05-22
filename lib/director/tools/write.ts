@@ -153,6 +153,73 @@ async function fetchNodeCanonicalPositions(
  * existence is validated) are kept in their original relative order
  * within their run.
  */
+/**
+ * Cascade-serial dependency auto-derivation (2026-05-22).
+ *
+ * Per Director V2 architecture: "cascade-serial dependency model with
+ * serial fallback ... server auto-derives + Director can declare".
+ *
+ * The cascade-architecture preceding-siblings context fetch (Migration
+ * 053, used by synthesise's context-assembler) reads prose from nodes
+ * in strict canonical depth-first order across parent boundaries. If
+ * synthesise steps fire in parallel, each one sees NO preceding-sibling
+ * prose (because no peer step has been accepted into nodes.prose yet)
+ * — the cascade architecture silently degrades to "each synthesise
+ * runs without continuity context".
+ *
+ * To preserve cascade semantics with zero Director cooperation, this
+ * helper walks the post-canonical-sort array and serializes any
+ * contiguous synthesise-after-synthesise pair:
+ *
+ *   [synth#A, synth#B, synth#C, expand#D, synth#E]
+ *      →  B depends on A's order
+ *      →  C depends on B's order
+ *      →  D no auto-dep (expand; siblings independent)
+ *      →  E no auto-dep (no preceding synthesise adjacency)
+ *
+ * Rules:
+ *   - Only synthesise gets an auto-dep — other op types are
+ *     independent per-sibling by design (expand creates children;
+ *     refine reads existing content; generate_context produces
+ *     standalone context nodes).
+ *   - The auto-dep is only on the immediately preceding step IF it is
+ *     also synthesise — we do NOT bridge over non-synthesise steps.
+ *     The Director can declare cross-op-type deps explicitly if it
+ *     needs them (e.g., synthesise depending on a preceding expand).
+ *   - Skip the entire derivation if ANY step in the workflow has
+ *     explicit `depends_on_step_orders` — the Director declared a
+ *     dependency graph and presumably had its reasons.
+ *
+ * Order assignment relies on the step's final order being
+ * `array_index + 1` (the persistence layer assigns it that way; see
+ * persistDraftWorkflow in workflow-executor.ts and the approve route).
+ * So for step at array index i, the preceding step's order is i.
+ *
+ * User surfaced 2026-05-22: stage 2 of a 2-stage brief fired 5
+ * synthesise jobs on sibling beats in parallel because the Director's
+ * propose_workflow emission had empty depends_on_step_orders. The
+ * cascade-serial backstop now lives in code; the canonical-order
+ * backstop has been there since 2026-05-20.
+ */
+function deriveCascadeSerialDependencies(
+  steps: BriefProposalStepInput[],
+): BriefProposalStepInput[] {
+  if (steps.length <= 1) return steps
+  const hasExplicitDeps = steps.some(
+    (s) => (s.depends_on_step_orders ?? []).length > 0,
+  )
+  if (hasExplicitDeps) return steps
+
+  return steps.map((step, idx) => {
+    if (step.operation_type !== 'synthesise') return step
+    if (idx === 0) return step
+    const prev = steps[idx - 1]
+    if (prev.operation_type !== 'synthesise') return step
+    // Previous step's final order = idx (1-based index of prev = idx).
+    return { ...step, depends_on_step_orders: [idx] }
+  })
+}
+
 function sortWorkflowStepsByCanonicalPosition(
   steps: BriefProposalStepInput[],
   positions: Map<string, { parent_id: string | null; order_index: number }>,
@@ -463,7 +530,10 @@ export async function execProposeBrief(
           { before: beforeIds, after: sortedSteps.map((s) => s.target_node_id) },
         )
       }
-      stage.workflow.steps = sortedSteps
+      // Cascade-serial dependency auto-derivation (2026-05-22).
+      // Runs AFTER the canonical sort so "immediately preceding" matches
+      // canonical reading order. See helper header for rationale.
+      stage.workflow.steps = deriveCascadeSerialDependencies(sortedSteps)
     }
   }
 
@@ -634,7 +704,12 @@ export async function execProposeWorkflow(
       parsed.data.steps as unknown as BriefProposalStepInput[],
       positions,
     )
-    parsed.data.steps = sorted as unknown as typeof parsed.data.steps
+    // Cascade-serial dependency auto-derivation (2026-05-22). Same
+    // backstop as in execProposeBrief. The push-model propose_workflow
+    // path is where the user surfaced the bug — stage 2 fired five
+    // synthesise jobs in parallel on sibling beats.
+    const serialised = deriveCascadeSerialDependencies(sorted)
+    parsed.data.steps = serialised as unknown as typeof parsed.data.steps
   }
 
   return {
@@ -864,3 +939,4 @@ export async function execProposeProfileAmendment(
 // surface; production code never imports these names.
 // ---------------------------------------------------------------------------
 export { sortWorkflowStepsByCanonicalPosition as __test_sortWorkflowStepsByCanonicalPosition }
+export { deriveCascadeSerialDependencies as __test_deriveCascadeSerialDependencies }

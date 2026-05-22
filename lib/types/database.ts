@@ -84,6 +84,7 @@ export type Database = {
           route: string
           scheduled_at: string | null
           started_at: string | null
+          state: string
           status: string
           target_node_version_at_capture: number | null
           tokens_cache_read: number | null
@@ -143,6 +144,7 @@ export type Database = {
           route?: string
           scheduled_at?: string | null
           started_at?: string | null
+          state?: string
           status?: string
           target_node_version_at_capture?: number | null
           tokens_cache_read?: number | null
@@ -202,6 +204,7 @@ export type Database = {
           route?: string
           scheduled_at?: string | null
           started_at?: string | null
+          state?: string
           status?: string
           target_node_version_at_capture?: number | null
           tokens_cache_read?: number | null
@@ -412,6 +415,30 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      allowed_transitions: {
+        Row: {
+          entity_name: string
+          event_name: string
+          from_state: string
+          notes: string | null
+          to_state: string
+        }
+        Insert: {
+          entity_name: string
+          event_name: string
+          from_state: string
+          notes?: string | null
+          to_state: string
+        }
+        Update: {
+          entity_name?: string
+          event_name?: string
+          from_state?: string
+          notes?: string | null
+          to_state?: string
+        }
+        Relationships: []
       }
       anthropic_batches: {
         Row: {
@@ -716,8 +743,10 @@ export type Database = {
           description: string | null
           id: string
           order: number
+          planning_retry_count: number
           prompt: string | null
           started_at: string | null
+          state: string
           status: string
           title: string
           trigger_config: Json
@@ -731,8 +760,10 @@ export type Database = {
           description?: string | null
           id?: string
           order: number
+          planning_retry_count?: number
           prompt?: string | null
           started_at?: string | null
+          state?: string
           status?: string
           title: string
           trigger_config?: Json
@@ -746,8 +777,10 @@ export type Database = {
           description?: string | null
           id?: string
           order?: number
+          planning_retry_count?: number
           prompt?: string | null
           started_at?: string | null
+          state?: string
           status?: string
           title?: string
           trigger_config?: Json
@@ -786,6 +819,7 @@ export type Database = {
           organisation_id: string
           sequence_position: number
           started_at: string | null
+          state: string
           status: string
         }
         Insert: {
@@ -802,6 +836,7 @@ export type Database = {
           organisation_id: string
           sequence_position?: number
           started_at?: string | null
+          state?: string
           status?: string
         }
         Update: {
@@ -818,6 +853,7 @@ export type Database = {
           organisation_id?: string
           sequence_position?: number
           started_at?: string | null
+          state?: string
           status?: string
         }
         Relationships: [
@@ -1081,6 +1117,7 @@ export type Database = {
           id: string
           iteration_count: number
           started_at: string
+          state: string
           status: string
           total_cost_credits: number
           total_input_tokens: number
@@ -1093,6 +1130,7 @@ export type Database = {
           id?: string
           iteration_count?: number
           started_at?: string
+          state?: string
           status?: string
           total_cost_credits?: number
           total_input_tokens?: number
@@ -1105,6 +1143,7 @@ export type Database = {
           id?: string
           iteration_count?: number
           started_at?: string
+          state?: string
           status?: string
           total_cost_credits?: number
           total_input_tokens?: number
@@ -2056,6 +2095,42 @@ export type Database = {
           },
         ]
       }
+      orchestration_audit_log: {
+        Row: {
+          details: Json
+          detected_at: string
+          entity_id: string | null
+          entity_table: string
+          id: number
+          invariant_id: string
+          repair_action: string | null
+          repaired_at: string | null
+          violation: string
+        }
+        Insert: {
+          details?: Json
+          detected_at?: string
+          entity_id?: string | null
+          entity_table: string
+          id?: number
+          invariant_id: string
+          repair_action?: string | null
+          repaired_at?: string | null
+          violation: string
+        }
+        Update: {
+          details?: Json
+          detected_at?: string
+          entity_id?: string | null
+          entity_table?: string
+          id?: number
+          invariant_id?: string
+          repair_action?: string | null
+          repaired_at?: string | null
+          violation?: string
+        }
+        Relationships: []
+      }
       organisation_invites: {
         Row: {
           accepted_at: string | null
@@ -2870,6 +2945,7 @@ export type Database = {
           parameters: Json | null
           result_summary: string | null
           started_at: string | null
+          state: string
           status: string
           target_node_id: string | null
           workflow_id: string
@@ -2887,6 +2963,7 @@ export type Database = {
           parameters?: Json | null
           result_summary?: string | null
           started_at?: string | null
+          state?: string
           status?: string
           target_node_id?: string | null
           workflow_id: string
@@ -2904,6 +2981,7 @@ export type Database = {
           parameters?: Json | null
           result_summary?: string | null
           started_at?: string | null
+          state?: string
           status?: string
           target_node_id?: string | null
           workflow_id?: string
@@ -2954,6 +3032,7 @@ export type Database = {
           last_heartbeat_at: string | null
           locked_nodes_requiring_unlock: string[] | null
           organisation_id: string
+          state: string
           status: string
           title: string
           updated_at: string
@@ -2972,6 +3051,7 @@ export type Database = {
           last_heartbeat_at?: string | null
           locked_nodes_requiring_unlock?: string[] | null
           organisation_id: string
+          state?: string
           status?: string
           title: string
           updated_at?: string
@@ -2990,6 +3070,7 @@ export type Database = {
           last_heartbeat_at?: string | null
           locked_nodes_requiring_unlock?: string[] | null
           organisation_id?: string
+          state?: string
           status?: string
           title?: string
           updated_at?: string
@@ -3129,6 +3210,14 @@ export type Database = {
         Args: { p_document_id: string; p_goal_text: string; p_stages: Json }
         Returns: Json
       }
+      agent_jobs_derive_state: {
+        Args: { p_queue_status: string; p_status: string }
+        Returns: string
+      }
+      agent_jobs_legacy_columns_from_state: {
+        Args: { p_state: string }
+        Returns: Record<string, unknown>
+      }
       apply_author_lock: {
         Args: { p_node_id: string; p_reason: string }
         Returns: Json
@@ -3150,6 +3239,20 @@ export type Database = {
           p_target_path: string
         }
         Returns: Json
+      }
+      audit_orchestration_state: {
+        Args: never
+        Returns: {
+          details: Json
+          entity_id: string
+          entity_table: string
+          invariant_id: string
+          violation: string
+        }[]
+      }
+      brief_stages_derive_state: {
+        Args: { p_prompt: string; p_status: string; p_workflow_id: string }
+        Returns: string
       }
       cancel_brief: {
         Args: { p_brief_id: string; p_reason?: string }
@@ -3213,6 +3316,7 @@ export type Database = {
       disable_org_byok: { Args: { p_org_id: string }; Returns: Json }
       enable_org_byok: { Args: { p_org_id: string }; Returns: Json }
       evaluate_ready_stage_triggers: { Args: never; Returns: number }
+      force_reset_document: { Args: { p_document_id: string }; Returns: Json }
       force_unlock: {
         Args: { p_node_id: string; p_reason: string }
         Returns: Json
@@ -3249,6 +3353,7 @@ export type Database = {
       }
       purge_expired_exports: { Args: never; Returns: number }
       purge_raw_metric_samples: { Args: never; Returns: Json }
+      reconcile_orchestration_state: { Args: never; Returns: Json }
       recovery_sweep_exports: { Args: never; Returns: number }
       release_author_lock: { Args: { p_node_id: string }; Returns: Json }
       release_bulk_operation: {
