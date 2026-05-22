@@ -92,9 +92,16 @@ export async function POST(
 
   // Verify the parent Brief has auto-approve enabled. The workflow_id
   // links to brief_stages.workflow_id; brief_stages → briefs.
+  //
+  // 2026-05-22 — rewritten to two explicit queries instead of a
+  // PostgREST `briefs!inner(...)` embed. The embed was returning null
+  // in dev despite the row existing (suspected PostgREST relationship-
+  // detection edge case). Two queries are simpler and easier to debug;
+  // the cost is negligible (single-row lookups, no roundtrip
+  // amplification at the brief-stage scale).
   const { data: stage } = await service
     .from('brief_stages')
-    .select('brief_id, briefs!inner(auto_approve_workflow_proposals)')
+    .select('brief_id')
     .eq('workflow_id', workflowId)
     .maybeSingle()
 
@@ -104,8 +111,12 @@ export async function POST(
   } else if (!stage) {
     return apiError(404, 'workflow_not_linked_to_brief')
   } else {
-    const briefs = stage.briefs as unknown as { auto_approve_workflow_proposals: boolean } | null
-    if (!briefs?.auto_approve_workflow_proposals) {
+    const { data: brief } = await service
+      .from('briefs')
+      .select('auto_approve_workflow_proposals')
+      .eq('id', stage.brief_id)
+      .maybeSingle()
+    if (!brief?.auto_approve_workflow_proposals) {
       return apiError(409, 'auto_approve_not_enabled', 'parent Brief does not have auto_approve_workflow_proposals=true')
     }
   }

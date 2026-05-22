@@ -804,7 +804,23 @@ async function* runIterationInner(
           //      workflow + queues its agent_jobs
           //   4. Yields a workflow_proposal event with stage_link metadata
           //      so any downstream observer can see what happened
-          const proposeWorkflowCall = [...accumulatedToolCalls].reverse().find((c) => c.name === 'propose_workflow' && c.proposal_artefact !== undefined)
+          //
+          // 2026-05-22 — search the FULL accumulated tool_calls (across
+          // all iterations of this turn), not just the current iteration.
+          // The Director typically calls propose_workflow in iteration N
+          // (tool_use), receives the result, then ends with text-only in
+          // iteration N+1 (end_turn). The proposal-extraction block runs
+          // only in the end_turn iteration, but accumulatedToolCalls is
+          // the CURRENT iteration's calls — empty in the end_turn
+          // iteration. Use newAccumulatedToolCalls (priorToolCalls +
+          // current) to see all of this turn's tool calls. Bug surfaced
+          // 2026-05-22 by user test: stage-2 turn completed 4 iterations
+          // with successful propose_workflow but workflow never attached
+          // to brief_stages. Same fix should apply to brief/profile/cancel
+          // proposals too as defence-in-depth — but those work today
+          // because the UI reads from persisted conversation_messages
+          // and only propose_workflow needs server-side persistence.
+          const proposeWorkflowCall = [...newAccumulatedToolCalls].reverse().find((c) => c && typeof c === 'object' && 'name' in c && (c as { name?: string }).name === 'propose_workflow' && 'proposal_artefact' in c && (c as { proposal_artefact?: unknown }).proposal_artefact !== undefined) as { name: string; proposal_artefact?: unknown } | undefined
           if (proposeWorkflowCall) {
             const artefact = proposeWorkflowCall.proposal_artefact as {
               brief_id: string
