@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 
 import { err } from '@/lib/api/errors'
+import { transitionAgentJob } from '@/lib/orchestration'
 import { createClient } from '@/lib/supabase/server'
 import { isValidUuid } from '@/lib/validation/uuid'
 
@@ -35,16 +36,19 @@ export async function POST(_request: NextRequest, { params }: Context) {
     return err.agentJobNotInProgress()
   }
 
-  const { data: updated, error } = await supabase
-    .from('agent_jobs')
-    .update({ status: 'cancelled', completed_at: new Date().toISOString() })
-    .eq('id', jobId)
-    .select('*')
-    .single()
-  if (error || !updated) {
-    console.error('[agent-jobs cancel] update error', error)
+  // Apollo Phase 3: delegate to orchestration. The DB trigger will refuse
+  // any illegal transition; the auto-derive trigger keeps legacy columns
+  // in sync. This closes G-06 — pre-fix this route wrote `status` only,
+  // leaving `queue_status` stale and check_node_writable indefinitely
+  // flagging the node as in-progress.
+  const result = await transitionAgentJob(supabase, jobId, 'cancel_or_cascade', 'cancelled', {
+    errorMessage: 'user_cancelled',
+  })
+  if (!result.ok) {
+    console.error('[agent-jobs cancel] transition failed', { jobId, error: result.error, message: result.message })
     return err.internal()
   }
 
+  const { data: updated } = await supabase.from('agent_jobs').select('*').eq('id', jobId).single()
   return NextResponse.json(updated)
 }

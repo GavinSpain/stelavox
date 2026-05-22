@@ -161,17 +161,13 @@ export async function runDispatcherTick(): Promise<DispatcherTickResult> {
     const stopActive = await isCoveredByActiveStop(supabase, cand)
     if (stopActive) {
       ticketsSkippedStopRequested++
-      await supabase
-        .from('agent_jobs')
-        .update({
-          queue_status: 'cancelled',
-          status: 'failed',
-          completed_at: new Date().toISOString(),
-          failure_class: 'B',
-          error_message: 'cancelled_by_stop_request',
-        })
-        .eq('id', cand.id)
-        .eq('queue_status', 'queued')
+      // Apollo Phase 3: delegate to orchestration. queued → cancelled is
+      // a legal transition; the trigger refuses anything else.
+      const { transitionAgentJob } = await import('@/lib/orchestration')
+      await transitionAgentJob(supabase, cand.id, 'cancel_or_cascade', 'cancelled', {
+        errorMessage: 'cancelled_by_stop_request',
+        failureClass: 'B',
+      })
       continue
     }
     eligible.push(cand)
@@ -260,22 +256,21 @@ export async function runDispatcherTick(): Promise<DispatcherTickResult> {
     // unaffected because it manages its own status transitions on
     // entry — line 432 unconditionally sets status='running'. Only the
     // runAgentJob path was broken.
-    const { data: claimed, error: claimErr } = await supabase
-      .from('agent_jobs')
-      .update({
-        queue_status: 'dispatched',
+    // Apollo Phase 3: delegate to orchestration. queued → dispatched is
+    // the legal CAS transition. The DB trigger ensures no concurrent
+    // dispatcher can re-claim a row that's already terminal (the audit
+    // function's completed_at IS NULL invariant is also enforced by the
+    // earlier .is('completed_at', null) candidate filter).
+    const { transitionAgentJob } = await import('@/lib/orchestration')
+    const claimResult = await transitionAgentJob(supabase, pickedRow.id, 'dispatcher_cas_claim', 'dispatched', {
+      dispatcherFields: {
         dispatched_at: new Date().toISOString(),
         reservation_id: reservation.reservationId,
         wfq_vft_at_dispatch: pick.computedVft,
-      })
-      .eq('id', pickedRow.id)
-      .eq('queue_status', 'queued')
-      // 2026-05-22 — defence-in-depth: same `completed_at IS NULL` guard
-      // as the candidate query above. Belt-and-braces against zombie
-      // resurrection.
-      .is('completed_at', null)
-      .select('id')
-      .maybeSingle()
+      },
+    })
+    const claimed = claimResult.ok ? { id: pickedRow.id } : null
+    const claimErr = claimResult.ok ? null : { message: claimResult.message ?? claimResult.error ?? 'unknown' }
 
     if (claimErr || !claimed) {
       // CAS lost. Refund the bucket + Class 1 slot we just claimed.

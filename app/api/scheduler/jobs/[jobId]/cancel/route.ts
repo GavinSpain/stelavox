@@ -67,22 +67,21 @@ export async function POST(
     return apiError(409, 'invalid_status', `cannot cancel job in status "${job.status}/${job.queue_status}"`)
   }
 
-  const update: Record<string, unknown> = {
-    status: 'cancelled',
-    queue_status: 'cancelled',
-    completed_at: new Date().toISOString(),
+  // Apollo Phase 3: delegate to orchestration. The DB trigger refuses
+  // illegal transitions and auto-derive keeps legacy columns in sync.
+  const { transitionAgentJob } = await import('@/lib/orchestration')
+  const cancelResult = await transitionAgentJob(
+    supabase,
+    jobId,
+    'cancel_or_cascade',
+    'cancelled',
+    { errorMessage: reason !== null ? `cancelled_by_user: ${reason}` : undefined },
+  )
+  if (!cancelResult.ok && cancelResult.error === 'illegal_transition') {
+    // The row was already terminal — handled gracefully (idempotent).
+  } else if (!cancelResult.ok) {
+    return apiError(500, 'cancel_update_failed', cancelResult.message ?? cancelResult.error ?? 'unknown')
   }
-  if (reason !== null) {
-    update.error_message = `cancelled_by_user: ${reason}`
-  }
-
-  const { error } = await supabase
-    .from('agent_jobs')
-    .update(update)
-    .eq('id', jobId)
-    .in('queue_status', ['queued', 'dispatched', 'running'])  // best-effort: skip if a terminal write raced us
-
-  if (error) return apiError(500, 'cancel_update_failed', error.message)
 
   // Director-turn propagation. The runner can't see a cancelled agent_job
   // directly — it watches stop_requests by director_turn_id. Without
@@ -100,12 +99,12 @@ export async function POST(
       organisation_id: job.organisation_id,
     })
 
-    // 2. Mark the turn cancelled if not already terminal.
-    await svc
-      .from('director_turns')
-      .update({ status: 'cancelled', completed_at: new Date().toISOString() })
-      .eq('id', job.director_turn_id)
-      .in('status', ['in_progress'])
+    // 2. Mark the turn cancelled if not already terminal. Apollo Phase 3:
+    // delegate to orchestration. Closes G-09 — pre-fix this set
+    // turn_state but left director_turns.status='in_progress', so the
+    // conversation-lock check rejected new messages indefinitely.
+    const { transitionDirectorTurn } = await import('@/lib/orchestration')
+    await transitionDirectorTurn(svc, job.director_turn_id, 'mark_turn_cancelled', 'cancelled')
 
     // 3. Release the conversation single-flight gate by closing the
     // interim assistant message. The turn id isn't directly on

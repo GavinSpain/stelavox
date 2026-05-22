@@ -427,11 +427,16 @@ async function* runIterationInner(
   }
 
   // ---- 5. Mark dispatched → running, start heartbeat --------------------
-  await supabase
-    .from('agent_jobs')
-    .update({ queue_status: 'running', status: 'running', last_heartbeat_at: new Date().toISOString() })
-    .eq('id', jobId)
-    .in('queue_status', ['dispatched', 'queued'])
+  // Apollo Phase 3: delegate to orchestration. Try dispatched→running
+  // first (dispatcher claim path), then queued→running (push-model
+  // direct-insert path). The DB trigger refuses any illegal transition.
+  {
+    const { transitionAgentJob } = await import('@/lib/orchestration')
+    let claim = await transitionAgentJob(supabase, jobId, 'persist_running_start', 'running')
+    if (!claim.ok && claim.error === 'illegal_transition') {
+      claim = await transitionAgentJob(supabase, jobId, 'runner_start_bypass', 'running')
+    }
+  }
 
   // Periodic heartbeat ticker. M-165's recovery sweep kills iterations
   // whose last_heartbeat_at is older than 60s — but the iteration's
@@ -1067,23 +1072,27 @@ async function* runIterationInner(
   // cost attribution and rate-limit analytics. Workflow agent jobs
   // (expand/synthesise/refine/generate_context) write model_id via the
   // older agent runner path and are unaffected.
-  await supabase
-    .from('agent_jobs')
-    .update({
-      queue_status: 'completed',
-      status: 'completed',
-      completed_at: new Date().toISOString(),
-      model_id: modelId,
-      actual_input_tokens: iterationUsage.tokens_input,
-      actual_output_tokens: iterationUsage.tokens_output,
-      cost_credits: costCredits ?? null,
-      cost_usd: costUsd ?? null,
-      iteration_state: {
-        ...iterationState,
-        messages: updatedMessages,
-      } as unknown as Record<string, unknown>,
+  // Apollo Phase 3: delegate to orchestration. Director iterations have
+  // no author-Accept step, so we chain running→awaiting_accept→accepted
+  // in two legal transitions. Phase 0.C (split into director_iterations
+  // table) collapses this to running→completed directly.
+  {
+    const { transitionAgentJob } = await import('@/lib/orchestration')
+    await transitionAgentJob(supabase, jobId, 'llm_ok', 'awaiting_accept', {
+      resultColumns: {
+        model_id: modelId,
+        actual_input_tokens: iterationUsage.tokens_input,
+        actual_output_tokens: iterationUsage.tokens_output,
+        cost_credits: costCredits ?? null,
+        cost_usd: costUsd ?? null,
+        iteration_state: {
+          ...iterationState,
+          messages: updatedMessages,
+        } as unknown as Record<string, unknown>,
+      },
     })
-    .eq('id', jobId)
+    await transitionAgentJob(supabase, jobId, 'author_accept', 'accepted')
+  }
 
   // Clear periodic heartbeat — iteration terminated successfully.
   clearInterval(heartbeatTicker)
@@ -1173,54 +1182,42 @@ function summariseToolResult(toolName: string, result: ToolResult): string {
   return `${toolName}: ok`
 }
 
+// Apollo Phase 3: mark* functions delegate to the orchestration module.
+// All state column writes route through lib/orchestration; the DB
+// trigger refuses any illegal transition.
+
 async function markJobCancelled(supabase: SupabaseClient, jobId: string, reason: string): Promise<void> {
-  await supabase
-    .from('agent_jobs')
-    .update({
-      queue_status: 'cancelled',
-      status: 'failed',
-      completed_at: new Date().toISOString(),
-      failure_class: 'B',
-      error_message: reason,
-    })
-    .eq('id', jobId)
+  const { transitionAgentJob } = await import('@/lib/orchestration')
+  // Cancelled mid-run (the historical markJobCancelled semantics).
+  // Note: legacy wrote status='failed' + queue_status='cancelled' — a
+  // contradictory tuple Apollo normalises to state='cancelled'.
+  await transitionAgentJob(supabase, jobId, 'cancel_mid_run', 'cancelled', {
+    errorMessage: reason,
+    failureClass: 'B',
+  })
 }
 
 async function markJobFailed(supabase: SupabaseClient, jobId: string, message: string, klass: 'A' | 'B' | 'C' | 'D' | 'E'): Promise<void> {
-  await supabase
-    .from('agent_jobs')
-    .update({
-      queue_status: 'failed',
-      status: 'failed',
-      completed_at: new Date().toISOString(),
-      failure_class: klass,
-      error_message: message,
-    })
-    .eq('id', jobId)
+  const { transitionAgentJob } = await import('@/lib/orchestration')
+  await transitionAgentJob(supabase, jobId, 'llm_fail', 'failed', {
+    errorMessage: message,
+    failureClass: klass,
+  })
 }
 
 async function markTurnCancelled(supabase: SupabaseClient, turnId: string): Promise<void> {
-  await supabase
-    .from('director_turns')
-    .update({ status: 'cancelled', completed_at: new Date().toISOString() })
-    .eq('id', turnId)
-    .eq('status', 'in_progress')
+  const { transitionDirectorTurn } = await import('@/lib/orchestration')
+  await transitionDirectorTurn(supabase, turnId, 'mark_turn_cancelled', 'cancelled')
 }
 
 async function markTurnCompleted(supabase: SupabaseClient, turnId: string): Promise<void> {
-  await supabase
-    .from('director_turns')
-    .update({ status: 'completed', completed_at: new Date().toISOString() })
-    .eq('id', turnId)
-    .eq('status', 'in_progress')
+  const { transitionDirectorTurn } = await import('@/lib/orchestration')
+  await transitionDirectorTurn(supabase, turnId, 'mark_turn_completed', 'completed')
 }
 
 async function markTurnFailed(supabase: SupabaseClient, turnId: string): Promise<void> {
-  await supabase
-    .from('director_turns')
-    .update({ status: 'failed', completed_at: new Date().toISOString() })
-    .eq('id', turnId)
-    .eq('status', 'in_progress')
+  const { transitionDirectorTurn } = await import('@/lib/orchestration')
+  await transitionDirectorTurn(supabase, turnId, 'mark_turn_failed', 'failed')
 }
 
 interface ExpectedOutputCheckResult {
