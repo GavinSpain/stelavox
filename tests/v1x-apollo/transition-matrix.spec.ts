@@ -412,7 +412,7 @@ test.describe.serial('Apollo transition matrix', () => {
               .select('state' as never)
               .eq('id', seed.id)
               .single()
-            expect((after as { state: string }).state).toBe(to)
+            expect((after as unknown as { state: string }).state).toBe(to)
           } finally {
             await seed.cleanup()
           }
@@ -438,7 +438,7 @@ test.describe.serial('Apollo transition matrix', () => {
               .select('state' as never)
               .eq('id', seed.id)
               .single()
-            expect((after as { state: string }).state).toBe(from)
+            expect((after as unknown as { state: string }).state).toBe(from)
           } finally {
             await seed.cleanup()
           }

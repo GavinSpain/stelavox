@@ -962,8 +962,94 @@ async function* runIterationInner(
 
     nextIterationJobId = nextJob.id
   } else {
-    // Final iteration — turn complete.
+    // Final iteration — turn complete. Apollo Phase 5 expected-output
+    // check: if this turn was started by a stage_trigger AND the
+    // planning brief_stage still has no workflow_id, the Director
+    // failed to plan. Apply retry-or-fail semantics rather than silently
+    // marking the turn 'completed'.
+    //
+    // Source: docs/stelavox_brief_orchestration_v1_0.md §11.2 + §11.5
+    // E_LLM_REFUSE.
     turnComplete = true
+
+    const expectedOutputCheck = await checkStageTriggerExpectedOutput(
+      supabase,
+      jobRow.director_turn_id,
+      conversation.document_id,
+    )
+
+    if (expectedOutputCheck.stagePlanningFailed) {
+      const { stage, retryExhausted } = expectedOutputCheck
+      const newRetryCount = (stage.planning_retry_count ?? 0) + 1
+
+      if (retryExhausted) {
+        // Mark stage failed (planning → failed transition).
+        await supabase
+          .from('brief_stages')
+          .update({ state: 'failed', planning_retry_count: newRetryCount })
+          .eq('id', stage.id)
+        await markJobFailed(
+          supabase,
+          jobId,
+          `expected_output_missing: propose_workflow not emitted on stage_trigger turn after ${newRetryCount} attempts`,
+          'D',
+        )
+        await markTurnFailed(supabase, jobRow.director_turn_id)
+        clearInterval(heartbeatTicker)
+        yield {
+          type: 'error',
+          error: 'expected_output_missing',
+          message: `Director did not produce propose_workflow on stage_trigger turn (retries exhausted)`,
+          failure_class: 'D',
+        }
+        yield {
+          type: 'iteration_done',
+          iteration_number: jobRow.iteration_number ?? 1,
+          next_iteration_job_id: null,
+          stop_reason: 'expected_output_missing',
+          usage: iterationUsage,
+          cost_usd: costUsd,
+          assistant_message_id: assistantMessageId,
+          turn_complete: true,
+          cancelled: false,
+        }
+        return
+      }
+
+      // Retry: revert stage to 'planned' for next push-model evaluator
+      // pass. Mark this turn failed so the conversation lock releases.
+      await supabase
+        .from('brief_stages')
+        .update({ state: 'planned', planning_retry_count: newRetryCount })
+        .eq('id', stage.id)
+      await markJobFailed(
+        supabase,
+        jobId,
+        `planning_retry: propose_workflow not emitted (attempt ${newRetryCount})`,
+        'D',
+      )
+      await markTurnFailed(supabase, jobRow.director_turn_id)
+      clearInterval(heartbeatTicker)
+      yield {
+        type: 'error',
+        error: 'planning_retry',
+        message: `Director did not produce propose_workflow; reverting stage for retry (attempt ${newRetryCount})`,
+        failure_class: 'D',
+      }
+      yield {
+        type: 'iteration_done',
+        iteration_number: jobRow.iteration_number ?? 1,
+        next_iteration_job_id: null,
+        stop_reason: 'planning_retry',
+        usage: iterationUsage,
+        cost_usd: costUsd,
+        assistant_message_id: assistantMessageId,
+        turn_complete: true,
+        cancelled: false,
+      }
+      return
+    }
+
     await markTurnCompleted(supabase, jobRow.director_turn_id)
   }
 
@@ -1135,4 +1221,87 @@ async function markTurnFailed(supabase: SupabaseClient, turnId: string): Promise
     .update({ status: 'failed', completed_at: new Date().toISOString() })
     .eq('id', turnId)
     .eq('status', 'in_progress')
+}
+
+interface ExpectedOutputCheckResult {
+  stagePlanningFailed: boolean
+  stage: { id: string; planning_retry_count: number | null }
+  retryExhausted: boolean
+}
+
+interface NoExpectedOutputFailure {
+  stagePlanningFailed: false
+}
+
+type CheckResult = ExpectedOutputCheckResult | NoExpectedOutputFailure
+
+/**
+ * Phase 5 — Director expected-output check.
+ *
+ * If a director_turn was started by a stage_trigger AND the
+ * planning brief_stage still has no workflow_id at turn-end, the
+ * Director failed to emit propose_workflow as required. Returns a
+ * structured result the caller uses to apply retry-or-fail semantics.
+ *
+ * Detection: walk back to iteration_number=1 for this turn; check its
+ * triggered_by. If 'stage_trigger', the turn was system-invoked for
+ * stage planning. Then check the brief_stage's current state — if
+ * still 'planning' (i.e. workflow attachment never happened), the
+ * expected output is missing.
+ */
+async function checkStageTriggerExpectedOutput(
+  supabase: SupabaseClient,
+  turnId: string,
+  documentId: string,
+): Promise<CheckResult> {
+  // Find the first iteration of this turn.
+  const { data: firstIter } = await supabase
+    .from('agent_jobs')
+    .select('triggered_by')
+    .eq('director_turn_id', turnId)
+    .eq('iteration_number', 1)
+    .maybeSingle()
+  if (!firstIter || firstIter.triggered_by !== 'stage_trigger') {
+    return { stagePlanningFailed: false }
+  }
+
+  // Find the planning brief_stage on this document. If workflow_id is
+  // still NULL (or state still 'planning'), planning never completed.
+  const { data: stages } = await supabase
+    .from('brief_stages')
+    .select('id, state, workflow_id, planning_retry_count, brief_id')
+    .in('state', ['planning'])
+  if (!stages || stages.length === 0) {
+    return { stagePlanningFailed: false }
+  }
+
+  // Filter to stages whose parent brief is on THIS document.
+  const stageBriefIds = stages.map((s) => s.brief_id as string)
+  const { data: briefs } = await supabase
+    .from('briefs')
+    .select('id')
+    .in('id', stageBriefIds)
+    .eq('document_id', documentId)
+  if (!briefs || briefs.length === 0) {
+    return { stagePlanningFailed: false }
+  }
+  const briefIdsOnDoc = new Set(briefs.map((b) => b.id as string))
+  const stuckStage = stages.find((s) => briefIdsOnDoc.has(s.brief_id as string))
+  if (!stuckStage) {
+    return { stagePlanningFailed: false }
+  }
+
+  // Decide retry vs fail based on retry count.
+  const currentRetries = (stuckStage.planning_retry_count as number | null) ?? 0
+  const maxRetries = (await getConfigInt('brief.max_planning_retries')) ?? 3
+  const newRetryCount = currentRetries + 1
+
+  return {
+    stagePlanningFailed: true,
+    stage: {
+      id: stuckStage.id as string,
+      planning_retry_count: currentRetries,
+    },
+    retryExhausted: newRetryCount >= maxRetries,
+  }
 }

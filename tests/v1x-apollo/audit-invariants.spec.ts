@@ -571,12 +571,12 @@ test.describe('reconcile_orchestration_state recovery rules', () => {
 
     // Before reconcile: workflow is stuck running with all-terminal step.
     let { data: before } = await admin.from('workflows').select('state').eq('id', wf!.id as string).single()
-    expect((before as { state: string }).state).toBe('running')
+    expect((before as unknown as { state: string }).state).toBe('running')
 
     await admin.rpc('reconcile_orchestration_state')
 
     const { data: after } = await admin.from('workflows').select('state').eq('id', wf!.id as string).single()
-    expect((after as { state: string }).state).toBe('completed')
+    expect((after as unknown as { state: string }).state).toBe('completed')
   })
 
   test('Rule 8: brief stuck active with all stages terminal → propagated to completed', async () => {
@@ -608,6 +608,6 @@ test.describe('reconcile_orchestration_state recovery rules', () => {
     await admin.rpc('reconcile_orchestration_state')
 
     const { data: after } = await admin.from('briefs').select('state').eq('id', brief!.id as string).single()
-    expect((after as { state: string }).state).toBe('completed')
+    expect((after as unknown as { state: string }).state).toBe('completed')
   })
 })
