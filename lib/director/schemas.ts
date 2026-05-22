@@ -246,6 +246,15 @@ const _ProposalWorkflowSchema = z.object({
 // trigger_type narrowed to ('after_stage', 'manual'). scheduled_at +
 // compound dropped per M-183. trigger_config kept open so scheduled_at
 // can land post-V1 without a schema change.
+//
+// 2026-05-22 — round-trip drift fix. proposalBuilder.ts writes each
+// stage with BOTH workflow and prompt keys, setting the unused one to
+// null. The original schema used .optional() (accepts undefined-only)
+// so a built artefact round-tripped through safeParse FAILED:
+//   - briefProposal parser (parse-message-proposals.ts:161) → no card
+//   - iteration-runner brief_proposal yield path (line ~782) → no SSE
+// Both consumers silently dropped a perfectly-good propose_brief.
+// User test 2026-05-22 surfaced it. Fix: nullable() + truthy XOR.
 const _ProposalStageSchema = z
   .object({
     order: positiveIntSchema,
@@ -253,11 +262,12 @@ const _ProposalStageSchema = z
     description: z.string().max(2_000).optional(),
     trigger_type: z.enum(['after_stage', 'manual']),
     trigger_config: z.record(z.string(), z.unknown()).optional().default({}),
-    workflow: _ProposalWorkflowSchema.optional(),
-    prompt: z.string().min(1).max(2_000).optional(),
+    workflow: _ProposalWorkflowSchema.nullable().optional(),
+    prompt: z.string().min(1).max(2_000).nullable().optional(),
   })
   .refine(
-    (s) => (s.workflow !== undefined) !== (s.prompt !== undefined),
+    // Truthy XOR — null OR undefined both count as "not set".
+    (s) => Boolean(s.workflow) !== Boolean(s.prompt),
     {
       message: 'each stage must have exactly one of workflow or prompt (not both, not neither)',
       path: ['workflow'],

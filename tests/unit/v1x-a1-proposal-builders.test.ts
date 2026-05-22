@@ -163,6 +163,50 @@ describe('buildBriefProposal', () => {
     }
     expect(() => buildBriefProposal(bad)).toThrow(/forward_after_stage_ref/)
   })
+
+  // 2026-05-22 — round-trip regression. proposalBuilder writes
+  // workflow=null OR prompt=null for the unset side of each stage,
+  // but BriefProposalV1xA1Schema (the schema consumed by the iteration-
+  // runner's brief_proposal event yield + the UI's parseMessageProposals
+  // parser) was declared .optional() (accepts undefined-only). A
+  // built artefact round-tripped through safeParse FAILED silently,
+  // so a perfectly-good propose_brief tool call never surfaced as a
+  // BriefProposalCard. Bug filed 2026-05-22 from user-driven test.
+  // Fix: schema accepts nullable + truthy XOR refine. This test pins
+  // the round-trip so the drift can't recur.
+  it('proposalBuilder output round-trips through BriefProposalV1xA1Schema (Bug #1 regression)', async () => {
+    const { BriefProposalV1xA1Schema } = await import('@/lib/director/schemas')
+    const built = buildBriefProposal(VALID_BRIEF)
+    // Sanity check: the build sets workflow=null on stage 2 (the
+    // prompt-deferred one) and prompt=null on stage 1 (the workflow-
+    // bound one). These nulls used to fail safeParse silently.
+    expect(built.stages[0].workflow).not.toBeNull()
+    expect(built.stages[0].prompt).toBeNull()
+    expect(built.stages[1].workflow).toBeNull()
+    expect(built.stages[1].prompt).not.toBeNull()
+    // The actual contract: round-trip succeeds.
+    const r = BriefProposalV1xA1Schema.safeParse(built)
+    expect(r.success, JSON.stringify(r)).toBe(true)
+  })
+
+  it('proposalBuilder output for single-stage prompt-only brief round-trips through schema', async () => {
+    const { BriefProposalV1xA1Schema } = await import('@/lib/director/schemas')
+    const promptOnly = {
+      goal_text: 'Figure out scope from current state',
+      stages: [
+        {
+          order: 1,
+          title: 'Plan after reading',
+          trigger_type: 'manual',
+          trigger_config: {},
+          prompt: 'Read the document and decide what to do next.',
+        },
+      ],
+    }
+    const built = buildBriefProposal(promptOnly)
+    const r = BriefProposalV1xA1Schema.safeParse(built)
+    expect(r.success, JSON.stringify(r)).toBe(true)
+  })
 })
 
 describe('buildProfileAmendmentProposal', () => {
