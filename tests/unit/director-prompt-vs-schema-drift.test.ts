@@ -97,8 +97,8 @@ describe.skipIf(!hasServiceKey)(
       for (const [opType, docKeys] of documented) {
         const schema = SCHEMA_ACCEPTED_KEYS[opType]
         if (!schema) {
-          // op_type documented but schema unknown — flag.
-          for (const key of docKeys) offenders.push({ op: opType, key: `(op_type ${opType} not in schema registry)` })
+          // op_type documented but schema unknown — flag once per op_type.
+          offenders.push({ op: opType, key: `(op_type ${opType} not in schema registry; documented keys: ${docKeys.join(',')})` })
           continue
         }
         const accepted = new Set([...schema.required, ...schema.optional])

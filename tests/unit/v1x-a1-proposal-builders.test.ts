@@ -207,6 +207,52 @@ describe('buildBriefProposal', () => {
     const r = BriefProposalV1xA1Schema.safeParse(built)
     expect(r.success, JSON.stringify(r)).toBe(true)
   })
+
+  // 2026-05-22 — second round-trip fix. The /api/brief/proposals/approve
+  // route receives the brief_proposal artefact from the UI (which has
+  // null-for-unset fields per BriefProposalV1xA1Parsed) and validates
+  // it through ProposeBriefInputSchema. That schema was also
+  // .optional()-only (undefined accepted, null rejected), so the
+  // approve POST returned 400 invalid_body. User test 2026-05-22
+  // surfaced it on Approve click. Fix: align StageInputSchema with
+  // BriefProposalV1xA1Schema (nullable + truthy XOR).
+  it('the approve route schema (ProposeBriefInputSchema) accepts nullable fields like the UI emits', async () => {
+    const { ProposeBriefInputSchema } = await import('@/lib/brief/proposalBuilder')
+    // Mirrors what the iteration runner ships to the UI in a brief_proposal
+    // event: stages have null on the unset side.
+    const uiShape = {
+      goal_text: 'X',
+      stages: [
+        {
+          order: 1,
+          title: 'Stage 1',
+          trigger_type: 'manual',
+          trigger_config: {},
+          workflow: {
+            title: 'wf',
+            steps: [{
+              operation_type: 'expand',
+              target_node_id: '11111111-1111-4111-8111-111111111111',
+              description: 'expand',
+              estimated_duration_seconds: 60,
+              parameters: { child_count_target: 3 },
+            }],
+          },
+          prompt: null,
+        },
+        {
+          order: 2,
+          title: 'Stage 2',
+          trigger_type: 'after_stage',
+          trigger_config: { after_stage_order: 1 },
+          workflow: null,
+          prompt: 'Synthesise prose for the new children',
+        },
+      ],
+    }
+    const r = ProposeBriefInputSchema.safeParse(uiShape)
+    expect(r.success, JSON.stringify(r)).toBe(true)
+  })
 })
 
 describe('buildProfileAmendmentProposal', () => {

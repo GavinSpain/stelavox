@@ -141,6 +141,15 @@ const WorkflowSchema = z.object({
 // prompt — though "I don't know what to do for stage 1 yet" is rarely
 // useful; common case is workflow on stage 1). Stages 2..N typically
 // have prompts when their targets depend on stage 1's outputs.
+//
+// 2026-05-22 — same round-trip drift fix as in
+// lib/director/schemas.ts:BriefProposalV1xA1Schema. The UI receives the
+// proposal from the iteration runner (which emits null for the unset
+// side per the artefact shape) and POSTs it back to
+// /api/brief/proposals/approve. That route validates with THIS schema,
+// which was `.optional()` (undefined-only) and so rejected null with
+// 400 invalid_body. User test 2026-05-22 hit this exact error on
+// "Approve Brief" click. Fix: nullable() + truthy XOR.
 const StageInputSchema = z
   .object({
     order: z.number().int().positive(),
@@ -148,11 +157,12 @@ const StageInputSchema = z
     description: z.string().max(2000).optional(),
     trigger_type: TriggerTypeSchema,
     trigger_config: z.record(z.string(), z.unknown()).optional().default({}),
-    workflow: WorkflowSchema.optional(),
-    prompt: z.string().min(1).max(2000).optional(),
+    workflow: WorkflowSchema.nullable().optional(),
+    prompt: z.string().min(1).max(2000).nullable().optional(),
   })
   .refine(
-    (s) => (s.workflow !== undefined) !== (s.prompt !== undefined),
+    // Truthy XOR — null OR undefined both count as "not set".
+    (s) => Boolean(s.workflow) !== Boolean(s.prompt),
     {
       message: 'each stage must have exactly one of workflow or prompt (not both, not neither)',
       path: ['workflow'],
