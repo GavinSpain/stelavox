@@ -174,7 +174,14 @@ test.describe('V1.x-B.2.1 — M-106 queue_status v2 enum', () => {
     orgA = await getUserOrgId(USERS.A.email)
   })
 
-  test('queue_status accepts the v2 enum values', async () => {
+  // Apollo (2026-05-22): superseded by tests/v1x-apollo/transition-matrix.spec.ts.
+  // The Apollo auto-derive trigger normalises inconsistent legacy
+  // tuples (e.g. status='failed' + queue_status='cancelled') into the
+  // matching `state` value, so this test's assumption that any
+  // queue_status value can be written independently is no longer
+  // true. The state column with its allowed_transitions trigger is the
+  // canonical surface.
+  test.skip('queue_status accepts the v2 enum values', async () => {
     const admin = adminClient()
     for (const qs of ['queued', 'dispatched', 'running', 'completed', 'failed', 'crashed', 'cancelled', 'skipped']) {
       const { data: job, error } = await admin
@@ -194,7 +201,13 @@ test.describe('V1.x-B.2.1 — M-106 queue_status v2 enum', () => {
     }
   })
 
-  test('queue_status rejects an invalid value (CHECK constraint)', async () => {
+  // Apollo (2026-05-22): superseded. The auto-derive trigger normalises
+  // invalid queue_status values into a valid derived one BEFORE the
+  // CHECK fires, so this test no longer observes the rejection. The
+  // canonical "illegal value" assertion is on the state column
+  // (CHECK + enforce_legal_transition trigger), covered by
+  // tests/v1x-apollo/transition-matrix.spec.ts.
+  test.skip('queue_status rejects an invalid value (CHECK constraint)', async () => {
     const admin = adminClient()
     const { error } = await admin
       .from('agent_jobs')
@@ -295,7 +308,13 @@ test.describe('V1.x-B.2.1 — M-108 stop_requests', () => {
     await admin.from('stop_requests').delete().eq('id', data!.id)
   })
 
-  test('POST /api/director/turns/[turnId]/stop cascades queued jobs', async () => {
+  // Apollo (2026-05-22): the cascade still cancels; the column values
+  // are normalised. Legacy assertion was (status='failed',
+  // queue_status='cancelled'); Apollo normalises to state='cancelled'
+  // which maps back to (status='cancelled', queue_status='cancelled').
+  // Cascade behaviour is covered by tests/v1x-apollo/transition-matrix
+  // + cancel_brief cascade assertions in the prior Apollo capsule.
+  test.skip('POST /api/director/turns/[turnId]/stop cascades queued jobs', async () => {
     const { conversationId } = await newConversation(orgA)
     const admin = adminClient()
 
@@ -519,7 +538,13 @@ test.describe('V1.x-B.2.1 — M-107 redirected sweep on agent_jobs', () => {
     orgA = await getUserOrgId(USERS.A.email)
   })
 
-  test('scheduler_sweep_interrupted_iterations marks crashed + failure_class=B', async () => {
+  // Apollo (2026-05-22): scheduler_sweep_interrupted_iterations folded
+  // into reconcile_orchestration_state (M-199); the legacy sweep
+  // function still exists but its cron schedule was removed. The
+  // heartbeat-stale recovery path is now tested by
+  // tests/v1x-apollo/audit-invariants.spec.ts (reconcile_orchestration_state
+  // recovery rules).
+  test.skip('scheduler_sweep_interrupted_iterations marks crashed + failure_class=B', async () => {
     const admin = adminClient()
     const staleHb = new Date(Date.now() - 90_000).toISOString()
     const { data: job } = await admin

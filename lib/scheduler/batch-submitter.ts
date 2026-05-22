@@ -223,20 +223,19 @@ async function submitBatchForPool(
     status: 'in_progress',
   })
 
-  // 6. UPDATE each ticket: batch_anthropic_id + batch_submitted_at +
-  //    queue_status='dispatched' (so the dispatcher's queued query
-  //    skips them).
+  // 6. Transition each ticket queued → dispatched via orchestration,
+  // alongside batch-tracking columns. Apollo Phase 3.
   const submittedAt = new Date().toISOString()
-  await supabase
-    .from('agent_jobs')
-    .update({
-      batch_anthropic_id: batch.id,
-      batch_submitted_at: submittedAt,
-      queue_status: 'dispatched',
-      status: 'running',
-      dispatched_at: submittedAt,
+  const { transitionAgentJob } = await import('@/lib/orchestration')
+  for (const ticketId of ticketIds) {
+    await transitionAgentJob(supabase, ticketId, 'dispatcher_cas_claim', 'dispatched', {
+      dispatcherFields: {
+        batch_anthropic_id: batch.id,
+        batch_submitted_at: submittedAt,
+        dispatched_at: submittedAt,
+      },
     })
-    .in('id', ticketIds)
+  }
 
   // 7. Mark tickets as 'running' via the standard claim helper for any
   //    extra side-effects (started_at + last_heartbeat_at). Batched

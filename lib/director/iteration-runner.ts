@@ -845,15 +845,20 @@ async function* runIterationInner(
                   conversationId: conversation.id,
                   proposal: wf.data,
                 })
-                // Link the persisted workflow to the planning stage and
-                // transition the stage back to 'planned' (workflow ready
-                // to dispatch). Guard the UPDATE on status='planning'
-                // so concurrent fires don't double-write.
-                await supabase
-                  .from('brief_stages')
-                  .update({ workflow_id: stageWorkflowId, status: 'planned' })
-                  .eq('id', artefact.stage_id)
-                  .eq('status', 'planning')
+                // Link the persisted workflow to the planning stage.
+                // Apollo Phase 3: planning → ready transition via
+                // orchestration's attachWorkflowToBriefStage. The new
+                // 'ready' state replaces the planning→planned round-trip
+                // overload (per spec Q2).
+                {
+                  const { attachWorkflowToBriefStage } = await import('@/lib/orchestration')
+                  await attachWorkflowToBriefStage(
+                    supabase,
+                    artefact.stage_id,
+                    stageWorkflowId,
+                    'planning',
+                  )
+                }
 
                 // Annotate the assistant message with the workflow_id
                 // (matches the legacy XML path's behaviour).
