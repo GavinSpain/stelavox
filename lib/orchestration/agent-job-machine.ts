@@ -93,9 +93,18 @@ export async function transitionAgentJob(
   if (payload?.errorMessage !== undefined) updateFields.error_message = payload.errorMessage
   if (payload?.failureClass !== undefined) updateFields.failure_class = payload.failureClass
 
-  // Terminal states always stamp completed_at.
-  const TERMINALS: AgentJobState[] = ['accepted', 'dismissed', 'failed', 'crashed', 'cancelled']
-  if (TERMINALS.includes(target)) {
+  // States where work has stopped stamp completed_at. Per the I1
+  // invariant, awaiting_accept ALSO has completed_at set (the LLM call
+  // finished; only the author Accept is pending), so include it here.
+  const STATES_WITH_COMPLETED_AT: AgentJobState[] = [
+    'awaiting_accept',
+    'accepted',
+    'dismissed',
+    'failed',
+    'crashed',
+    'cancelled',
+  ]
+  if (STATES_WITH_COMPLETED_AT.includes(target)) {
     updateFields.completed_at = new Date().toISOString()
   }
 

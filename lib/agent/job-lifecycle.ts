@@ -160,35 +160,31 @@ export async function persistRunningStart(
   supabase: SupabaseClient,
   jobId: string,
 ): Promise<boolean> {
-  const now = new Date().toISOString()
-  const { error, count } = await supabase
-    .from('agent_jobs')
-    .update(
-      {
-        status: 'running',
-        // 2026-05-22 — mirror M-106's documented lifecycle:
-        // queued → dispatched → running → terminal. The dispatcher's
-        // CAS transitions queue_status to 'dispatched'; the runner's
-        // start transitions it to 'running'. Pre-fix the runner only
-        // wrote `status`, leaving queue_status stuck at 'dispatched'
-        // through completion — which combined with the
-        // workflow-executor's bypass path (INSERTs with DEFAULT
-        // queue_status='queued') produced the phantom-redispatch
-        // zombies cleaned up in M-190.
-        queue_status: 'running',
-        started_at: now,
-        last_heartbeat_at: now,
-      },
-      { count: 'exact' },
-    )
-    .eq('id', jobId)
-    .eq('status', 'pending')
+  // Apollo Phase 3 migration: delegate to the orchestration module.
+  // Two legal transition events:
+  //   * dispatcher_cas_claim then persist_running_start (dispatched→running)
+  //   * runner_start_bypass (queued→running, workflow-executor bypass path)
+  // We don't know which path the caller is on, so first attempt the
+  // canonical "after-dispatcher" transition; if that fails (job was
+  // already queued because of the bypass path), attempt the bypass.
+  // The DB trigger refuses any illegal transition.
+  const { markAgentJobRunning } = await import('@/lib/orchestration')
 
-  if (error) {
-    console.error('[agent-lifecycle] persistRunningStart failed', { jobId, error: error.message })
+  // Try the dispatched→running path first.
+  let result = await markAgentJobRunning(supabase, jobId, { bypassDispatcher: false })
+  if (result.ok) return true
+
+  // Fall back to queued→running (bypass path).
+  result = await markAgentJobRunning(supabase, jobId, { bypassDispatcher: true })
+  if (result.ok) return true
+
+  // Both failed — row didn't match the expected prior state.
+  if (result.error === 'illegal_transition') {
+    // Job was likely already cancelled or in another terminal state.
     return false
   }
-  return (count ?? 0) > 0
+  console.error('[agent-lifecycle] persistRunningStart: orchestration transition failed', { jobId, error: result.error, message: result.message })
+  return false
 }
 
 /**
@@ -252,35 +248,23 @@ export async function persistFinalResult(
   jobId: string,
   params: FinalResultParams,
 ): Promise<void> {
-  await supabase
-    .from('agent_jobs')
-    .update({
-      ...params.resultColumns,
-      tokens_input: params.usage.tokens_input,
-      tokens_output: params.usage.tokens_output,
-      tokens_cache_write: params.usage.tokens_cache_write,
-      tokens_cache_read: params.usage.tokens_cache_read,
-      model_id: params.modelId,
-      provider: params.provider,
-      cost_usd: params.costUsd,
-      cost_credits: params.costCredits ?? null,
-      status: 'completed',
-      // 2026-05-22 — set queue_status='completed' alongside status. Pre-
-      // fix this column stayed at whatever it was (often 'queued' for
-      // workflow-step jobs INSERTed by the workflow-executor's bypass
-      // path, which uses the DEFAULT 'queued' and calls runAgentJob via
-      // waitUntil without going through the dispatcher). Result was
-      // zombies: status='completed', completed_at set, queue_status=
-      // 'queued' — and the dispatcher's CAS `.eq('queue_status','queued')`
-      // happily re-claimed them, resurrecting status to 'running' and
-      // permanently locking the target node via check_node_writable's
-      // node_in_progress branch. User surfaced via two phantom expands
-      // on "The Fracture" scene blocking beat deletes.
-      queue_status: 'completed',
-      completed_at: new Date().toISOString(),
-    })
-    .eq('id', jobId)
-    .neq('status', 'cancelled')
+  // Apollo Phase 3 migration: delegate to the orchestration module.
+  // Transition: running → awaiting_accept. The runner has completed
+  // its LLM call; the work is now awaiting author Accept (for
+  // content-modifying ops) or auto-accept by advanceWorkflow's
+  // catch-up.
+  const { markAgentJobAwaitingAccept } = await import('@/lib/orchestration')
+  await markAgentJobAwaitingAccept(supabase, jobId, {
+    resultColumns: params.resultColumns,
+    tokensInput: params.usage.tokens_input,
+    tokensOutput: params.usage.tokens_output,
+    tokensCacheWrite: params.usage.tokens_cache_write,
+    tokensCacheRead: params.usage.tokens_cache_read,
+    modelId: params.modelId,
+    provider: params.provider,
+    costUsd: params.costUsd,
+    costCredits: params.costCredits ?? null,
+  })
 }
 
 /**
@@ -298,18 +282,9 @@ export async function persistFailure(
     .eq('id', jobId)
     .maybeSingle()
 
-  await supabase
-    .from('agent_jobs')
-    .update({
-      status: 'failed',
-      // 2026-05-22 — set queue_status='failed' alongside status. Same
-      // rationale as persistFinalResult above.
-      queue_status: 'failed',
-      error_message: errorMessage,
-      completed_at: new Date().toISOString(),
-    })
-    .eq('id', jobId)
-    .neq('status', 'cancelled')
+  // Apollo Phase 3: delegate. Transition: running → failed.
+  const { markAgentJobFailed } = await import('@/lib/orchestration')
+  await markAgentJobFailed(supabase, jobId, errorMessage, 'A')
 
   await notifyWorkflowIfStep(jobBefore?.triggered_by)
 }
@@ -330,17 +305,13 @@ export async function persistCancellation(
     .eq('id', jobId)
     .maybeSingle()
 
-  await supabase
-    .from('agent_jobs')
-    .update({
-      status: 'cancelled',
-      // 2026-05-22 — set queue_status='cancelled' alongside status.
-      queue_status: 'cancelled',
-      error_message: reason,
-      completed_at: new Date().toISOString(),
-    })
-    .eq('id', jobId)
-    .in('status', ['running', 'pending'])
+  // Apollo Phase 3: delegate. Transition: {queued|dispatched|running} → cancelled.
+  // markAgentJobCancelled is keyed on 'cancel_mid_run' (running → cancelled);
+  // for queued/dispatched paths the dispatcher's stop-cascade is the
+  // canonical entry. This is the SSE-disconnect path so the row is
+  // typically in 'running'.
+  const { markAgentJobCancelled } = await import('@/lib/orchestration')
+  await markAgentJobCancelled(supabase, jobId, reason)
 
   await notifyWorkflowIfStep(jobBefore?.triggered_by)
 }
