@@ -26,6 +26,8 @@ import type {
 } from '@/lib/director/types'
 import {
   execAssessDownstreamImpact,
+  execFindContextReferences,
+  execFindNodeByName,
   execGetBriefState,
   execGetConversationHistory,
   execGetDocumentState,
@@ -33,21 +35,20 @@ import {
   execGetNodeTree,
   execGetNodesByLayer,
   execGetProjectProfile,
+  execGetSubtreeContent,
+  execGetSubtreeStats,
   execGetWorkflowHistory,
 } from '@/lib/director/tools/read'
 import {
   execCancelBrief,
-  execCreateCommentStep,
-  execCreateContextStep,
-  execCreateExpandStep,
-  execCreateNodeReorderStep,
-  execCreateRefineStep,
-  execCreateSynthesiseStep,
   execProposeBrief,
-  execProposeBriefAmendment,
   execProposeProfileAmendment,
+  execProposeWorkflow,
   execReportCapabilityLimit,
 } from '@/lib/director/tools/write'
+// Phase 2: execCreate* helpers no longer imported here — they remain
+// exported from lib/director/tools/write.ts as helpers callable from
+// tests, but they're no longer registered as tools the LLM can invoke.
 import { toolInputSchemaFor } from '@/lib/director/tool-schema'
 
 // ---------------------------------------------------------------------------
@@ -91,11 +92,39 @@ const readTools: DirectorToolDefinition[] = [
     input_schema: toolInputSchemaFor('get_nodes_by_layer'),
   },
   {
+    name: 'find_node_by_name',
+    kind: 'read',
+    description:
+      'Find nodes by name (case-insensitive substring match) across ALL layers. Returns each match with its full ancestor path (e.g. "Shadow Protocol > Act One > Salvage > The Bonding > The Visions") so you can disambiguate definitively without guessing. Use this FIRST whenever the user names a node and you don\'t already have its id from iteration_state.user_message.mentioned_node_ids. Ranks exact-match > prefix > substring; capped at 20 results. Optional node_type or layer_index filters narrow the search.',
+    input_schema: toolInputSchemaFor('find_node_by_name'),
+  },
+  {
     name: 'get_node_tree',
     kind: 'read',
     description:
-      'Get a recursive tree from a root_node_id, capped at max_depth. Returns nested {id, name, node_type, layer_index, locked, children}. Useful for understanding a subtree\'s shape without making one query per node.',
+      'Get a recursive tree from a root_node_id, capped at max_depth. Returns nested {id, name, node_type, layer_index, locked, children}. Useful for understanding a subtree\'s shape without making one query per node. Returns SHAPE ONLY — no prose, no summary. If you need content for many nodes, use get_subtree_content instead.',
     input_schema: toolInputSchemaFor('get_node_tree'),
+  },
+  {
+    name: 'get_subtree_content',
+    kind: 'read',
+    description:
+      'Bulk content read across a subtree. Returns descendants of root_node_id (plus the root) in one call, each with summary_text + prose_text + has_summary + has_prose + status + word_count_actual + word_count_target + locked. Use this whenever you need to read / audit / summarise / aggregate content across many nodes (e.g. "do all beats in chapter 1 have prose?", "review the dialogue across scenes 5-10", "total word count of chapter 3"). Defaults: max_nodes=50 (ceiling 200), include_prose=true, include_summary=true. Set include_prose=false when you only need completion flags (cheaper response). Optional layer_index filter narrows to a single layer (e.g. only beats). Returns truncated:true when the cap is hit — narrow the root_node_id if so. Prefer this over N get_node calls.',
+    input_schema: toolInputSchemaFor('get_subtree_content'),
+  },
+  {
+    name: 'find_context_references',
+    kind: 'read',
+    description:
+      'Find every structural node that references a given context node. Use to answer "where does character X appear?", "which scenes reference the World setting?", "what uses this theme node?". Returns each referencing node with its ancestor path so it\'s self-describing. Capped at max_results (default 50, ceiling 200) with truncated:true when the cap is hit.',
+    input_schema: toolInputSchemaFor('find_context_references'),
+  },
+  {
+    name: 'get_subtree_stats',
+    kind: 'read',
+    description:
+      'Lightweight structural-summary tool. Returns the shape of any subtree (per-layer node counts, leaf-descendant count, leaves-with-prose count) WITHOUT fetching content. Use this FIRST when answering completeness / coverage / "what\'s left" questions across multiple nodes — it lets you categorise each child as empty (leaf_descendant_count=0), partial (with_prose < count), or complete (with_prose === count) from the counts alone, then drill into specifics with get_subtree_content only on the subtrees that need detail. Defaults: max_depth=full (returns the whole subtree); cap with max_depth=1 to get root + immediate children only. Aggregates are always computed full-depth regardless of max_depth.',
+    input_schema: toolInputSchemaFor('get_subtree_stats'),
   },
   {
     name: 'assess_downstream_impact',
@@ -125,48 +154,17 @@ const readTools: DirectorToolDefinition[] = [
 // ---------------------------------------------------------------------------
 
 const writeTools: DirectorToolDefinition[] = [
-  {
-    name: 'create_expand_step',
-    kind: 'write',
-    description:
-      'Propose a step that runs the expand agent on a structural node — generates child nodes one layer down. Returns a workflow step proposal; nothing executes until the author approves.',
-    input_schema: toolInputSchemaFor('create_expand_step'),
-  },
-  {
-    name: 'create_synthesise_step',
-    kind: 'write',
-    description:
-      'Propose a step that runs the synthesise agent on a leaf node — generates prose from the node\'s summary + linked context. Returns a workflow step proposal; nothing executes until approved.',
-    input_schema: toolInputSchemaFor('create_synthesise_step'),
-  },
-  {
-    name: 'create_refine_step',
-    kind: 'write',
-    description:
-      'Propose a step that runs the refine agent on a single field of a node (summary | prose | notes | metadata) with a specific instruction. Returns a workflow step proposal; nothing executes until approved.',
-    input_schema: toolInputSchemaFor('create_refine_step'),
-  },
-  {
-    name: 'create_context_step',
-    kind: 'write',
-    description:
-      'Propose a step that generates a context node\'s content from scratch or from a partial seed. context_type must be one of the V1 core types. Returns a workflow step proposal; nothing executes until approved.',
-    input_schema: toolInputSchemaFor('create_context_step'),
-  },
-  {
-    name: 'create_comment_step',
-    kind: 'write',
-    description:
-      'Propose a step that posts an editorial comment on a node — useful for surfacing concerns or notes to the author without modifying content. Comments are admitted on locked nodes. Returns a workflow step proposal; nothing executes until approved.',
-    input_schema: toolInputSchemaFor('create_comment_step'),
-  },
-  {
-    name: 'create_node_reorder_step',
-    kind: 'write',
-    description:
-      'Propose a step that reorders a node within its current parent (or moves it to a new parent if parent_id is provided). new_order is 1-indexed (Phase 2 convention). Returns a workflow step proposal; nothing executes until approved.',
-    input_schema: toolInputSchemaFor('create_node_reorder_step'),
-  },
+  // 2026-05-19 Phase 2 of create_*_step deprecation refactor:
+  // the six per-step tools are no longer registered. Every workflow
+  // step is now embedded directly in propose_brief's workflow.steps
+  // array — single, predictable write pattern. The executors remain
+  // exported from lib/director/tools/write.ts as helpers (callable
+  // from tests; not exposed to the LLM).
+  //
+  // Validation that previously lived in create_*_step (per-op-type
+  // parameters, target-node existence, author-lock check) moved to
+  // execProposeBrief in Phase 1 — see lib/brief/proposalBuilder.ts
+  // StepSchema (discriminated union) and buildBriefStepDiagnostics.
   {
     name: 'propose_brief',
     kind: 'write',
@@ -189,11 +187,11 @@ const writeTools: DirectorToolDefinition[] = [
     input_schema: toolInputSchemaFor('cancel_brief'),
   },
   {
-    name: 'propose_brief_amendment',
+    name: 'propose_workflow',
     kind: 'write',
     description:
-      "V1.x-B.3 — propose an in-flight modification to an active or planned Brief. Required: brief_id (the Brief to amend) + amendment_type (one of 'goal_text' | 'preferences' | 'add_stage' | 'modify_pending_stage' | 'remove_pending_stage') + after (the new shape; for goal_text: { goal_text: string }; for preferences: a partial object that deep-merges; for add_stage: full stage payload; for modify/remove_pending_stage: the stage UUID goes in target_path) + reason (one sentence). Already-running stages CANNOT be amended (only status='planned' stages); already-completed stages cannot be removed. The user approves via BriefAmendmentCard before apply_brief_amendment RPC fires. Use when: the user wants to extend an active Brief with another stage; the user wants to refine the goal_text or preferences on an in-flight Brief; the user wants to drop or modify a pending (not-yet-running) stage. NOT for cancelling a Brief (use cancel_brief) or for proposing a new Brief (use propose_brief).",
-    input_schema: toolInputSchemaFor('propose_brief_amendment'),
+      "Emit a workflow proposal for a stage whose prompt has fired. ONLY call this when the system has invoked you via a `stage_trigger_fired` event for a prompt-deferred stage — the active Brief has exactly one stage in status='planning' waiting for its workflow. The system attaches the resulting workflow to that stage automatically (no brief_id or stage_id in the input; the active planning stage is unambiguous because of the single-active-brief invariant). Required: steps (1-30 entries, each with operation_type + target_node_id + parameters per the op-type schema) + title (short label naming the canonical range, e.g. 'Expand scenes 11-20 into beats'). Optional: description, impact_summary, estimated_total_minutes. Steps array order MUST match canonical target position. The runner will dispatch the steps in array order; mis-ordered arrays run out of narrative sequence. If brief.auto_approve_workflow_proposals is true, the workflow runs immediately; otherwise the author sees a PlanCard. Do NOT call propose_workflow for user-driven planning — that's propose_brief's job.",
+    input_schema: toolInputSchemaFor('propose_workflow'),
   },
   {
     name: 'report_capability_limit',
@@ -226,21 +224,23 @@ const TOOL_EXECUTORS: Record<string, ToolExecutor> = {
   get_document_state: execGetDocumentState as ToolExecutor,
   get_node: execGetNode as ToolExecutor,
   get_nodes_by_layer: execGetNodesByLayer as ToolExecutor,
+  find_node_by_name: execFindNodeByName as ToolExecutor,
   get_node_tree: execGetNodeTree as ToolExecutor,
+  get_subtree_content: execGetSubtreeContent as ToolExecutor,
+  find_context_references: execFindContextReferences as ToolExecutor,
+  get_subtree_stats: execGetSubtreeStats as ToolExecutor,
   assess_downstream_impact: execAssessDownstreamImpact as ToolExecutor,
   get_conversation_history: execGetConversationHistory as ToolExecutor,
   get_workflow_history: execGetWorkflowHistory as ToolExecutor,
-  // write
-  create_expand_step: execCreateExpandStep as ToolExecutor,
-  create_synthesise_step: execCreateSynthesiseStep as ToolExecutor,
-  create_refine_step: execCreateRefineStep as ToolExecutor,
-  create_context_step: execCreateContextStep as ToolExecutor,
-  create_comment_step: execCreateCommentStep as ToolExecutor,
-  create_node_reorder_step: execCreateNodeReorderStep as ToolExecutor,
+  // write — Phase 2 of create_*_step deprecation removed the six
+  // create_*_step executors from the dispatch map. The executor
+  // functions themselves are still exported from
+  // lib/director/tools/write.ts as helpers (tests still call them
+  // directly), but they're no longer reachable from a tool_use call.
   propose_brief: execProposeBrief as ToolExecutor,
   propose_profile_amendment: execProposeProfileAmendment as ToolExecutor,
   cancel_brief: execCancelBrief as ToolExecutor,
-  propose_brief_amendment: execProposeBriefAmendment as ToolExecutor,
+  propose_workflow: execProposeWorkflow as ToolExecutor,
   report_capability_limit: execReportCapabilityLimit as ToolExecutor,
 }
 

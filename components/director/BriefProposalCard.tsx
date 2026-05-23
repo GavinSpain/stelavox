@@ -37,11 +37,10 @@ interface BriefProposalCardProps {
   onApproved?: () => void
 }
 
+// 2026-05-21 simplification (M-183): trigger_type narrowed.
 const TRIGGER_LABEL: Record<string, string> = {
   after_stage: 'After previous',
-  scheduled_at: 'Scheduled',
   manual: 'Manual',
-  compound: 'Compound',
 }
 
 const STATUS_LABEL: Record<string, string> = {
@@ -73,6 +72,18 @@ export function BriefProposalCard({
   // it emits in subsequent stages of this Brief.
   const [autoApproveSubsequent, setAutoApproveSubsequent] = useState(false)
 
+  // Reject / dismiss state. Tracked client-side via localStorage so the
+  // proposal artefact persists in the conversation_messages row (no DB
+  // mutation — the user might want to scroll back and see what was
+  // proposed) but the card collapses to a one-line dismissed note.
+  // Key uses the proposal goal_text as a stable identifier (same shape
+  // the brief-for-proposal lookup uses).
+  const dismissKey = `brief-proposal-dismissed:${documentId}:${proposal.goal_text}`
+  const [dismissed, setDismissed] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false
+    return window.localStorage.getItem(dismissKey) === '1'
+  })
+
   // On mount, ask the server whether a Brief has already been created
   // from this proposal. If so, render the Brief's current state instead
   // of the Approve button.
@@ -95,6 +106,13 @@ export function BriefProposalCard({
     })()
     return () => { cancelled = true }
   }, [documentId, proposal.goal_text])
+
+  function dismiss() {
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem(dismissKey, '1')
+    }
+    setDismissed(true)
+  }
 
   async function approve() {
     setSubmitting(true)
@@ -121,6 +139,23 @@ export function BriefProposalCard({
     } finally {
       setSubmitting(false)
     }
+  }
+
+  // Dismissed state — user clicked Reject. Collapse to a one-line note
+  // so the conversation thread doesn't keep showing a stale proposal but
+  // the author can still see what was proposed earlier on scroll-back.
+  if (dismissed && !existingBrief) {
+    return (
+      <div
+        data-testid="brief-proposal-card"
+        data-state="dismissed"
+        style={{ ...cardStyle, padding: '8px 14px' }}
+      >
+        <span style={{ fontSize: 11, color: 'var(--color-text-muted)', fontStyle: 'italic' }}>
+          Brief proposal dismissed.
+        </span>
+      </div>
+    )
   }
 
   // Loading state — keep card minimal until we know whether to show
@@ -204,10 +239,29 @@ export function BriefProposalCard({
                     {s.description ? (
                       <div style={{ fontSize: 11, color: 'var(--color-text-secondary)', lineHeight: 1.4 }}>{s.description}</div>
                     ) : null}
+                    {/* 2026-05-21 simplification — stage is either
+                        workflow-bound (concrete steps planned now)
+                        or prompt-deferred (system plans when trigger
+                        fires). Render the prompt when present so the
+                        author sees what's queued for later. */}
+                    {s.prompt ? (
+                      <div
+                        style={{
+                          fontSize: 11,
+                          color: 'var(--color-text-secondary)',
+                          lineHeight: 1.4,
+                          fontStyle: 'italic',
+                          marginTop: 2,
+                        }}
+                        data-testid="brief-proposal-stage-prompt"
+                      >
+                        Prompt: “{s.prompt}”
+                      </div>
+                    ) : null}
                     <div style={{ marginTop: 2, fontSize: 10, color: 'var(--color-text-muted)' }}>
                       {TRIGGER_LABEL[s.trigger_type] ?? s.trigger_type}
-                      {s.order === 1
-                        ? ` · ${s.workflow ? `${s.workflow.steps.length} steps planned` : 'workflow planned'}`
+                      {s.workflow
+                        ? ` · ${s.workflow.steps.length} steps planned`
                         : ' · workflow planned just-in-time when this stage activates'}
                     </div>
                   </div>
@@ -323,6 +377,30 @@ export function BriefProposalCard({
               : concurrentEditWarning
                 ? 'Approve anyway'
                 : 'Approve Brief'}
+          </button>
+          {/* Reject button — neutral ghost. Local-dismiss only; the
+             proposal artefact stays in the message row so scroll-back
+             still shows what the Director offered. NOT verdigris;
+             rejection is not an affirmative-action trigger. */}
+          <button
+            type="button"
+            data-testid="brief-proposal-reject"
+            disabled={submitting}
+            onClick={dismiss}
+            style={{
+              background: 'transparent',
+              color: 'var(--color-text-secondary)',
+              border: '1px solid var(--color-border-default)',
+              padding: '8px 16px',
+              borderRadius: 4,
+              fontSize: 13,
+              fontWeight: 400,
+              cursor: submitting ? 'not-allowed' : 'pointer',
+              opacity: submitting ? 0.5 : 1,
+              fontFamily: 'var(--font-inter), Inter, sans-serif',
+            }}
+          >
+            Reject
           </button>
         </div>
       </div>

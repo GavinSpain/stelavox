@@ -82,6 +82,10 @@ export function useRightSlot() {
 export interface SidebarProjectState {
   projectId:             string | null
   documentId:            string | null
+  /** Display name surfaced in the Sidebar PROJECT slot. */
+  projectName:           string | null
+  /** Optional document name shown below the project name when a doc is loaded. */
+  documentName:          string | null
   onSelectContextNode:   ((id: string) => void) | null
   refreshKey:            number
 }
@@ -91,7 +95,7 @@ const SidebarProjectContext = createContext<{
   setProject: (state: Partial<SidebarProjectState>) => void
   bumpRefresh: () => void
 }>({
-  state: { projectId: null, documentId: null, onSelectContextNode: null, refreshKey: 0 },
+  state: { projectId: null, documentId: null, projectName: null, documentName: null, onSelectContextNode: null, refreshKey: 0 },
   setProject: () => {},
   bumpRefresh: () => {},
 })
@@ -156,6 +160,8 @@ function AppShellInner({ userEmail, children }: AppShellProps) {
   const [sidebarProjectState, setSidebarProjectState] = useState<SidebarProjectState>({
     projectId: null,
     documentId: null,
+    projectName: null,
+    documentName: null,
     onSelectContextNode: null,
     refreshKey: 0,
   })

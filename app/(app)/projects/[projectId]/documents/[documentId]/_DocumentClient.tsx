@@ -31,6 +31,8 @@ interface Props {
   documentName: string
   documentType: 'novel' | 'short_story' | 'series'
   profileId?: string | null
+  /** Optional — surfaced in the Sidebar PROJECT slot. */
+  projectName?: string | null
 }
 
 const DIRECTOR_MIN_WIDTH = 400 // Component Spec §7.1
@@ -41,6 +43,7 @@ export function DocumentClient({
   documentName,
   documentType,
   profileId,
+  projectName,
 }: Props) {
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
   const [refreshKey, setRefreshKey] = useState(0)
@@ -52,12 +55,14 @@ export function DocumentClient({
     setProject({
       projectId,
       documentId,
+      projectName: projectName ?? null,
+      documentName,
       onSelectContextNode: (id: string) => setSelectedNodeId(id),
     })
     return () => {
-      setProject({ projectId: null, documentId: null, onSelectContextNode: null })
+      setProject({ projectId: null, documentId: null, projectName: null, documentName: null, onSelectContextNode: null })
     }
-  }, [projectId, documentId, setProject])
+  }, [projectId, documentId, projectName, documentName, setProject])
 
   // Enable the global ModeTabBar (and ⌘. shortcut) while a document
   // client is mounted. Disabling on unmount returns the bar to its

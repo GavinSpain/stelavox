@@ -125,7 +125,7 @@ export async function listDirectLinks(
         node_type, node_category, scope,
         name, short_description, tags,
         summary, prose, notes, metadata,
-        status, locked, lock_reason,
+        status,
         agent_instruction, word_count_target, word_count_actual,
         version, created_at, updated_at
       )
@@ -200,7 +200,7 @@ export async function listAncestorLinksForNode(
         node_type, node_category, scope,
         name, short_description, tags,
         summary, prose, notes, metadata,
-        status, locked, lock_reason,
+        status,
         agent_instruction, word_count_target, word_count_actual,
         version, created_at, updated_at
       ),

@@ -70,24 +70,46 @@ test.describe('V1.x-B.1.1 session 3a — stage triggers + runtime substrate', ()
   test('evaluate_ready_stage_triggers fires when predecessor completes', async () => {
     const { projectId, documentId, conversationId } = await newDocumentWithConversation(orgA, 'V1.x-B.1.1 session3a stage trigger')
     try {
-      // 2-stage Brief: stage 1 manual, stage 2 after_stage:1.
-      const { data: briefRpc, error: briefErr } = await adminClient().rpc('accept_brief', {
-        p_document_id: documentId,
-        p_goal_text: 'session3a stage-trigger flow',
-        p_stages: [
-          { order: 1, title: 'Stage one', description: null, trigger_type: 'manual', trigger_config: {} },
-          { order: 2, title: 'Stage two', description: null, trigger_type: 'after_stage', trigger_config: { after_stage_order: 1 } },
-        ],
-      })
+      // M-205-era schema: brief_stages has an enforce_legal_transition
+      // trigger that rejects planned → completed (only legal exits from
+      // 'planned' are 'planning', 'ready', 'cancelled'). The previous
+      // form of this test created the brief via accept_brief (stages
+      // start at 'planned'), then UPDATEd stage 1 to 'completed' — that
+      // direct UPDATE is now an illegal transition.
+      //
+      // Apollo-correct test setup: bypass accept_brief and INSERT the
+      // brief + stages directly with stage 1 ALREADY in 'completed'.
+      // The legal-transition trigger fires on UPDATE only — initial
+      // INSERTs can land any legal state. This matches what the
+      // evaluator sees in production after a real workflow completes
+      // and complete_brief_stage_workflow transitions ready→completed.
+      const { data: brief, error: briefErr } = await adminClient()
+        .from('briefs')
+        .insert({
+          organisation_id: orgA,
+          document_id: documentId,
+          status: 'active',
+          goal_text: 'session3a stage-trigger flow',
+          sequence_position: 0,
+        })
+        .select('id')
+        .single()
       expect(briefErr).toBeNull()
-      const r = briefRpc as { brief: { id: string } }
-      const briefId = r.brief.id
+      const briefId = brief!.id
 
-      // Stage 2 is in 'planned' before predecessor completes — evaluator should NOT fire.
-      const { data: precheck } = await adminClient().rpc('evaluate_ready_stage_triggers')
-      const fired1 = typeof precheck === 'number' ? precheck : Number(precheck ?? 0)
-      // Could be 0 OR could fire some unrelated stuck trigger from another doc — assert
-      // specifically against the brief we just created.
+      // M-185 evaluator semantics: a 'planned' stage with NO workflow_id
+      // MUST have a prompt — otherwise it's invalid (nothing for the
+      // system to plan) and the evaluator skips it. Stage 2 needs a
+      // prompt so the trigger has something to fire on.
+      const { error: stagesErr } = await adminClient()
+        .from('brief_stages')
+        .insert([
+          { brief_id: briefId, order: 1, title: 'Stage one', status: 'completed', completed_at: new Date().toISOString(), trigger_type: 'manual', trigger_config: {} },
+          { brief_id: briefId, order: 2, title: 'Stage two', status: 'planned', trigger_type: 'after_stage', trigger_config: { after_stage_order: 1 }, prompt: 'Plan stage two when stage one completes.' },
+        ])
+      expect(stagesErr).toBeNull()
+
+      // Sanity check: stage 2 starts 'planned'.
       const { data: stagesPre } = await adminClient()
         .from('brief_stages')
         .select('order, status')
@@ -96,28 +118,9 @@ test.describe('V1.x-B.1.1 session 3a — stage triggers + runtime substrate', ()
       expect(stage2Pre).toBeDefined()
       expect(stage2Pre!.status).toBe('planned')
 
-      // Complete stage 1 manually (find by id since 'order' is a PostgREST reserved word).
-      const stage1 = (stagesPre ?? []).find((s) => (s as { order: number }).order === 1) as { id?: string } | undefined
-      if (!stage1?.id) {
-        // Fall back: re-fetch with id.
-        const { data: stagesAll } = await adminClient()
-          .from('brief_stages')
-          .select('id, order')
-          .eq('brief_id', briefId)
-        const s1 = (stagesAll ?? []).find((s) => (s as { order: number }).order === 1) as { id: string } | undefined
-        if (!s1) throw new Error('stage 1 not found')
-        await adminClient()
-          .from('brief_stages')
-          .update({ status: 'completed', completed_at: new Date().toISOString() })
-          .eq('id', s1.id)
-      } else {
-        await adminClient()
-          .from('brief_stages')
-          .update({ status: 'completed', completed_at: new Date().toISOString() })
-          .eq('id', stage1.id)
-      }
-
-      // Now evaluator should mark stage 2 'proposing' + emit the system event.
+      // Evaluator finds stage 2 ready (predecessor completed), marks
+      // it 'planning' (M-183 renamed 'proposing' → 'planning'), and
+      // emits the system event.
       const { data: fired2Raw } = await adminClient().rpc('evaluate_ready_stage_triggers')
       const fired2 = typeof fired2Raw === 'number' ? fired2Raw : Number(fired2Raw ?? 0)
       expect(fired2).toBeGreaterThanOrEqual(1)
@@ -128,7 +131,7 @@ test.describe('V1.x-B.1.1 session 3a — stage triggers + runtime substrate', ()
         .eq('brief_id', briefId)
       const stage2Post = (stagesPost ?? []).find((s) => (s as { order: number }).order === 2)
       expect(stage2Post).toBeDefined()
-      expect(stage2Post!.status).toBe('proposing')
+      expect(stage2Post!.status).toBe('planning')
 
       // System event landed in the conversation.
       const { data: events } = await adminClient()
@@ -156,7 +159,6 @@ test.describe('V1.x-B.1.1 session 3a — stage triggers + runtime substrate', ()
       // No new event for THIS brief on second call.
       expect(events2!.length).toBe(events!.length)
       // Counts the global universe of newly-fired triggers (could be 0 here).
-      void fired1
       void fired3
     } finally {
       await adminClient().from('projects').delete().eq('id', projectId)
@@ -285,23 +287,25 @@ test.describe('V1.x-B.1.1 session 3a — stage triggers + runtime substrate', ()
     await admin.from('agent_jobs').delete().eq('id', jobId)
   })
 
-  test('Director config v1.10 production with prior tool carry-over + report_capability_limit (V1.x-F.1)', async () => {
-    // V1.x-F.1 (Migration 146) deprecated v1.9, made v1.10 production with
-    // 19 tools (= v1.9's 18 + report_capability_limit). The v1.8 FU-2
-    // trigger_config example block carries forward through v1.9 into v1.10.
+  test('Production Director config has the simplified-brief-model tool surface', async () => {
+    // V1.x-F.1 (Migration 146) introduced report_capability_limit.
+    // 2026-05-21 simplification (M-184) further narrowed to 17 tools
+    // by replacing propose_brief_amendment with propose_workflow.
+    // Subsequent migrations (M-185, M-186, ...) may bump version_number
+    // further without changing the tool surface. Test the contract,
+    // not a specific version pin.
     const { data } = await adminClient()
       .from('director_configs')
       .select('version_number, status, system_prompt, tool_suite')
       .eq('status', 'production')
       .single()
-    expect(data!.version_number).toBe('1.10')
     const tools = data!.tool_suite as string[]
-    expect(tools).toHaveLength(19)
+    expect(tools).toHaveLength(17)
     expect(tools).toContain('cancel_brief')
-    expect(tools).toContain('propose_brief_amendment')
+    expect(tools).toContain('propose_workflow')
     expect(tools).toContain('report_capability_limit')
+    expect(tools).not.toContain('propose_brief_amendment')
     expect(data!.system_prompt).toContain('after_stage_order')
-    expect(data!.system_prompt).toContain('"scheduled_at": "<ISO 8601 timestamp>"')
   })
 
   test('pg_cron has scheduled the V1.x-B.1.1 maintenance jobs', async () => {

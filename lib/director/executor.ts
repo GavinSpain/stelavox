@@ -73,6 +73,18 @@ export interface StartDirectorTurnInput {
   config: DirectorConfig
   organisationId: string
   documentId: string
+  /**
+   * M-205 (Apollo iteration-fork fix): which execution surface owns
+   * this turn's iteration rows. 'inline_route' = the route handler at
+   * /api/director/message runs runIteration in its own loop and the
+   * dispatcher must not see these rows. 'dispatcher' = the scheduler
+   * is the sole consumer (push-model stage-trigger planning, etc.).
+   * Propagates from this first iteration to all children via
+   * trg_agent_jobs_spawn_next_iteration. Defaults to 'dispatcher'
+   * so push-model callers (which don't set this field) get the safe
+   * autonomous execution path.
+   */
+  consumerKind?: 'inline_route' | 'dispatcher'
 }
 
 export interface StartDirectorTurnOutput {
@@ -119,6 +131,12 @@ export async function startDirectorTurn(
   }
 
   // 3. INSERT first agent_jobs row.
+  //
+  // M-205 (Apollo iteration-fork fix): consumer_kind partitions the
+  // iteration row by execution surface. The route handler passes
+  // 'inline_route'; the push-model evaluator omits it and the default
+  // 'dispatcher' applies. The spawn-next trigger propagates this
+  // value through all subsequent iterations in the chain.
   const { data: job, error: jobErr } = await supabase
     .from('agent_jobs')
     .insert({
@@ -135,6 +153,7 @@ export async function startDirectorTurn(
       parent_iteration_id: null,
       iteration_number: 1,
       iteration_state: iterationState as unknown as Record<string, unknown>,
+      consumer_kind: input.consumerKind ?? 'dispatcher',
     })
     .select('id')
     .single()

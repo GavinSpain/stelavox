@@ -62,8 +62,8 @@ export function DirectorMessage({
 }: DirectorMessageProps) {
   // Strip any embedded proposal blocks from the rendered text. The
   // persisted content includes the raw <workflow_proposal> /
-  // <brief_proposal> / <brief_amendment_proposal> XML — proposal cards
-  // render those separately, so we don't want the JSON shown as text.
+  // <brief_proposal> XML — proposal cards render those separately,
+  // so we don't want the JSON shown as text.
   const { cleanedContent } = parseMessageProposals(content)
   return (
     <div

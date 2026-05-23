@@ -176,8 +176,11 @@ export function AppShellStatusIndicator() {
         aria-label={`Director status. ${data.running_jobs} running, ${data.queued_briefs} queued, ${data.alerts} alerts.`}
         onClick={() => setOpen((o) => !o)}
         style={{
+          // 2026-05-22 — temporarily moved from bottom-right to bottom-left
+          // because it overlapped the DirectorInput textarea. To be
+          // revisited properly in the polish phase.
           position: 'fixed',
-          right: 24,
+          left: 24,
           bottom: 24,
           zIndex: 50,
           background: 'var(--color-bg-surface)',

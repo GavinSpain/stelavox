@@ -30,6 +30,8 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { apiError, isUuid } from '@/lib/director/route-helpers'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service'
+import { advanceWorkflow } from '@/lib/director/workflow-executor'
+import { waitUntil } from '@vercel/functions'
 
 export async function POST(
   req: NextRequest,
@@ -92,9 +94,16 @@ export async function POST(
 
   // Verify the parent Brief has auto-approve enabled. The workflow_id
   // links to brief_stages.workflow_id; brief_stages → briefs.
+  //
+  // 2026-05-22 — rewritten to two explicit queries instead of a
+  // PostgREST `briefs!inner(...)` embed. The embed was returning null
+  // in dev despite the row existing (suspected PostgREST relationship-
+  // detection edge case). Two queries are simpler and easier to debug;
+  // the cost is negligible (single-row lookups, no roundtrip
+  // amplification at the brief-stage scale).
   const { data: stage } = await service
     .from('brief_stages')
-    .select('brief_id, briefs!inner(auto_approve_workflow_proposals)')
+    .select('brief_id')
     .eq('workflow_id', workflowId)
     .maybeSingle()
 
@@ -104,8 +113,12 @@ export async function POST(
   } else if (!stage) {
     return apiError(404, 'workflow_not_linked_to_brief')
   } else {
-    const briefs = stage.briefs as unknown as { auto_approve_workflow_proposals: boolean } | null
-    if (!briefs?.auto_approve_workflow_proposals) {
+    const { data: brief } = await service
+      .from('briefs')
+      .select('auto_approve_workflow_proposals')
+      .eq('id', stage.brief_id)
+      .maybeSingle()
+    if (!brief?.auto_approve_workflow_proposals) {
       return apiError(409, 'auto_approve_not_enabled', 'parent Brief does not have auto_approve_workflow_proposals=true')
     }
   }
@@ -132,39 +145,27 @@ export async function POST(
     .update({ status: 'approved', approved_at: new Date().toISOString() })
     .eq('id', workflowId)
 
-  // Insert agent_jobs for each workflow_step.
-  const { data: steps } = await service
-    .from('workflow_steps')
-    .select('id, "order", operation_type, target_node_id, parameters')
-    .eq('workflow_id', workflowId)
-    .order('order', { ascending: true })
-
-  const insertedJobIds: string[] = []
-  for (const step of steps ?? []) {
-    const { data: jobRow } = await service
-      .from('agent_jobs')
-      .insert({
-        organisation_id: workflow.organisation_id,
-        document_id: workflow.document_id,
-        node_id: step.target_node_id,
-        operation_type: step.operation_type,
-        status: 'pending',
-        queue_status: 'queued',
-        triggered_by: `workflow_step:${step.id}:${workflowId}`,
-        traffic_class: 2,
-      })
-      .select('id')
-      .single()
-    if (jobRow) {
-      insertedJobIds.push(jobRow.id)
-      await service.from('workflow_steps').update({ agent_job_id: jobRow.id }).eq('id', step.id)
-    }
-  }
+  // 2026-05-22 — replaced the manual agent_jobs INSERT loop with
+  // advanceWorkflow(). The prior shape INSERTed rows missing critical
+  // columns (profile_id NULL, no context_snapshot, no
+  // target_node_version_at_capture). When the dispatcher picked them
+  // up, runAgentJob's loadJobAndProfile returned
+  // 'job_missing_profile_or_node' and skipped the work. User surfaced
+  // 2026-05-22 on "Into the Ice" stage 2: the expand step dispatched,
+  // logged 'job not in pending state' (status='running' was a separate
+  // bug fixed in dispatcher.ts:235), then would have hit the
+  // missing-profile branch on the next attempt.
+  //
+  // advanceWorkflow() is the canonical workflow-step dispatcher (also
+  // used by /api/brief/proposals/approve for stage 1). It transitions
+  // workflow status approved→running, looks up the right profile for
+  // each step's operation_type + target node_type, captures
+  // target_node_version, assembles context_snapshot, INSERTs the
+  // agent_job with all required columns, and waitUntil's the runner.
+  waitUntil(advanceWorkflow(workflowId))
 
   return NextResponse.json({
     workflow_id: workflowId,
     approved: true,
-    step_count: insertedJobIds.length,
-    job_ids: insertedJobIds,
   })
 }

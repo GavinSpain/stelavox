@@ -21,6 +21,14 @@ export default async function DocumentPage({ params }: Props) {
 
   if (!document) notFound()
 
+  // Project name for the Sidebar PROJECT slot. Tiny extra read; the
+  // server-render path already has a Supabase client open.
+  const { data: project } = await supabase
+    .from('projects')
+    .select('name')
+    .eq('id', projectId)
+    .maybeSingle()
+
   // V1.x-A.1: every document has exactly one Project Profile (M-084
   // backfill + M-085 auto-create). Server-render the initial state so
   // the ProjectProfileViewer hydrates without an extra round-trip; the
@@ -70,6 +78,7 @@ export default async function DocumentPage({ params }: Props) {
           documentName={document.name}
           documentType={document.document_type as 'novel' | 'short_story' | 'series'}
           profileId={document.profile_id}
+          projectName={project?.name ?? null}
         />
       </div>
     </div>

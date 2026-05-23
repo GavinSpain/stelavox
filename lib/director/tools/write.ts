@@ -3,268 +3,412 @@
  *
  * Source: stelavox_phase5b_api_contract_v1_0.md §1, §2.11 invariant I-2.
  *         stelavox_technical_architecture_v1_9.md §8.3 write tools, H-08.
- * Build Checklist: T-5.
  *
  * Write tools NEVER execute database writes inside the agentic loop (H-08).
- * They produce a WorkflowStepProposal that the executor accumulates; on
- * end-of-turn the accumulated proposals become a workflow row with
- * status='draft' and workflow_steps rows. Execution happens only after
- * the author approves.
+ * They produce a proposal artefact that the iteration runner extracts
+ * and the UI renders as an approvable card. Execution happens only after
+ * the author approves (via the per-tool RPC: accept_brief,
+ * apply_brief_amendment, apply_profile_amendment, cancel_brief).
+ *
+ * 2026-05-19 Phase 3 of the create_*_step deprecation refactor: the
+ * seven create_*_step executors (one per step op_type) were dead code
+ * after Phase 2 removed them from the registry — deleted here. The
+ * step-validation logic they performed (verifyTargetNode + per-op-type
+ * parameter check + lock check) now lives in propose_brief's per-step
+ * validation pass (Phase 1, lib/brief/proposalBuilder.ts StepSchema
+ * + buildBriefStepDiagnostics in this file).
+ *
+ * Five write tools remain, each surfaces exactly one card:
+ *   - propose_brief                — BriefProposalCard
+ *   - propose_profile_amendment    — ProjectProfileAmendmentCard
+ *   - cancel_brief                 — BriefCancellationProposalCard
+ *   - propose_brief_amendment      — BriefAmendmentCard
+ *   - report_capability_limit      — CapabilityLimitCard
  *
  * Each executor:
  *   1. Validates args via lib/director/schemas.ts (already done by the
  *      executor's caller — validateToolCall — but we trust-and-verify).
- *   2. Verifies target_node_id belongs to caller's org/document via a
- *      lightweight lookup. (Cross-org / cross-document is also blocked
- *      at validateToolCall, but the tool re-checks for defence in depth.)
- *   3. Constructs the WorkflowStepProposal and returns it.
- *
- * No state, no side effects.
+ *   2. Per-tool: verifies referenced node ids exist + are writable.
+ *   3. Returns the artefact field that surfaces the card.
  */
 
 import 'server-only'
 
+import { z } from 'zod'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import type {
+  BriefProposal,
+  BriefProposalStepInput,
+} from '@/lib/brief/types'
+import type {
   DirectorSession,
+  PerStepError,
   ToolErrorResult,
-  WorkflowStepProposal,
   WriteToolResult,
 } from '@/lib/director/types'
 
 type WriteToolReturn = WriteToolResult | ToolErrorResult
 
 /** Lightweight target-node existence + org/document scope check. */
-async function verifyTargetNode(
-  nodeId: string,
+// 2026-05-18 M-180: FK-verification at propose_brief boundary. Catches
+// the cross-turn ID-hallucination failure shape (model "remembers" a
+// UUID from a prior turn that's actually a confabulation; the UUID is
+// well-formed so the M-177 sentinel-UUID guard doesn't catch it).
+// 2026-05-19 Phase 1: refactored to share checkNodesExist with the new
+// per-step diagnostics helper. External signature unchanged so
+// existing M-180 layer-2 tests still pass.
+export async function verifyProposedTargetNodeIds(
   session: DirectorSession,
-): Promise<{ ok: true; locked: boolean } | { ok: false; error: string }> {
+  ids: string[],
+): Promise<{ ok: true } | { ok: false; missingIds: string[] }> {
+  if (ids.length === 0) return { ok: true }
+  const unique = Array.from(new Set(ids))
+  const existingIds = await checkNodesExist(session, unique)
+  const missingIds = unique.filter((id) => !existingIds.has(id))
+  if (missingIds.length === 0) return { ok: true }
+  return { ok: false, missingIds }
+}
+
+/** Bulk existence check scoped to the session's org + document. */
+async function checkNodesExist(
+  session: DirectorSession,
+  ids: string[],
+): Promise<Set<string>> {
+  if (ids.length === 0) return new Set()
   const supabase = createServiceRoleClient()
-  const { data, error } = await supabase
+  const unique = Array.from(new Set(ids))
+  const { data } = await supabase
     .from('nodes')
-    .select('id, organisation_id, document_id')
-    .eq('id', nodeId)
-    .maybeSingle()
-
-  if (error || !data) return { ok: false, error: 'target_node_not_found' }
-  if (data.organisation_id !== session.organisation_id) {
-    return { ok: false, error: 'cross_org_access_denied' }
-  }
-  if (data.document_id !== session.document_id) {
-    return { ok: false, error: 'cross_document_access_denied' }
-  }
-  // Phase 6: lock state from node_author_locks (nodes.locked dropped).
-  const { data: lockRow } = await supabase
-    .from('node_author_locks').select('node_id').eq('node_id', nodeId).maybeSingle()
-  return { ok: true, locked: !!lockRow }
+    .select('id')
+    .eq('organisation_id', session.organisation_id)
+    .eq('document_id', session.document_id)
+    .in('id', unique)
+  return new Set((data ?? []).map((n) => n.id as string))
 }
 
-// ---------------------------------------------------------------------------
-// create_expand_step
-// ---------------------------------------------------------------------------
-
-export async function execCreateExpandStep(
-  args: {
-    target_node_id: string
-    child_count_target?: number
-    description: string
-    estimated_duration_seconds: number
-  },
+/**
+ * 2026-05-20 — bulk fetch of (parent_id, order) for canonical-position
+ * lookup. Used by sortWorkflowStepsByCanonicalPosition to give the
+ * Director's emitted workflow steps a deterministic, predictable order
+ * regardless of what array order the model produced.
+ *
+ * Scope: same org + document as the session, mirroring checkNodesExist.
+ * Returns a Map keyed by node id. Nodes not in the result (e.g. invalid
+ * ids) are absent from the map — callers must guard the lookup.
+ *
+ * `order` is a SQL reserved word; we quote it via the alias 'order_index'
+ * to avoid surprises.
+ */
+async function fetchNodeCanonicalPositions(
   session: DirectorSession,
-): Promise<WriteToolReturn> {
-  const v = await verifyTargetNode(args.target_node_id, session)
-  if (!v.ok) return { ok: false, error: v.error }
-  if (v.locked) return { ok: false, error: 'node_locked' }
-
-  const proposal: WorkflowStepProposal = {
-    operation_type: 'expand',
-    target_node_id: args.target_node_id,
-    parameters: {
-      ...(args.child_count_target !== undefined
-        ? { child_count_target: args.child_count_target }
-        : {}),
-    },
-    description: args.description,
-    estimated_duration_seconds: args.estimated_duration_seconds,
+  ids: string[],
+): Promise<Map<string, { parent_id: string | null; order_index: number }>> {
+  if (ids.length === 0) return new Map()
+  const supabase = createServiceRoleClient()
+  const unique = Array.from(new Set(ids))
+  const { data } = await supabase
+    .from('nodes')
+    .select('id, parent_id, order')
+    .eq('organisation_id', session.organisation_id)
+    .eq('document_id', session.document_id)
+    .in('id', unique)
+  const result = new Map<string, { parent_id: string | null; order_index: number }>()
+  for (const row of data ?? []) {
+    result.set(row.id as string, {
+      parent_id: (row as { parent_id: string | null }).parent_id,
+      order_index: (row as { order: number }).order,
+    })
   }
-
-  return { ok: true, proposal }
+  return result
 }
 
-// ---------------------------------------------------------------------------
-// create_synthesise_step
-// ---------------------------------------------------------------------------
+/**
+ * 2026-05-20 — canonical-order discipline (Issue 1 fix).
+ *
+ * Background: the Director system prompt's "Canonical range discipline"
+ * section tells the model to plan a contiguous canonical range, but did
+ * not explicitly say the steps must be EMITTED in canonical order within
+ * the workflow.steps array. The workflow executor runs steps strictly in
+ * array order (persistDraftWorkflow assigns `order = i + 1`). A user-driven
+ * test on 2026-05-20 hit the failure: 4 expand steps targeting siblings
+ * landed in canonical positions 2, 4, 1, 3 — work executed out of
+ * narrative order.
+ *
+ * This sort is the predictability backstop. The Director system prompt
+ * (Director config v1.23) also teaches the discipline; the server-side
+ * sort ensures the right outcome even if the model fails to follow it.
+ *
+ * Discipline:
+ *   1. Group consecutive same-op_type steps into "runs". Cross-run order
+ *      (e.g., generate_context first, then expand) is preserved because
+ *      it usually encodes the model's setup-then-act sequencing.
+ *   2. Within each run, sort by (parent_id, order_index). Siblings of
+ *      the same parent get canonical sibling order; cross-parent
+ *      fallback is lexicographic parent UUID for determinism.
+ *   3. Skip the sort entirely if any step has explicit
+ *      `depends_on_step_orders` — the model declared a dependency graph
+ *      and presumably had considered ordering. Respect intent.
+ *
+ * Nodes missing from `positions` (shouldn't happen post-Phase-2 since
+ * existence is validated) are kept in their original relative order
+ * within their run.
+ */
+/**
+ * Cascade-serial dependency auto-derivation (2026-05-22).
+ *
+ * Per Director V2 architecture: "cascade-serial dependency model with
+ * serial fallback ... server auto-derives + Director can declare".
+ *
+ * The cascade-architecture preceding-siblings context fetch (Migration
+ * 053, used by synthesise's context-assembler) reads prose from nodes
+ * in strict canonical depth-first order across parent boundaries. If
+ * synthesise steps fire in parallel, each one sees NO preceding-sibling
+ * prose (because no peer step has been accepted into nodes.prose yet)
+ * — the cascade architecture silently degrades to "each synthesise
+ * runs without continuity context".
+ *
+ * To preserve cascade semantics with zero Director cooperation, this
+ * helper walks the post-canonical-sort array and serializes any
+ * contiguous synthesise-after-synthesise pair:
+ *
+ *   [synth#A, synth#B, synth#C, expand#D, synth#E]
+ *      →  B depends on A's order
+ *      →  C depends on B's order
+ *      →  D no auto-dep (expand; siblings independent)
+ *      →  E no auto-dep (no preceding synthesise adjacency)
+ *
+ * Rules:
+ *   - Only synthesise gets an auto-dep — other op types are
+ *     independent per-sibling by design (expand creates children;
+ *     refine reads existing content; generate_context produces
+ *     standalone context nodes).
+ *   - The auto-dep is only on the immediately preceding step IF it is
+ *     also synthesise — we do NOT bridge over non-synthesise steps.
+ *     The Director can declare cross-op-type deps explicitly if it
+ *     needs them (e.g., synthesise depending on a preceding expand).
+ *   - Skip the entire derivation if ANY step in the workflow has
+ *     explicit `depends_on_step_orders` — the Director declared a
+ *     dependency graph and presumably had its reasons.
+ *
+ * Order assignment relies on the step's final order being
+ * `array_index + 1` (the persistence layer assigns it that way; see
+ * persistDraftWorkflow in workflow-executor.ts and the approve route).
+ * So for step at array index i, the preceding step's order is i.
+ *
+ * User surfaced 2026-05-22: stage 2 of a 2-stage brief fired 5
+ * synthesise jobs on sibling beats in parallel because the Director's
+ * propose_workflow emission had empty depends_on_step_orders. The
+ * cascade-serial backstop now lives in code; the canonical-order
+ * backstop has been there since 2026-05-20.
+ */
+function deriveCascadeSerialDependencies(
+  steps: BriefProposalStepInput[],
+): BriefProposalStepInput[] {
+  if (steps.length <= 1) return steps
+  const hasExplicitDeps = steps.some(
+    (s) => (s.depends_on_step_orders ?? []).length > 0,
+  )
+  if (hasExplicitDeps) return steps
 
-export async function execCreateSynthesiseStep(
-  args: {
-    target_node_id: string
-    description: string
-    estimated_duration_seconds: number
-  },
-  session: DirectorSession,
-): Promise<WriteToolReturn> {
-  const v = await verifyTargetNode(args.target_node_id, session)
-  if (!v.ok) return { ok: false, error: v.error }
-  if (v.locked) return { ok: false, error: 'node_locked' }
-
-  return {
-    ok: true,
-    proposal: {
-      operation_type: 'synthesise',
-      target_node_id: args.target_node_id,
-      parameters: {},
-      description: args.description,
-      estimated_duration_seconds: args.estimated_duration_seconds,
-    },
-  }
+  return steps.map((step, idx) => {
+    if (step.operation_type !== 'synthesise') return step
+    if (idx === 0) return step
+    const prev = steps[idx - 1]
+    if (prev.operation_type !== 'synthesise') return step
+    // Previous step's final order = idx (1-based index of prev = idx).
+    return { ...step, depends_on_step_orders: [idx] }
+  })
 }
 
-// ---------------------------------------------------------------------------
-// create_refine_step
-// ---------------------------------------------------------------------------
+function sortWorkflowStepsByCanonicalPosition(
+  steps: BriefProposalStepInput[],
+  positions: Map<string, { parent_id: string | null; order_index: number }>,
+): BriefProposalStepInput[] {
+  if (steps.length <= 1) return steps
+  const hasExplicitDeps = steps.some(
+    (s) => (s.depends_on_step_orders ?? []).length > 0,
+  )
+  if (hasExplicitDeps) return steps
 
-export async function execCreateRefineStep(
-  args: {
-    target_node_id: string
-    target_field: 'summary' | 'prose' | 'notes' | 'metadata'
-    instruction: string
-    description: string
-    estimated_duration_seconds: number
-  },
-  session: DirectorSession,
-): Promise<WriteToolReturn> {
-  const v = await verifyTargetNode(args.target_node_id, session)
-  if (!v.ok) return { ok: false, error: v.error }
-  if (v.locked) return { ok: false, error: 'node_locked' }
+  const result: BriefProposalStepInput[] = []
+  let i = 0
+  while (i < steps.length) {
+    const opType = steps[i].operation_type
+    let j = i
+    while (j < steps.length && steps[j].operation_type === opType) j++
+    const run = steps.slice(i, j)
+    const sortedRun = [...run].sort((a, b) => {
+      const ap = positions.get(a.target_node_id)
+      const bp = positions.get(b.target_node_id)
+      if (!ap || !bp) return 0
+      const pa = ap.parent_id ?? ''
+      const pb = bp.parent_id ?? ''
+      if (pa !== pb) return pa < pb ? -1 : 1
+      return ap.order_index - bp.order_index
+    })
+    result.push(...sortedRun)
+    i = j
+  }
+  return result
+}
 
-  return {
-    ok: true,
-    proposal: {
-      operation_type: 'refine',
-      target_node_id: args.target_node_id,
-      parameters: {
-        target_field: args.target_field,
-        instruction: args.instruction,
+/** Bulk author-lock check for a set of node ids. */
+async function checkNodeLocks(
+  ids: string[],
+): Promise<Map<string, { locked_by_user_id: string; lock_reason: string | null }>> {
+  if (ids.length === 0) return new Map()
+  const supabase = createServiceRoleClient()
+  const unique = Array.from(new Set(ids))
+  const { data } = await supabase
+    .from('node_author_locks')
+    .select('node_id, locked_by_user_id, lock_reason')
+    .in('node_id', unique)
+  return new Map(
+    (data ?? []).map((r) => [
+      r.node_id as string,
+      {
+        locked_by_user_id: r.locked_by_user_id as string,
+        lock_reason: r.lock_reason as string | null,
       },
-      description: args.description,
-      estimated_duration_seconds: args.estimated_duration_seconds,
-    },
-  }
+    ]),
+  )
 }
 
-// ---------------------------------------------------------------------------
-// create_context_step
-// ---------------------------------------------------------------------------
-
-export async function execCreateContextStep(
-  args: {
-    target_node_id: string
-    context_type:
-      | 'character'
-      | 'location'
-      | 'organisation'
-      | 'theme'
-      | 'plot_thread'
-      | 'world'
-    seed_content?: string
-    description: string
-    estimated_duration_seconds: number
-  },
+/**
+ * 2026-05-19 Phase 1 — walk a Brief proposal and produce per-step
+ * diagnostics for any step with a missing or locked target_node_id.
+ * Caller is responsible for surfacing the diagnostics in the tool
+ * return; this helper just builds the list.
+ *
+ * Locks are checked only for nodes that actually exist (no point
+ * locking a non-existent id). The two checks are independent — both
+ * may report on the same step.
+ */
+async function buildBriefStepDiagnostics(
   session: DirectorSession,
-): Promise<WriteToolReturn> {
-  const v = await verifyTargetNode(args.target_node_id, session)
-  if (!v.ok) return { ok: false, error: v.error }
-  if (v.locked) return { ok: false, error: 'node_locked' }
-
-  return {
-    ok: true,
-    proposal: {
-      operation_type: 'generate_context',
-      target_node_id: args.target_node_id,
-      parameters: {
-        context_type: args.context_type,
-        ...(args.seed_content !== undefined
-          ? { seed_content: args.seed_content }
-          : {}),
-      },
-      description: args.description,
-      estimated_duration_seconds: args.estimated_duration_seconds,
-    },
+  proposal: BriefProposal,
+): Promise<PerStepError[]> {
+  const allTargets: string[] = []
+  for (const stage of proposal.stages) {
+    if (!stage.workflow) continue
+    for (const step of stage.workflow.steps) {
+      if (step.target_node_id) allTargets.push(step.target_node_id)
+    }
   }
+  if (allTargets.length === 0) return []
+
+  const existingIds = await checkNodesExist(session, allTargets)
+  const locks = await checkNodeLocks(Array.from(existingIds))
+
+  const errors: PerStepError[] = []
+  for (const stage of proposal.stages) {
+    if (!stage.workflow) continue
+    for (let i = 0; i < stage.workflow.steps.length; i++) {
+      const step = stage.workflow.steps[i]
+      if (!step.target_node_id) continue
+      if (!existingIds.has(step.target_node_id)) {
+        errors.push({
+          stage_order: stage.order,
+          step_index: i,
+          error: 'target_node_not_found',
+          reason: `target_node_id ${step.target_node_id} does not exist in this document. Re-call find_node_by_name to ground the id in THIS turn's tool result; do not rely on remembered ids from prior turns.`,
+          target_node_id: step.target_node_id,
+        })
+        continue
+      }
+      const lock = locks.get(step.target_node_id)
+      if (lock) {
+        errors.push({
+          stage_order: stage.order,
+          step_index: i,
+          error: 'node_locked',
+          reason: `Target node is locked${lock.lock_reason ? ` (reason: ${lock.lock_reason})` : ''}. The author must unlock it before this step can run. Surface this in your prose summary and ask whether to skip the step or wait.`,
+          target_node_id: step.target_node_id,
+        })
+      }
+    }
+  }
+  return errors
 }
 
-// ---------------------------------------------------------------------------
-// create_comment_step
-// ---------------------------------------------------------------------------
+/**
+ * 2026-05-19 Phase 1 — map Zod issues from buildBriefProposal failure
+ * into per_step_errors (when the path points at a specific step) and
+ * a list of other issues (proposal-level errors).
+ *
+ * Path shape for step-level issues: ['stages', N, 'workflow', 'steps', M, ...rest]
+ * — stage index at path[1], step index at path[4]. We pull stage_order
+ * from the raw input args (the model-supplied `order` field on the
+ * stage) so the diagnostic uses the model's reference frame, not the
+ * post-Zod-parse positional one.
+ */
+function parseZodIssuesToStepErrors(
+  args: Record<string, unknown>,
+  issues: z.ZodIssue[],
+): { stepErrors: PerStepError[]; otherIssues: string[] } {
+  const stepErrors: PerStepError[] = []
+  const otherIssues: string[] = []
+  const stagesArg = (args as { stages?: Array<{ order?: unknown }> }).stages ?? []
 
-export async function execCreateCommentStep(
-  args: {
-    target_node_id: string
-    comment_type: 'instruction' | 'note'
-    content: string
-    description: string
-    estimated_duration_seconds: number
-  },
-  session: DirectorSession,
-): Promise<WriteToolReturn> {
-  const v = await verifyTargetNode(args.target_node_id, session)
-  if (!v.ok) return { ok: false, error: v.error }
-  // Comments are admitted on locked nodes — they don't modify the node.
-
-  return {
-    ok: true,
-    proposal: {
-      operation_type: 'comment',
-      target_node_id: args.target_node_id,
-      parameters: {
-        comment_type: args.comment_type,
-        content: args.content,
-      },
-      description: args.description,
-      estimated_duration_seconds: args.estimated_duration_seconds,
-    },
+  for (const issue of issues) {
+    const path = issue.path
+    if (
+      path.length >= 5 &&
+      path[0] === 'stages' &&
+      path[2] === 'workflow' &&
+      path[3] === 'steps' &&
+      typeof path[1] === 'number' &&
+      typeof path[4] === 'number'
+    ) {
+      const stageIndex = path[1]
+      const stepIndex = path[4]
+      const stageOrderRaw = stagesArg[stageIndex]?.order
+      const stageOrder =
+        typeof stageOrderRaw === 'number' && stageOrderRaw > 0 ? stageOrderRaw : stageIndex + 1
+      stepErrors.push({
+        stage_order: stageOrder,
+        step_index: stepIndex,
+        error: 'invalid_step_shape',
+        reason: issue.message,
+        path: path.slice(5) as (string | number)[],
+      })
+    } else {
+      otherIssues.push(`${path.join('.')}: ${issue.message}`)
+    }
   }
+  return { stepErrors, otherIssues }
 }
 
+// 2026-05-19 Phase 3 cleanup: the single-target verifyTargetNode helper
+// removed. It was used by the seven deleted create_*_step executors.
+// Equivalent checks for propose_brief now go through the bulk helpers
+// checkNodesExist + checkNodeLocks (above) — both run as one SQL
+// query each, walked per-step to build per_step_errors. The other
+// remaining write tools (cancel_brief, propose_brief_amendment,
+// propose_profile_amendment, report_capability_limit) don't take a
+// raw target_node_id; their own validators query the relevant rows.
+
 // ---------------------------------------------------------------------------
-// create_node_reorder_step (SU-37 — added for J5 narrative)
-// ---------------------------------------------------------------------------
-
-export async function execCreateNodeReorderStep(
-  args: {
-    target_node_id: string
-    new_order: number
-    parent_id?: string
-    description: string
-    estimated_duration_seconds: number
-  },
-  session: DirectorSession,
-): Promise<WriteToolReturn> {
-  const v = await verifyTargetNode(args.target_node_id, session)
-  if (!v.ok) return { ok: false, error: v.error }
-  if (v.locked) return { ok: false, error: 'node_locked' }
-
-  // If parent_id is provided, verify it too (cross-parent reorder).
-  if (args.parent_id) {
-    const pv = await verifyTargetNode(args.parent_id, session)
-    if (!pv.ok) return { ok: false, error: 'parent_' + pv.error }
-  }
-
-  return {
-    ok: true,
-    proposal: {
-      operation_type: 'node_reorder',
-      target_node_id: args.target_node_id,
-      parameters: {
-        new_order: args.new_order,
-        ...(args.parent_id !== undefined ? { parent_id: args.parent_id } : {}),
-      },
-      description: args.description,
-      estimated_duration_seconds: args.estimated_duration_seconds,
-    },
-  }
-}
-
+// HISTORICAL NOTE — create_*_step executors removed 2026-05-19 (Phase 3
+// of the create_*_step deprecation refactor):
+//
+//   execCreateExpandStep, execCreateSynthesiseStep, execCreateRefineStep,
+//   execCreateContextStep, execCreateCommentStep,
+//   execCreateNodeReorderStep, execCreateRenameStep
+//
+// All seven were thin wrappers that did verifyTargetNode + parameter
+// validation + returned a WorkflowStepProposal. After Phase 2 dropped
+// them from the registry, no caller remained — Phase 1 had already
+// moved the validation logic into propose_brief's discriminated-union
+// StepSchema + buildBriefStepDiagnostics. The executors were dead code.
+//
+// To exercise the equivalent validation behaviour today, build a
+// propose_brief input with the step shape inline and call
+// execProposeBrief. Per-op-type parameter rules live in
+// lib/brief/proposalBuilder.ts (look for StepSchema). The git history
+// preserves the original implementations if you need to reference
+// them.
+//
 // ---------------------------------------------------------------------------
 // propose_brief (V1.x-A.1) — operation-level Brief proposal.
 // ---------------------------------------------------------------------------
@@ -291,145 +435,313 @@ export async function execProposeBrief(
   // already in another active Brief's pending workflow steps; the
   // Director surfaces these in the BriefProposalCard pre-approval.
 
+  // ---- Phase 1: Zod shape + per-op-type parameter validation -----------
+  //
+  // 2026-05-19 Phase 1 of the create_*_step deprecation refactor.
+  // buildBriefProposal now validates each workflow step's parameters
+  // against a discriminated-union schema keyed by operation_type. A
+  // refine step missing `parameters.instruction`, an expand step with
+  // a non-integer `parameters.child_count_target`, etc., are all
+  // caught here — with structured Zod paths that map cleanly to
+  // (stage_order, step_index, [parameters, fieldname]).
   const { buildBriefProposal } = await import('@/lib/brief/proposalBuilder')
+  let proposal: BriefProposal
   try {
-    const proposal = buildBriefProposal(args)
-
-    // Collect target node IDs across all stages' workflow steps.
-    const proposedTargetNodeIds: string[] = []
-    for (const stage of proposal.stages) {
-      const workflow = (stage as { workflow?: { steps?: Array<{ target_node_id?: string }> } }).workflow
-      if (workflow?.steps) {
-        for (const step of workflow.steps) {
-          if (step.target_node_id) proposedTargetNodeIds.push(step.target_node_id)
-        }
+    proposal = buildBriefProposal(args)
+  } catch (e: unknown) {
+    if (e instanceof z.ZodError) {
+      const { stepErrors, otherIssues } = parseZodIssuesToStepErrors(args, e.issues)
+      return {
+        ok: false,
+        error: 'invalid_brief_proposal',
+        reason:
+          otherIssues.length > 0
+            ? otherIssues.join('; ')
+            : `${stepErrors.length} workflow step(s) failed shape validation; see per_step_errors. Each entry names the (stage_order, step_index, path) where the problem is.`,
+        ...(stepErrors.length > 0 ? { per_step_errors: stepErrors } : {}),
       }
     }
-
-    let concurrentEditWarning: unknown = null
-    if (proposedTargetNodeIds.length > 0) {
-      const { detectConcurrentEditWarning } = await import('@/lib/brief/nodeReservationWarnings')
-      concurrentEditWarning = await detectConcurrentEditWarning(session.document_id, proposedTargetNodeIds)
-    }
-
-    return {
-      ok: true,
-      brief_proposal: {
-        goal_text: proposal.goal_text,
-        preferences: {},
-        stages: proposal.stages.map((s) => ({
-          order: s.order,
-          title: s.title,
-          description: s.description,
-          trigger_type: s.trigger_type,
-          trigger_config: s.trigger_config as Record<string, unknown>,
-        })),
-      },
-      brief_proposal_full: {
-        ...(proposal as unknown as Record<string, unknown>),
-        ...(concurrentEditWarning ? { concurrent_edit_warning: concurrentEditWarning } : {}),
-      } as Record<string, unknown>,
-    } as WriteToolReturn
-  } catch (e: unknown) {
     return {
       ok: false,
       error: 'invalid_brief_proposal',
       reason: e instanceof Error ? e.message : String(e),
     }
   }
+
+  // ---- Phase 2: DB existence + author-lock checks per step --------------
+  //
+  // Replaces the M-180 single-error-code path. Now produces per-step
+  // diagnostics so the model sees every problem in one round-trip.
+  // Existence errors win over lock errors (you can't lock a node that
+  // doesn't exist).
+  const stepDiagnostics = await buildBriefStepDiagnostics(session, proposal)
+  if (stepDiagnostics.length > 0) {
+    return {
+      ok: false,
+      error: 'invalid_brief_proposal',
+      reason: `${stepDiagnostics.length} workflow step(s) failed DB validation; see per_step_errors. Common causes: target_node_id not in this document (re-ground via find_node_by_name); target node is currently locked.`,
+      per_step_errors: stepDiagnostics,
+    }
+  }
+
+  // ---- Phase 2b: canonical-order normalisation (Issue 1 fix, 2026-05-20)
+  //
+  // After per-step DB validation but before artefact emission, sort each
+  // stage's workflow.steps so that contiguous same-op_type runs are in
+  // canonical position order. The Director prompt also teaches this
+  // discipline (Director config v1.23+), but the server-side sort is the
+  // predictability backstop so a sloppy model emission still runs in the
+  // right order.
+  //
+  // No-op when the model declared explicit depends_on_step_orders on
+  // any step in the stage — see sortWorkflowStepsByCanonicalPosition
+  // header for the rationale.
+  //
+  // Positions are fetched in one query covering all target node ids
+  // across all stages (existence is already guaranteed post-Phase-2).
+  const allTargetIdsForSort: string[] = []
+  for (const stage of proposal.stages) {
+    if (!stage.workflow) continue
+    for (const step of stage.workflow.steps) {
+      if (step.target_node_id) allTargetIdsForSort.push(step.target_node_id)
+    }
+  }
+  if (allTargetIdsForSort.length > 0) {
+    const positions = await fetchNodeCanonicalPositions(session, allTargetIdsForSort)
+    for (const stage of proposal.stages) {
+      if (!stage.workflow) continue
+      const beforeIds = stage.workflow.steps.map((s) => s.target_node_id)
+      const sortedSteps = sortWorkflowStepsByCanonicalPosition(
+        stage.workflow.steps,
+        positions,
+      )
+      const reordered = sortedSteps.some(
+        (s, idx) => s.target_node_id !== beforeIds[idx],
+      )
+      if (reordered) {
+        // Surface in the dev log so authors / operators see when the
+        // model emitted an out-of-canonical sequence the server had to
+        // correct. Telemetry only — never blocks; the user sees the
+        // corrected order on the PlanCard.
+        console.warn(
+          '[propose_brief] sort: corrected stage',
+          stage.order,
+          'workflow step order',
+          { before: beforeIds, after: sortedSteps.map((s) => s.target_node_id) },
+        )
+      }
+      // Cascade-serial dependency auto-derivation (2026-05-22).
+      // Runs AFTER the canonical sort so "immediately preceding" matches
+      // canonical reading order. See helper header for rationale.
+      stage.workflow.steps = deriveCascadeSerialDependencies(sortedSteps)
+    }
+  }
+
+  // ---- Phase 3: concurrent-edit warning (soft, non-blocking) ------------
+  const proposedTargetNodeIds: string[] = []
+  for (const stage of proposal.stages) {
+    if (stage.workflow?.steps) {
+      for (const step of stage.workflow.steps) {
+        if (step.target_node_id) proposedTargetNodeIds.push(step.target_node_id)
+      }
+    }
+  }
+  let concurrentEditWarning: unknown = null
+  if (proposedTargetNodeIds.length > 0) {
+    const { detectConcurrentEditWarning } = await import('@/lib/brief/nodeReservationWarnings')
+    concurrentEditWarning = await detectConcurrentEditWarning(
+      session.document_id,
+      proposedTargetNodeIds,
+    )
+  }
+
+  return {
+    ok: true,
+    brief_proposal: {
+      goal_text: proposal.goal_text,
+      preferences: {},
+      stages: proposal.stages.map((s) => ({
+        order: s.order,
+        title: s.title,
+        description: s.description,
+        trigger_type: s.trigger_type,
+        trigger_config: s.trigger_config as Record<string, unknown>,
+      })),
+    },
+    brief_proposal_full: {
+      ...(proposal as unknown as Record<string, unknown>),
+      ...(concurrentEditWarning ? { concurrent_edit_warning: concurrentEditWarning } : {}),
+    } as Record<string, unknown>,
+  } as WriteToolReturn
 }
 
 // ---------------------------------------------------------------------------
-// propose_brief_amendment (V1.x-B.3) — propose-only mutation of active Brief.
+// propose_workflow (2026-05-21 simplification) — emit a workflow proposal
+// for a prompt-deferred stage whose trigger has fired.
 // ---------------------------------------------------------------------------
-// Per H-08, write tools never execute. The Director recommends an
-// amendment; the user approves via BriefAmendmentCard before
-// apply_brief_amendment SECURITY DEFINER RPC (M-128) fires.
 //
-// 5 amendment types (validated by lib/brief/amendments.ts:validateBriefAmendmentProposal):
-//   goal_text / preferences / add_stage / modify_pending_stage / remove_pending_stage
+// Per H-08, write tools never execute. This executor validates the
+// proposed workflow shape, resolves the unique 'planning' stage on the
+// document's active brief, and returns the artefact + planning_stage_id
+// for the iteration runner to attach.
+//
+// The Director's system prompt v1.24 teaches: only call propose_workflow
+// when a stage_trigger_fired event has put you in stage-planning mode.
+// The active brief has at most one stage in status='planning' at a
+// time (the system enforces this via the push-model evaluator). If
+// there's no planning stage when this executor runs, the call is
+// rejected — the model has confused user-driven planning with
+// stage-planning.
 
-export async function execProposeBriefAmendment(
+export async function execProposeWorkflow(
   args: Record<string, unknown>,
   session: DirectorSession,
 ): Promise<WriteToolReturn> {
   const supabase = createServiceRoleClient()
 
-  // Validate brief_id belongs to this org's documents.
-  const briefId = args.brief_id as string | undefined
-  if (!briefId || typeof briefId !== 'string') {
-    return { ok: false, error: 'invalid_brief_id', reason: 'brief_id required' }
-  }
-  const { data: brief } = await supabase
+  // Resolve the active brief on this document. The
+  // briefs_strict_one_active_per_document_uidx index (M-183) guarantees
+  // at most one row matches.
+  const { data: activeBrief, error: briefErr } = await supabase
     .from('briefs')
-    .select('id, document_id, organisation_id, goal_text, preferences, status')
-    .eq('id', briefId)
+    .select('id, status')
+    .eq('document_id', session.document_id)
+    .eq('organisation_id', session.organisation_id)
+    .eq('status', 'active')
     .maybeSingle()
-  if (!brief || brief.organisation_id !== session.organisation_id || brief.document_id !== session.document_id) {
-    return { ok: false, error: 'brief_not_found_in_session_scope' }
-  }
-  if (brief.status !== 'active' && brief.status !== 'planned') {
+  if (briefErr) {
+    console.error('[propose_workflow] briefs lookup failed', {
+      document_id: session.document_id,
+      error: briefErr.message,
+      code: briefErr.code,
+    })
     return {
       ok: false,
-      error: 'brief_not_amendable',
-      reason: `Brief status is ${brief.status}; only active or planned Briefs can be amended.`,
+      error: 'brief_lookup_failed',
+      reason: `Could not load the active brief for this document: ${briefErr.message}. This is a server-side error, not a user-facing input problem.`,
+    }
+  }
+  if (!activeBrief) {
+    return {
+      ok: false,
+      error: 'no_active_brief',
+      reason: 'propose_workflow can only be called when the system has invoked you to plan a stage of an active brief (you would have seen a `stage_trigger_fired` system event). There is no active brief on this document. For user-driven planning, call propose_brief instead.',
     }
   }
 
-  // Build + validate the proposal artefact.
-  const { validateBriefAmendmentProposal } = await import('@/lib/brief/amendments')
-  const artefact = {
-    brief_id: briefId,
-    amendment_type: args.amendment_type as
-      | 'goal_text' | 'preferences' | 'add_stage' | 'modify_pending_stage' | 'remove_pending_stage',
-    target_path: (args.target_path as string | undefined) ?? null,
-    before: (args.before as Record<string, unknown> | undefined) ?? null,
-    after: (args.after as Record<string, unknown>) ?? {},
-    reason: (args.reason as string | undefined) ?? '',
-  }
-  try {
-    validateBriefAmendmentProposal(artefact)
-  } catch (e: unknown) {
+  // Find the unique brief_stages row in status='planning' on this brief.
+  const { data: planningStages } = await supabase
+    .from('brief_stages')
+    .select('id, "order", title, prompt, status')
+    .eq('brief_id', activeBrief.id)
+    .eq('status', 'planning')
+  const planningRows = (planningStages ?? []) as Array<{
+    id: string
+    order: number
+    title: string
+    prompt: string | null
+    status: string
+  }>
+  if (planningRows.length === 0) {
     return {
       ok: false,
-      error: 'invalid_brief_amendment_proposal',
-      reason: e instanceof Error ? e.message : String(e),
+      error: 'no_planning_stage',
+      reason: 'propose_workflow is reserved for system-invoked stage planning. The active brief has no stage in status="planning" right now. If a user has asked for new work, call propose_brief instead.',
+    }
+  }
+  if (planningRows.length > 1) {
+    // Schema invariant violation — the push-model evaluator must never
+    // mark two stages as 'planning' simultaneously. Surface loudly.
+    console.error('[propose_workflow] multiple planning stages found', {
+      brief_id: activeBrief.id,
+      stage_ids: planningRows.map((s) => s.id),
+    })
+    return {
+      ok: false,
+      error: 'multiple_planning_stages',
+      reason: `Brief ${activeBrief.id} has multiple stages in status='planning' simultaneously, which violates the system invariant. This is a server-side bookkeeping error — surface to the user and report.`,
+    }
+  }
+  const planningStage = planningRows[0]
+
+  // The args themselves were already validated against ProposeWorkflowSchema
+  // by validateToolCall before reaching this executor. Trust-and-verify: we
+  // re-parse here so the executor stays standalone-testable.
+  const { ProposeWorkflowSchema } = await import('@/lib/director/schemas')
+  const parsed = ProposeWorkflowSchema.safeParse(args)
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: 'invalid_workflow_proposal',
+      reason: `Workflow shape rejected: ${parsed.error.message}. Check each step's operation_type and parameters against the Step shapes in the system prompt.`,
     }
   }
 
-  // Defensive: for modify/remove_pending_stage, confirm the target stage
-  // exists + is still planned. This is a planning-time hint to the model;
-  // the M-128 RPC re-validates at apply time.
-  if (artefact.amendment_type === 'modify_pending_stage' || artefact.amendment_type === 'remove_pending_stage') {
-    const targetStageId = artefact.target_path
-    if (targetStageId) {
-      const { data: stage } = await supabase
-        .from('brief_stages')
-        .select('id, status')
-        .eq('id', targetStageId)
-        .eq('brief_id', briefId)
-        .maybeSingle()
-      if (!stage) {
-        return { ok: false, error: 'target_stage_not_found' }
-      }
-      if (stage.status !== 'planned') {
-        return {
-          ok: false,
-          error: 'cannot_modify_non_pending_stage',
-          reason: `Stage status is ${stage.status}; only 'planned' stages can be amended.`,
-        }
+  // Defensive: validate that every step's target_node_id exists in this
+  // document. Mirrors the per-step diagnostics that propose_brief does.
+  const targetIds = parsed.data.steps
+    .map((s) => s.target_node_id)
+    .filter((id): id is string => typeof id === 'string')
+  if (targetIds.length > 0) {
+    const existing = await checkNodesExist(session, targetIds)
+    const missing = targetIds.filter((id) => !existing.has(id))
+    if (missing.length > 0) {
+      return {
+        ok: false,
+        error: 'invalid_workflow_proposal',
+        reason: `The following target_node_ids don't exist in this document: ${missing.join(', ')}. Re-call find_node_by_name THIS turn to ground them.`,
       }
     }
+  }
+
+  // Sort each contiguous same-op-type run of steps by canonical
+  // (parent_id, order) — same backstop as propose_brief. Workflow
+  // executor runs steps in array order; canonical-order discipline
+  // is enforced server-side regardless of how the model emitted them.
+  if (parsed.data.steps.length > 1) {
+    const positions = await fetchNodeCanonicalPositions(session, targetIds)
+    const sorted = sortWorkflowStepsByCanonicalPosition(
+      parsed.data.steps as unknown as BriefProposalStepInput[],
+      positions,
+    )
+    // Cascade-serial dependency auto-derivation (2026-05-22). Same
+    // backstop as in execProposeBrief. The push-model propose_workflow
+    // path is where the user surfaced the bug — stage 2 fired five
+    // synthesise jobs in parallel on sibling beats.
+    const serialised = deriveCascadeSerialDependencies(sorted)
+    parsed.data.steps = serialised as unknown as typeof parsed.data.steps
   }
 
   return {
     ok: true,
-    // Use the existing brief_proposal_full slot to round-trip the artefact
-    // to the tool_result; iteration-runner pulls it out as the
-    // proposal_artefact for the BriefAmendmentCard.
-    brief_amendment_proposal: artefact as Record<string, unknown>,
+    workflow_proposal: {
+      brief_id: activeBrief.id,
+      stage_id: planningStage.id,
+      stage_order: planningStage.order,
+      stage_title: planningStage.title,
+      workflow: parsed.data as unknown as Record<string, unknown>,
+    },
   } as WriteToolReturn
 }
+
+// ---------------------------------------------------------------------------
+// LEGACY (removed 2026-05-21): execProposeBriefAmendment.
+// ---------------------------------------------------------------------------
+// The propose_brief_amendment surface and its 5 amendment_types
+// (goal_text / preferences / add_stage / modify_pending_stage /
+// remove_pending_stage) produced four schema-vs-code drift bugs in 48
+// hours of testing. The dominant use case (modify_pending_stage to
+// attach a workflow to a stage whose trigger fired) is now handled by
+// execProposeWorkflow above — the system manages the brief↔stage
+// linkage server-side, the LLM only emits the workflow shape.
+//
+// The other four amendment types had no live users in V1.x. If a real
+// scenario emerges (e.g. mid-flight goal_text edits), it'll come back
+// as a fresh, focused tool — not a rebuild of the old surface.
+//
+// Git history preserves the implementation if anyone needs to
+// reference it: `git show HEAD~N:lib/director/tools/write.ts` will
+// show the pre-simplification body.
 
 // ---------------------------------------------------------------------------
 // report_capability_limit (V1.x-F.1) — synthetic propose-only self-rejection.
@@ -618,3 +930,13 @@ export async function execProposeProfileAmendment(
     }
   }
 }
+
+// ---------------------------------------------------------------------------
+// Test-only re-exports.
+//
+// Pure helpers that the unit test suite exercises directly. Prefixed
+// with __test_ to make it obvious these are NOT part of the public
+// surface; production code never imports these names.
+// ---------------------------------------------------------------------------
+export { sortWorkflowStepsByCanonicalPosition as __test_sortWorkflowStepsByCanonicalPosition }
+export { deriveCascadeSerialDependencies as __test_deriveCascadeSerialDependencies }

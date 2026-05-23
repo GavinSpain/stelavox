@@ -53,6 +53,8 @@ export async function renderEpub(
   walked: WalkContext,
   config: EpubProfileConfig,
   onChapterRendered: (chapterName: string | null) => Promise<void>,
+  documentName: string = 'Untitled',
+  authorName: string | null = null,
 ): Promise<Buffer> {
   void walked
 
@@ -130,8 +132,10 @@ h1 { text-align: center; margin: 2em 0 1em; }
 
   const epub = new EPub(
     {
-      title: config.book_title ?? 'Untitled',
-      author: config.book_author ?? 'Unknown',
+      // Prefer the actual document name; fall back to profile override
+      // only if explicitly set (e.g. for series collections).
+      title: config.book_title ?? documentName,
+      author: config.book_author ?? authorName ?? 'Unknown',
       description: config.book_description ?? '',
       publisher: 'Stelavox',
       lang: 'en',

@@ -56,11 +56,9 @@ export async function POST(
     if (denial) return denial
   }
 
-  await service
-    .from('workflows')
-    .update({ status: 'paused' })
-    .eq('id', workflow.id)
-    .eq('status', 'running')
+  // Apollo Phase 3: delegate to orchestration.
+  const { transitionWorkflow } = await import('@/lib/orchestration')
+  await transitionWorkflow(service, workflow.id, 'step_failed_or_budget', 'paused')
 
   const reloaded = await loadWorkflowWithSteps(userClient, workflowId)
   if (reloaded instanceof NextResponse) return reloaded

@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 
 import { err } from '@/lib/api/errors'
+import { markAgentJobCancelledAnyState } from '@/lib/orchestration'
 import { createClient } from '@/lib/supabase/server'
 import { isValidUuid } from '@/lib/validation/uuid'
 
@@ -35,16 +36,18 @@ export async function POST(_request: NextRequest, { params }: Context) {
     return err.agentJobNotInProgress()
   }
 
-  const { data: updated, error } = await supabase
-    .from('agent_jobs')
-    .update({ status: 'cancelled', completed_at: new Date().toISOString() })
-    .eq('id', jobId)
-    .select('*')
-    .single()
-  if (error || !updated) {
-    console.error('[agent-jobs cancel] update error', error)
+  // Apollo Phase 3 + M-205: delegate to orchestration via the state-
+  // aware helper. The row may be in any non-terminal state at the
+  // moment of cancel; pre-M-205 we used a single event and relied on
+  // the trigger to silently allow same-(from,to) pairs even when the
+  // event was wrong for the source. M-205's true CAS refuses those,
+  // so the helper picks the right event for the row's current state.
+  const result = await markAgentJobCancelledAnyState(supabase, jobId, 'user_cancelled')
+  if (!result.ok) {
+    console.error('[agent-jobs cancel] transition failed', { jobId, error: result.error, message: result.message })
     return err.internal()
   }
 
+  const { data: updated } = await supabase.from('agent_jobs').select('*').eq('id', jobId).single()
   return NextResponse.json(updated)
 }

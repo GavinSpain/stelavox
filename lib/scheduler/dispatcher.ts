@@ -100,6 +100,25 @@ export async function runDispatcherTick(): Promise<DispatcherTickResult> {
       'id, organisation_id, document_id, operation_type, traffic_class, execution_intent, scheduled_at, route, director_turn_id, parent_iteration_id, iteration_number, queued_at',
     )
     .eq('queue_status', 'queued')
+    // M-205 (Apollo iteration-fork fix): the dispatcher is the sole
+    // consumer for consumer_kind='dispatcher' rows. Rows tagged
+    // 'inline_route' are owned by /api/director/message's inline
+    // runIteration loop and must not be considered for dispatch.
+    // The SQL-side gate is in agent_jobs_notify_insert (no NOTIFY
+    // fires for inline rows); this query filter is defence-in-depth
+    // for the recovery sweep path that runs ticks via the reconcile
+    // schedule rather than the INSERT NOTIFY.
+    .eq('consumer_kind', 'dispatcher')
+    // 2026-05-22 — defence-in-depth: refuse to consider any row that
+    // already has completed_at set. The terminal-state write in
+    // persistFinalResult / persistFailure / persistCancellation /
+    // accept_agent_job sets queue_status to a terminal value as of
+    // 2026-05-22, so this should never match in steady state. But if
+    // a pre-fix zombie row exists (status='completed', queue_status=
+    // 'queued', completed_at set), this guard prevents the dispatcher
+    // from resurrecting it. See lib/agent/job-lifecycle.ts header for
+    // the full root-cause explanation.
+    .is('completed_at', null)
     .or('scheduled_at.is.null,scheduled_at.lte.' + new Date().toISOString())
     .order('queued_at', { ascending: true })
     .limit(candidatePoolSize)
@@ -151,17 +170,13 @@ export async function runDispatcherTick(): Promise<DispatcherTickResult> {
     const stopActive = await isCoveredByActiveStop(supabase, cand)
     if (stopActive) {
       ticketsSkippedStopRequested++
-      await supabase
-        .from('agent_jobs')
-        .update({
-          queue_status: 'cancelled',
-          status: 'failed',
-          completed_at: new Date().toISOString(),
-          failure_class: 'B',
-          error_message: 'cancelled_by_stop_request',
-        })
-        .eq('id', cand.id)
-        .eq('queue_status', 'queued')
+      // Apollo Phase 3: delegate to orchestration. queued → cancelled is
+      // a legal transition; the trigger refuses anything else.
+      const { transitionAgentJob } = await import('@/lib/orchestration')
+      await transitionAgentJob(supabase, cand.id, 'cancel_or_cascade', 'cancelled', {
+        errorMessage: 'cancelled_by_stop_request',
+        failureClass: 'B',
+      })
       continue
     }
     eligible.push(cand)
@@ -233,20 +248,38 @@ export async function runDispatcherTick(): Promise<DispatcherTickResult> {
     }
 
     // 5. Atomic claim — flip queue_status='queued' → 'dispatched' with CAS.
-    const { data: claimed, error: claimErr } = await supabase
-      .from('agent_jobs')
-      .update({
-        queue_status: 'dispatched',
-        status: 'running',
+    // 2026-05-22 — dispatcher owns QUEUE lifecycle (queue_status); the
+    // runner owns BUSINESS lifecycle (status). Pre-fix the dispatcher
+    // also wrote status='running' + started_at=now as part of the
+    // claim, which violated the M-106 two-column separation. The
+    // runner's loadJobAndProfile + persistRunningStart both filter on
+    // status='pending'; with status='running' set by the dispatcher,
+    // loadJobAndProfile returned { kind: 'job_not_pending' } and the
+    // runner SKIPPED the job entirely. User surfaced 2026-05-22 on the
+    // "Into the Ice" stage 2 expand step: dispatched at 09:13:26,
+    // status='running' / queue_status='dispatched', last_heartbeat_at
+    // never written, dev log showed `[agent-runner] job not in pending
+    // state, skipping`.
+    //
+    // Director iteration handoff (lib/director/iteration-runner) was
+    // unaffected because it manages its own status transitions on
+    // entry — line 432 unconditionally sets status='running'. Only the
+    // runAgentJob path was broken.
+    // Apollo Phase 3: delegate to orchestration. queued → dispatched is
+    // the legal CAS transition. The DB trigger ensures no concurrent
+    // dispatcher can re-claim a row that's already terminal (the audit
+    // function's completed_at IS NULL invariant is also enforced by the
+    // earlier .is('completed_at', null) candidate filter).
+    const { transitionAgentJob } = await import('@/lib/orchestration')
+    const claimResult = await transitionAgentJob(supabase, pickedRow.id, 'dispatcher_cas_claim', 'dispatched', {
+      dispatcherFields: {
         dispatched_at: new Date().toISOString(),
-        started_at: new Date().toISOString(),
         reservation_id: reservation.reservationId,
         wfq_vft_at_dispatch: pick.computedVft,
-      })
-      .eq('id', pickedRow.id)
-      .eq('queue_status', 'queued')
-      .select('id')
-      .maybeSingle()
+      },
+    })
+    const claimed = claimResult.ok ? { id: pickedRow.id } : null
+    const claimErr = claimResult.ok ? null : { message: claimResult.message ?? claimResult.error ?? 'unknown' }
 
     if (claimErr || !claimed) {
       // CAS lost. Refund the bucket + Class 1 slot we just claimed.

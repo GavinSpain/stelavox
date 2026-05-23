@@ -18,7 +18,7 @@
 //
 // On any mutation, calls onMutated() so NodeTree re-fetches the tree.
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import {
   Dialog,
   DialogContent,
@@ -28,18 +28,102 @@ import {
 import { LockReasonModal } from './LockReasonModal'
 import { LockConflictModal } from './LockConflictModal'
 import type { LockConflictJob } from '@/lib/locking/authorLock'
+import { createClient as createSupabaseBrowserClient } from '@/lib/supabase/client'
 
 // Phase 6: status reduces from 4 values to 2. `in_review` (vestigial)
 // and `locked` (collapsed into Author Lock as its own axis) dropped.
 export type StatusValue = 'draft' | 'approved'
 const STATUS_VALUES: readonly StatusValue[] = ['draft', 'approved']
 
+// Mirror of the public.check_node_writable RPC's JSONB shape. Blocker
+// values are 'author_locked' | 'node_in_use' | 'node_in_progress' |
+// 'not_found' | null. We treat 'not_found' the same as a null result:
+// the API will surface its own 404 on action — the menu doesn't
+// pre-block on a stale tree row.
+type WritableBlocker = 'author_locked' | 'node_in_use' | 'node_in_progress' | null
+
+interface WritableResult {
+  writable: boolean
+  blocker: WritableBlocker | 'not_found'
+  details: unknown
+}
+
+async function fetchBlocker(
+  supabase: ReturnType<typeof createSupabaseBrowserClient>,
+  nodeId: string | null,
+  userId: string | null,
+): Promise<WritableBlocker> {
+  if (!nodeId || !userId) return null
+  const { data, error } = await supabase.rpc('check_node_writable', {
+    p_node_id: nodeId,
+    p_requesting_user_id: userId,
+  })
+  if (error || !data) return null
+  const r = data as WritableResult
+  if (r.writable) return null
+  if (r.blocker === 'not_found') return null
+  return r.blocker
+}
+
+// Human-friendly disabled-reason for the menu-item tooltip. Stays
+// generic — the route's 423 response carries the structured details
+// if a deeper surface ever needs them.
+export function blockerLabel(b: WritableBlocker, scope: 'self' | 'parent'): string {
+  if (!b) return ''
+  if (scope === 'parent') {
+    if (b === 'node_in_progress') return 'Parent is being edited by an agent'
+    if (b === 'author_locked')    return 'Parent is locked'
+    if (b === 'node_in_use')      return 'Parent is being edited by another user'
+  }
+  if (b === 'node_in_progress') return 'An agent is working on this node'
+  if (b === 'author_locked')    return 'This node is locked'
+  if (b === 'node_in_use')      return 'Another user is editing this node'
+  return ''
+}
+
+// Pure menu-gate computation, extracted so the gating predicates can
+// be unit-tested without React rendering. The component composes this
+// inline; tests pin the composition.
+export interface MenuGateState {
+  /** Self-node author lock is active. Drives the Lock/Unlock swap. */
+  isAuthorLocked: boolean
+  /** Self-node has any blocker. Gates Rename / Status / Lock-this-node. */
+  isLocked: boolean
+  /** Delete additionally requires parent writable. */
+  deleteBlocked: boolean
+  /** Tooltip text for self-targeted action when blocked. */
+  selfReason: string
+  /** Tooltip text for delete when blocked (self OR parent reason). */
+  deleteReason: string
+}
+
+export function computeMenuGates(
+  selfBlocker: WritableBlocker,
+  parentBlocker: WritableBlocker,
+): MenuGateState {
+  const isAuthorLocked = selfBlocker === 'author_locked'
+  const isLocked = selfBlocker !== null
+  const deleteBlocked = isLocked || parentBlocker !== null
+  const selfReason = blockerLabel(selfBlocker, 'self')
+  const parentReason = blockerLabel(parentBlocker, 'parent')
+  return {
+    isAuthorLocked,
+    isLocked,
+    deleteBlocked,
+    selfReason,
+    deleteReason: selfReason || parentReason,
+  }
+}
+
+export type { WritableBlocker }
+
 interface NodeMoreMenuProps {
   nodeId: string
   anchor: HTMLElement
   isRoot: boolean
+  /** Parent node id; required for Delete's parent-writable check. */
+  parentNodeId?: string | null
   nodeName?: string
-  isAuthorLocked?: boolean
   descendantIds?: string[]
   reasonSuggestions?: string[]
   onClose: () => void
@@ -48,8 +132,8 @@ interface NodeMoreMenuProps {
 
 export function NodeMoreMenu({
   nodeId, anchor, isRoot,
+  parentNodeId = null,
   nodeName = 'this node',
-  isAuthorLocked = false,
   descendantIds = [],
   reasonSuggestions = [],
   onClose, onMutated,
@@ -64,10 +148,116 @@ export function NodeMoreMenu({
   const [conflictOpen, setConflictOpen] = useState(false)
   const [conflicts, setConflicts] = useState<LockConflictJob[]>([])
 
+  // Server-truth writability check. The API routes route every node
+  // mutation through enforceWritable(node) and (for delete)
+  // enforceWritable(parent). We mirror that here so menu items reflect
+  // what the server would do, instead of letting the user click through
+  // to a 423. Phantom expand jobs (which actually motivated this fix —
+  // 2026-05-22 session) show up as `node_in_progress` even when the row
+  // doesn't surface a visible agent badge.
+  //
+  // `selfBlocker === null` means writable; anything else gates Rename /
+  // Status / Lock-this-node. `parentBlocker !== null` additionally gates
+  // Delete (parent's children list mutates on delete; the API checks).
+  const [selfBlocker, setSelfBlocker] = useState<WritableBlocker>(null)
+  const [parentBlocker, setParentBlocker] = useState<WritableBlocker>(null)
+  const [lockLoaded, setLockLoaded] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    const supabase = createSupabaseBrowserClient()
+    ;(async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      const uid = user?.id ?? null
+      const [self, parent] = await Promise.all([
+        fetchBlocker(supabase, nodeId, uid),
+        fetchBlocker(supabase, parentNodeId ?? null, uid),
+      ])
+      if (cancelled) return
+      setSelfBlocker(self)
+      setParentBlocker(parent)
+      setLockLoaded(true)
+    })().catch(() => {
+      // On RPC error treat as writable — the server will surface its
+      // own 423 if it disagrees. Failing closed (disabling the menu on
+      // any error) would lock the user out on transient network blips.
+      if (!cancelled) setLockLoaded(true)
+    })
+    return () => { cancelled = true }
+  }, [nodeId, parentNodeId])
+
+  const { isAuthorLocked, isLocked, deleteBlocked, selfReason, deleteReason } =
+    computeMenuGates(selfBlocker, parentBlocker)
+
   const dialogOpen = renameOpen || deleteOpen || lockOpen || conflictOpen
 
-  // Anchor position: place menu directly below the More button.
+  // Anchor position: place menu directly below the More button by
+  // default. The useLayoutEffect below measures the menu's actual size
+  // post-mount and flips it above when the row is too close to the
+  // viewport bottom for the menu to fit. Right-edge horizontal
+  // overflow is handled the same way.
+  //
+  // 2026-05-21 — author-reported viewport overflow on rows near the
+  // bottom of the screen. Pre-fix the menu unconditionally rendered
+  // 4px below the anchor and clipped off-screen for the bottom ~3-5
+  // rows depending on viewport height + whether the Status submenu
+  // was expanded.
   const rect = anchor.getBoundingClientRect()
+  const [pos, setPos] = useState<{ top: number; left: number }>({
+    top: rect.bottom + 4,
+    left: rect.left,
+  })
+  useLayoutEffect(() => {
+    if (!ref.current) return
+    const menuRect = ref.current.getBoundingClientRect()
+    const viewportH = window.innerHeight
+    const viewportW = window.innerWidth
+    const VIEWPORT_PAD = 8 // breathing room from edges
+
+    // Vertical placement: prefer below, flip above on overflow.
+    const spaceBelow = viewportH - rect.bottom
+    const spaceAbove = rect.top
+    let nextTop: number
+    if (menuRect.height + 4 <= spaceBelow - VIEWPORT_PAD) {
+      // Fits below — default placement.
+      nextTop = rect.bottom + 4
+    } else if (menuRect.height + 4 <= spaceAbove - VIEWPORT_PAD) {
+      // Doesn't fit below but fits above — flip up.
+      nextTop = rect.top - menuRect.height - 4
+    } else {
+      // Doesn't fit either way (very tall menu / very short viewport).
+      // Pin to whichever side has more space. The menu will be clipped
+      // either way, but better to be clipped at the bottom of a
+      // mostly-visible menu than to be entirely off-screen.
+      nextTop =
+        spaceBelow >= spaceAbove
+          ? rect.bottom + 4
+          : Math.max(VIEWPORT_PAD, viewportH - menuRect.height - VIEWPORT_PAD)
+    }
+
+    // Horizontal placement: prefer left-aligned to anchor; shift left
+    // when the menu would overflow the right edge.
+    let nextLeft = rect.left
+    if (nextLeft + menuRect.width > viewportW - VIEWPORT_PAD) {
+      nextLeft = Math.max(VIEWPORT_PAD, viewportW - menuRect.width - VIEWPORT_PAD)
+    }
+
+    // Only call setPos if something changed — avoids an infinite loop
+    // (a setPos here triggers re-render, which re-runs the effect).
+    if (nextTop !== pos.top || nextLeft !== pos.left) {
+      setPos({ top: nextTop, left: nextLeft })
+    }
+  }, [
+    // showStatus toggles the Status submenu, changing the menu height.
+    showStatus,
+    // Anchor position is captured once at mount but include in deps so
+    // the effect re-runs if the parent re-renders with a new anchor.
+    rect.bottom,
+    rect.top,
+    rect.left,
+    pos.top,
+    pos.left,
+  ])
 
   // Click-outside dismissal. Suspended while a dialog is open so a
   // click on the dialog backdrop / inputs doesn't unmount the menu
@@ -180,8 +370,8 @@ export function NodeMoreMenu({
         role="menu"
         style={{
           position: 'fixed',
-          top: rect.bottom + 4,
-          left: rect.left,
+          top: pos.top,
+          left: pos.left,
           background: 'var(--color-bg-elevated)',
           border: '1px solid var(--color-border-default)',
           borderRadius: '6px',
@@ -192,14 +382,29 @@ export function NodeMoreMenu({
           fontSize: 'var(--text-sm)',
         }}
       >
-        <MenuButton onClick={openRename} disabled={busy || isAuthorLocked}>Rename…</MenuButton>
-        <MenuButton onClick={() => setShowStatus(s => !s)} disabled={busy || isAuthorLocked}>
+        <MenuButton
+          onClick={openRename}
+          disabled={busy || !lockLoaded || isLocked}
+          title={isLocked ? selfReason : undefined}
+        >
+          Rename…
+        </MenuButton>
+        <MenuButton
+          onClick={() => setShowStatus(s => !s)}
+          disabled={busy || !lockLoaded || isLocked}
+          title={isLocked ? selfReason : undefined}
+        >
           Status {showStatus ? '▾' : '▸'}
         </MenuButton>
         {showStatus && (
           <div style={{ paddingLeft: 'var(--space-3)' }}>
             {STATUS_VALUES.map(s => (
-              <MenuButton key={s} onClick={() => setStatus(s)} disabled={busy || isAuthorLocked}>
+              <MenuButton
+                key={s}
+                onClick={() => setStatus(s)}
+                disabled={busy || !lockLoaded || isLocked}
+                title={isLocked ? selfReason : undefined}
+              >
                 {s}
               </MenuButton>
             ))}
@@ -207,18 +412,34 @@ export function NodeMoreMenu({
         )}
         <div style={{ height: '1px', background: 'var(--color-border-subtle)', margin: 'var(--space-1) 0' }} />
         {isAuthorLocked ? (
-          <MenuButton onClick={unlock} disabled={busy} data-testid="node-menu-unlock">
+          // Unlock is the affordance OUT of the author-locked state, so
+          // it must stay enabled while author-locked. It still disables
+          // on busy + while the writable check is in flight.
+          <MenuButton onClick={unlock} disabled={busy || !lockLoaded} data-testid="node-menu-unlock">
             🔓 Unlock this node
           </MenuButton>
         ) : (
-          <MenuButton onClick={() => setLockOpen(true)} disabled={busy} data-testid="node-menu-lock">
+          // Lock proposal does a server-side conflict check on pending
+          // agent jobs (per Phase 6 D3), so gate it on in-flight too.
+          <MenuButton
+            onClick={() => setLockOpen(true)}
+            disabled={busy || !lockLoaded || isLocked}
+            data-testid="node-menu-lock"
+            title={isLocked ? selfReason : undefined}
+          >
             🔒 Lock this node…
           </MenuButton>
         )}
         {!isRoot && (
           <>
             <div style={{ height: '1px', background: 'var(--color-border-subtle)', margin: 'var(--space-1) 0' }} />
-            <MenuButton onClick={openDelete} disabled={busy || isAuthorLocked} danger>
+            <MenuButton
+              onClick={openDelete}
+              disabled={busy || !lockLoaded || deleteBlocked}
+              danger
+              title={deleteBlocked ? deleteReason : undefined}
+              data-testid="node-menu-delete"
+            >
               Delete…
             </MenuButton>
           </>
@@ -297,16 +518,18 @@ interface MenuButtonProps {
   onClick: () => void
   disabled?: boolean
   danger?: boolean
+  title?: string
   'data-testid'?: string
 }
 
-function MenuButton({ children, onClick, disabled, danger, 'data-testid': testId }: MenuButtonProps) {
+function MenuButton({ children, onClick, disabled, danger, title, 'data-testid': testId }: MenuButtonProps) {
   return (
     <button
       type="button"
       role="menuitem"
       onClick={onClick}
       disabled={disabled}
+      title={title}
       data-testid={testId}
       style={{
         display: 'block',

@@ -45,6 +45,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { plainTextToTiptap } from '@/lib/agent/prose-to-tiptap'
 import { getConfigInt } from '@/lib/config/platform-config'
 import { checkTokenBudget } from '@/lib/llm/token-budget'
+import { transitionWorkflow, transitionWorkflowStep } from '@/lib/orchestration'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import type { Database } from '@/lib/types/database'
 import type { WorkflowProposalParsed } from '@/lib/director/schemas'
@@ -169,46 +170,26 @@ export async function advanceWorkflow(workflowId: string): Promise<void> {
           p_child_nodes: childNodesForRpc,
         })
         if (acceptErr) {
-          await supabase
-            .from('workflow_steps')
-            .update({
-              status: 'failed',
-              error_message: `accept_agent_job_failed:${acceptErr.message}`,
-              completed_at: new Date().toISOString(),
-            })
-            .eq('id', step.id)
+          await transitionWorkflowStep(supabase, step.id, 'job_terminal_failure', 'failed', {
+            error_message: `accept_agent_job_failed:${acceptErr.message}`,
+          })
           step.status = 'failed' as typeof step.status
           continue
         }
-        await supabase
-          .from('workflow_steps')
-          .update({
-            status: 'completed',
-            completed_at: new Date().toISOString(),
-            result_summary: (job.result_summary_text as string | null) ?? null,
-          })
-          .eq('id', step.id)
+        await transitionWorkflowStep(supabase, step.id, 'job_terminal_success', 'completed', {
+          result_summary: (job.result_summary_text as string | null) ?? null,
+        })
         step.status = 'completed' as typeof step.status
       } else if (job.status === 'accepted') {
         // Already accepted — just mark the step completed.
-        await supabase
-          .from('workflow_steps')
-          .update({
-            status: 'completed',
-            completed_at: new Date().toISOString(),
-            result_summary: (job.result_summary_text as string | null) ?? null,
-          })
-          .eq('id', step.id)
+        await transitionWorkflowStep(supabase, step.id, 'job_terminal_success', 'completed', {
+          result_summary: (job.result_summary_text as string | null) ?? null,
+        })
         step.status = 'completed' as typeof step.status
       } else if (job.status === 'failed' || job.status === 'cancelled' || job.status === 'dismissed') {
-        await supabase
-          .from('workflow_steps')
-          .update({
-            status: 'failed',
-            error_message: (job.error_message as string | null) ?? `agent_job_${job.status}`,
-            completed_at: new Date().toISOString(),
-          })
-          .eq('id', step.id)
+        await transitionWorkflowStep(supabase, step.id, 'job_terminal_failure', 'failed', {
+          error_message: (job.error_message as string | null) ?? `agent_job_${job.status}`,
+        })
         step.status = 'failed' as typeof step.status
       }
     }
@@ -216,25 +197,18 @@ export async function advanceWorkflow(workflowId: string): Promise<void> {
   const steps = stepsRaw
 
   if (!steps || steps.length === 0) {
-    // No steps — mark completed.
-    await supabase
-      .from('workflows')
-      .update({ status: 'completed', completed_at: new Date().toISOString() })
-      .eq('id', workflowId)
+    // No steps — mark completed. Apollo: legal transitions are running->completed
+    // or approved->cancelled etc; only the running->completed path applies here.
+    await transitionWorkflow(supabase, workflowId, 'all_steps_terminal_success', 'completed')
     return
   }
 
   // Detect failed steps — pause workflow.
   const failed = steps.find((s) => s.status === 'failed')
   if (failed) {
-    await supabase
-      .from('workflows')
-      .update({
-        status: 'paused',
-        error_message:
-          failed.error_message ?? `step ${failed.order} failed`,
-      })
-      .eq('id', workflowId)
+    await transitionWorkflow(supabase, workflowId, 'step_failed_or_budget', 'paused', {
+      error_message: failed.error_message ?? `step ${failed.order} failed`,
+    })
     return
   }
 
@@ -263,13 +237,26 @@ export async function advanceWorkflow(workflowId: string): Promise<void> {
           s.status === 'removed',
       )
       if (allDone) {
-        await supabase
-          .from('workflows')
-          .update({
-            status: 'completed',
-            completed_at: new Date().toISOString(),
+        await transitionWorkflow(supabase, workflowId, 'all_steps_terminal_success', 'completed')
+
+        // Brief stage propagation: when a workflow completes, fire the
+        // push-model evaluator (M-120) which marks the linked brief_stage
+        // 'completed' and inserts a director_iteration for the next stage's
+        // trigger. The RPC short-circuits with no_linked_stage when the
+        // workflow isn't tied to a stage.
+        //
+        // Discovered during Phase 7 review when Stage 2 of a 2-stage Brief
+        // failed to auto-promote — the DB-side RPCs have existed since
+        // V1.x-B.1.1 (M-097) + V1.x-B.2 (M-120) but the TS caller was
+        // never wired in.
+        const { error: rpcError } = await supabase
+          .rpc('complete_brief_stage_workflow', { p_workflow_id: workflowId })
+        if (rpcError) {
+          console.warn('[advanceWorkflow] complete_brief_stage_workflow failed', {
+            workflowId,
+            error: rpcError.message,
           })
-          .eq('id', workflowId)
+        }
       }
     }
     return
@@ -277,10 +264,7 @@ export async function advanceWorkflow(workflowId: string): Promise<void> {
 
   // Promote workflow to 'running' if we're dispatching the first batch.
   if (workflow.status === 'approved') {
-    await supabase
-      .from('workflows')
-      .update({ status: 'running' })
-      .eq('id', workflowId)
+    await transitionWorkflow(supabase, workflowId, 'dispatch_first', 'running')
   }
 
   // Dispatch each step in the batch. Per Phase 5 pattern, this happens
@@ -449,7 +433,11 @@ async function dispatchAgentJobForStep(
   // Synchronous step types: comment + node_reorder run as direct DB
   // writes (no agent_jobs row, no LLM call). They're fast enough to
   // complete inline; the executor marks them complete immediately.
-  if (step.operation_type === 'comment' || step.operation_type === 'node_reorder') {
+  if (
+    step.operation_type === 'comment' ||
+    step.operation_type === 'node_reorder' ||
+    step.operation_type === 'node_rename'
+  ) {
     await executeSynchronousStep(supabase, workflow, step)
     return
   }
@@ -486,14 +474,9 @@ async function dispatchAgentJobForStep(
 
   // Step's target_node_id should always be set for LLM-bearing steps.
   if (!step.target_node_id) {
-    await supabase
-      .from('workflow_steps')
-      .update({
-        status: 'failed',
+    await transitionWorkflowStep(supabase, step.id, 'job_terminal_failure', 'failed', {
         error_message: 'step_missing_target_node_id',
-        completed_at: new Date().toISOString(),
       })
-      .eq('id', step.id)
     return
   }
 
@@ -504,14 +487,9 @@ async function dispatchAgentJobForStep(
     .maybeSingle()
 
   if (!targetNode) {
-    await supabase
-      .from('workflow_steps')
-      .update({
-        status: 'failed',
+    await transitionWorkflowStep(supabase, step.id, 'job_terminal_failure', 'failed', {
         error_message: 'target_node_not_found',
-        completed_at: new Date().toISOString(),
       })
-      .eq('id', step.id)
     return
   }
 
@@ -530,14 +508,9 @@ async function dispatchAgentJobForStep(
   if (step.operation_type === 'generate_context' && targetNode.node_category !== 'context') {
     const contextType = typeof params.context_type === 'string' ? params.context_type : null
     if (!contextType) {
-      await supabase
-        .from('workflow_steps')
-        .update({
-          status: 'failed',
-          error_message: 'generate_context_missing_context_type',
-          completed_at: new Date().toISOString(),
-        })
-        .eq('id', step.id)
+      await transitionWorkflowStep(supabase, step.id, 'job_terminal_failure', 'failed', {
+        error_message: 'generate_context_missing_context_type',
+      })
       return
     }
 
@@ -576,14 +549,9 @@ async function dispatchAgentJobForStep(
       .single()
 
     if (createErr || !newContextNode) {
-      await supabase
-        .from('workflow_steps')
-        .update({
-          status: 'failed',
-          error_message: `auto_create_context_node_failed:${createErr?.message ?? 'unknown'}`,
-          completed_at: new Date().toISOString(),
-        })
-        .eq('id', step.id)
+      await transitionWorkflowStep(supabase, step.id, 'job_terminal_failure', 'failed', {
+        error_message: `auto_create_context_node_failed:${createErr?.message ?? 'unknown'}`,
+      })
       return
     }
 
@@ -663,14 +631,9 @@ async function dispatchAgentJobForStep(
   }
 
   if (!profile) {
-    await supabase
-      .from('workflow_steps')
-      .update({
-        status: 'failed',
+    await transitionWorkflowStep(supabase, step.id, 'job_terminal_failure', 'failed', {
         error_message: `no_system_profile_for_${step.operation_type}_${profileNodeType}`,
-        completed_at: new Date().toISOString(),
       })
-      .eq('id', step.id)
     return
   }
 
@@ -698,14 +661,9 @@ async function dispatchAgentJobForStep(
     .eq('id', workflow.organisation_id)
     .maybeSingle()
   if (!org) {
-    await supabase
-      .from('workflow_steps')
-      .update({
-        status: 'failed',
+    await transitionWorkflowStep(supabase, step.id, 'job_terminal_failure', 'failed', {
         error_message: 'organisation_not_found',
-        completed_at: new Date().toISOString(),
       })
-      .eq('id', step.id)
     return
   }
   const stepEstimate = (profile.max_tokens ?? 16384) + 4096
@@ -715,20 +673,12 @@ async function dispatchAgentJobForStep(
     profile.model_id,
   )
   if (!budgetOk) {
-    await supabase
-      .from('workflow_steps')
-      .update({
-        status: 'failed',
+    await transitionWorkflowStep(supabase, step.id, 'job_terminal_failure', 'failed', {
         error_message: 'token_budget_exceeded',
-        completed_at: new Date().toISOString(),
       })
-      .eq('id', step.id)
     // Pause the workflow so subsequent batches don't fire while the
     // org is over budget.
-    await supabase
-      .from('workflows')
-      .update({ status: 'paused' })
-      .eq('id', workflow.id)
+    await transitionWorkflow(supabase, workflow.id, 'step_failed_or_budget', 'paused')
     return
   }
 
@@ -749,25 +699,13 @@ async function dispatchAgentJobForStep(
     .single()
 
   if (jobErr || !jobRow) {
-    await supabase
-      .from('workflow_steps')
-      .update({
-        status: 'failed',
+    await transitionWorkflowStep(supabase, step.id, 'job_terminal_failure', 'failed', {
         error_message: `dispatch_failed:${jobErr?.message ?? 'unknown'}`,
-        completed_at: new Date().toISOString(),
       })
-      .eq('id', step.id)
     return
   }
 
-  await supabase
-    .from('workflow_steps')
-    .update({
-      status: 'running',
-      started_at: new Date().toISOString(),
-      agent_job_id: jobRow.id,
-    })
-    .eq('id', step.id)
+  await transitionWorkflowStep(supabase, step.id, 'dispatch', 'running', { agent_job_id: jobRow.id })
 
   // Fire the runner via waitUntil(). Imported lazily to avoid a circular
   // import chain (runner imports advanceWorkflow from this module).
@@ -786,10 +724,7 @@ async function executeSynchronousStep(
     parameters: unknown
   },
 ): Promise<void> {
-  await supabase
-    .from('workflow_steps')
-    .update({ status: 'running', started_at: new Date().toISOString() })
-    .eq('id', step.id)
+  await transitionWorkflowStep(supabase, step.id, 'dispatch', 'running')
 
   try {
     if (step.operation_type === 'comment' && step.target_node_id) {
@@ -839,29 +774,52 @@ async function executeSynchronousStep(
         p_position: params.new_order - 1,
       })
       if (rpcErr) throw new Error(`move_node_failed:${rpcErr.message}`)
+    } else if (step.operation_type === 'node_rename' && step.target_node_id) {
+      // M-179 / 2026-05-18: rename a node's `name` field. Metadata
+      // operation — does NOT bump version (M-023 trigger ignores
+      // name changes; matches TC-A-47). The Director propose-tool
+      // already trim+validated 1-200 chars; defensive re-check here.
+      const params = (step.parameters ?? {}) as { new_name?: string }
+      const trimmed = (params.new_name ?? '').trim()
+      if (trimmed.length === 0) {
+        throw new Error('node_rename_step_missing_new_name')
+      }
+      if (trimmed.length > 200) {
+        throw new Error('node_rename_new_name_too_long')
+      }
+      // Writability gate via M-150 RPC. The RPC takes a requesting_user_id
+      // for Edit Session bookkeeping; pass NULL — Director-driven workflow
+      // executions are system-actor-equivalent, so they shouldn't be
+      // blocked by another user being in an Edit Session on the node.
+      // The author_locked / node_in_progress branches still fire.
+      // Cast: SQL function accepts NULL UUID (NULL-safe inequality in
+      // the Edit Session check yields no rows = bypass), but Supabase's
+      // generated TS type insists on non-null.
+      const { data: gate, error: gateErr } = await supabase.rpc('check_node_writable', {
+        p_node_id: step.target_node_id,
+        p_requesting_user_id: null as unknown as string,
+      })
+      if (gateErr) throw new Error(`node_rename_write_gate_failed:${gateErr.message}`)
+      const gateRow = (gate ?? {}) as { writable?: boolean; blocker?: string | null }
+      if (gateRow.writable === false) {
+        throw new Error(`node_rename_blocked:${gateRow.blocker ?? 'unknown'}`)
+      }
+      const { error: updErr } = await supabase
+        .from('nodes')
+        .update({ name: trimmed })
+        .eq('id', step.target_node_id)
+      if (updErr) throw new Error(`node_rename_update_failed:${updErr.message}`)
     }
 
-    await supabase
-      .from('workflow_steps')
-      .update({
-        status: 'completed',
-        completed_at: new Date().toISOString(),
-        result_summary: `${step.operation_type} executed`,
-      })
-      .eq('id', step.id)
+    await transitionWorkflowStep(supabase, step.id, 'job_terminal_success', 'completed', { result_summary: `${step.operation_type} executed` })
 
     // Trigger the next continuation tick.
     await advanceWorkflow(workflow.id)
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'unknown_error'
-    await supabase
-      .from('workflow_steps')
-      .update({
-        status: 'failed',
+    await transitionWorkflowStep(supabase, step.id, 'job_terminal_failure', 'failed', {
         error_message: msg,
-        completed_at: new Date().toISOString(),
       })
-      .eq('id', step.id)
     await advanceWorkflow(workflow.id)
   }
 }

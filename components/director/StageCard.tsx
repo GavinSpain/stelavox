@@ -22,10 +22,12 @@ interface StageCardProps {
   is_current?: boolean
 }
 
+// 2026-05-21 simplification — narrowed status + trigger_type enums.
+// 'proposing' renamed to 'planning' (system planning the stage's
+// workflow). scheduled_at + compound trigger types dropped.
 const STATUS_LABEL: Record<BriefStageStatus, string> = {
   planned: 'Planned',
-  proposing: 'Proposing',
-  proposed: 'Proposed',
+  planning: 'Planning…',
   approved: 'Approved',
   scheduled: 'Scheduled',
   running: 'Running',
@@ -36,8 +38,7 @@ const STATUS_LABEL: Record<BriefStageStatus, string> = {
 
 const STATUS_COLOR: Record<BriefStageStatus, string> = {
   planned: 'var(--color-text-muted)',
-  proposing: 'var(--color-text-secondary)',
-  proposed: 'var(--color-text-secondary)',
+  planning: 'var(--color-agent-running, var(--color-text-secondary))',
   approved: 'var(--color-text-primary)',
   scheduled: 'var(--color-text-primary)',
   running: 'var(--color-agent-running, var(--color-text-primary))',
@@ -48,9 +49,7 @@ const STATUS_COLOR: Record<BriefStageStatus, string> = {
 
 const TRIGGER_LABEL: Record<BriefStageTriggerType, string> = {
   after_stage: 'After previous stage',
-  scheduled_at: 'Scheduled',
   manual: 'Manual',
-  compound: 'Compound',
 }
 
 export function StageCard({

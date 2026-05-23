@@ -33,7 +33,9 @@ const VALID_BRIEF = {
       title: 'Expand chapters into scenes',
       trigger_type: 'after_stage',
       trigger_config: { after_stage_order: 1 },
-      workflow: null,
+      // 2026-05-21 simplification — stage 2 uses prompt instead of
+      // workflow (targets unknown until stage 1 creates the chapters).
+      prompt: 'Expand the new chapters into scenes',
     },
   ],
 }
@@ -44,7 +46,9 @@ describe('buildBriefProposal', () => {
     expect(result.goal_text).toBe(VALID_BRIEF.goal_text)
     expect(result.stages).toHaveLength(2)
     expect(result.stages[0].workflow).not.toBeNull()
+    expect(result.stages[0].prompt).toBeNull()
     expect(result.stages[1].workflow).toBeNull()
+    expect(result.stages[1].prompt).toBe('Expand the new chapters into scenes')
   })
 
   it('builds a trivial n=1 Brief', () => {
@@ -79,14 +83,52 @@ describe('buildBriefProposal', () => {
     expect(() => buildBriefProposal({ ...VALID_BRIEF, goal_text: '' })).toThrow()
   })
 
-  it('rejects stage 1 with null workflow', () => {
+  it('rejects a stage with NEITHER workflow nor prompt (XOR violation)', () => {
     const bad = {
       ...VALID_BRIEF,
       stages: [
-        { order: 1, title: 'X', trigger_type: 'manual', trigger_config: {}, workflow: null },
+        { order: 1, title: 'X', trigger_type: 'manual', trigger_config: {} },
       ],
     }
-    expect(() => buildBriefProposal(bad)).toThrow(/first_stage_workflow_required/)
+    // 2026-05-21 simplification — the XOR refine on StageInputSchema
+    // requires exactly one of (workflow, prompt). Neither = Zod error
+    // pointing at the workflow path.
+    expect(() => buildBriefProposal(bad)).toThrow(/exactly one of workflow or prompt|workflow/i)
+  })
+
+  it('rejects a stage with BOTH workflow and prompt (XOR violation)', () => {
+    const bad = {
+      ...VALID_BRIEF,
+      stages: [
+        {
+          order: 1,
+          title: 'X',
+          trigger_type: 'manual',
+          trigger_config: {},
+          workflow: VALID_BRIEF.stages[0].workflow,
+          prompt: 'also has a prompt',
+        },
+      ],
+    }
+    expect(() => buildBriefProposal(bad)).toThrow(/exactly one of workflow or prompt|workflow/i)
+  })
+
+  it('accepts a stage with prompt only (stage 1 prompt-deferred)', () => {
+    const promptOnly = {
+      goal_text: 'Figure out scope from current state',
+      stages: [
+        {
+          order: 1,
+          title: 'Plan after reading',
+          trigger_type: 'manual',
+          trigger_config: {},
+          prompt: 'Read the document and decide what to do next.',
+        },
+      ],
+    }
+    const result = buildBriefProposal(promptOnly)
+    expect(result.stages[0].workflow).toBeNull()
+    expect(result.stages[0].prompt).toBe('Read the document and decide what to do next.')
   })
 
   it('rejects duplicate stage orders', () => {
@@ -120,6 +162,96 @@ describe('buildBriefProposal', () => {
       ],
     }
     expect(() => buildBriefProposal(bad)).toThrow(/forward_after_stage_ref/)
+  })
+
+  // 2026-05-22 — round-trip regression. proposalBuilder writes
+  // workflow=null OR prompt=null for the unset side of each stage,
+  // but BriefProposalV1xA1Schema (the schema consumed by the iteration-
+  // runner's brief_proposal event yield + the UI's parseMessageProposals
+  // parser) was declared .optional() (accepts undefined-only). A
+  // built artefact round-tripped through safeParse FAILED silently,
+  // so a perfectly-good propose_brief tool call never surfaced as a
+  // BriefProposalCard. Bug filed 2026-05-22 from user-driven test.
+  // Fix: schema accepts nullable + truthy XOR refine. This test pins
+  // the round-trip so the drift can't recur.
+  it('proposalBuilder output round-trips through BriefProposalV1xA1Schema (Bug #1 regression)', async () => {
+    const { BriefProposalV1xA1Schema } = await import('@/lib/director/schemas')
+    const built = buildBriefProposal(VALID_BRIEF)
+    // Sanity check: the build sets workflow=null on stage 2 (the
+    // prompt-deferred one) and prompt=null on stage 1 (the workflow-
+    // bound one). These nulls used to fail safeParse silently.
+    expect(built.stages[0].workflow).not.toBeNull()
+    expect(built.stages[0].prompt).toBeNull()
+    expect(built.stages[1].workflow).toBeNull()
+    expect(built.stages[1].prompt).not.toBeNull()
+    // The actual contract: round-trip succeeds.
+    const r = BriefProposalV1xA1Schema.safeParse(built)
+    expect(r.success, JSON.stringify(r)).toBe(true)
+  })
+
+  it('proposalBuilder output for single-stage prompt-only brief round-trips through schema', async () => {
+    const { BriefProposalV1xA1Schema } = await import('@/lib/director/schemas')
+    const promptOnly = {
+      goal_text: 'Figure out scope from current state',
+      stages: [
+        {
+          order: 1,
+          title: 'Plan after reading',
+          trigger_type: 'manual',
+          trigger_config: {},
+          prompt: 'Read the document and decide what to do next.',
+        },
+      ],
+    }
+    const built = buildBriefProposal(promptOnly)
+    const r = BriefProposalV1xA1Schema.safeParse(built)
+    expect(r.success, JSON.stringify(r)).toBe(true)
+  })
+
+  // 2026-05-22 — second round-trip fix. The /api/brief/proposals/approve
+  // route receives the brief_proposal artefact from the UI (which has
+  // null-for-unset fields per BriefProposalV1xA1Parsed) and validates
+  // it through ProposeBriefInputSchema. That schema was also
+  // .optional()-only (undefined accepted, null rejected), so the
+  // approve POST returned 400 invalid_body. User test 2026-05-22
+  // surfaced it on Approve click. Fix: align StageInputSchema with
+  // BriefProposalV1xA1Schema (nullable + truthy XOR).
+  it('the approve route schema (ProposeBriefInputSchema) accepts nullable fields like the UI emits', async () => {
+    const { ProposeBriefInputSchema } = await import('@/lib/brief/proposalBuilder')
+    // Mirrors what the iteration runner ships to the UI in a brief_proposal
+    // event: stages have null on the unset side.
+    const uiShape = {
+      goal_text: 'X',
+      stages: [
+        {
+          order: 1,
+          title: 'Stage 1',
+          trigger_type: 'manual',
+          trigger_config: {},
+          workflow: {
+            title: 'wf',
+            steps: [{
+              operation_type: 'expand',
+              target_node_id: '11111111-1111-4111-8111-111111111111',
+              description: 'expand',
+              estimated_duration_seconds: 60,
+              parameters: { child_count_target: 3 },
+            }],
+          },
+          prompt: null,
+        },
+        {
+          order: 2,
+          title: 'Stage 2',
+          trigger_type: 'after_stage',
+          trigger_config: { after_stage_order: 1 },
+          workflow: null,
+          prompt: 'Synthesise prose for the new children',
+        },
+      ],
+    }
+    const r = ProposeBriefInputSchema.safeParse(uiShape)
+    expect(r.success, JSON.stringify(r)).toBe(true)
   })
 })
 

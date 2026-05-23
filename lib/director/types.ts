@@ -14,6 +14,7 @@ export type WorkflowStepOperationType =
   | 'generate_context'
   | 'comment'
   | 'node_reorder'
+  | 'node_rename'
 
 export type WorkflowStatus =
   | 'draft'
@@ -33,15 +34,13 @@ export type WorkflowStepStatus =
 
 export type ConversationMessageRole = 'user' | 'assistant'
 
-/** Output of write-tool executors — accumulated by the agentic loop. */
-export interface WorkflowStepProposal {
-  operation_type: WorkflowStepOperationType
-  target_node_id: string
-  parameters: Record<string, unknown>
-  description: string
-  estimated_duration_seconds: number
-  depends_on_step_orders?: number[]
-}
+// 2026-05-19 Phase 3 cleanup: `WorkflowStepProposal` interface removed.
+// It was the create_*_step return shape (Phase 2 dropped those tools)
+// and is no longer used anywhere in lib/. The Zod
+// `WorkflowStepProposalSchema` in lib/director/schemas.ts is separate
+// and stays — it's used by the legacy `<workflow_proposal>` XML
+// parser as a defensive fallback (parse-message-proposals.ts) for
+// model responses that emit the older XML block format.
 
 /** Tool registry entry. */
 export type ToolKind = 'read' | 'write'
@@ -70,29 +69,55 @@ export interface ReadToolResult {
 /**
  * Output of a write tool — produces a proposal artefact, no DB write.
  *
- * V1.x-A.1: brief_amendment_proposal replaced by profile_amendment_proposal
- * (V1.x-A's Brief amendments are no longer modelled; Brief amendments
- * become a V1.x-B candidate). Two optional fields are mutually exclusive
- * for the Director's proposal stream:
- *   - `proposal` — legacy workflow-step shape (kept for any in-flight
- *     uses; not emitted by V1.x-A.1 tools directly)
- *   - `brief_proposal` — operation-level Brief artefact (full proposal
- *     including stages + first-stage workflow lives in `brief_proposal_full`)
- *   - `profile_amendment_proposal` — Profile preference / goal_text delta
+ * Card-surfacing artefacts (one per write tool, mutually exclusive):
+ *   - brief_proposal + brief_proposal_full — propose_brief
+ *   - profile_amendment_proposal — propose_profile_amendment
+ *   - brief_cancellation_proposal — cancel_brief
+ *   - workflow_proposal — propose_workflow (system-driven stage planning)
+ *   - capability_limit_proposal — report_capability_limit
+ *
+ * 2026-05-19 Phase 3 cleanup: the legacy `proposal?: WorkflowStepProposal`
+ * field was removed.
+ * 2026-05-21 simplification: `brief_amendment_proposal?` (V1.x-B.3) was
+ * removed; the amendment surface is gone. Replaced by `workflow_proposal`
+ * for the system-driven stage-planning path.
  */
 export interface WriteToolResult {
   ok: true
-  proposal?: WorkflowStepProposal
   brief_proposal?: BriefProposalArtefact
   /** Full validated Brief proposal — serialised onto tool_result.content. */
   brief_proposal_full?: Record<string, unknown>
   profile_amendment_proposal?: ProfileAmendmentProposalArtefact
   /** V1.x-B.1.1 — destructive Brief cancellation proposal (H-08: propose-only). */
   brief_cancellation_proposal?: BriefCancellationProposalArtefact
-  /** V1.x-B.3 — Brief amendment proposal (H-08: propose-only). */
-  brief_amendment_proposal?: Record<string, unknown>
+  /**
+   * 2026-05-21 simplification — workflow proposal emitted when the
+   * Director plans a prompt-deferred stage's workflow (stage_trigger_fired
+   * system event in the conversation). The iteration runner attaches
+   * the workflow to brief_stages.workflow_id; if brief.auto_approve_workflow_proposals
+   * is true the workflow runs immediately, otherwise the author sees a PlanCard.
+   *
+   * Shape: { brief_id, stage_id, stage_order, stage_title, workflow }.
+   * `workflow` is the full WorkflowProposalParsed shape.
+   */
+  workflow_proposal?: WorkflowProposalForStageArtefact
   /** V1.x-F.1 — Capability-limit synthetic proposal (H-08: propose-only). */
   capability_limit_proposal?: CapabilityLimitArtefact
+}
+
+/**
+ * 2026-05-21 — propose_workflow artefact for system-driven stage planning.
+ * The executor resolves which stage is being planned (the unique
+ * status='planning' row on the active brief) and includes the stage's
+ * id + order + title in the artefact so the iteration runner doesn't
+ * have to re-look-up.
+ */
+export type WorkflowProposalForStageArtefact = {
+  brief_id: string
+  stage_id: string
+  stage_order: number
+  stage_title: string
+  workflow: Record<string, unknown>
 }
 
 /**
@@ -117,7 +142,8 @@ export type BriefProposalArtefact = {
     order: number
     title: string
     description?: string
-    trigger_type: 'after_stage' | 'scheduled_at' | 'manual' | 'compound'
+    // 2026-05-21 simplification (M-183): trigger_type narrowed.
+    trigger_type: 'after_stage' | 'manual'
     trigger_config?: Record<string, unknown>
   }>
 }
@@ -155,6 +181,40 @@ export interface ToolErrorResult {
   ok: false
   error: string
   reason?: string
+  /**
+   * Per-step diagnostics for write tools that validate a list of
+   * workflow steps (propose_brief, propose_brief_amendment with
+   * add_stage / modify_pending_stage). Populated when one or more
+   * steps fail shape, target-id, or lock checks; absent when the
+   * error is at the proposal-level (e.g. missing first stage).
+   *
+   * Each entry carries the location (stage_order + step_index) so the
+   * model can match the diagnostic back to the JSON it sent without
+   * re-parsing the whole structure.
+   */
+  per_step_errors?: PerStepError[]
+}
+
+/**
+ * 2026-05-19 — per-step diagnostic for write-tool validation failures.
+ * Phase 1 of the create_*_step deprecation refactor. The model gets
+ * structured, actionable feedback for every problematic step in a
+ * Brief proposal in one tool_result, instead of trial-and-error
+ * one-error-at-a-time iterations.
+ */
+export interface PerStepError {
+  /** Stage's `order` field as the model supplied it (1-indexed). */
+  stage_order: number
+  /** Step's 0-indexed position in the stage's workflow.steps array. */
+  step_index: number
+  /** Short error code: e.g. 'invalid_parameters', 'target_node_not_found', 'node_locked', 'node_in_progress'. */
+  error: string
+  /** Human-readable reason — what's wrong and how to fix it. */
+  reason: string
+  /** When the issue is on a specific field, the path inside the step (e.g. ['parameters', 'instruction']). */
+  path?: (string | number)[]
+  /** When the issue is target_node_not_found, the id that didn't exist. */
+  target_node_id?: string
 }
 
 export type ToolResult = ReadToolResult | WriteToolResult | ToolErrorResult

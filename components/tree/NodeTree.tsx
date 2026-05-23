@@ -84,7 +84,7 @@ function NodeTreeInner({ documentId, documentType, onSelect, refreshKey }: NodeT
   const [data, setData]   = useState<ArboristNode[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [refreshTick, setRefreshTick] = useState(0)
-  const [moreMenu, setMoreMenu] = useState<{ nodeId: string; anchor: HTMLElement; isRoot: boolean } | null>(null)
+  const [moreMenu, setMoreMenu] = useState<{ nodeId: string; anchor: HTMLElement; isRoot: boolean; parentNodeId: string | null } | null>(null)
 
   // Phase 5 (SU-31 proper fix): subscribe to realtime nodes-table changes for
   // this document. Any INSERT/UPDATE/DELETE triggers a refetch (debounced 200ms
@@ -131,7 +131,12 @@ function NodeTreeInner({ documentId, documentType, onSelect, refreshKey }: NodeT
     if (!data) return
     const node = findInTree(data, nodeId)
     if (!node) return
-    setMoreMenu({ nodeId, anchor, isRoot: node.data.parent_id === null })
+    setMoreMenu({
+      nodeId,
+      anchor,
+      isRoot: node.data.parent_id === null,
+      parentNodeId: node.data.parent_id ?? null,
+    })
   }
 
   async function handleAddChild(parentId: string) {
@@ -343,6 +348,7 @@ function NodeTreeInner({ documentId, documentType, onSelect, refreshKey }: NodeT
           nodeId={moreMenu.nodeId}
           anchor={moreMenu.anchor}
           isRoot={moreMenu.isRoot}
+          parentNodeId={moreMenu.parentNodeId}
           onClose={() => setMoreMenu(null)}
           onMutated={() => setRefreshTick(t => t + 1)}
         />

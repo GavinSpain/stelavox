@@ -69,6 +69,20 @@ export async function runExportJob(exportJobId: string): Promise<void> {
     return  // nothing to do; row vanished
   }
 
+  // Load the document name + authors for the title page.
+  // Fetched alongside the job so the renderers don't need their own query.
+  const { data: docRow } = await supabase
+    .from('documents')
+    .select('name, authors')
+    .eq('id', job.document_id as string)
+    .maybeSingle()
+  const documentName: string = (docRow?.name as string | null) ?? 'Untitled'
+  const authorName: string | null = (() => {
+    const authors = (docRow?.authors as unknown) as string[] | null
+    if (!Array.isArray(authors) || authors.length === 0) return null
+    return authors.join(', ')
+  })()
+
   // Idempotency guard: if the row is already past 'queued', another
   // invocation is handling it (or completed). Exit silently.
   if (job.status !== 'queued') {
@@ -175,6 +189,7 @@ export async function runExportJob(exportJobId: string): Promise<void> {
           const { renderDocx } = await import('./docx')
           outputBody = await renderDocx(
             blocks, walked, config as DocxProfileConfig, onChapterRendered,
+            documentName, authorName,
           )
           break
         }
@@ -182,6 +197,7 @@ export async function runExportJob(exportJobId: string): Promise<void> {
           const { renderEpub } = await import('./epub')
           outputBody = await renderEpub(
             blocks, walked, config as EpubProfileConfig, onChapterRendered,
+            documentName, authorName,
           )
           break
         }

@@ -109,7 +109,7 @@ async function assembleBriefStatePayload(
 ): Promise<BriefStatePayload> {
   const { data: stagesData } = await supabase
     .from('brief_stages')
-    .select('id, brief_id, order, title, description, trigger_type, trigger_config, status, workflow_id, started_at, completed_at, created_at')
+    .select('id, brief_id, order, title, description, trigger_type, trigger_config, status, workflow_id, prompt, started_at, completed_at, created_at')
     .eq('brief_id', brief.id)
     .order('order', { ascending: true })
 
@@ -135,6 +135,10 @@ async function assembleBriefStatePayload(
       trigger_config: s.trigger_config,
       status: s.status,
       workflow_id: s.workflow_id,
+      // 2026-05-21 simplification — expose the stage's prompt so the
+      // Director (when invoked by a stage_trigger_fired event) can
+      // read it from get_brief_state and respond with propose_workflow.
+      prompt: s.prompt,
     })),
   }
 }

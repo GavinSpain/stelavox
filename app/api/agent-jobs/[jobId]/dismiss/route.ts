@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 
 import { err } from '@/lib/api/errors'
+import { transitionAgentJob } from '@/lib/orchestration'
 import { createClient } from '@/lib/supabase/server'
 import { isValidUuid } from '@/lib/validation/uuid'
 
@@ -20,31 +21,30 @@ export async function POST(_request: NextRequest, { params }: Context) {
 
   const { data: job } = await supabase
     .from('agent_jobs')
-    .select('id, status')
+    .select('id, state')
     .eq('id', jobId)
     .maybeSingle()
   if (!job) return err.notFound()
 
-  // Idempotent on already-dismissed
-  if (job.status === 'dismissed') {
+  // Idempotent on already-dismissed or already-failed (failure is already
+  // terminal; the UI just needs to clear the surface).
+  if (job.state === 'dismissed' || job.state === 'failed') {
     const { data } = await supabase.from('agent_jobs').select('*').eq('id', jobId).single()
     return NextResponse.json(data)
   }
 
-  // SU-J12-3 (Mars-drive 2026-05-09): the AgentTab's new FailedState
-  // surface needs a Dismiss action so authors can clear the failed-job
-  // banner and try again. Accept the FAILED → DISMISSED transition in
-  // addition to the canonical COMPLETED → DISMISSED (proposal review).
-  if (job.status !== 'completed' && job.status !== 'failed') {
-    return err.agentJobAlreadyTerminal(job.status)
+  // The canonical Dismiss path: awaiting_accept → dismissed.
+  if (job.state !== 'awaiting_accept') {
+    return err.agentJobAlreadyTerminal(job.state)
   }
 
-  const { data: updated, error } = await supabase
-    .from('agent_jobs')
-    .update({ status: 'dismissed', completed_at: new Date().toISOString() })
-    .eq('id', jobId)
-    .select('*')
-    .single()
-  if (error || !updated) return err.internal()
+  // Apollo Phase 3: delegate to orchestration.
+  const result = await transitionAgentJob(supabase, jobId, 'author_dismiss', 'dismissed')
+  if (!result.ok) {
+    console.error('[agent-jobs dismiss] transition failed', { jobId, error: result.error, message: result.message })
+    return err.internal()
+  }
+
+  const { data: updated } = await supabase.from('agent_jobs').select('*').eq('id', jobId).single()
   return NextResponse.json(updated)
 }

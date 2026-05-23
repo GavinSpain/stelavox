@@ -45,6 +45,7 @@ export type Database = {
           bucket_wait_ms: number | null
           cause: string | null
           completed_at: string | null
+          consumer_kind: string
           context_snapshot: Json | null
           cost_credits: number | null
           cost_usd: number | null
@@ -84,7 +85,9 @@ export type Database = {
           route: string
           scheduled_at: string | null
           started_at: string | null
+          state: string
           status: string
+          stop_reason: string | null
           target_node_version_at_capture: number | null
           tokens_cache_read: number | null
           tokens_cache_write: number | null
@@ -104,6 +107,7 @@ export type Database = {
           bucket_wait_ms?: number | null
           cause?: string | null
           completed_at?: string | null
+          consumer_kind?: string
           context_snapshot?: Json | null
           cost_credits?: number | null
           cost_usd?: number | null
@@ -143,7 +147,9 @@ export type Database = {
           route?: string
           scheduled_at?: string | null
           started_at?: string | null
+          state?: string
           status?: string
+          stop_reason?: string | null
           target_node_version_at_capture?: number | null
           tokens_cache_read?: number | null
           tokens_cache_write?: number | null
@@ -163,6 +169,7 @@ export type Database = {
           bucket_wait_ms?: number | null
           cause?: string | null
           completed_at?: string | null
+          consumer_kind?: string
           context_snapshot?: Json | null
           cost_credits?: number | null
           cost_usd?: number | null
@@ -202,7 +209,9 @@ export type Database = {
           route?: string
           scheduled_at?: string | null
           started_at?: string | null
+          state?: string
           status?: string
+          stop_reason?: string | null
           target_node_version_at_capture?: number | null
           tokens_cache_read?: number | null
           tokens_cache_write?: number | null
@@ -412,6 +421,30 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      allowed_transitions: {
+        Row: {
+          entity_name: string
+          event_name: string
+          from_state: string
+          notes: string | null
+          to_state: string
+        }
+        Insert: {
+          entity_name: string
+          event_name: string
+          from_state: string
+          notes?: string | null
+          to_state: string
+        }
+        Update: {
+          entity_name?: string
+          event_name?: string
+          from_state?: string
+          notes?: string | null
+          to_state?: string
+        }
+        Relationships: []
       }
       anthropic_batches: {
         Row: {
@@ -708,62 +741,6 @@ export type Database = {
           },
         ]
       }
-      brief_amendments: {
-        Row: {
-          after: Json | null
-          amendment_type: string
-          applied_at: string | null
-          approved_at: string | null
-          approved_by_user_id: string | null
-          before: Json | null
-          brief_id: string
-          id: string
-          proposed_at: string
-          proposed_by_user_id: string | null
-          reason: string
-          status: string
-          target_path: string | null
-        }
-        Insert: {
-          after?: Json | null
-          amendment_type: string
-          applied_at?: string | null
-          approved_at?: string | null
-          approved_by_user_id?: string | null
-          before?: Json | null
-          brief_id: string
-          id?: string
-          proposed_at?: string
-          proposed_by_user_id?: string | null
-          reason: string
-          status?: string
-          target_path?: string | null
-        }
-        Update: {
-          after?: Json | null
-          amendment_type?: string
-          applied_at?: string | null
-          approved_at?: string | null
-          approved_by_user_id?: string | null
-          before?: Json | null
-          brief_id?: string
-          id?: string
-          proposed_at?: string
-          proposed_by_user_id?: string | null
-          reason?: string
-          status?: string
-          target_path?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "brief_amendments_brief_id_fkey"
-            columns: ["brief_id"]
-            isOneToOne: false
-            referencedRelation: "briefs"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       brief_stages: {
         Row: {
           brief_id: string
@@ -772,7 +749,10 @@ export type Database = {
           description: string | null
           id: string
           order: number
+          planning_retry_count: number
+          prompt: string | null
           started_at: string | null
+          state: string
           status: string
           title: string
           trigger_config: Json
@@ -786,7 +766,10 @@ export type Database = {
           description?: string | null
           id?: string
           order: number
+          planning_retry_count?: number
+          prompt?: string | null
           started_at?: string | null
+          state?: string
           status?: string
           title: string
           trigger_config?: Json
@@ -800,7 +783,10 @@ export type Database = {
           description?: string | null
           id?: string
           order?: number
+          planning_retry_count?: number
+          prompt?: string | null
           started_at?: string | null
+          state?: string
           status?: string
           title?: string
           trigger_config?: Json
@@ -839,6 +825,7 @@ export type Database = {
           organisation_id: string
           sequence_position: number
           started_at: string | null
+          state: string
           status: string
         }
         Insert: {
@@ -855,7 +842,8 @@ export type Database = {
           organisation_id: string
           sequence_position?: number
           started_at?: string | null
-          status?: string
+          state?: string
+          status: string
         }
         Update: {
           approved_at?: string | null
@@ -871,6 +859,7 @@ export type Database = {
           organisation_id?: string
           sequence_position?: number
           started_at?: string | null
+          state?: string
           status?: string
         }
         Relationships: [
@@ -1134,6 +1123,7 @@ export type Database = {
           id: string
           iteration_count: number
           started_at: string
+          state: string
           status: string
           total_cost_credits: number
           total_input_tokens: number
@@ -1146,6 +1136,7 @@ export type Database = {
           id?: string
           iteration_count?: number
           started_at?: string
+          state?: string
           status?: string
           total_cost_credits?: number
           total_input_tokens?: number
@@ -1158,6 +1149,7 @@ export type Database = {
           id?: string
           iteration_count?: number
           started_at?: string
+          state?: string
           status?: string
           total_cost_credits?: number
           total_input_tokens?: number
@@ -2109,6 +2101,42 @@ export type Database = {
           },
         ]
       }
+      orchestration_audit_log: {
+        Row: {
+          details: Json
+          detected_at: string
+          entity_id: string | null
+          entity_table: string
+          id: number
+          invariant_id: string
+          repair_action: string | null
+          repaired_at: string | null
+          violation: string
+        }
+        Insert: {
+          details?: Json
+          detected_at?: string
+          entity_id?: string | null
+          entity_table: string
+          id?: number
+          invariant_id: string
+          repair_action?: string | null
+          repaired_at?: string | null
+          violation: string
+        }
+        Update: {
+          details?: Json
+          detected_at?: string
+          entity_id?: string | null
+          entity_table?: string
+          id?: number
+          invariant_id?: string
+          repair_action?: string | null
+          repaired_at?: string | null
+          violation?: string
+        }
+        Relationships: []
+      }
       organisation_invites: {
         Row: {
           accepted_at: string | null
@@ -2708,45 +2736,61 @@ export type Database = {
       }
       throttle_reservations: {
         Row: {
+          agent_job_id: string | null
           consumed_at: string | null
           created_at: string
+          estimated_tokens: number | null
           expires_at: string
           id: string
           organisation_id: string | null
+          pool_key: string | null
           released_at: string | null
-          route: string
+          route: string | null
           slots_reserved: number
           tokens_reserved: number
           traffic_class: number | null
           user_id: string | null
         }
         Insert: {
+          agent_job_id?: string | null
           consumed_at?: string | null
           created_at?: string
+          estimated_tokens?: number | null
           expires_at: string
           id?: string
           organisation_id?: string | null
+          pool_key?: string | null
           released_at?: string | null
-          route: string
+          route?: string | null
           slots_reserved?: number
           tokens_reserved?: number
           traffic_class?: number | null
           user_id?: string | null
         }
         Update: {
+          agent_job_id?: string | null
           consumed_at?: string | null
           created_at?: string
+          estimated_tokens?: number | null
           expires_at?: string
           id?: string
           organisation_id?: string | null
+          pool_key?: string | null
           released_at?: string | null
-          route?: string
+          route?: string | null
           slots_reserved?: number
           tokens_reserved?: number
           traffic_class?: number | null
           user_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "throttle_reservations_agent_job_id_fkey"
+            columns: ["agent_job_id"]
+            isOneToOne: false
+            referencedRelation: "agent_jobs"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "throttle_reservations_organisation_id_fkey"
             columns: ["organisation_id"]
@@ -2907,6 +2951,7 @@ export type Database = {
           parameters: Json | null
           result_summary: string | null
           started_at: string | null
+          state: string
           status: string
           target_node_id: string | null
           workflow_id: string
@@ -2924,6 +2969,7 @@ export type Database = {
           parameters?: Json | null
           result_summary?: string | null
           started_at?: string | null
+          state?: string
           status?: string
           target_node_id?: string | null
           workflow_id: string
@@ -2941,6 +2987,7 @@ export type Database = {
           parameters?: Json | null
           result_summary?: string | null
           started_at?: string | null
+          state?: string
           status?: string
           target_node_id?: string | null
           workflow_id?: string
@@ -2991,6 +3038,7 @@ export type Database = {
           last_heartbeat_at: string | null
           locked_nodes_requiring_unlock: string[] | null
           organisation_id: string
+          state: string
           status: string
           title: string
           updated_at: string
@@ -3009,6 +3057,7 @@ export type Database = {
           last_heartbeat_at?: string | null
           locked_nodes_requiring_unlock?: string[] | null
           organisation_id: string
+          state?: string
           status?: string
           title: string
           updated_at?: string
@@ -3027,6 +3076,7 @@ export type Database = {
           last_heartbeat_at?: string | null
           locked_nodes_requiring_unlock?: string[] | null
           organisation_id?: string
+          state?: string
           status?: string
           title?: string
           updated_at?: string
@@ -3166,6 +3216,14 @@ export type Database = {
         Args: { p_document_id: string; p_goal_text: string; p_stages: Json }
         Returns: Json
       }
+      agent_jobs_derive_state: {
+        Args: { p_queue_status: string; p_status: string }
+        Returns: string
+      }
+      agent_jobs_legacy_columns_from_state: {
+        Args: { p_state: string }
+        Returns: Record<string, unknown>
+      }
       apply_author_lock: {
         Args: { p_node_id: string; p_reason: string }
         Returns: Json
@@ -3178,7 +3236,6 @@ export type Database = {
         }
         Returns: Json
       }
-      apply_brief_amendment: { Args: { p_amendment_id: string }; Returns: Json }
       apply_profile_amendment: {
         Args: {
           p_after: Json
@@ -3188,6 +3245,20 @@ export type Database = {
           p_target_path: string
         }
         Returns: Json
+      }
+      audit_orchestration_state: {
+        Args: never
+        Returns: {
+          details: Json
+          entity_id: string
+          entity_table: string
+          invariant_id: string
+          violation: string
+        }[]
+      }
+      brief_stages_derive_state: {
+        Args: { p_prompt: string; p_status: string; p_workflow_id: string }
+        Returns: string
       }
       cancel_brief: {
         Args: { p_brief_id: string; p_reason?: string }
@@ -3233,6 +3304,7 @@ export type Database = {
         }
         Returns: number
       }
+      compute_node_depth: { Args: { p_parent_id: string }; Returns: number }
       create_document_with_layer_stack: {
         Args: {
           p_authors: string[]
@@ -3250,6 +3322,7 @@ export type Database = {
       disable_org_byok: { Args: { p_org_id: string }; Returns: Json }
       enable_org_byok: { Args: { p_org_id: string }; Returns: Json }
       evaluate_ready_stage_triggers: { Args: never; Returns: number }
+      force_reset_document: { Args: { p_document_id: string }; Returns: Json }
       force_unlock: {
         Args: { p_node_id: string; p_reason: string }
         Returns: Json
@@ -3286,6 +3359,7 @@ export type Database = {
       }
       purge_expired_exports: { Args: never; Returns: number }
       purge_raw_metric_samples: { Args: never; Returns: Json }
+      reconcile_orchestration_state: { Args: never; Returns: Json }
       recovery_sweep_exports: { Args: never; Returns: number }
       release_author_lock: { Args: { p_node_id: string }; Returns: Json }
       release_bulk_operation: {
@@ -3338,6 +3412,7 @@ export type Database = {
         Returns: number
       }
       scheduler_sweep_throttle_reservations: { Args: never; Returns: number }
+      tiptap_word_count: { Args: { doc: Json }; Returns: number }
       update_export_profile: {
         Args: { p_config: Json; p_id: string; p_name: string }
         Returns: Json

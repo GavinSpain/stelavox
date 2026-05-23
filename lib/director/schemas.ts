@@ -132,6 +132,13 @@ export const NodeReorderStepProposalSchema = ProposalCommonSchema.extend({
   }),
 })
 
+export const NodeRenameStepProposalSchema = ProposalCommonSchema.extend({
+  operation_type: z.literal('node_rename'),
+  parameters: z.object({
+    new_name: z.string().transform((s) => s.trim()).pipe(z.string().min(1).max(200)),
+  }),
+})
+
 export const WorkflowStepProposalSchema = z.discriminatedUnion('operation_type', [
   ExpandStepProposalSchema,
   SynthesiseStepProposalSchema,
@@ -172,7 +179,8 @@ export const BriefProposalSchema = z.object({
         order: positiveIntSchema,
         title: z.string().min(1).max(200),
         description: z.string().max(2_000).optional(),
-        trigger_type: z.enum(['after_stage', 'scheduled_at', 'manual', 'compound']),
+        // 2026-05-21 simplification (M-183): trigger_type narrowed.
+        trigger_type: z.enum(['after_stage', 'manual']),
         trigger_config: z.record(z.string(), z.unknown()).optional(),
       }),
     )
@@ -213,7 +221,7 @@ export type BriefCancellationProposalParsed = z.infer<typeof BriefCancellationPr
 // V1.x-A.1: BriefProposal shape is now operation-level. Stage 1's workflow
 // is required; stages 2..N may have workflow:null (just-in-time planning).
 const _ProposalWorkflowStepSchema = z.object({
-  operation_type: z.enum(['expand', 'synthesise', 'refine', 'generate_context', 'comment', 'node_reorder']),
+  operation_type: z.enum(['expand', 'synthesise', 'refine', 'generate_context', 'comment', 'node_reorder', 'node_rename']),
   target_node_id: z.string().uuid(),
   description: z.string().min(1).max(2_000),
   estimated_duration_seconds: z.number().int().nonnegative(),
@@ -229,14 +237,42 @@ const _ProposalWorkflowSchema = z.object({
   steps: z.array(_ProposalWorkflowStepSchema).min(1).max(30),
 })
 
-const _ProposalStageSchema = z.object({
-  order: positiveIntSchema,
-  title: z.string().min(1).max(200),
-  description: z.string().max(2_000).optional(),
-  trigger_type: z.enum(['after_stage', 'scheduled_at', 'manual', 'compound']),
-  trigger_config: z.record(z.string(), z.unknown()).optional().default({}),
-  workflow: _ProposalWorkflowSchema.nullable(),
-})
+// V1.x post-simplification (M-183/M-184): each stage has EITHER a
+// workflow (targets known at brief-proposal time) OR a prompt (targets
+// known only after earlier stages complete). The refine() enforces
+// exactly-one-of, matching the DB-level
+// brief_stages_planning_source_check constraint.
+//
+// trigger_type narrowed to ('after_stage', 'manual'). scheduled_at +
+// compound dropped per M-183. trigger_config kept open so scheduled_at
+// can land post-V1 without a schema change.
+//
+// 2026-05-22 — round-trip drift fix. proposalBuilder.ts writes each
+// stage with BOTH workflow and prompt keys, setting the unused one to
+// null. The original schema used .optional() (accepts undefined-only)
+// so a built artefact round-tripped through safeParse FAILED:
+//   - briefProposal parser (parse-message-proposals.ts:161) → no card
+//   - iteration-runner brief_proposal yield path (line ~782) → no SSE
+// Both consumers silently dropped a perfectly-good propose_brief.
+// User test 2026-05-22 surfaced it. Fix: nullable() + truthy XOR.
+const _ProposalStageSchema = z
+  .object({
+    order: positiveIntSchema,
+    title: z.string().min(1).max(200),
+    description: z.string().max(2_000).optional(),
+    trigger_type: z.enum(['after_stage', 'manual']),
+    trigger_config: z.record(z.string(), z.unknown()).optional().default({}),
+    workflow: _ProposalWorkflowSchema.nullable().optional(),
+    prompt: z.string().min(1).max(2_000).nullable().optional(),
+  })
+  .refine(
+    // Truthy XOR — null OR undefined both count as "not set".
+    (s) => Boolean(s.workflow) !== Boolean(s.prompt),
+    {
+      message: 'each stage must have exactly one of workflow or prompt (not both, not neither)',
+      path: ['workflow'],
+    },
+  )
 
 // Operation-level Brief proposal — replaces v2.0's project-level Brief
 // proposal schema.
@@ -245,6 +281,16 @@ export const BriefProposalV1xA1Schema = z.object({
   stages: z.array(_ProposalStageSchema).min(1).max(20),
 })
 export type BriefProposalV1xA1Parsed = z.infer<typeof BriefProposalV1xA1Schema>
+
+// V1.x post-simplification — propose_workflow input schema.
+// The Director calls this ONLY when the system has invoked it via a
+// stage_trigger_fired event for a prompt-deferred stage. The system
+// looks up the unique stage with status='planning' on the active
+// brief and attaches the workflow to it. No brief_id or stage_id in
+// the input — the active stage is unambiguous (single-active-brief +
+// at-most-one-planning-stage invariants).
+export const ProposeWorkflowSchema = _ProposalWorkflowSchema
+export type ProposeWorkflowParsed = z.infer<typeof ProposeWorkflowSchema>
 
 // ---------------------------------------------------------------------------
 // Tool input schemas — one per registered tool. Used by validateToolCall().
@@ -262,10 +308,38 @@ export const ToolInputSchemas = {
       parent_node_id: uuidSchema.optional(),
     })
     .strict(),
+  find_node_by_name: z
+    .object({
+      query: z.string().min(1).max(200),
+      node_type: z.string().min(1).max(50).optional(),
+      layer_index: nonNegativeIntSchema.optional(),
+    })
+    .strict(),
   get_node_tree: z
     .object({
       root_node_id: uuidSchema,
       max_depth: z.number().int().positive().max(10).optional(),
+    })
+    .strict(),
+  get_subtree_content: z
+    .object({
+      root_node_id: uuidSchema,
+      max_nodes: z.number().int().positive().max(200).optional(),
+      include_prose: z.boolean().optional(),
+      include_summary: z.boolean().optional(),
+      layer_index: nonNegativeIntSchema.optional(),
+    })
+    .strict(),
+  find_context_references: z
+    .object({
+      context_node_id: uuidSchema,
+      max_results: z.number().int().positive().max(200).optional(),
+    })
+    .strict(),
+  get_subtree_stats: z
+    .object({
+      root_node_id: uuidSchema,
+      max_depth: z.number().int().min(0).max(10).optional(),
     })
     .strict(),
   assess_downstream_impact: z
@@ -296,72 +370,15 @@ export const ToolInputSchemas = {
     })
     .strict(),
 
-  // Write tools (6) — input is the proposal-construction parameters; the
-  // executor wraps the result as a WorkflowStepProposal
-  create_expand_step: z
-    .object({
-      target_node_id: uuidSchema,
-      child_count_target: z.number().int().positive().max(20).optional(),
-      description: z.string().min(1).max(2_000),
-      estimated_duration_seconds: nonNegativeIntSchema,
-    })
-    .strict(),
-  create_synthesise_step: z
-    .object({
-      target_node_id: uuidSchema,
-      description: z.string().min(1).max(2_000),
-      estimated_duration_seconds: nonNegativeIntSchema,
-    })
-    .strict(),
-  create_refine_step: z
-    .object({
-      target_node_id: uuidSchema,
-      target_field: z.enum(['summary', 'prose', 'notes', 'metadata']),
-      instruction: z.string().min(1).max(2_000),
-      description: z.string().min(1).max(2_000),
-      estimated_duration_seconds: nonNegativeIntSchema,
-    })
-    .strict(),
-  create_context_step: z
-    .object({
-      target_node_id: uuidSchema,
-      context_type: z.enum([
-        'character',
-        'location',
-        'organisation',
-        'theme',
-        'plot_thread',
-        'world',
-      ]),
-      seed_content: z.string().max(10_000).optional(),
-      description: z.string().min(1).max(2_000),
-      estimated_duration_seconds: nonNegativeIntSchema,
-    })
-    .strict(),
-  create_comment_step: z
-    .object({
-      target_node_id: uuidSchema,
-      // F-242 (round-3 audit): aligned to the 5-type set the UI exposes.
-      // Pre-fix admitted only 'instruction' | 'note' — Director couldn't
-      // create question/critique/approval comments via workflow-step.
-      // DB CHECK constraint (Migration 046) enforces the same whitelist.
-      comment_type: z.enum(['instruction', 'question', 'note', 'critique', 'approval']),
-      content: z.string().min(1).max(5_000),
-      description: z.string().min(1).max(2_000),
-      estimated_duration_seconds: nonNegativeIntSchema,
-    })
-    .strict(),
-  create_node_reorder_step: z
-    .object({
-      target_node_id: uuidSchema,
-      new_order: positiveIntSchema,
-      parent_id: uuidSchema.optional(),
-      description: z.string().min(1).max(2_000),
-      estimated_duration_seconds: nonNegativeIntSchema,
-    })
-    .strict(),
-
-  // V1.x-A Brief write-proposal tools (2). Validators in
+  // Write tools — input is the proposal-construction parameters.
+  // 2026-05-19 Phase 3 of the create_*_step deprecation refactor:
+  // the 7 create_*_step input-schemas removed. Per-op-type parameter
+  // validation now lives in lib/brief/proposalBuilder.ts (look for
+  // StepSchema's discriminated-union variants) — those schemas
+  // mirror the parameter shapes the create_*_step input-schemas
+  // used to enforce. Git history preserves the originals.
+  //
+  // V1.x-A Brief write-proposal tools. Validators in
   // lib/brief/proposalBuilder.ts perform additional structural checks
   // (cycle detection, dangling refs, value-shape per amendment_type).
   // V1.x-A.1: operation-level Brief. Stage 1's workflow is required;
@@ -371,23 +388,12 @@ export const ToolInputSchemas = {
   propose_profile_amendment: ProfileAmendmentProposalSchema.strict(),
   // V1.x-B.1.1: cancel_brief — destructive proposal-only.
   cancel_brief: BriefCancellationProposalSchema.strict(),
-  // V1.x-B.3: propose_brief_amendment — modify active Brief in-flight.
-  propose_brief_amendment: z
-    .object({
-      brief_id: uuidSchema,
-      amendment_type: z.enum([
-        'goal_text',
-        'preferences',
-        'add_stage',
-        'modify_pending_stage',
-        'remove_pending_stage',
-      ]),
-      target_path: z.string().nullish(),
-      before: z.record(z.string(), z.unknown()).nullish(),
-      after: z.record(z.string(), z.unknown()),
-      reason: z.string().min(1).max(1024),
-    })
-    .strict(),
+  // 2026-05-21 simplification (M-183/M-184): propose_brief_amendment
+  // dropped. Replaced by propose_workflow — emitted by the Director
+  // when the system invokes it via a stage_trigger_fired event for a
+  // prompt-deferred stage. The system attaches the resulting workflow
+  // to the unique 'planning' stage on the active brief.
+  propose_workflow: ProposeWorkflowSchema,
   // V1.x-F.1: report_capability_limit — synthetic propose-only tool the
   // Director invokes when it detects the user's request exceeds its
   // capability boundaries (per-iteration cap, token budget, tool count,
@@ -415,17 +421,20 @@ export const READ_TOOL_NAMES: readonly ToolName[] = [
   'get_workflow_history',
 ] as const
 
+// Phase 2 (2026-05-19): create_*_step removed from the LLM-facing write
+// surface. Workflow steps embed directly inside propose_brief's
+// workflow.steps array; propose_brief validates per-op-type parameters
+// + target_node existence + author-lock state at the proposal
+// boundary, with per_step_errors diagnostics on failure.
+// The ToolInputSchemas entries for create_* remain because the
+// individual executor helpers still use them (and existing tests
+// reference them); they're just not visible to the LLM via
+// WRITE_TOOL_NAMES or the tool registry.
 export const WRITE_TOOL_NAMES: readonly ToolName[] = [
-  'create_expand_step',
-  'create_synthesise_step',
-  'create_refine_step',
-  'create_context_step',
-  'create_comment_step',
-  'create_node_reorder_step',
   'propose_brief',
   'propose_profile_amendment',
   'cancel_brief',
-  'propose_brief_amendment',
+  'propose_workflow',
   'report_capability_limit',
 ] as const
 

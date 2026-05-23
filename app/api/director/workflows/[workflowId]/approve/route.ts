@@ -133,11 +133,11 @@ export async function POST(
           (s.status === 'pending' || s.status === 'removed'),
       )
       .map((s) => s.id)
-    if (ordersToRemove.length > 0) {
-      await service
-        .from('workflow_steps')
-        .update({ status: 'removed' })
-        .in('id', ordersToRemove)
+    // Apollo Phase 3: per-step transitions via orchestration. Only
+    // pending → removed is legal (already-removed is no-op).
+    const { transitionWorkflowStep } = await import('@/lib/orchestration')
+    for (const stepId of ordersToRemove) {
+      await transitionWorkflowStep(service, stepId, 'user_deselect', 'removed')
     }
   }
 
@@ -159,16 +159,15 @@ export async function POST(
     }
   }
 
-  // 8. Update workflow status + approved_at + heartbeat.
-  await service
-    .from('workflows')
-    .update({
-      status: 'approved',
-      approved_at: new Date().toISOString(),
+  // 8. Update workflow status + approved_at + heartbeat. Apollo Phase 3:
+  // delegate to orchestration. The DB trigger refuses if workflow isn't
+  // in 'draft' (the CAS we had explicit in code is now enforced).
+  {
+    const { transitionWorkflow } = await import('@/lib/orchestration')
+    await transitionWorkflow(service, workflow.id, 'approve_workflow', 'approved', {
       last_heartbeat_at: new Date().toISOString(),
     })
-    .eq('id', workflow.id)
-    .eq('status', 'draft') // CAS
+  }
 
   // 9. Kick off the workflow executor (continuation chain) via waitUntil.
   // advanceWorkflow promotes 'approved' → 'running' on the first batch.

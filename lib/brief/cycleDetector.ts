@@ -13,7 +13,6 @@
 import type {
   BriefProposalStageInput,
   BriefStageTriggerConfigAfterStage,
-  BriefStageTriggerConfigCompound,
 } from './types'
 
 export type CycleCheckResult = { ok: true } | { ok: false; cycle: number[] }
@@ -41,13 +40,9 @@ function extractAfterStageDeps(stage: BriefProposalStageInput): number[] {
     if (typeof c?.after_stage_order === 'number') return [c.after_stage_order]
     return []
   }
-  if (stage.trigger_type === 'compound') {
-    const c = cfg as BriefStageTriggerConfigCompound | undefined
-    if (!c?.conditions) return []
-    return c.conditions
-      .filter((cond): cond is { type: 'after_stage'; after_stage_order: number } => cond.type === 'after_stage')
-      .map((cond) => cond.after_stage_order)
-  }
+  // 2026-05-21 simplification (M-183): only 'after_stage' creates a
+  // stage dependency. 'manual' triggers have no implicit predecessor.
+  // 'scheduled_at' and 'compound' trigger types were dropped.
   return []
 }
 

@@ -31,6 +31,7 @@
 //   - `refreshKey` from the context lets other surfaces (e.g. the
 //     ContextLinker's Picker → quick-create) trigger a refetch.
 
+import Link from 'next/link'
 import { useEffect, useState, useCallback } from 'react'
 import {
   CONTEXT_NODE_TYPES_V1,
@@ -46,6 +47,13 @@ const STORAGE_KEY            = 'stelavox_sidebar_state'
 const SECTIONS_EXPANDED_KEY  = 'stelavox_sidebar_context_expanded'
 
 interface SidebarProps {
+  /**
+   * Optional prop overrides — useful for tests + the rare case where a
+   * page wants to render the Sidebar with explicit names. The default
+   * pulls names from SidebarProjectContext (populated by DocumentClient /
+   * ProjectSidebarSetup); previously these props were the only source
+   * and the context never carried names, so the slot showed "—".
+   */
   projectName?: string
   documentName?: string
   width?: number
@@ -58,7 +66,7 @@ interface ContextNodeSummary {
   scope:     'project' | 'document'
 }
 
-export function Sidebar({ projectName, documentName, width = 220 }: SidebarProps) {
+export function Sidebar({ projectName: projectNameProp, documentName: documentNameProp, width = 220 }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(false)
   const [expandedSections, setExpandedSections] =
     useState<Record<ContextNodeType, boolean>>(() => Object.fromEntries(
@@ -69,6 +77,9 @@ export function Sidebar({ projectName, documentName, width = 220 }: SidebarProps
 
   const { state, bumpRefresh } = useSidebarProject()
   const { projectId, documentId, onSelectContextNode, refreshKey } = state
+  // Prop wins (test override); fall back to context.
+  const projectName = projectNameProp ?? state.projectName ?? undefined
+  const documentName = documentNameProp ?? state.documentName ?? undefined
 
   // Hydrate sidebar collapse state. setState-in-effect is the standard
   // SSR-safe pattern for client-only storage; same exception as Phase 2's
@@ -215,6 +226,28 @@ export function Sidebar({ projectName, documentName, width = 220 }: SidebarProps
                 }}
               >
                 {documentName}
+              </div>
+            )}
+            {/* Scheduler link — only when a document is loaded. Gives
+               the user a way to see queued/active Briefs + workflows
+               + agent jobs. The route was orphaned before this. */}
+            {projectId && documentId && (
+              <div style={{ marginTop: 'var(--space-3)' }}>
+                <Link
+                  href={`/projects/${projectId}/documents/${documentId}/scheduler`}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    fontSize: 'var(--text-xs)',
+                    color: 'var(--color-text-secondary)',
+                    textDecoration: 'none',
+                    padding: '4px 0',
+                  }}
+                >
+                  <span aria-hidden="true">⧗</span>
+                  Scheduler
+                </Link>
               </div>
             )}
           </>

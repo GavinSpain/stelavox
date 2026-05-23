@@ -65,7 +65,13 @@ describe('cancel_brief tool registration', () => {
     expect(isWriteTool('cancel_brief')).toBe(true)
   })
 
-  it('total write-tool count is 11 (V1.x-F.1: V1.x-B.3 10 + report_capability_limit)', () => {
-    expect(WRITE_TOOL_NAMES.length).toBe(11)
+  it('total write-tool count is 5 (post-2026-05-21 simplification)', () => {
+    // Phase 2 (2026-05-19) removed the 7 create_*_step tools from
+    // WRITE_TOOL_NAMES.
+    // 2026-05-21 simplification: propose_brief_amendment dropped,
+    // propose_workflow added for system-driven stage planning. Count
+    // stays at 5: propose_brief, propose_profile_amendment,
+    // cancel_brief, propose_workflow, report_capability_limit.
+    expect(WRITE_TOOL_NAMES.length).toBe(5)
   })
 })

@@ -52,18 +52,19 @@ export async function POST(
     if (denial) return denial
   }
 
-  await service
-    .from('workflows')
-    .update({ status: 'cancelled' })
-    .eq('id', workflow.id)
-    .in('status', ['draft', 'approved'])
+  // Apollo Phase 3: delegate to orchestration.
+  const { transitionWorkflow, transitionWorkflowStep } = await import('@/lib/orchestration')
+  await transitionWorkflow(service, workflow.id, 'cancel', 'cancelled')
 
   // Mark any pending steps as 'removed' for tidiness.
-  await service
+  const { data: pendingSteps } = await service
     .from('workflow_steps')
-    .update({ status: 'removed' })
+    .select('id')
     .eq('workflow_id', workflow.id)
-    .eq('status', 'pending')
+    .eq('state', 'pending')
+  for (const step of pendingSteps ?? []) {
+    await transitionWorkflowStep(service, step.id as string, 'user_deselect', 'removed')
+  }
 
   const reloaded = await loadWorkflowWithSteps(userClient, workflowId)
   if (reloaded instanceof NextResponse) return reloaded

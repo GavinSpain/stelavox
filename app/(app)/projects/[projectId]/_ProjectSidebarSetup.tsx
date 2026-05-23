@@ -17,15 +17,16 @@ import { useSidebarProject } from '@/components/layout/AppShell'
 
 interface Props {
   projectId: string
+  projectName: string
 }
 
-export function ProjectSidebarSetup({ projectId }: Props) {
+export function ProjectSidebarSetup({ projectId, projectName }: Props) {
   const { setProject } = useSidebarProject()
   useEffect(() => {
-    setProject({ projectId, documentId: null, onSelectContextNode: null })
+    setProject({ projectId, documentId: null, projectName, documentName: null, onSelectContextNode: null })
     return () => {
-      setProject({ projectId: null, documentId: null, onSelectContextNode: null })
+      setProject({ projectId: null, documentId: null, projectName: null, documentName: null, onSelectContextNode: null })
     }
-  }, [projectId, setProject])
+  }, [projectId, projectName, setProject])
   return null
 }

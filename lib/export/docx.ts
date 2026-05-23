@@ -73,6 +73,8 @@ export async function renderDocx(
   walked: WalkContext,
   config: DocxProfileConfig,
   onChapterRendered: (chapterName: string | null) => Promise<void>,
+  documentName: string = 'Untitled',
+  authorName: string | null = null,
 ): Promise<Buffer> {
   void walked  // currently use blocks directly; walked metadata helpful for V1.x polish
 
@@ -85,13 +87,25 @@ export async function renderDocx(
   const docxParagraphs: Paragraph[] = []
 
   if (config.include_front_matter) {
+    // Title page — document name (centred, bold, large) + optional author.
+    // Earlier V1 versions hardcoded the literal string "Title Page";
+    // fixed 2026-05-17 during pre-Phase-8 test pass.
     docxParagraphs.push(new Paragraph({
       alignment: AlignmentType.CENTER,
       spacing: { before: 4000, after: 400 },
       children: [
-        new TextRun({ text: 'Title Page', font: fontConfig.family, size: 48, bold: true }),
+        new TextRun({ text: documentName, font: fontConfig.family, size: 48, bold: true }),
       ],
     }))
+    if (authorName) {
+      docxParagraphs.push(new Paragraph({
+        alignment: AlignmentType.CENTER,
+        spacing: { before: 600, after: 200 },
+        children: [
+          new TextRun({ text: authorName, font: fontConfig.family, size: 28 }),
+        ],
+      }))
+    }
     docxParagraphs.push(new Paragraph({ children: [new PageBreak()] }))
   }
 
