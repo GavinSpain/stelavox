@@ -171,45 +171,67 @@ export async function insertStopRequest(
  * Mark queued tickets (queue_status='queued') as cancelled when a Stop
  * request is filed. In-flight tickets (dispatched/running) are left to
  * the runner's cooperative-abort path.
+ *
+ * M-205: now routes through transitionAgentJob (queued → cancelled via
+ * 'cancel_or_cascade' event) rather than a direct UPDATE that bypassed
+ * the state machine. Pre-Apollo the direct UPDATE wrote a (failed,
+ * cancelled) tuple that contradicted the new single-state-column model;
+ * the auto_derive trigger normalised those rows to (failed, failed),
+ * which broke the test assertions.
  */
 async function cancelQueuedTicketsForStop(
   targetKind: 'director_turn' | 'workflow' | 'brief',
   targetId: string,
 ): Promise<void> {
   const supabase = createServiceRoleClient()
-  const cancelledAt = new Date().toISOString()
-  const update = {
-    queue_status: 'cancelled',
-    status: 'failed',
-    completed_at: cancelledAt,
-    failure_class: 'B' as const,
-    error_message: 'cancelled_by_stop_request',
+  const { transitionAgentJob } = await import('@/lib/orchestration')
+
+  async function cancelOne(jobId: string): Promise<void> {
+    await transitionAgentJob(supabase, jobId, 'cancel_or_cascade', 'cancelled', {
+      errorMessage: 'cancelled_by_stop_request',
+      failureClass: 'B',
+    })
   }
 
-  if (targetKind === 'director_turn') {
-    await supabase
+  async function jobIdsForTurn(): Promise<string[]> {
+    const { data } = await supabase
       .from('agent_jobs')
-      .update(update)
+      .select('id')
       .eq('director_turn_id', targetId)
       .eq('queue_status', 'queued')
-    return
+    return (data ?? []).map((r) => r.id as string)
   }
 
-  if (targetKind === 'workflow') {
+  async function jobIdsForWorkflow(): Promise<string[]> {
     const { data: steps } = await supabase
       .from('workflow_steps')
       .select('agent_job_id')
       .eq('workflow_id', targetId)
-    const jobIds = (steps ?? [])
+    const stepJobIds = (steps ?? [])
       .map((s) => s.agent_job_id as string | null)
       .filter((x): x is string => Boolean(x))
-    if (jobIds.length > 0) {
-      await supabase.from('agent_jobs').update(update).in('id', jobIds).eq('queue_status', 'queued')
-    }
+    if (stepJobIds.length === 0) return []
+    const { data } = await supabase
+      .from('agent_jobs')
+      .select('id')
+      .in('id', stepJobIds)
+      .eq('queue_status', 'queued')
+    return (data ?? []).map((r) => r.id as string)
+  }
+
+  if (targetKind === 'director_turn') {
+    const ids = await jobIdsForTurn()
+    for (const id of ids) await cancelOne(id)
     return
   }
 
-  // brief
+  if (targetKind === 'workflow') {
+    const ids = await jobIdsForWorkflow()
+    for (const id of ids) await cancelOne(id)
+    return
+  }
+
+  // brief — walk brief → stages → workflows → steps → agent_jobs.
   const { data: stages } = await supabase
     .from('brief_stages')
     .select('workflow_id')
@@ -222,11 +244,17 @@ async function cancelQueuedTicketsForStop(
     .from('workflow_steps')
     .select('agent_job_id')
     .in('workflow_id', workflowIds)
-  const jobIds = (steps ?? [])
+  const stepJobIds = (steps ?? [])
     .map((s) => s.agent_job_id as string | null)
     .filter((x): x is string => Boolean(x))
-  if (jobIds.length === 0) return
-  await supabase.from('agent_jobs').update(update).in('id', jobIds).eq('queue_status', 'queued')
+  if (stepJobIds.length === 0) return
+  const { data } = await supabase
+    .from('agent_jobs')
+    .select('id')
+    .in('id', stepJobIds)
+    .eq('queue_status', 'queued')
+  const briefJobIds = (data ?? []).map((r) => r.id as string)
+  for (const id of briefJobIds) await cancelOne(id)
 }
 
 /**

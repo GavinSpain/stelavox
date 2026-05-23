@@ -109,11 +109,36 @@ test.describe('V1.x-B.2.4 — end-to-end integration', () => {
 
   test('metrics_minute_rollup aggregates dispatcher_tick_samples + failure_taxonomy_samples into minute buckets', async () => {
     const admin = adminClient()
-    const bucket = new Date(Date.now() - 60_000)
+    // Pick a deterministic, well-past bucket (5 minutes ago) so we
+    // don't race the dispatcher's live samples landing in the current
+    // or just-prior minute. The 5-minute offset also avoids any
+    // concurrent test's "last minute" assertion overlap. Documented as
+    // a flake in CLAUDE.md v1.34 before the test-isolation tightening
+    // (M-205 follow-on): the test used to use the previous minute, and
+    // a real dispatcher tick + the other integration tests would dump
+    // their own samples into the same bucket, polluting the
+    // aggregation.
+    const bucket = new Date(Date.now() - 5 * 60_000)
     bucket.setSeconds(0, 0)
     const bucketIso = bucket.toISOString()
+    const bucketEndIso = new Date(bucket.getTime() + 60_000).toISOString()
 
-    // Synthesise 3 dispatcher_tick_samples for the prior minute with
+    // Defensive pre-cleanup: drop any rows in this exact bucket from
+    // prior test runs (the cleanup at test end should handle this, but
+    // a crashed prior run could have left samples behind).
+    await admin
+      .from('dispatcher_tick_samples')
+      .delete()
+      .gte('tick_started_at', bucketIso)
+      .lt('tick_started_at', bucketEndIso)
+    await admin
+      .from('failure_taxonomy_samples')
+      .delete()
+      .gte('occurred_at', bucketIso)
+      .lt('occurred_at', bucketEndIso)
+    await admin.from('metrics_minute_buckets').delete().eq('bucket_started_at', bucketIso)
+
+    // Synthesise 3 dispatcher_tick_samples in this bucket with
     // varying queue depths.
     const samples = [
       { tick_offset: 0, qd1: 5, qd2: 0, qd3: 10, qd4: 2, dispatched: 4 },

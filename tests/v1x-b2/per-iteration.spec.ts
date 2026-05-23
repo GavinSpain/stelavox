@@ -241,6 +241,15 @@ test.describe('V1.x-B.2.1 session 2 — CK-3 Stop cascade end-to-end', () => {
     const turnId = turn!.id
 
     // 1 in-flight (running) iteration + 1 queued iteration.
+    //
+    // M-205: consumer_kind='inline_route' makes the test rows invisible
+    // to the dispatcher. Pre-fix the dispatcher's INSERT NOTIFY trigger
+    // would wake the listener and race to claim i2 (queued → dispatched)
+    // before the stop request fires, making computeStopCascade return
+    // queued_count=0 (because i2 has already moved out of 'queued'). The
+    // test's intent is to verify the Stop cascade behaviour, not the
+    // dispatcher's race; marking these rows as inline_route gives the
+    // test exclusive ownership of their lifecycle.
     const { data: i1 } = await admin
       .from('agent_jobs')
       .insert({
@@ -252,6 +261,7 @@ test.describe('V1.x-B.2.1 session 2 — CK-3 Stop cascade end-to-end', () => {
         director_turn_id: turnId,
         iteration_number: 1,
         last_heartbeat_at: new Date().toISOString(),
+        consumer_kind: 'inline_route',
       })
       .select('id')
       .single()
@@ -266,6 +276,7 @@ test.describe('V1.x-B.2.1 session 2 — CK-3 Stop cascade end-to-end', () => {
         director_turn_id: turnId,
         parent_iteration_id: i1!.id,
         iteration_number: 2,
+        consumer_kind: 'inline_route',
       })
       .select('id')
       .single()
@@ -284,14 +295,21 @@ test.describe('V1.x-B.2.1 session 2 — CK-3 Stop cascade end-to-end', () => {
       await ctx.dispose()
     }
 
-    // Queued iteration → cancelled.
+    // Queued iteration → cancelled. M-205: cancelQueuedTicketsForStop
+    // now routes through transitionAgentJob (queued → cancelled). The
+    // auto_derive trigger normalises status + queue_status to match
+    // state='cancelled'. Pre-Apollo direct UPDATE wrote (failed,
+    // cancelled) — a contradictory tuple Apollo collapses to either
+    // (failed, failed) or (cancelled, cancelled) depending on derive
+    // direction. Post-M-205 we want the legal 'cancelled' state.
     const { data: iter2After } = await admin
       .from('agent_jobs')
-      .select('queue_status, status, failure_class, error_message')
+      .select('state, queue_status, status, failure_class, error_message')
       .eq('id', i2!.id)
       .single()
+    expect(iter2After!.state).toBe('cancelled')
     expect(iter2After!.queue_status).toBe('cancelled')
-    expect(iter2After!.status).toBe('failed')
+    expect(iter2After!.status).toBe('cancelled')
     expect(iter2After!.failure_class).toBe('B')
     expect(iter2After!.error_message).toBe('cancelled_by_stop_request')
 

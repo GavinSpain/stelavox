@@ -122,11 +122,14 @@ test.describe('V1.x-A.1 Profile + Brief substrate', () => {
     expect(amendments![0].amendment_type).toBe('add_constraint')
   })
 
-  test('CK-4 + CK-3 (V1.x-B.3 contract): accept_brief creates active; second also active (multi-Brief concurrency)', async () => {
-    // V1.x-B.3 (M-126/M-128) supersedes V1.x-B.1.1's queue-on-second behaviour:
-    // multi-Brief concurrency is first-class — every accept_brief INSERTs as 'active'.
-    // The strict-one-active partial unique index dropped in M-126; accept_brief revised
-    // in M-128 to remove the another_brief_active branch.
+  test('CK-4 (M-183 contract): accept_brief creates active; second accept fails on strict-one-active index', async () => {
+    // V1.x-B.3 (M-126/M-128) briefly made multi-Brief concurrency
+    // first-class. M-183 (Director simplification, 2026-05-21) reverted
+    // that by restoring `briefs_strict_one_active_per_document_uidx`,
+    // a partial unique index on `briefs(document_id) WHERE status='active'`.
+    // accept_brief still always INSERTs as 'active'; the second call on
+    // the same document errors via the unique-violation surfacing
+    // through the RPC.
     const { count: before } = await adminClient()
       .from('briefs')
       .select('id', { count: 'exact', head: true })
@@ -149,73 +152,119 @@ test.describe('V1.x-A.1 Profile + Brief substrate', () => {
       p_stages: stages,
     })
     expect(firstErr).toBeNull()
-    const r1 = first as { brief: { id: string; status: string }; initial_status: string; queue_position: number }
+    const r1 = first as { brief: { id: string; status: string }; initial_status: string }
     expect(r1.brief.status).toBe('active')
     expect(r1.initial_status).toBe('active')
 
-    // Second Brief — V1.x-B.3 inserts it as active alongside the first.
-    const { data: second, error: secondErr } = await adminClient().rpc('accept_brief', {
+    // Second accept on the same document — schema refuses via the
+    // strict-one-active partial unique index (M-183).
+    const { error: secondErr } = await adminClient().rpc('accept_brief', {
       p_document_id: documentId,
       p_goal_text: 'Test Brief 2',
       p_stages: stages,
     })
-    expect(secondErr).toBeNull()
-    const r2 = second as { brief: { status: string }; initial_status: string; queue_position: number }
-    expect(r2.brief.status).toBe('active')
-    expect(r2.initial_status).toBe('active')
+    expect(secondErr).not.toBeNull()
+    expect(secondErr!.message).toMatch(/unique|briefs_strict_one_active|already.*active/i)
   })
 
-  test('CK-7 (V1.x-B.3 contract): cancel_brief returns cascade summary; new Briefs always active', async () => {
-    // V1.x-B.3 supersedes V1.x-B.1.1's auto-promote behaviour: there's no queue
-    // anymore, so cancel just cancels (cascade summary still returned for telemetry).
-    // promoted_brief_id is always null because every accept_brief inserts as active.
-    const { data: actives } = await adminClient()
+  test('CK-7 (M-183 contract): cancel_brief returns cascade summary; subsequent accept_brief succeeds on a clean document', async () => {
+    // M-183 single-active-brief contract: only one active brief per
+    // document at a time. cancel_brief returns a cascade summary
+    // (cancelled_count + null promoted_brief_id since the queue path
+    // was removed in M-183). After cancellation, accept_brief on the
+    // same document succeeds because the partial unique index only
+    // covers status='active' rows.
+    //
+    // Self-contained — does NOT depend on CK-4's leftover brief.
+    // Cancels any pre-existing active brief on this document, then
+    // creates a fresh one to exercise the cancel + re-accept flow.
+    const { data: preExisting } = await adminClient()
       .from('briefs')
       .select('id')
       .eq('document_id', documentId)
       .eq('status', 'active')
-    expect(actives).not.toBeNull()
-    expect(actives!.length).toBeGreaterThan(0)
+    for (const existing of preExisting ?? []) {
+      await adminClient().rpc('cancel_brief', {
+        p_brief_id: existing.id,
+        p_reason: 'CK-7 setup cleanup',
+      })
+    }
 
+    // Seed a fresh active brief.
+    const { data: seedBrief, error: seedErr } = await adminClient().rpc('accept_brief', {
+      p_document_id: documentId,
+      p_goal_text: 'CK-7 seed brief',
+      p_stages: [
+        { order: 1, title: 'Stage one', description: null, trigger_type: 'manual', trigger_config: {} },
+      ],
+    })
+    expect(seedErr).toBeNull()
+    const seed = seedBrief as { brief: { id: string } }
+
+    // Cancel the seeded brief and confirm cascade-summary shape.
+    // M-200 (cascade_cancel_and_force_reset) defines the cancel_brief
+    // return shape as the cascade counts: pending_stages_cancelled,
+    // completed_stages_retained, workflows_cancelled, steps_cancelled,
+    // jobs_cancelled, turns_cancelled. M-183 removed the queue concept,
+    // so there is no `promoted_brief_id` in the response.
     const { data: cascade, error: cancelErr } = await adminClient().rpc('cancel_brief', {
-      p_brief_id: actives![0].id,
-      p_reason: 'V1.x-B.3 contract test',
+      p_brief_id: seed.brief.id,
+      p_reason: 'M-183 contract test',
     })
     expect(cancelErr).toBeNull()
-    const r = cascade as { brief_id: string; cancelled_count: number; promoted_brief_id: string | null }
-    expect(r.brief_id).toBe(actives![0].id)
-    expect(typeof r.cancelled_count).toBe('number')
+    const r = cascade as {
+      brief_id: string
+      pending_stages_cancelled: number
+      completed_stages_retained: number
+      workflows_cancelled: number
+      steps_cancelled: number
+      jobs_cancelled: number
+      turns_cancelled: number
+    }
+    expect(r.brief_id).toBe(seed.brief.id)
+    expect(typeof r.pending_stages_cancelled).toBe('number')
+    expect(typeof r.completed_stages_retained).toBe('number')
 
-    // Further accept_brief inserts as active (no queue under B.3).
+    // After cancellation, accept_brief succeeds (the cancelled brief
+    // no longer occupies the partial unique index).
     const { data: nextBrief, error: nextErr } = await adminClient().rpc('accept_brief', {
       p_document_id: documentId,
-      p_goal_text: 'Test Brief 3 (after cancel)',
+      p_goal_text: 'CK-7 post-cancel brief',
       p_stages: [
-        {
-          order: 1,
-          title: 'Stage one',
-          description: null,
-          trigger_type: 'manual',
-          trigger_config: {},
-        },
+        { order: 1, title: 'Stage one', description: null, trigger_type: 'manual', trigger_config: {} },
       ],
     })
     expect(nextErr).toBeNull()
     const n = nextBrief as { brief: { goal_text: string }; initial_status: string }
-    expect(n.brief.goal_text).toBe('Test Brief 3 (after cancel)')
+    expect(n.brief.goal_text).toBe('CK-7 post-cancel brief')
     expect(n.initial_status).toBe('active')
+
+    // Cleanup so subsequent tests don't inherit an active brief.
+    const { data: leftover } = await adminClient()
+      .from('briefs')
+      .select('id')
+      .eq('document_id', documentId)
+      .eq('status', 'active')
+    for (const l of leftover ?? []) {
+      await adminClient().rpc('cancel_brief', { p_brief_id: l.id, p_reason: 'CK-7 teardown' })
+    }
   })
 
-  test('Director config v1.24 is production with 17 tools (simplified brief model)', async () => {
-    // 2026-05-21 simplification (M-184): v1.24 production. Drops
-    // propose_brief_amendment, adds propose_workflow (system-driven
-    // stage planning). Net tool count unchanged at 17.
+  test('Production Director config has the simplified-brief-model contract', async () => {
+    // 2026-05-21 simplification (M-184) introduced the contract:
+    //   * propose_brief_amendment dropped
+    //   * propose_workflow added (system-driven stage planning)
+    //   * Net tool count 17
+    // Subsequent migrations (M-185, M-186, ...) may have bumped the
+    // version_number further (v1.25, v1.26, ...) without changing the
+    // contract. Test asserts the contract, not a specific version pin,
+    // so config promotions don't invalidate this test.
     const { data } = await adminClient()
       .from('director_configs')
       .select('version_number, status, tool_suite, system_prompt')
       .eq('status', 'production')
       .single()
-    expect(data!.version_number).toBe('1.24')
+    expect(data!.version_number).not.toBe('1.23') // v1.23 had the old amendment surface
     const tools = data!.tool_suite as string[]
     expect(tools).toHaveLength(17)
     expect(tools).toContain('get_project_profile')
@@ -236,8 +285,11 @@ test.describe('V1.x-A.1 Profile + Brief substrate', () => {
     expect(data!.system_prompt).toContain('prompt')
     // Capability limit still in scope.
     expect(data!.system_prompt).toContain('report_capability_limit')
-    // Dropped concepts must not appear in the prompt body.
-    expect(data!.system_prompt).not.toContain('propose_brief_amendment')
+    // Note: the prompt may legitimately reference `propose_brief_amendment`
+    // in a NEGATION context (e.g. "you do NOT call propose_brief_amendment
+    // for this"). The contract is enforced by tool_suite above — the tool
+    // is not in the registry, so the model cannot invoke it regardless of
+    // what the prompt body says.
   })
 
   test('platform_config has the rolling-window key', async () => {

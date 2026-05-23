@@ -219,12 +219,15 @@ test.describe('V1.x-B.2.3 — M-120 briefs.auto_approve_workflow_proposals + pus
     const admin = adminClient()
     const { documentId } = await newConversation(orgA, 'M-120 column test')
 
+    // M-205-era schema: briefs.state CHECK only allows
+    // {active, completed, cancelled} — 'planned' was a legacy status
+    // value that's no longer a legal state. Insert directly as 'active'.
     const { data: brief } = await admin
       .from('briefs')
       .insert({
         organisation_id: orgA,
         document_id: documentId,
-        status: 'planned',
+        status: 'active',
         sequence_position: 1,
         goal_text: 'Test brief',
       })
@@ -278,6 +281,9 @@ test.describe('V1.x-B.2.3 — M-120 briefs.auto_approve_workflow_proposals + pus
       .select('id')
       .single()
 
+    // M-185 evaluator: planned + no workflow_id requires a non-empty
+    // prompt (the system uses it as the user_message when invoking the
+    // Director). Empty prompt → evaluator skips the stage.
     const { data: stage2 } = await admin
       .from('brief_stages')
       .insert({
@@ -287,6 +293,7 @@ test.describe('V1.x-B.2.3 — M-120 briefs.auto_approve_workflow_proposals + pus
         status: 'planned',
         trigger_type: 'after_stage',
         trigger_config: { after_stage_order: 1 },
+        prompt: 'Plan stage two when stage one completes.',
       })
       .select('id')
       .single()
@@ -298,13 +305,13 @@ test.describe('V1.x-B.2.3 — M-120 briefs.auto_approve_workflow_proposals + pus
     expect(rpcErr).toBeNull()
     expect(typeof fired === 'number' ? fired : Number(fired)).toBeGreaterThanOrEqual(1)
 
-    // Verify stage 2 marked proposing.
+    // Verify stage 2 marked planning (M-183 renamed 'proposing' → 'planning').
     const { data: stage2After } = await admin
       .from('brief_stages')
       .select('status')
       .eq('id', stage2!.id)
       .single()
-    expect(stage2After!.status).toBe('proposing')
+    expect(stage2After!.status).toBe('planning')
 
     // Verify a director_iteration agent_job exists for this conversation.
     const { data: turns } = await admin
@@ -352,9 +359,10 @@ test.describe('V1.x-B.2.3 — M-120 briefs.auto_approve_workflow_proposals + pus
       .select('id')
       .single()
 
+    // M-185 evaluator: planned + no workflow_id requires a non-empty prompt.
     await admin.from('brief_stages').insert([
       { brief_id: brief!.id, order: 1, title: 'Stage 1', status: 'completed', completed_at: new Date().toISOString(), trigger_type: 'manual', trigger_config: {} },
-      { brief_id: brief!.id, order: 2, title: 'Stage 2', status: 'planned', trigger_type: 'after_stage', trigger_config: { after_stage_order: 1 } },
+      { brief_id: brief!.id, order: 2, title: 'Stage 2', status: 'planned', trigger_type: 'after_stage', trigger_config: { after_stage_order: 1 }, prompt: 'Plan stage two when stage one completes.' },
     ])
 
     // Pre-create an in-flight director_iteration on this conversation.
@@ -416,15 +424,15 @@ test.describe('V1.x-B.2.3 — M-120 briefs.auto_approve_workflow_proposals + pus
       .eq('operation_type', 'director_iteration')
     expect(afterIterCount).toBe(1)  // unchanged
 
-    // Stage 2 should still be marked 'proposing' (the evaluator marks
+    // Stage 2 should still be marked 'planning' (the evaluator marks
     // it before checking H-23; the deferred trigger will pick it up
-    // again next cycle).
+    // again next cycle). M-183 renamed 'proposing' → 'planning'.
     const { data: stages } = await admin
       .from('brief_stages')
       .select('order, status')
       .eq('brief_id', brief!.id)
       .order('order')
-    expect(stages![1].status).toBe('proposing')
+    expect(stages![1].status).toBe('planning')
 
     // Cleanup.
     await admin.from('agent_jobs').delete().eq('id', existingJob!.id)
