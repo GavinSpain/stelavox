@@ -1,5 +1,5 @@
 # Stelavox Brief Orchestration Specification
-## Version 1.0 — DRAFT 2026-05-22
+## Version 1.2 — DRAFT 2026-05-23
 
 > This document is the canonical specification for how a Brief flows from
 > user approval through to all stages completing. It defines the entities,
@@ -1337,6 +1337,155 @@ stateDiagram-v2
 
 ---
 
+### 11.7 Iteration-chain shape and the spawn-next state-machine action
+
+**Status:** M-205 (2026-05-23). Apollo iteration-fork follow-on after a
+2-stage brief test produced two parallel iteration chains within one
+proposal turn.
+
+#### 11.7.1 The architectural smell
+
+Pre-M-205 `lib/director/iteration-runner.ts` did two things in one
+function: recorded the LLM's facts (tokens, messages array) AND derived
+the consequence (INSERT the next iteration row). Spawn-next was a
+runtime decision in TypeScript code, not a state-machine action.
+
+That conflation created a class of bugs reachable by any code path that
+executed the runner twice on the same parent — SSE reconnect, React
+strict-mode double-mount, recovery sweep re-attach, future feature that
+resumes a paused turn. The schema had no guarantee that each parent had
+exactly one child; the tree being a chain was the *assumption the
+runner code happened to maintain on the happy path*.
+
+Surfaced 2026-05-23 by brief `024da309` ("The Cavern Revealed"). The
+proposal turn forked twice — iteration 2's child spawned two children
+each, both ran the LLM independently, both wrote different token counts,
+both INSERTed children of their own. 7 iterations recorded for what
+should have been 4. ~70% extra input tokens billed. The user-visible
+outcome was correct because both branches happened to converge on the
+same workflow proposal — convergence by luck, not design.
+
+#### 11.7.2 The three concentric layers
+
+**Layer 1 — Honour the state machine's CAS verdict.** The runner's
+claim block (`transitionAgentJob(jobId, 'persist_running_start',
+'running')`) gets a result. Pre-M-205 the code didn't check `claim.ok`
+on the fallback path and fell through; the losing runner ran the LLM
+anyway. Post-M-205 the runner returns on claim failure, yielding a
+`claim_lost` event. No LLM call, no spawn, no further writes.
+
+**Layer 2 — `consumer_kind` partition.** New `agent_jobs.consumer_kind
+TEXT NOT NULL DEFAULT 'dispatcher'` (CHECK in
+`{'inline_route', 'dispatcher'}`) partitions iteration rows by execution
+surface. `inline_route` = the route handler at `/api/director/message`
+(or `/resume`) owns the row; `dispatcher` = the scheduler owns the row
+(push-model planning turns, autonomous resumes, anything system-
+initiated). Two-sided gate:
+
+1. `agent_jobs_notify_insert` fires `pg_notify` ONLY for
+   `consumer_kind = 'dispatcher'` rows. The dispatcher's listener never
+   wakes for inline rows.
+2. `runDispatcherTick`'s candidate query adds
+   `.eq('consumer_kind', 'dispatcher')`. Defence-in-depth covering the
+   reconcile-driven sweep path.
+
+The spawn-next trigger (Layer 3) propagates parent's `consumer_kind` to
+the child INSERT. Ownership intent flows through the chain.
+
+**Layer 3 — Spawn-next is a state-machine action.** New
+`agent_jobs.stop_reason TEXT NULL` is stamped by the runner on the
+`running → awaiting_accept` transition. A new
+`trg_agent_jobs_spawn_next_iteration` AFTER UPDATE trigger fires when
+`stop_reason = 'tool_use'` and INSERTs the next iteration atomically
+inside the same transition transaction. The 40-line INSERT block in
+`iteration-runner.ts` is deleted; the runner SELECTs the
+trigger-spawned child by `parent_iteration_id` to populate
+`next_iteration_job_id`.
+
+Two partial unique indices enforce the chain shape structurally:
+
+- `agent_jobs_parent_iteration_unique` on `(parent_iteration_id) WHERE
+  parent_iteration_id IS NOT NULL` — every parent has at most one
+  child. Catches any code path that tries to fork.
+- `agent_jobs_turn_iteration_unique` on `(director_turn_id,
+  iteration_number) WHERE operation_type='director_iteration' AND
+  director_turn_id IS NOT NULL` — no two iterations share a number
+  within a turn. Different angle on the same invariant.
+
+#### 11.7.3 Layer-0 foundation: TRUE CAS on `transitionAgentJob`
+
+Simulator Scenario 11 (concurrent claim race) immediately revealed that
+**Layer 1 was non-functional on its own** because `transitionAgentJob`
+itself had a CAS gap: the DB trigger `enforce_legal_transition` only
+raises when `OLD.state IS DISTINCT FROM NEW.state`. Setting `state=X`
+on a row already at `state=X` is a no-op UPDATE — the trigger skips
+the legality check and the UPDATE silently succeeds.
+
+Two concurrent runners calling
+`transitionAgentJob(jobId, 'persist_running_start', 'running')` BOTH
+saw `ok=true` pre-M-205. The first did the actual change; the second
+saw the row already at the target state and got a silent same-state
+UPDATE.
+
+Fix: shared helper `lib/orchestration/cas-lookup.ts` looks up the legal
+source state(s) for an `(entity, event, target)` triple from the
+`allowed_transitions` table. Every entity machine's transition function
+now adds `.in('state', expectedSources)` to its UPDATE. Loser races
+match 0 rows and return `error='cas_lost'`. Applied uniformly across
+**all five** entity machines: agent_jobs, briefs, brief_stages,
+workflows, workflow_steps, director_turns.
+
+#### 11.7.4 New audit invariant I9
+
+`audit_orchestration_state()` returns:
+
+| Invariant | Entity | Definition |
+|---|---|---|
+| I9 | agent_jobs | Every iteration parent has at most one child. `parent_iteration_id IS NOT NULL AND operation_type='director_iteration'` grouped by `parent_iteration_id` HAVING `count(*) > 1`. |
+
+Should never fire while `agent_jobs_parent_iteration_unique` exists;
+recorded for forensics. If it ever does fire, the index is missing or
+has been bypassed.
+
+#### 11.7.5 Historical-fork cleanup
+
+The M-205 migration includes a one-time recursive cleanup that walks
+the loser sub-tree of any pre-existing fork. For each fork found:
+
+- The earliest-started child per parent is preserved as the canonical
+  chain owner.
+- All later children + their descendants get `parent_iteration_id =
+  NULL` and `iteration_number = NULL`. Original values are preserved
+  in `error_message` for forensics.
+
+The 2026-05-23 user test produced 3 initial losers + 5 descendants = 8
+orphaned rows. Without the cleanup, both unique indices would refuse to
+create.
+
+#### 11.7.6 New error code on `TransitionResult`
+
+`TransitionResult.error` adds two values: `'cas_lost'` (UPDATE
+matched 0 rows because state wasn't in expected sources) and
+`'no_transition_for_event'` (no `allowed_transitions` row for the
+given (entity, event, target); caller bug). Callers handle `cas_lost`
+the same way they handled `not_found` pre-M-205 — exit silently and let
+the winning writer drive completion.
+
+#### 11.7.7 State-aware `markAgentJobCancelledAnyState`
+
+Multiple API routes used `cancel_or_cascade` as their cancel event
+regardless of the row's current state. Pre-CAS this silently succeeded
+because the (from, to) pair was legal via a different event
+(`cancel_mid_dispatch`, `cancel_mid_run`, etc.). Post-CAS the lookup
+returned only `['queued']` and the UPDATE failed for any other state.
+
+New helper `markAgentJobCancelledAnyState` reads the row's current
+state and dispatches to the correct event-state pairing. Idempotent on
+already-terminal rows. `/api/scheduler/jobs/[id]/cancel` and
+`/api/agent-jobs/[id]/cancel` migrated to use it.
+
+---
+
 ## 12. Reset, Recovery, and Self-Healing
 
 This section answers: *"the astronauts can't be stuck; what's the reset button?"*
@@ -1673,6 +1822,23 @@ The `getConfig` cache makes lookups effectively free at request time.
 ---
 
 ## 15. Versioning
+
+**v1.2 (DRAFT) — 2026-05-23.** Apollo iteration-fork follow-on (M-205).
+Adds §11.7 documenting the three-layer fix for the iteration-tree fork
+bug + the layer-0 CAS gap surfaced by the simulator. The fix made three
+schema additions (`agent_jobs.consumer_kind` + `agent_jobs.stop_reason`
++ two partial unique indices on iteration shape), one new spawn-next
+state-machine trigger replacing the runner's INSERT block, an updated
+`agent_jobs_notify_insert` that gates by `consumer_kind`, and a new I9
+audit invariant. The discovered CAS gap (DB trigger only catches
+`OLD ≠ NEW`; same-state writes silently succeeded) was fixed across
+ALL FIVE entity machines via a shared `lib/orchestration/cas-lookup.ts`
+helper — every transition now does `.in('state', expectedSources)` as a
+true CAS, derived from the `allowed_transitions` table. New error code
+`'cas_lost'` on `TransitionResult`. New `markAgentJobCancelledAnyState`
+helper for state-aware cancel paths (multiple API routes were using a
+single cancel event regardless of state; the CAS surfaced this).
+4 new simulator scenarios (Layers 1/2/3 + unique-index direct test).
 
 **v1.1 (DRAFT) — 2026-05-22 (later session).** Adds the formal layer:
 §5 message bus updated to drop the 1s `dispatcher_tick` cron and replace

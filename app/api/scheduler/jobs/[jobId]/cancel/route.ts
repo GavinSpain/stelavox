@@ -67,19 +67,18 @@ export async function POST(
     return apiError(409, 'invalid_status', `cannot cancel job in status "${job.status}/${job.queue_status}"`)
   }
 
-  // Apollo Phase 3: delegate to orchestration. The DB trigger refuses
-  // illegal transitions and auto-derive keeps legacy columns in sync.
-  const { transitionAgentJob } = await import('@/lib/orchestration')
-  const cancelResult = await transitionAgentJob(
+  // Apollo Phase 3: delegate to orchestration. M-205 makes
+  // markAgentJobCancelledAnyState the right primitive here — the user-
+  // facing cancel route doesn't know (or care) which state the row is
+  // in; the helper picks the correct event-state pairing internally
+  // and returns idempotent success on already-terminal rows.
+  const { markAgentJobCancelledAnyState } = await import('@/lib/orchestration')
+  const cancelResult = await markAgentJobCancelledAnyState(
     supabase,
     jobId,
-    'cancel_or_cascade',
-    'cancelled',
-    { errorMessage: reason !== null ? `cancelled_by_user: ${reason}` : undefined },
+    reason !== null ? `cancelled_by_user: ${reason}` : 'cancelled_by_user',
   )
-  if (!cancelResult.ok && cancelResult.error === 'illegal_transition') {
-    // The row was already terminal — handled gracefully (idempotent).
-  } else if (!cancelResult.ok) {
+  if (!cancelResult.ok) {
     return apiError(500, 'cancel_update_failed', cancelResult.message ?? cancelResult.error ?? 'unknown')
   }
 

@@ -100,6 +100,15 @@ export async function runDispatcherTick(): Promise<DispatcherTickResult> {
       'id, organisation_id, document_id, operation_type, traffic_class, execution_intent, scheduled_at, route, director_turn_id, parent_iteration_id, iteration_number, queued_at',
     )
     .eq('queue_status', 'queued')
+    // M-205 (Apollo iteration-fork fix): the dispatcher is the sole
+    // consumer for consumer_kind='dispatcher' rows. Rows tagged
+    // 'inline_route' are owned by /api/director/message's inline
+    // runIteration loop and must not be considered for dispatch.
+    // The SQL-side gate is in agent_jobs_notify_insert (no NOTIFY
+    // fires for inline rows); this query filter is defence-in-depth
+    // for the recovery sweep path that runs ticks via the reconcile
+    // schedule rather than the INSERT NOTIFY.
+    .eq('consumer_kind', 'dispatcher')
     // 2026-05-22 — defence-in-depth: refuse to consider any row that
     // already has completed_at set. The terminal-state write in
     // persistFinalResult / persistFailure / persistCancellation /

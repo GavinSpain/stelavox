@@ -5,12 +5,18 @@
  *
  * Includes the new `'ready'` state (Q2) that distinguishes
  * workflow-attached-awaiting-completion from no-workflow-yet.
+ *
+ * M-205 follow-on (2026-05-23): now uses casLookupSources to enforce
+ * TRUE CAS on the UPDATE. brief_stages has the multi-source event
+ * 'cancel_brief' (from planned/planning/ready) which the helper
+ * handles via .in('state', sources).
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { BriefStageState } from './states'
 import type { BriefStageEvent } from './events'
 import type { TransitionResult } from './transition-result'
+import { casLookupSources } from './cas-lookup'
 
 export async function transitionBriefStage(
   supabase: SupabaseClient,
@@ -19,17 +25,28 @@ export async function transitionBriefStage(
   target: BriefStageState,
   extra?: Record<string, unknown>,
 ): Promise<TransitionResult<BriefStageState>> {
-  void event
-
   const updateFields: Record<string, unknown> = { state: target, ...extra }
   if (target === 'completed' || target === 'cancelled' || target === 'failed') {
     updateFields.completed_at = new Date().toISOString()
+  }
+
+  // M-205 CAS guard.
+  const lookup = await casLookupSources(supabase, 'brief_stages', event, target)
+  if (lookup.error) {
+    return {
+      ok: false,
+      priorState: null,
+      newState: null,
+      error: lookup.error,
+      message: lookup.message,
+    }
   }
 
   const { data, error } = await supabase
     .from('brief_stages')
     .update(updateFields)
     .eq('id', stageId)
+    .in('state', lookup.expectedSources)
     .select('id, state')
     .maybeSingle()
 
@@ -39,7 +56,9 @@ export async function transitionBriefStage(
     }
     return { ok: false, priorState: null, newState: null, error: 'db_error', message: error.message }
   }
-  if (!data) return { ok: false, priorState: null, newState: null, error: 'not_found' }
+  if (!data) {
+    return { ok: false, priorState: null, newState: null, error: 'cas_lost' }
+  }
   return { ok: true, priorState: null, newState: data.state as BriefStageState }
 }
 

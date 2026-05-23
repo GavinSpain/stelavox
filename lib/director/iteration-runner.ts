@@ -429,12 +429,42 @@ async function* runIterationInner(
   // ---- 5. Mark dispatched → running, start heartbeat --------------------
   // Apollo Phase 3: delegate to orchestration. Try dispatched→running
   // first (dispatcher claim path), then queued→running (push-model
-  // direct-insert path). The DB trigger refuses any illegal transition.
+  // direct-insert path or inline-route path). The DB trigger refuses
+  // any illegal transition.
+  //
+  // M-205 (Apollo iteration-fork fix): honour the CAS verdict. If both
+  // transition attempts fail, another runner already claimed this job
+  // — return cleanly without running the LLM or spawning a child. The
+  // first runner is responsible for completing the iteration; the
+  // second exits silently. Pre-M-205 the code fell through and ran
+  // the LLM anyway, producing the parallel-iteration forks observed
+  // 2026-05-23 in the proposal turn of brief 024da309. See
+  // docs/stelavox_brief_orchestration_v1_0.md §11.6.
   {
     const { transitionAgentJob } = await import('@/lib/orchestration')
+    // Try the dispatcher path first (queued already CAS-claimed to
+    // dispatched by lib/scheduler/dispatcher), then the inline-route
+    // bypass (queued → running directly). M-205 made transitionAgentJob
+    // a true CAS, so a wrong source state now returns 'cas_lost'
+    // instead of silently succeeding. Either error path falls through
+    // to the bypass attempt; only if BOTH fail do we exit.
     let claim = await transitionAgentJob(supabase, jobId, 'persist_running_start', 'running')
-    if (!claim.ok && claim.error === 'illegal_transition') {
+    if (!claim.ok && (claim.error === 'illegal_transition' || claim.error === 'cas_lost')) {
       claim = await transitionAgentJob(supabase, jobId, 'runner_start_bypass', 'running')
+    }
+    if (!claim.ok) {
+      // Another runner won the race (or the row is in an unexpected
+      // state). Exit silently — no LLM call, no spawn, no further
+      // writes. The winning runner will drive the iteration to
+      // completion.
+      console.warn('[iteration-runner] claim lost on jobId', jobId, 'error', claim.error)
+      yield {
+        type: 'error',
+        error: 'claim_lost',
+        message: `runner could not claim agent_jobs ${jobId}: ${claim.error ?? 'unknown'}`,
+        failure_class: 'B',
+      }
+      return
     }
   }
 
@@ -917,7 +947,19 @@ async function* runIterationInner(
   }
 
   if (stopReason === 'tool_use' && toolResultBlocks.length > 0) {
-    // Continue to next iteration.
+    // Continue to next iteration. M-205 (Apollo iteration-fork fix):
+    // spawn responsibility moves from this code to the DB trigger
+    // trg_agent_jobs_spawn_next_iteration. The trigger fires on the
+    // running → awaiting_accept transition below and inserts the child
+    // row atomically. We only need to (a) enforce the iteration cap
+    // before letting the transition happen and (b) SELECT the spawned
+    // child after the transition to populate next_iteration_job_id.
+    //
+    // Cap check stays here because it depends on platform_config and
+    // a transition to 'failed' is more semantically accurate than
+    // letting the trigger spawn and then having to undo. When cap is
+    // exhausted, we transition to 'failed' — the trigger does not
+    // fire (it only fires on awaiting_accept).
     const nextIterationNumber = (jobRow.iteration_number ?? 1) + 1
     const maxIterations = await getConfigInt('agent.director_max_tool_iterations')
 
@@ -930,47 +972,9 @@ async function* runIterationInner(
       return
     }
 
-    // Build next iteration's iteration_state. The conversation_context
-    // is pinned at turn start and carries through every iteration
-    // unchanged. updatedMessages already includes this iteration's
-    // assistant message + tool_result pair appended above.
-    const nextIterationState: IterationStateV1 = {
-      __schema_version: 1,
-      conversation_context: iterationState.conversation_context,
-      messages: updatedMessages,
-      user_message: iterationState.user_message,
-      system_prompt_version: iterationState.system_prompt_version,
-      model: iterationState.model,
-      mentioned_node_ids: iterationState.mentioned_node_ids,
-    }
-
-    // INSERT next iteration row.
-    const { data: nextJob, error: insertErr } = await supabase
-      .from('agent_jobs')
-      .insert({
-        organisation_id: conversation.organisation_id,
-        document_id: conversation.document_id,
-        operation_type: 'director_iteration',
-        status: 'pending',
-        queue_status: 'queued',
-        triggered_by: 'iteration_chain',
-        traffic_class: 1,
-        cause: 'director_iteration',
-        director_turn_id: jobRow.director_turn_id,
-        parent_iteration_id: jobId,
-        iteration_number: nextIterationNumber,
-        iteration_state: nextIterationState as unknown as Record<string, unknown>,
-      })
-      .select('id')
-      .single()
-
-    if (insertErr || !nextJob) {
-      yield { type: 'error', error: 'next_iteration_insert_failed', message: insertErr?.message ?? 'no row returned', failure_class: 'E' }
-      await markJobFailed(supabase, jobId, 'next_iteration_insert_failed', 'E')
-      return
-    }
-
-    nextIterationJobId = nextJob.id
+    // Fall through: the awaiting_accept transition below will stamp
+    // stop_reason='tool_use', causing the spawn trigger to fire. After
+    // the transition we SELECT the spawned row by parent_iteration_id.
   } else {
     // Final iteration — turn complete. Apollo Phase 5 expected-output
     // check: if this turn was started by a stage_trigger AND the
@@ -1081,6 +1085,17 @@ async function* runIterationInner(
   // no author-Accept step, so we chain running→awaiting_accept→accepted
   // in two legal transitions. Phase 0.C (split into director_iterations
   // table) collapses this to running→completed directly.
+  // M-205 (Apollo iteration-fork fix): stamp stop_reason on the
+  // awaiting_accept transition. The new trg_agent_jobs_spawn_next_iteration
+  // trigger uses stop_reason='tool_use' as the signal to insert the next
+  // iteration row atomically inside this transition's transaction.
+  // Spawn responsibility moves from the runner (which could be invoked
+  // twice in race conditions) to the state machine (fires exactly once
+  // because the awaiting_accept transition is CAS-guarded).
+  //
+  // See lib/director/iteration-runner.ts §11 below — the runner no
+  // longer INSERTs the child row. It SELECTs the trigger-spawned row
+  // by parent_iteration_id to populate next_iteration_job_id.
   {
     const { transitionAgentJob } = await import('@/lib/orchestration')
     await transitionAgentJob(supabase, jobId, 'llm_ok', 'awaiting_accept', {
@@ -1090,6 +1105,7 @@ async function* runIterationInner(
         actual_output_tokens: iterationUsage.tokens_output,
         cost_credits: costCredits ?? null,
         cost_usd: costUsd ?? null,
+        stop_reason: stopReason,
         iteration_state: {
           ...iterationState,
           messages: updatedMessages,
@@ -1097,6 +1113,32 @@ async function* runIterationInner(
       },
     })
     await transitionAgentJob(supabase, jobId, 'author_accept', 'accepted')
+  }
+
+  // M-205 (Apollo iteration-fork fix): the awaiting_accept transition
+  // above fired trg_agent_jobs_spawn_next_iteration in the same SQL
+  // statement when stop_reason='tool_use'. Look up the spawned child
+  // by parent_iteration_id. The partial unique index
+  // agent_jobs_parent_iteration_unique guarantees at most one row.
+  if (stopReason === 'tool_use' && toolResultBlocks.length > 0) {
+    const { data: spawnedChild, error: spawnSelectErr } = await supabase
+      .from('agent_jobs')
+      .select('id')
+      .eq('parent_iteration_id', jobId)
+      .eq('operation_type', 'director_iteration')
+      .maybeSingle()
+    if (spawnSelectErr || !spawnedChild) {
+      // Trigger should have inserted exactly one row. If we don't see
+      // one, something is wrong with the spawn trigger or the
+      // awaiting_accept transition. Surface as a hard error.
+      clearInterval(heartbeatTicker)
+      yield { type: 'error', error: 'spawn_trigger_missed', message: `expected trigger-spawned child for parent_iteration_id=${jobId}; none found`, failure_class: 'E' }
+      await markJobFailed(supabase, jobId, 'spawn_trigger_missed', 'E')
+      await markTurnFailed(supabase, jobRow.director_turn_id)
+      yield { type: 'iteration_done', iteration_number: jobRow.iteration_number ?? 1, next_iteration_job_id: null, stop_reason: 'spawn_trigger_missed', usage: iterationUsage, cost_usd: costUsd, assistant_message_id: assistantMessageId, turn_complete: true, cancelled: false }
+      return
+    }
+    nextIterationJobId = spawnedChild.id
   }
 
   // Clear periodic heartbeat — iteration terminated successfully.

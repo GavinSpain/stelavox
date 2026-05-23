@@ -5,7 +5,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 
 import { err } from '@/lib/api/errors'
-import { transitionAgentJob } from '@/lib/orchestration'
+import { markAgentJobCancelledAnyState } from '@/lib/orchestration'
 import { createClient } from '@/lib/supabase/server'
 import { isValidUuid } from '@/lib/validation/uuid'
 
@@ -36,14 +36,13 @@ export async function POST(_request: NextRequest, { params }: Context) {
     return err.agentJobNotInProgress()
   }
 
-  // Apollo Phase 3: delegate to orchestration. The DB trigger will refuse
-  // any illegal transition; the auto-derive trigger keeps legacy columns
-  // in sync. This closes G-06 — pre-fix this route wrote `status` only,
-  // leaving `queue_status` stale and check_node_writable indefinitely
-  // flagging the node as in-progress.
-  const result = await transitionAgentJob(supabase, jobId, 'cancel_or_cascade', 'cancelled', {
-    errorMessage: 'user_cancelled',
-  })
+  // Apollo Phase 3 + M-205: delegate to orchestration via the state-
+  // aware helper. The row may be in any non-terminal state at the
+  // moment of cancel; pre-M-205 we used a single event and relied on
+  // the trigger to silently allow same-(from,to) pairs even when the
+  // event was wrong for the source. M-205's true CAS refuses those,
+  // so the helper picks the right event for the row's current state.
+  const result = await markAgentJobCancelledAnyState(supabase, jobId, 'user_cancelled')
   if (!result.ok) {
     console.error('[agent-jobs cancel] transition failed', { jobId, error: result.error, message: result.message })
     return err.internal()

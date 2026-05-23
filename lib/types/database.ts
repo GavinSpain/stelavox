@@ -45,6 +45,7 @@ export type Database = {
           bucket_wait_ms: number | null
           cause: string | null
           completed_at: string | null
+          consumer_kind: string
           context_snapshot: Json | null
           cost_credits: number | null
           cost_usd: number | null
@@ -86,6 +87,7 @@ export type Database = {
           started_at: string | null
           state: string
           status: string
+          stop_reason: string | null
           target_node_version_at_capture: number | null
           tokens_cache_read: number | null
           tokens_cache_write: number | null
@@ -105,6 +107,7 @@ export type Database = {
           bucket_wait_ms?: number | null
           cause?: string | null
           completed_at?: string | null
+          consumer_kind?: string
           context_snapshot?: Json | null
           cost_credits?: number | null
           cost_usd?: number | null
@@ -146,6 +149,7 @@ export type Database = {
           started_at?: string | null
           state?: string
           status?: string
+          stop_reason?: string | null
           target_node_version_at_capture?: number | null
           tokens_cache_read?: number | null
           tokens_cache_write?: number | null
@@ -165,6 +169,7 @@ export type Database = {
           bucket_wait_ms?: number | null
           cause?: string | null
           completed_at?: string | null
+          consumer_kind?: string
           context_snapshot?: Json | null
           cost_credits?: number | null
           cost_usd?: number | null
@@ -206,6 +211,7 @@ export type Database = {
           started_at?: string | null
           state?: string
           status?: string
+          stop_reason?: string | null
           target_node_version_at_capture?: number | null
           tokens_cache_read?: number | null
           tokens_cache_write?: number | null
@@ -837,7 +843,7 @@ export type Database = {
           sequence_position?: number
           started_at?: string | null
           state?: string
-          status?: string
+          status: string
         }
         Update: {
           approved_at?: string | null

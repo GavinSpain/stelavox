@@ -250,6 +250,10 @@ export async function POST(
           config: directorConfig,
           organisationId: conversation.organisation_id,
           documentId: conversation.document_id,
+          // M-205: resume runs runIteration in this route handler's
+          // own loop (same shape as /api/director/message). Mark
+          // 'inline_route' so the dispatcher ignores these rows.
+          consumerKind: 'inline_route',
         })
         firstIterationJobId = start.firstIterationJobId
 

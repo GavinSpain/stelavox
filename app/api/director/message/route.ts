@@ -325,6 +325,12 @@ export async function POST(req: NextRequest): Promise<Response> {
           config: directorConfig,
           organisationId,
           documentId: document_id,
+          // M-205: this turn is consumed by the route handler's inline
+          // runIteration loop below. Marking the first iteration (and
+          // by propagation every child) as 'inline_route' tells the
+          // dispatcher to ignore these rows — the route handler is the
+          // sole consumer.
+          consumerKind: 'inline_route',
         })
         turnId = start.turnId
         firstIterationJobId = start.firstIterationJobId

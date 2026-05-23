@@ -27,6 +27,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type { AgentJobState } from './states'
 import type { AgentJobEvent } from './events'
 import type { TransitionResult } from './transition-result'
+import { casLookupSources } from './cas-lookup'
 
 export type { TransitionResult }
 
@@ -119,16 +120,35 @@ export async function transitionAgentJob(
     Object.assign(updateFields, payload.dispatcherFields)
   }
 
-  // Compile-time use of `event` parameter — the value is informational
-  // for observability hooks; the DB trigger validates the transition,
-  // not the event name. Use it in the metadata logging hook below.
-  // (Suppress unused-parameter warning while preserving the signature.)
-  void event
+  // M-205 (Apollo iteration-fork fix) layer-0 foundation: TRUE CAS.
+  //
+  // The DB trigger `enforce_legal_transition` only raises when
+  // OLD.state IS DISTINCT FROM NEW.state. Setting state=X on a row
+  // already at X is treated as a no-op UPDATE — the trigger skips
+  // the legality check entirely and the UPDATE silently succeeds.
+  //
+  // Fix: look up expected source state(s) from allowed_transitions
+  // and add `.in('state', sources)` to the UPDATE. The loser's UPDATE
+  // matches 0 rows and returns ok=false with error='cas_lost'.
+  //
+  // Surfaced 2026-05-23 by Simulator Scenario 11. Applied uniformly
+  // across all entity machines via the shared casLookupSources helper.
+  const lookup = await casLookupSources(supabase, 'agent_jobs', event, target)
+  if (lookup.error) {
+    return {
+      ok: false,
+      priorState: null,
+      newState: null,
+      error: lookup.error,
+      message: lookup.message,
+    }
+  }
 
   const { data, error } = await supabase
     .from('agent_jobs')
     .update(updateFields)
     .eq('id', jobId)
+    .in('state', lookup.expectedSources) // CAS guard
     .select('id, state')
     .maybeSingle()
 
@@ -154,18 +174,25 @@ export async function transitionAgentJob(
   }
 
   if (!data) {
-    // No row matched — either row didn't exist or optimistic-lock loss.
+    // No row matched — either the row doesn't exist, OR (more likely
+    // in race conditions) the row is no longer in the expected source
+    // state because another writer beat us to the transition.
+    //
+    // We could query to disambiguate "not found" from "cas lost" but
+    // that's another round-trip and callers handling either case the
+    // same way. Return a single 'cas_lost' error code — it covers
+    // both "row not found" and "row not in expected source state".
     return {
       ok: false,
       priorState: null,
       newState: null,
-      error: 'not_found',
+      error: 'cas_lost',
     }
   }
 
   return {
     ok: true,
-    priorState: null, // we don't read prior — trigger validated it
+    priorState: null, // we don't read prior — the CAS guard validated it
     newState: data.state as AgentJobState,
   }
 }
@@ -273,4 +300,81 @@ export async function recordAgentJobHeartbeat(
     .update({ last_heartbeat_at: new Date().toISOString() })
     .eq('id', jobId)
     .eq('state', 'running')
+}
+
+// ---------------------------------------------------------------------------
+// State-aware cancel — M-205 follow-on for the CAS tightening
+// ---------------------------------------------------------------------------
+
+/**
+ * Map each non-terminal agent_job state to its specific cancel event.
+ * Used by markAgentJobCancelledAnyState to pick the right event for the
+ * row's current state. Terminal states are no-ops (idempotent success).
+ */
+const CANCEL_EVENT_BY_STATE: Partial<Record<AgentJobState, AgentJobEvent>> = {
+  queued:          'cancel_or_cascade',
+  dispatched:      'cancel_mid_dispatch',
+  running:         'cancel_mid_run',
+  awaiting_accept: 'cancel',
+}
+
+/**
+ * Cancel an agent_job regardless of its current active state.
+ *
+ * Pre-M-205, callers could pass any one cancel event (e.g. always
+ * 'cancel_or_cascade') and the trigger would silently allow it because
+ * the trigger only checks the (from, to) pair, not the event name. M-205
+ * tightened transitionAgentJob to a true CAS keyed on the event, which
+ * surfaced that those callers were event-misusing rows whose state had
+ * already moved past the expected source.
+ *
+ * This helper reads the row's current state and dispatches to the
+ * correct specific event. Idempotent on terminal states: if the row is
+ * already accepted / dismissed / failed / crashed / cancelled, returns
+ * ok=true with priorState set to the terminal state (so the caller can
+ * surface "already done" cleanly).
+ *
+ * Source: docs/stelavox_brief_orchestration_v1_0.md §11.6 (M-205
+ * follow-on). The orchestration library exposes this as a single
+ * primitive so cancel routes don't each duplicate the state→event map.
+ */
+export async function markAgentJobCancelledAnyState(
+  supabase: SupabaseClient,
+  jobId: string,
+  reason: string,
+): Promise<TransitionResult<AgentJobState>> {
+  const { data: row, error } = await supabase
+    .from('agent_jobs')
+    .select('state')
+    .eq('id', jobId)
+    .maybeSingle()
+  if (error) {
+    return { ok: false, priorState: null, newState: null, error: 'db_error', message: error.message }
+  }
+  if (!row) {
+    return { ok: false, priorState: null, newState: null, error: 'not_found' }
+  }
+  const currentState = row.state as AgentJobState
+
+  // Terminal — idempotent success.
+  const TERMINAL: AgentJobState[] = ['accepted', 'dismissed', 'failed', 'crashed', 'cancelled']
+  if (TERMINAL.includes(currentState)) {
+    return { ok: true, priorState: currentState, newState: currentState }
+  }
+
+  const event = CANCEL_EVENT_BY_STATE[currentState]
+  if (!event) {
+    // Unknown active state — should never happen, but fail closed.
+    return {
+      ok: false,
+      priorState: currentState,
+      newState: null,
+      error: 'no_transition_for_event',
+      message: `markAgentJobCancelledAnyState: no cancel event mapped for state '${currentState}'`,
+    }
+  }
+
+  return transitionAgentJob(supabase, jobId, event, 'cancelled', {
+    errorMessage: reason,
+  })
 }

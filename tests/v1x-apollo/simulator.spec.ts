@@ -129,6 +129,7 @@ async function seedBriefScaffold(stagesSpec: Array<{ workflow: boolean; prompt: 
       document_id: fx.documentId,
       goal_text: 'simulator',
       state: 'active',
+      status: 'active', // legacy two-column shape; BEFORE INSERT auto-derive trigger overrides this from `state` anyway, but TS expects the field
       cause: 'user_initial',
       sequence_position: 0,
     })
@@ -571,4 +572,236 @@ test('Scenario 10: brief stuck active with all stages terminal → reconcile pro
 
   const { data: briefAfter } = await admin.from('briefs').select('state').eq('id', sb.briefId).single()
   expect((briefAfter as { state: string }).state).toBe('completed')
+})
+
+// ---------------------------------------------------------------------------
+// M-205 (Apollo iteration-fork fix) — Scenarios 11-14
+//
+// Layer 1 (claim guard) is exercised by Scenario 11.
+// Layer 2 (consumer_kind partition) is exercised by Scenario 12.
+// Layer 3 (spawn-next trigger + unique index) is exercised by
+// Scenarios 13 and 14.
+// ---------------------------------------------------------------------------
+
+/**
+ * Seed a director_turn + first iteration row for the M-205 tests.
+ * Returns the ids so the test can drive the iteration state directly.
+ */
+async function seedDirectorIteration(
+  consumerKind: 'inline_route' | 'dispatcher',
+  state: 'queued' | 'dispatched' | 'running' = 'queued',
+): Promise<{ turnId: string; jobId: string }> {
+  const admin = adminClient()
+  const { data: turn, error: turnErr } = await admin
+    .from('director_turns')
+    .insert({
+      conversation_id: fx.conversationId,
+      status: 'in_progress',
+    })
+    .select('id')
+    .single()
+  if (turnErr || !turn) throw new Error(`director_turns insert failed: ${turnErr?.message}`)
+
+  const iterationState = {
+    __schema_version: 1,
+    conversation_context: [],
+    messages: [{ role: 'user', content: 'sim' }],
+    user_message: { role: 'user', content: 'sim' },
+    system_prompt_version: 1,
+    model: 'sim-model',
+    mentioned_node_ids: [],
+  }
+
+  const { data: job, error: jobErr } = await admin
+    .from('agent_jobs')
+    .insert({
+      organisation_id: fx.orgId,
+      document_id: fx.documentId,
+      operation_type: 'director_iteration',
+      state,
+      traffic_class: 1,
+      route: 'platform',
+      cause: 'user_message',
+      triggered_by: 'director_turn',
+      director_turn_id: turn.id as string,
+      parent_iteration_id: null,
+      iteration_number: 1,
+      iteration_state: iterationState,
+      consumer_kind: consumerKind,
+    })
+    .select('id')
+    .single()
+  if (jobErr || !job) throw new Error(`agent_jobs insert failed: ${jobErr?.message}`)
+
+  return { turnId: turn.id as string, jobId: job.id as string }
+}
+
+test('Scenario 11 (M-205 Layer 1): concurrent claim race — exactly one runner wins', async () => {
+  const admin = adminClient()
+  const seed = await seedDirectorIteration('dispatcher', 'dispatched')
+
+  // Two concurrent claims via the orchestration entry point. The DB
+  // CAS trigger refuses the second; transitionAgentJob returns
+  // { ok: false, error: 'illegal_transition' }.
+  const [a, b] = await Promise.all([
+    transitionAgentJob(admin, seed.jobId, 'persist_running_start', 'running'),
+    transitionAgentJob(admin, seed.jobId, 'persist_running_start', 'running'),
+  ])
+  const wins = [a, b].filter((r) => r.ok)
+  const losses = [a, b].filter((r) => !r.ok)
+  expect(wins.length).toBe(1)
+  expect(losses.length).toBe(1)
+  // M-205 layer-0 foundation: transitionAgentJob is now a true CAS.
+  // The loser's UPDATE matches 0 rows because state has already moved
+  // past the expected source. error='cas_lost'. Pre-M-205 this was
+  // silently winning; pre-CAS-fix this was 'illegal_transition' from
+  // the trigger (when the state HAD changed but pair was illegal).
+  expect(losses[0].error).toBe('cas_lost')
+
+  const { data: row } = await admin
+    .from('agent_jobs')
+    .select('state, actual_input_tokens')
+    .eq('id', seed.jobId)
+    .single()
+  expect((row as { state: string }).state).toBe('running')
+  // The losing runner must NOT have written tokens. (In production
+  // the runner would have called the LLM and stamped tokens; here we
+  // assert no double-write via the state machine only.)
+  expect((row as { actual_input_tokens: number | null }).actual_input_tokens).toBeNull()
+})
+
+test('Scenario 12 (M-205 Layer 2): inline_route row is invisible to dispatcher candidate query', async () => {
+  const admin = adminClient()
+  const inline = await seedDirectorIteration('inline_route', 'queued')
+  const dispatched = await seedDirectorIteration('dispatcher', 'queued')
+
+  // The dispatcher's candidate query filters consumer_kind='inline_route'.
+  // Mirror that query here to verify the partition holds.
+  const { data: visible } = await admin
+    .from('agent_jobs')
+    .select('id, consumer_kind')
+    .eq('queue_status', 'queued')
+    .eq('consumer_kind', 'dispatcher')
+    .is('completed_at', null)
+    .in('id', [inline.jobId, dispatched.jobId])
+
+  const visibleIds = (visible ?? []).map((r) => (r as { id: string }).id)
+  expect(visibleIds).toContain(dispatched.jobId)
+  expect(visibleIds).not.toContain(inline.jobId)
+})
+
+test('Scenario 13 (M-205 Layer 3): spawn-next trigger fires on awaiting_accept with stop_reason=tool_use', async () => {
+  const admin = adminClient()
+  const seed = await seedDirectorIteration('inline_route', 'running')
+
+  // Drive the running → awaiting_accept transition with stop_reason='tool_use'.
+  // The trigger should insert exactly one child row inheriting
+  // consumer_kind from the parent.
+  const result = await transitionAgentJob(admin, seed.jobId, 'llm_ok', 'awaiting_accept', {
+    resultColumns: { stop_reason: 'tool_use' },
+  })
+  expect(result.ok).toBe(true)
+
+  const { data: children } = await admin
+    .from('agent_jobs')
+    .select('id, parent_iteration_id, iteration_number, consumer_kind, state')
+    .eq('parent_iteration_id', seed.jobId)
+  expect(children?.length).toBe(1)
+  const child = (children ?? [])[0] as {
+    iteration_number: number
+    consumer_kind: string
+    state: string
+  }
+  expect(child.iteration_number).toBe(2)
+  expect(child.consumer_kind).toBe('inline_route') // inherited from parent
+  expect(child.state).toBe('queued')
+
+  // Negative case: end_turn must NOT spawn. Drive a fresh iteration
+  // and assert no child.
+  const seed2 = await seedDirectorIteration('dispatcher', 'running')
+  const r2 = await transitionAgentJob(admin, seed2.jobId, 'llm_ok', 'awaiting_accept', {
+    resultColumns: { stop_reason: 'end_turn' },
+  })
+  expect(r2.ok).toBe(true)
+  const { data: children2 } = await admin
+    .from('agent_jobs')
+    .select('id')
+    .eq('parent_iteration_id', seed2.jobId)
+  expect(children2?.length).toBe(0)
+})
+
+test('Scenario 14 (M-205 Layer 3): parent_iteration_id unique index forbids fork', async () => {
+  const admin = adminClient()
+  const parent = await seedDirectorIteration('inline_route', 'running')
+
+  // First child INSERT succeeds.
+  const child1 = await admin
+    .from('agent_jobs')
+    .insert({
+      organisation_id: fx.orgId,
+      document_id: fx.documentId,
+      operation_type: 'director_iteration',
+      state: 'queued',
+      traffic_class: 1,
+      route: 'platform',
+      cause: 'director_iteration',
+      triggered_by: 'iteration_chain',
+      director_turn_id: parent.turnId,
+      parent_iteration_id: parent.jobId,
+      iteration_number: 2,
+      iteration_state: {
+        __schema_version: 1,
+        conversation_context: [],
+        messages: [],
+        user_message: { role: 'user', content: 'sim' },
+        system_prompt_version: 1,
+        model: 'sim',
+        mentioned_node_ids: [],
+      },
+      consumer_kind: 'inline_route',
+    })
+    .select('id')
+    .single()
+  expect(child1.error).toBeNull()
+
+  // Second child INSERT with the same parent_iteration_id must fail
+  // with 23505 (unique_violation). This is the schema-level guarantee
+  // that the iteration tree is a chain.
+  const child2 = await admin
+    .from('agent_jobs')
+    .insert({
+      organisation_id: fx.orgId,
+      document_id: fx.documentId,
+      operation_type: 'director_iteration',
+      state: 'queued',
+      traffic_class: 1,
+      route: 'platform',
+      cause: 'director_iteration',
+      triggered_by: 'iteration_chain',
+      director_turn_id: parent.turnId,
+      parent_iteration_id: parent.jobId, // duplicate
+      iteration_number: 2,
+      iteration_state: {
+        __schema_version: 1,
+        conversation_context: [],
+        messages: [],
+        user_message: { role: 'user', content: 'sim' },
+        system_prompt_version: 1,
+        model: 'sim',
+        mentioned_node_ids: [],
+      },
+      consumer_kind: 'inline_route',
+    })
+    .select('id')
+    .single()
+  expect(child2.error).not.toBeNull()
+  expect(child2.error?.code).toBe('23505')
+
+  // I9 audit invariant must NOT fire (the index prevented the fork).
+  const { data: violations } = await admin.rpc('audit_orchestration_state')
+  const rows = (violations ?? []) as AuditRow[]
+  const i9Violations = rows.filter(
+    (r) => r.invariant_id === 'I9' && r.entity_id === parent.jobId,
+  )
+  expect(i9Violations).toEqual([])
 })
