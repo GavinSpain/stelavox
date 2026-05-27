@@ -1,20 +1,28 @@
 'use client'
 
-// Spec: stelavox_component_specification_v2_16.md §5.11 (VersionHistory)
+// Spec: stelavox_component_specification_v2_10.md §5.11 (v2.20 amendment)
 //       stelavox_phase3_api_contract_v1_0.md §3.2, §3.3
 //       Phase 6.C wireframe §05 — Restore action.
 //
-// Phase 3 shipped the list + hover diff. Phase 6.C ships the Restore
-// button on hover + RestoreConfirmModal + disabled states for nodes
-// that are author-locked / in use / agent in-flight.
+// Phase 3 shipped the list + hover-tooltip word-level diff. Phase 6.C
+// added the Restore button on hover + RestoreConfirmModal + disabled
+// states for nodes that are author-locked / in use / agent in-flight.
+// The v2.19 amendment added a click-to-preview pane below the list.
+// The v2.20 amendment removed the hover-diff tooltip — the click-to-
+// preview pane is the single surface for inspecting historical content
+// (two parallel surfaces was confusing UX; the preview pane gives a
+// faithful read of the prose, summary, and notes which the 320px diff
+// tooltip never could).
 //
 // Initial fetch: limit=7. "Show N more" loads the next 25.
-// Hover on a row → fetches that version's content + the next-higher
-// version's content → renders a word-level diff in a small tooltip.
+// Click on a row → selects it (mirrored in the preview pane); click
+//                  the same row again to deselect.
+// Hover a row → Restore button fades in (Phase 6.C affordance).
 // Empty state: TC-U-23 wording.
 
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { RestoreConfirmModal } from './RestoreConfirmModal'
+import { VersionPreviewPane } from './VersionPreviewPane'
 
 interface VersionRow {
   id: string
@@ -26,9 +34,12 @@ interface VersionRow {
 }
 
 interface FullVersion extends VersionRow {
-  summary: string | null
-  prose: string | null
-  notes: string | null
+  // Post-M-042 the API returns JSONB columns as parsed objects; pre-M-042
+  // and the editor wire format pass through as JSON-stringified docs.
+  // The VersionPreviewPane renderer accepts either shape.
+  summary: string | Record<string, unknown> | null
+  prose: string | Record<string, unknown> | null
+  notes: string | Record<string, unknown> | null
   metadata: Record<string, unknown> | null
 }
 
@@ -47,63 +58,11 @@ interface VersionHistoryProps {
 const INITIAL_LIMIT = 7
 const PAGE_LIMIT = 25
 
-// Walk Tiptap JSON for plain-text contents (used by the diff).
-// Stays inline rather than reaching for generateText() — avoids needing
-// the extensions array here, and is small enough that the editor-side
-// helper isn't worth coupling.
-function extractPlainText(jsonString: string | null): string {
-  if (!jsonString) return ''
-  try {
-    const root = JSON.parse(jsonString) as { content?: unknown[]; text?: string }
-    const out: string[] = []
-    function walk(node: unknown): void {
-      if (!node || typeof node !== 'object') return
-      const n = node as { content?: unknown[]; text?: string; type?: string }
-      if (typeof n.text === 'string') out.push(n.text)
-      if (Array.isArray(n.content)) {
-        for (const c of n.content) walk(c)
-      }
-      // Paragraph boundaries become single spaces in the diff text — diff is
-      // word-level so that's fine.
-      if (n.type === 'paragraph') out.push(' ')
-    }
-    walk(root)
-    return out.join('').replace(/\s+/g, ' ').trim()
-  } catch {
-    return jsonString
-  }
-}
-
-// Compute a token-level diff via LCS. Tokens are word-runs separated by spaces.
-// Returns an array of { type: 'unchanged'|'added'|'removed', text }.
-type DiffSeg = { type: 'unchanged' | 'added' | 'removed'; text: string }
-
-function diffWords(oldText: string, newText: string): DiffSeg[] {
-  const a = oldText ? oldText.split(/(\s+)/) : []
-  const b = newText ? newText.split(/(\s+)/) : []
-  const m = a.length
-  const n = b.length
-
-  // O(mn) LCS table — bounded to short prose tooltips.
-  const lcs: number[][] = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0))
-  for (let i = m - 1; i >= 0; i--) {
-    for (let j = n - 1; j >= 0; j--) {
-      if (a[i] === b[j]) lcs[i][j] = lcs[i + 1][j + 1] + 1
-      else lcs[i][j] = Math.max(lcs[i + 1][j], lcs[i][j + 1])
-    }
-  }
-
-  const out: DiffSeg[] = []
-  let i = 0, j = 0
-  while (i < m && j < n) {
-    if (a[i] === b[j]) { out.push({ type: 'unchanged', text: a[i] }); i++; j++ }
-    else if (lcs[i + 1][j] >= lcs[i][j + 1]) { out.push({ type: 'removed', text: a[i] }); i++ }
-    else { out.push({ type: 'added', text: b[j] }); j++ }
-  }
-  while (i < m) { out.push({ type: 'removed', text: a[i++] }) }
-  while (j < n) { out.push({ type: 'added', text: b[j++] }) }
-  return out
-}
+// (v2.20 amendment) Removed extractPlainText + diffWords + DiffSeg —
+// these powered the hover-diff tooltip which is gone. The click-to-
+// preview pane below the list is now the single inspection surface.
+// The unit/Vitest renderer for VersionPreviewPane handles the
+// Tiptap-JSON walk that extractPlainText previously did inline.
 
 export function VersionHistory({
   nodeId,
@@ -120,17 +79,26 @@ export function VersionHistory({
   const [hasMore, setHasMore] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError]   = useState(false)
-  const [hoveredVersion, setHoveredVersion] = useState<number | null>(null)
-  const [diffSegs, setDiffSegs] = useState<DiffSeg[] | null>(null)
+  // v2.20: simple per-row hover boolean (just the version number being
+  // hovered, or null). Drives the Restore button fade-in (Phase 6.C
+  // affordance). No content fetched on hover; the click-to-preview pane
+  // is the inspection surface.
+  const [hoveredRowVersion, setHoveredRowVersion] = useState<number | null>(null)
+  const [selectedVersion, setSelectedVersion] = useState<number | null>(null)
   const versionCache = useRef<Map<number, FullVersion>>(new Map())
 
   // Initial fetch
   useEffect(() => {
     let cancelled = false
-    // Reset loading + error on every nodeId change.
+    // Reset loading + error + selection + cache on every nodeId change.
+    // The cache is per-node — historical versions from one node can't be
+    // reused for another. Clearing it prevents the preview pane briefly
+    // rendering the wrong node's content after a tree-navigation.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoading(true)
     setError(false)
+    setSelectedVersion(null)
+    versionCache.current = new Map()
     fetch(`/api/nodes/${nodeId}/versions?limit=${INITIAL_LIMIT}&offset=0`)
       .then(r => r.json().then(body => ({ ok: r.ok, body })))
       .then(({ ok, body }) => {
@@ -154,7 +122,10 @@ export function VersionHistory({
     setHasMore(!!body.has_more)
   }
 
-  async function getVersionFull(versionNumber: number): Promise<FullVersion | null> {
+  // useCallback so the reference is stable across renders — the preview
+  // pane's useEffect depends on this function and would re-run on every
+  // parent render otherwise.
+  const getVersionFull = useCallback(async (versionNumber: number): Promise<FullVersion | null> => {
     const cached = versionCache.current.get(versionNumber)
     if (cached) return cached
     const res = await fetch(`/api/nodes/${nodeId}/versions/${versionNumber}`)
@@ -163,35 +134,7 @@ export function VersionHistory({
     const v = body.version as FullVersion
     versionCache.current.set(versionNumber, v)
     return v
-  }
-
-  async function onHover(versionNumber: number) {
-    setHoveredVersion(versionNumber)
-    setDiffSegs(null)
-    // Find the next-higher version in the list (rows are DESC ordered).
-    const idx = rows.findIndex(r => r.version === versionNumber)
-    if (idx <= 0) {
-      // Top row (current) — no next-higher to diff against; show no diff.
-      const self = await getVersionFull(versionNumber)
-      if (!self) return
-      setDiffSegs([{ type: 'unchanged', text: extractPlainText(self.prose) }])
-      return
-    }
-    const newer = rows[idx - 1]  // index above = newer (DESC)
-    const [oldFull, newFull] = await Promise.all([
-      getVersionFull(versionNumber),
-      getVersionFull(newer.version),
-    ])
-    if (!oldFull || !newFull) return
-    if (hoveredVersion !== null && versionNumber !== hoveredVersion) return
-    const segs = diffWords(extractPlainText(oldFull.prose), extractPlainText(newFull.prose))
-    setDiffSegs(segs)
-  }
-
-  function onLeave() {
-    setHoveredVersion(null)
-    setDiffSegs(null)
-  }
+  }, [nodeId])
 
   if (loading) {
     return (
@@ -229,17 +172,38 @@ export function VersionHistory({
     <div style={{ padding: 'var(--space-3) var(--space-4)' }}>
       {rows.map((row, idx) => {
         const isCurrent = idx === 0
+        const isSelected = selectedVersion === row.version
         return (
           <div
             key={row.id}
             data-version-row={row.version}
-            onMouseEnter={() => onHover(row.version)}
-            onMouseLeave={onLeave}
+            data-version-selected={isSelected ? 'true' : 'false'}
+            role="button"
+            tabIndex={0}
+            aria-pressed={isSelected}
+            aria-label={`Preview v${row.version}`}
+            onMouseEnter={() => setHoveredRowVersion(row.version)}
+            onMouseLeave={() => setHoveredRowVersion(prev => (prev === row.version ? null : prev))}
+            onClick={() => setSelectedVersion(prev => (prev === row.version ? null : row.version))}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault()
+                setSelectedVersion(prev => (prev === row.version ? null : row.version))
+              }
+            }}
             style={{
               position: 'relative',
-              padding: '8px 4px',
+              padding: '8px 4px 8px 8px',
               borderBottom: '1px solid var(--color-border-subtle)',
-              cursor: 'default',
+              // 2px left selection bar in --color-text-primary (NOT
+              // verdigris — selection is informational, not affirmative
+              // action; Inviolable #2 unchanged).
+              borderLeft: isSelected
+                ? '2px solid var(--color-text-primary)'
+                : '2px solid transparent',
+              background: isSelected ? 'var(--color-bg-elevated)' : 'transparent',
+              cursor: 'pointer',
+              transition: 'background var(--duration-fast) var(--easing-default)',
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
@@ -309,7 +273,10 @@ export function VersionHistory({
                         ? 'Agent result pending review. Accept or Dismiss the pending result first, then restore.'
                         : `Restore to v${row.version}`
                 }
-                onClick={() => {
+                onClick={(e) => {
+                  // Stop the row's onClick — we don't want clicking
+                  // Restore to also toggle the row's preview selection.
+                  e.stopPropagation()
                   if (restoreDisabledReason !== null) return
                   setRestoreTargetVersion(row.version)
                   setRestoreTargetMeta({
@@ -333,45 +300,12 @@ export function VersionHistory({
                   padding: '3px 10px',
                   background: 'transparent',
                   cursor: restoreDisabledReason !== null ? 'not-allowed' : 'pointer',
-                  opacity: hoveredVersion === row.version || restoreDisabledReason !== null ? 1 : 0,
+                  opacity: hoveredRowVersion === row.version || restoreDisabledReason !== null ? 1 : 0,
                   transition: 'opacity 120ms ease',
                 }}
               >
                 Restore…
               </button>
-            )}
-            {hoveredVersion === row.version && diffSegs && (
-              <div
-                role="tooltip"
-                style={{
-                  position: 'absolute',
-                  left: 0,
-                  top: '100%',
-                  marginTop: '4px',
-                  maxWidth: '320px',
-                  padding: '8px 10px',
-                  background: 'var(--color-bg-elevated)',
-                  border: '1px solid var(--color-border-default)',
-                  borderRadius: '4px',
-                  boxShadow: 'var(--shadow-md)',
-                  fontFamily: 'var(--font-inter), Inter, sans-serif',
-                  fontSize: '11px',
-                  lineHeight: 1.5,
-                  color: 'var(--color-text-secondary)',
-                  zIndex: 20,
-                  pointerEvents: 'none',
-                }}
-              >
-                {diffSegs.map((seg, i) => {
-                  if (seg.type === 'added') {
-                    return <span key={i} style={{ textDecoration: 'underline', color: 'var(--color-text-primary)' }}>{seg.text}</span>
-                  }
-                  if (seg.type === 'removed') {
-                    return <span key={i} style={{ textDecoration: 'line-through', color: 'var(--color-text-muted)' }}>{seg.text}</span>
-                  }
-                  return <span key={i}>{seg.text}</span>
-                })}
-              </div>
             )}
           </div>
         )
@@ -395,6 +329,14 @@ export function VersionHistory({
           Show {Math.min(PAGE_LIMIT, total - rows.length)} more versions…
         </button>
       )}
+
+      {/* Click-to-preview pane (v2.19 amendment). Hidden when there are
+          no rows — the empty-state copy above already covers that case. */}
+      <VersionPreviewPane
+        nodeId={nodeId}
+        selectedVersion={selectedVersion}
+        getVersionFull={getVersionFull}
+      />
 
       <RestoreConfirmModal
         open={restoreModalOpen && restoreTargetVersion !== null}
