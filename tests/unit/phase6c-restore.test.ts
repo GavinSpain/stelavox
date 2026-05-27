@@ -78,10 +78,64 @@ describe.skipIf(!hasServiceKey)('Phase 6.C restore_node_version RPC', () => {
       changed_by: u1.user!.id, change_reason: 'autosave',
     })
 
-    // Now update the live row to differ from v1. The M-035 trigger
-    // will bump content_revision and (since stelavox.bump_version
-    // is not set) keep version at 1.
-    await svc.from('nodes').update({ summary: newSummary }).eq('id', rootId)
+    // Now update the live row to differ from v1 AND bump the node's
+    // version past 1 (so the manual v=1 snapshot represents history,
+    // not the current state). M-210 added UNIQUE (node_id, version) on
+    // node_versions; pre-M-210 the fixture could leave nodes.version=1
+    // with a node_versions row also at v=1, but that was inconsistent
+    // — restore_node_version would then snapshot a second row at v=1
+    // and collide with the unique index. We bump via a raw SQL UPDATE
+    // wrapped in a SECURITY DEFINER setter so the M-035 trigger sees
+    // the GUC and bumps version cleanly. (The Supabase JS client can't
+    // set session GUCs across separate calls; we go through a one-off
+    // raw exec to set the GUC + UPDATE atomically.)
+    const { error: bumpErr } = await svc.rpc('exec_with_bump_version', {
+      p_node_id: rootId,
+      p_new_summary: newSummary,
+    })
+    if (bumpErr) {
+      // Helper RPC not present — fall back to direct UPDATE. Then bump
+      // the version manually via a Postgres-side workaround:
+      // insert a no-op completed agent_job + accept it, which uses
+      // the production GUC path. Cleaner than re-wiring the test.
+      // Simplest: just disable triggers, set version=2 directly.
+      // Use a service-role escape hatch via the `agent_jobs` accept
+      // pattern (which exists in production code path).
+      // For test isolation we directly UPDATE nodes.version through
+      // session_replication_role bypass via a wrapper RPC if needed;
+      // for now, the simplest correct fallback is to delete the
+      // pre-existing v=1 row, do the autosave (which won't bump),
+      // then re-insert v=1 *after* a separate accept path bumps
+      // nodes.version to 2. But the test only needs ONE prior history
+      // row, so a much simpler approach: insert the manual v=1 row
+      // representing prior history, then run an accept_agent_job
+      // pass-through that bumps the live to v=2 with the new content.
+      await svc.from('node_versions').delete().eq('node_id', rootId).eq('version', 1)
+      // Refresh: set the live to the v1 content first so we can then
+      // do an accept that bumps it to v=2 with the new content.
+      await svc.from('nodes').update({ summary: v1Summary }).eq('id', rootId)
+      // Create+accept a minimal refine job to legitimately bump v=1 → v=2.
+      const { data: profile } = await svc.from('agent_profiles')
+        .select('id').eq('operation_type', 'refine').limit(1).single()
+      const { data: job } = await svc.from('agent_jobs').insert({
+        organisation_id: orgId,
+        document_id: docId,
+        node_id: rootId,
+        profile_id: (profile as { id: string }).id,
+        operation_type: 'refine',
+        state: 'awaiting_accept',
+        result_summary: 'New current summary',
+        triggered_by: 'phase6c_fixture',
+      }).select('id').single()
+      await svc.rpc('accept_agent_job', {
+        p_job_id: (job as { id: string }).id,
+        p_actor_id: 'phase6c_fixture',
+        p_target_summary: newSummary,
+      })
+      // Now: nodes.version=2 with newSummary; node_versions has one
+      // row at v=1 (the pre-accept snapshot of v1Summary). The
+      // restore tests can now run cleanly.
+    }
 
     fix = {
       organisationId: orgId, projectId, documentId: docId,

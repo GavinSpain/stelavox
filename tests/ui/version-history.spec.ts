@@ -110,28 +110,12 @@ test.describe('Phase 3 — Version history', () => {
     await dispose(f)
   })
 
-  test('TC-U-21 — Hover diff preview shows added text underlined', async ({ page }) => {
-    const f = await setupFixture(orgA, 'TC-U-21', [
-      { prose: tiptapDoc('hello'),       reason: 'v1' },
-      { prose: tiptapDoc('hello world'), reason: 'v2' },
-    ])
-    await openBeatAndHistory(page, f)
-    // Hover over v1 row (the older one — last in the DESC list)
-    await page.locator('[data-version-row="1"]').hover()
-    // Tooltip with diff appears
-    const tooltip = page.locator('[role="tooltip"]')
-    await expect(tooltip).toBeVisible({ timeout: 3000 })
-    // "world" should appear underlined (added)
-    const underlinedText = await tooltip.evaluate(el => {
-      const spans = el.querySelectorAll('span')
-      return Array.from(spans)
-        .filter(s => window.getComputedStyle(s).textDecorationLine.includes('underline'))
-        .map(s => s.textContent)
-        .join(' ')
-    })
-    expect(underlinedText).toContain('world')
-    await dispose(f)
-  })
+  // TC-U-21 (Hover diff preview) — SUPERSEDED by v2.20 amendment.
+  // The hover-diff tooltip was removed; the click-to-preview pane
+  // covered by TC-U-24..28 is now the single inspection surface.
+  // Kept as a skipped placeholder so test numbering stays stable in
+  // historical reports.
+  test.skip('TC-U-21 — Hover diff preview (SUPERSEDED in v2.20)', async () => {})
 
   test('TC-U-22 — Show N more pagination loads next batch', async ({ page }) => {
     const versions = []
@@ -158,6 +142,89 @@ test.describe('Phase 3 — Version history', () => {
     await openBeatAndHistory(page, f)
     await expect(page.getByText(/Versions are recorded when the agent revises this node/)).toBeVisible()
     await expect(page.locator('[data-version-row]')).toHaveCount(0)
+    await dispose(f)
+  })
+
+  // ─────────────────────────────────────────────────────────────
+  // VersionHistory v2.19 amendment — click-to-preview pane
+  // ─────────────────────────────────────────────────────────────
+
+  test('TC-U-24 — Empty preview pane shown when nothing selected', async ({ page }) => {
+    const f = await setupFixture(orgA, 'TC-U-24', [
+      { prose: tiptapDoc('alpha'), reason: 'v1' },
+      { prose: tiptapDoc('beta'),  reason: 'v2' },
+    ])
+    await openBeatAndHistory(page, f)
+    // Preview empty-state visible by default.
+    await expect(page.getByTestId('version-preview-empty')).toBeVisible()
+    await expect(page.getByTestId('version-preview-pane')).toHaveCount(0)
+    await dispose(f)
+  })
+
+  test('TC-U-25 — Clicking a row renders the preview pane with that version content', async ({ page }) => {
+    const f = await setupFixture(orgA, 'TC-U-25', [
+      { prose: tiptapDoc('first version prose'),  reason: 'v1' },
+      { prose: tiptapDoc('second version prose'), reason: 'v2' },
+    ])
+    await openBeatAndHistory(page, f)
+    await page.locator('[data-version-row="1"]').click()
+    const pane = page.getByTestId('version-preview-pane')
+    await expect(pane).toBeVisible()
+    await expect(pane).toHaveAttribute('data-preview-version', '1')
+    await expect(pane.getByText('first version prose')).toBeVisible()
+    // Selected row carries data-version-selected=true; sibling does not.
+    await expect(page.locator('[data-version-row="1"]')).toHaveAttribute('data-version-selected', 'true')
+    await expect(page.locator('[data-version-row="2"]')).toHaveAttribute('data-version-selected', 'false')
+    await dispose(f)
+  })
+
+  test('TC-U-26 — Clicking another row swaps the preview content', async ({ page }) => {
+    const f = await setupFixture(orgA, 'TC-U-26', [
+      { prose: tiptapDoc('aardvark'), reason: 'v1' },
+      { prose: tiptapDoc('zebra'),    reason: 'v2' },
+    ])
+    await openBeatAndHistory(page, f)
+    await page.locator('[data-version-row="1"]').click()
+    await expect(page.getByTestId('version-preview-pane').getByText('aardvark')).toBeVisible()
+    await page.locator('[data-version-row="2"]').click()
+    const pane = page.getByTestId('version-preview-pane')
+    await expect(pane).toHaveAttribute('data-preview-version', '2')
+    await expect(pane.getByText('zebra')).toBeVisible()
+    await expect(pane.getByText('aardvark')).toHaveCount(0)
+    await dispose(f)
+  })
+
+  test('TC-U-27 — Clicking the selected row again deselects it (back to empty pane)', async ({ page }) => {
+    const f = await setupFixture(orgA, 'TC-U-27', [
+      { prose: tiptapDoc('content'), reason: 'v1' },
+    ])
+    await openBeatAndHistory(page, f)
+    await page.locator('[data-version-row="1"]').click()
+    await expect(page.getByTestId('version-preview-pane')).toBeVisible()
+    await page.locator('[data-version-row="1"]').click()
+    await expect(page.getByTestId('version-preview-pane')).toHaveCount(0)
+    await expect(page.getByTestId('version-preview-empty')).toBeVisible()
+    await dispose(f)
+  })
+
+  test('TC-U-28 — Restore button click does NOT toggle selection (event propagation stopped)', async ({ page }) => {
+    const f = await setupFixture(orgA, 'TC-U-28', [
+      { prose: tiptapDoc('older'), reason: 'v1' },
+      { prose: tiptapDoc('newer'), reason: 'v2' },
+    ])
+    await openBeatAndHistory(page, f)
+    await page.locator('[data-version-row="1"]').hover()
+    // Restore button is hover-visible (per Phase 6.C spec). Click it,
+    // confirm the row is NOT selected as a side-effect, the modal
+    // opens. We click Cancel on the modal to keep the test isolated.
+    const restoreBtn = page.getByTestId('version-restore-1')
+    await expect(restoreBtn).toBeVisible()
+    await restoreBtn.click()
+    // RestoreConfirmModal should open; the row stays unselected.
+    await expect(page.locator('[data-version-row="1"]')).toHaveAttribute('data-version-selected', 'false')
+    // Close the modal — Cancel button label per RestoreConfirmModal spec.
+    const cancel = page.getByRole('button', { name: /cancel/i })
+    if (await cancel.count() > 0) await cancel.first().click()
     await dispose(f)
   })
 })
