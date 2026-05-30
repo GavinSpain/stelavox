@@ -1,0 +1,725 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Phase 8.01 — Focus Mode (iter1)</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<style>
+  /* ---------- Token system (mirrors styles/tokens.css for the wireframe) ---------- */
+  :root {
+    --color-bg-base: #0d1014;
+    --color-bg-elevated: #14181e;
+    --color-bg-surface: #1a1f26;
+    --color-border-subtle: rgba(255,255,255,0.06);
+    --color-border-default: rgba(255,255,255,0.10);
+    --color-border-strong: rgba(255,255,255,0.18);
+    --color-text-primary: #e8e3d8;
+    --color-text-secondary: rgba(232,227,216,0.72);
+    --color-text-muted: rgba(232,227,216,0.45);
+    --color-text-faint: rgba(232,227,216,0.22);
+    --color-accent: #3d7858;
+    --color-accent-soft: rgba(61,120,88,0.18);
+    --color-info: #4a7a9e;
+    --color-status-review: #b8924a;
+    --color-error: #b15555;
+    --font-inter: -apple-system, BlinkMacSystemFont, "Inter", system-ui, sans-serif;
+    --font-lora: "Lora", Georgia, "Iowan Old Style", serif;
+    --font-mono: ui-monospace, SFMono-Regular, "JetBrains Mono", Menlo, monospace;
+  }
+
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: #07090c;
+    color: var(--color-text-primary);
+    font-family: var(--font-inter);
+    font-size: 13px; line-height: 1.5;
+  }
+
+  /* ---------- Wireframe chrome ---------- */
+  .wf-doc { max-width: 1320px; margin: 0 auto; padding: 32px 24px 96px; }
+  .wf-doc h1 {
+    font-family: var(--font-inter); font-weight: 600; font-size: 22px;
+    letter-spacing: -0.01em; margin: 0 0 6px;
+  }
+  .wf-doc h2 {
+    font-family: var(--font-inter); font-weight: 500; font-size: 15px;
+    color: var(--color-text-secondary); margin: 32px 0 12px;
+    letter-spacing: 0.04em; text-transform: uppercase;
+  }
+  .wf-doc h3 {
+    font-family: var(--font-inter); font-weight: 500; font-size: 13px;
+    color: var(--color-text-secondary); margin: 18px 0 8px;
+  }
+  .wf-doc p, .wf-doc li { color: var(--color-text-secondary); }
+  .wf-meta {
+    color: var(--color-text-muted); font-size: 12px;
+    margin: 0 0 24px; padding-bottom: 16px;
+    border-bottom: 1px solid var(--color-border-subtle);
+  }
+  .wf-meta strong { color: var(--color-text-secondary); font-weight: 500; }
+
+  /* ---------- Surface frame (the app at 1280×800) ---------- */
+  .surface {
+    width: 100%; height: 800px;
+    border: 1px solid var(--color-border-subtle);
+    border-radius: 8px;
+    overflow: hidden; position: relative;
+    background: var(--color-bg-base);
+    box-shadow: 0 1px 0 rgba(255,255,255,0.02), 0 24px 60px rgba(0,0,0,0.5);
+  }
+  .surface-narrow { height: 720px; }
+
+  /* ---------- Focus Mode at rest ---------- */
+  .focus-canvas {
+    position: absolute; inset: 0;
+    background: var(--color-bg-base);
+    display: flex; flex-direction: column;
+    align-items: center;
+  }
+  .focus-breadcrumb {
+    position: absolute; top: 24px; left: 50%;
+    transform: translateX(-50%);
+    font-family: var(--font-inter); font-size: 11px;
+    color: var(--color-text-primary);
+    opacity: 0.2;
+    letter-spacing: 0.02em;
+    pointer-events: none;
+    display: flex; gap: 6px; align-items: center;
+  }
+  .focus-breadcrumb-proposed { opacity: 0.35; }
+  .focus-breadcrumb-hover { opacity: 0.7; }
+  .focus-breadcrumb .bk-label {
+    font-family: var(--font-mono); font-size: 10.5px;
+    color: var(--color-text-primary);
+    padding: 1px 5px;
+    border: 1px solid var(--color-border-default);
+    border-radius: 3px;
+    letter-spacing: 0.02em;
+  }
+  .focus-breadcrumb .bk-sep { color: var(--color-text-faint); }
+  .focus-breadcrumb .bk-name {
+    font-family: var(--font-inter); font-size: 11px;
+    color: var(--color-text-primary);
+  }
+
+  .focus-prose-area {
+    width: 100%; max-width: 720px;
+    margin-top: 120px;
+    padding: 0 32px;
+    flex: 1; overflow-y: auto;
+  }
+  .focus-prose {
+    font-family: var(--font-lora); font-size: 18px; line-height: 1.85;
+    color: var(--color-text-primary);
+    font-weight: 400;
+  }
+  .focus-prose p { margin: 0 0 1.2em; }
+  .focus-cursor {
+    display: inline-block; width: 2px; height: 1.1em;
+    background: var(--color-accent);
+    vertical-align: text-bottom;
+    margin-bottom: 2px;
+    animation: cursor-blink 1.1s steps(2, end) infinite;
+  }
+  @keyframes cursor-blink {
+    0%, 50% { background: var(--color-accent); }
+    50.01%, 100% { background: transparent; }
+  }
+  .focus-cursor-typing { animation: none; }
+
+  .focus-wc {
+    position: absolute; bottom: 24px; right: 32px;
+    font-family: var(--font-inter); font-size: 11px;
+    color: var(--color-text-primary);
+    opacity: 0.4;
+    letter-spacing: 0.02em;
+    transition: opacity 0.2s ease;
+  }
+  .focus-wc-hover { opacity: 0.9; }
+  .focus-wc-typing { opacity: 0; }
+  .focus-wc strong { font-weight: 500; }
+  .focus-wc .wc-at-target { color: var(--color-accent); }
+
+  .focus-esc {
+    position: absolute; bottom: 24px; left: 32px;
+    font-family: var(--font-inter); font-size: 11px;
+    color: var(--color-text-primary);
+    opacity: 0.3;
+    letter-spacing: 0.02em;
+  }
+  .focus-esc kbd {
+    font-family: var(--font-mono); font-size: 10px;
+    padding: 1px 5px;
+    border: 1px solid var(--color-border-default);
+    border-radius: 3px;
+    background: var(--color-bg-elevated);
+    margin-right: 4px;
+  }
+
+  .focus-nav-hint {
+    position: absolute; bottom: 24px; left: 50%;
+    transform: translateX(-50%);
+    font-family: var(--font-inter); font-size: 10.5px;
+    color: var(--color-text-primary);
+    opacity: 0.2;
+    letter-spacing: 0.02em;
+    display: flex; gap: 16px;
+    pointer-events: none;
+  }
+  .focus-nav-hint kbd {
+    font-family: var(--font-mono); font-size: 9.5px;
+    padding: 1px 4px;
+    border: 1px solid var(--color-border-default);
+    border-radius: 3px;
+    background: var(--color-bg-elevated);
+    margin-right: 4px;
+  }
+
+  /* ---------- Selection tooltip ---------- */
+  .sel-tooltip {
+    position: absolute;
+    background: var(--color-bg-surface);
+    border: 1px solid var(--color-border-strong);
+    border-radius: 6px;
+    padding: 6px 8px;
+    display: flex; gap: 4px;
+    font-family: var(--font-inter); font-size: 12px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+  }
+  .sel-tooltip button {
+    background: transparent; border: 0;
+    color: var(--color-text-primary);
+    font-family: inherit; font-size: 12px;
+    padding: 4px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  .sel-tooltip button:hover { background: var(--color-bg-elevated); }
+  .sel-tooltip .sel-bold { font-weight: 700; }
+  .sel-tooltip .sel-italic { font-style: italic; }
+  .sel-selection-highlight {
+    background: rgba(74,122,158,0.25);
+    border-radius: 2px;
+    padding: 0 2px;
+  }
+
+  /* ---------- Brand presence experiments ---------- */
+  .focus-brand-corner {
+    position: absolute; top: 24px; right: 32px;
+    font-family: var(--font-inter); font-size: 11px;
+    color: var(--color-text-primary);
+    opacity: 0.25;
+    letter-spacing: 0.04em;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .focus-brand-corner .lozenge {
+    width: 6px; height: 6px;
+    background: var(--color-accent);
+    border-radius: 1px;
+    opacity: 0.55;
+  }
+
+  /* ---------- iPad surface ---------- */
+  .ipad-frame {
+    width: 1024px; height: 720px;
+    margin: 0 auto;
+    border: 12px solid #1a1f26;
+    border-radius: 22px;
+    overflow: hidden;
+    position: relative;
+  }
+  .ipad-inner {
+    position: absolute; inset: 0;
+    background: var(--color-bg-base);
+  }
+  .ipad-inner .focus-prose-area {
+    max-width: 620px;
+    margin-top: 100px;
+  }
+
+  /* ---------- Mini canvas (compact previews) ---------- */
+  .mini {
+    width: 100%; height: 360px;
+    border: 1px solid var(--color-border-subtle);
+    border-radius: 6px;
+    overflow: hidden; position: relative;
+    background: var(--color-bg-base);
+  }
+  .mini .focus-breadcrumb { top: 16px; font-size: 10px; }
+  .mini .focus-breadcrumb .bk-label { font-size: 9.5px; padding: 0 4px; }
+  .mini .focus-prose-area { max-width: 460px; margin-top: 64px; padding: 0 24px; }
+  .mini .focus-prose { font-size: 14px; line-height: 1.75; }
+  .mini .focus-wc { bottom: 14px; right: 18px; font-size: 10px; }
+  .mini .focus-esc { bottom: 14px; left: 18px; font-size: 10px; }
+
+  /* ---------- Side-by-side grids ---------- */
+  .grid-2 {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
+    margin: 16px 0 8px;
+  }
+  .grid-3 {
+    display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;
+    margin: 16px 0 8px;
+  }
+  .grid-label {
+    font-family: var(--font-mono); font-size: 11px;
+    color: var(--color-text-muted);
+    margin: 0 0 8px;
+    letter-spacing: 0.04em;
+  }
+
+  /* ---------- Annotation block ---------- */
+  .annot {
+    background: var(--color-bg-elevated);
+    border: 1px solid var(--color-border-subtle);
+    border-radius: 6px;
+    padding: 14px 16px;
+    margin: 12px 0 24px;
+    font-size: 12.5px;
+    color: var(--color-text-secondary);
+  }
+  .annot strong { color: var(--color-text-primary); font-weight: 500; }
+  .annot ul { margin: 4px 0 0; padding-left: 18px; }
+  .annot li { margin: 4px 0; }
+  .annot li code {
+    font-family: var(--font-mono); font-size: 11.5px;
+    color: var(--color-text-primary);
+    background: rgba(255,255,255,0.04);
+    padding: 1px 5px; border-radius: 3px;
+  }
+
+  /* ---------- Callout pins on the surface ---------- */
+  .pin {
+    position: absolute;
+    width: 18px; height: 18px;
+    border-radius: 50%;
+    background: var(--color-status-review);
+    color: #0d1014;
+    font-family: var(--font-mono); font-size: 10px; font-weight: 600;
+    display: flex; align-items: center; justify-content: center;
+    border: 1.5px solid var(--color-bg-base);
+    z-index: 50;
+  }
+
+  /* ---------- Decisions block ---------- */
+  .decisions {
+    background: var(--color-bg-elevated);
+    border: 1px solid var(--color-border-subtle);
+    border-radius: 6px;
+    padding: 16px 18px;
+    margin: 16px 0 32px;
+  }
+  .decisions h3 {
+    color: var(--color-text-primary);
+    margin: 0 0 10px;
+    font-size: 13px; font-weight: 500;
+    letter-spacing: 0.04em; text-transform: uppercase;
+  }
+  .decisions ul { margin: 0; padding-left: 18px; font-size: 12.5px; }
+  .decisions li { margin: 6px 0; color: var(--color-text-secondary); }
+  .decisions li strong { color: var(--color-text-primary); font-weight: 500; }
+  .decisions .lock { color: var(--color-accent); }
+  .decisions .open { color: var(--color-status-review); }
+  .decisions .defer { color: var(--color-info); }
+</style>
+</head>
+<body>
+<div class="wf-doc">
+
+  <h1>Phase 8.01 — Focus Mode (iter1)</h1>
+  <p class="wf-meta">
+    <strong>Wireframe path:</strong> <code>docs/wireframes/wireframe_phase8_01_ux_consistency/06_focus_mode_v1_iter1.html</code>
+    &nbsp;·&nbsp; <strong>Status:</strong> first pass for visual review &nbsp;·&nbsp;
+    <strong>Inviolables in play:</strong> #1 (lowest-noise surface), #2 (verdigris 9 uses), #4 (Lora-only in prose), #5 (no toolbar at rest).
+  </p>
+
+  <h2>01 — Focus Mode at rest (just opened, no typing yet)</h2>
+  <div class="surface">
+    <div class="focus-canvas">
+      <div class="focus-breadcrumb">
+        <span class="bk-label">Book&nbsp;1</span><span class="bk-sep">·</span>
+        <span class="bk-label">Act&nbsp;1</span><span class="bk-sep">·</span>
+        <span class="bk-label">Ch&nbsp;1</span><span class="bk-sep">·</span>
+        <span class="bk-label">Sc&nbsp;1</span><span class="bk-sep">·</span>
+        <span class="bk-label">Bt&nbsp;1</span><span class="bk-sep">&nbsp;—&nbsp;</span>
+        <span class="bk-name">Anchor &amp; Conflict</span>
+      </div>
+
+      <div class="focus-prose-area">
+        <div class="focus-prose">
+          <p>The Iron Ghost smelled of fried onions and stale beer, and Marcus stood at the threshold for a long moment before he stepped inside.<span class="focus-cursor"></span></p>
+        </div>
+      </div>
+
+      <div class="focus-esc"><kbd>Esc</kbd> exit Focus Mode</div>
+      <div class="focus-nav-hint">
+        <span><kbd>⌘ ←</kbd> prev beat</span>
+        <span><kbd>⌘ →</kbd> next beat</span>
+      </div>
+      <div class="focus-wc">
+        <strong>23</strong> / 350 words
+      </div>
+
+      <div class="pin" style="top:18px; left:50%; transform:translateX(-50%) translateY(-8px);">1</div>
+      <div class="pin" style="bottom:18px; right:24px;">2</div>
+      <div class="pin" style="bottom:18px; left:24px;">3</div>
+      <div class="pin" style="bottom:18px; left:50%; transform:translateX(-50%) translateY(8px);">4</div>
+    </div>
+  </div>
+  <div class="annot">
+    <strong>Pins.</strong>
+    <ul>
+      <li><strong>1 — Breadcrumb.</strong> Bracketed monospace labels carry the Edit Mode convention. Opacity 0.2 (current spec, FocusBreadcrumb §6.2). <code>pointer-events: none</code> always. <em>See Section 04 for an opacity comparison.</em></li>
+      <li><strong>2 — Word count.</strong> Inter 11px, opacity 0.4 at rest (3s+ idle), 0.9 on hover, 0 while typing. Bottom-right. Goes verdigris (use #6) when at target. WordCount §5.7.</li>
+      <li><strong>3 — Esc hint.</strong> Inter 11px, opacity 0.3, bottom-left. Same affordance shape as wordcount but more persistent — it's a way out.</li>
+      <li><strong>4 — Beat navigation hint (NEW).</strong> ⌘ ← / ⌘ → cycle siblings within the parent scene. Keyboard-only, no visible button. Opacity 0.2 — same restraint as breadcrumb. Removes the "exit → click tree → re-enter" friction for sequential beats.</li>
+    </ul>
+  </div>
+
+  <h2>02 — Active typing (3s+ since last keystroke would fade everything)</h2>
+  <div class="surface">
+    <div class="focus-canvas">
+      <div class="focus-breadcrumb" style="opacity: 0;">
+        <span class="bk-label">Book&nbsp;1</span><span class="bk-sep">·</span>
+        <span class="bk-label">Act&nbsp;1</span><span class="bk-sep">·</span>
+        <span class="bk-label">Ch&nbsp;1</span><span class="bk-sep">·</span>
+        <span class="bk-label">Sc&nbsp;1</span><span class="bk-sep">·</span>
+        <span class="bk-label">Bt&nbsp;1</span>
+      </div>
+
+      <div class="focus-prose-area">
+        <div class="focus-prose">
+          <p>The Iron Ghost smelled of fried onions and stale beer, and Marcus stood at the threshold for a long moment before he stepped inside. The barman looked up — a brief, professional glance that took him in and dismissed him at once — and went back to wiping a glass that did not need wiping.</p>
+          <p>Marcus crossed the floor. His boots were quiet on the boards. He kept his hands where they could be seen.<span class="focus-cursor focus-cursor-typing"></span></p>
+        </div>
+      </div>
+
+      <div class="focus-esc" style="opacity: 0;"><kbd>Esc</kbd> exit Focus Mode</div>
+      <div class="focus-nav-hint" style="opacity: 0;">
+        <span><kbd>⌘ ←</kbd> prev beat</span>
+        <span><kbd>⌘ →</kbd> next beat</span>
+      </div>
+      <div class="focus-wc focus-wc-typing">
+        <strong>87</strong> / 350 words
+      </div>
+
+      <div class="pin" style="top:200px; right:96px;">5</div>
+    </div>
+  </div>
+  <div class="annot">
+    <strong>Pin.</strong>
+    <ul>
+      <li><strong>5 — Typing state.</strong> Cursor solid (no blink). Breadcrumb, wordcount, Esc hint, and nav hint all at opacity 0. The only thing on screen is prose. This is Inviolable #1 working as intended — the prose surface is the lowest-noise surface. Hover anywhere brings them back. Idle 3s brings them back. (No "reduce motion" handling shown — Phase 8.11 picks that up.)</li>
+    </ul>
+  </div>
+
+  <h2>03 — Selection state (SelectionTooltip — Inviolable #5: only formatting surface)</h2>
+  <div class="surface">
+    <div class="focus-canvas">
+      <div class="focus-breadcrumb">
+        <span class="bk-label">Book&nbsp;1</span><span class="bk-sep">·</span>
+        <span class="bk-label">Act&nbsp;1</span><span class="bk-sep">·</span>
+        <span class="bk-label">Ch&nbsp;1</span><span class="bk-sep">·</span>
+        <span class="bk-label">Sc&nbsp;1</span><span class="bk-sep">·</span>
+        <span class="bk-label">Bt&nbsp;1</span>
+      </div>
+
+      <div class="focus-prose-area">
+        <div class="focus-prose">
+          <p>The Iron Ghost smelled of fried onions and stale beer, and <span class="sel-selection-highlight">Marcus stood at the threshold</span> for a long moment before he stepped inside.</p>
+          <p>The barman looked up — a brief, professional glance that took him in and dismissed him at once — and went back to wiping a glass that did not need wiping.</p>
+        </div>
+      </div>
+
+      <div class="sel-tooltip" style="top: 195px; left: 50%; transform: translateX(-50%);">
+        <button class="sel-bold">B</button>
+        <button class="sel-italic">I</button>
+        <button>Link</button>
+      </div>
+
+      <div class="focus-esc"><kbd>Esc</kbd> exit Focus Mode</div>
+      <div class="focus-wc"><strong>87</strong> / 350 words</div>
+
+      <div class="pin" style="top:175px; right:240px;">6</div>
+    </div>
+  </div>
+  <div class="annot">
+    <strong>Pin.</strong>
+    <ul>
+      <li><strong>6 — SelectionTooltip.</strong> Bold · Italic · Link only. Inter 12px in elevated surface; appears on selection, dismisses on click-away or Esc. No heading controls, no toolbar, no formatting chrome at rest — Inviolable #5 holds in Focus Mode as it does in Edit Mode panel. Link prompt is a Dialog (per SU-22 round-3 close-out for the other 3 sites; the prose-editor link prompt is still <code>window.prompt</code> — flagged for Phase 8 polish).</li>
+    </ul>
+  </div>
+
+  <h2>04 — Breadcrumb opacity: current spec (0.2) vs proposed (0.35 / 0.7 hover)</h2>
+  <div class="grid-2">
+    <div>
+      <div class="grid-label">A. CURRENT — opacity 0.2 (FocusBreadcrumb §6.2 max)</div>
+      <div class="mini">
+        <div class="focus-canvas">
+          <div class="focus-breadcrumb" style="top: 16px;">
+            <span class="bk-label">Book&nbsp;1</span><span class="bk-sep">·</span>
+            <span class="bk-label">Act&nbsp;1</span><span class="bk-sep">·</span>
+            <span class="bk-label">Ch&nbsp;1</span><span class="bk-sep">·</span>
+            <span class="bk-label">Sc&nbsp;1</span><span class="bk-sep">·</span>
+            <span class="bk-label">Bt&nbsp;1</span>
+          </div>
+          <div class="focus-prose-area">
+            <div class="focus-prose">
+              <p>The Iron Ghost smelled of fried onions and stale beer, and Marcus stood at the threshold.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div>
+      <div class="grid-label">B. PROPOSED — opacity 0.35 rest, 0.7 on hover</div>
+      <div class="mini">
+        <div class="focus-canvas">
+          <div class="focus-breadcrumb focus-breadcrumb-proposed" style="top: 16px;">
+            <span class="bk-label">Book&nbsp;1</span><span class="bk-sep">·</span>
+            <span class="bk-label">Act&nbsp;1</span><span class="bk-sep">·</span>
+            <span class="bk-label">Ch&nbsp;1</span><span class="bk-sep">·</span>
+            <span class="bk-label">Sc&nbsp;1</span><span class="bk-sep">·</span>
+            <span class="bk-label">Bt&nbsp;1</span>
+          </div>
+          <div class="focus-prose-area">
+            <div class="focus-prose">
+              <p>The Iron Ghost smelled of fried onions and stale beer, and Marcus stood at the threshold.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="grid-2">
+    <div>
+      <div class="grid-label">C. HOVER state of proposed — opacity 0.7</div>
+      <div class="mini">
+        <div class="focus-canvas">
+          <div class="focus-breadcrumb focus-breadcrumb-hover" style="top: 16px;">
+            <span class="bk-label">Book&nbsp;1</span><span class="bk-sep">·</span>
+            <span class="bk-label">Act&nbsp;1</span><span class="bk-sep">·</span>
+            <span class="bk-label">Ch&nbsp;1</span><span class="bk-sep">·</span>
+            <span class="bk-label">Sc&nbsp;1</span><span class="bk-sep">·</span>
+            <span class="bk-label">Bt&nbsp;1</span><span class="bk-sep">&nbsp;—&nbsp;</span>
+            <span class="bk-name">Anchor &amp; Conflict</span>
+          </div>
+          <div class="focus-prose-area">
+            <div class="focus-prose">
+              <p>The Iron Ghost smelled of fried onions and stale beer, and Marcus stood at the threshold.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div>
+      <div class="grid-label">D. Series-of-Novels stack (6 labels) at proposed opacity</div>
+      <div class="mini">
+        <div class="focus-canvas">
+          <div class="focus-breadcrumb focus-breadcrumb-proposed" style="top: 16px;">
+            <span class="bk-label">Series</span><span class="bk-sep">·</span>
+            <span class="bk-label">Book&nbsp;2</span><span class="bk-sep">·</span>
+            <span class="bk-label">Act&nbsp;3</span><span class="bk-sep">·</span>
+            <span class="bk-label">Ch&nbsp;14</span><span class="bk-sep">·</span>
+            <span class="bk-label">Sc&nbsp;2</span><span class="bk-sep">·</span>
+            <span class="bk-label">Bt&nbsp;4</span>
+          </div>
+          <div class="focus-prose-area">
+            <div class="focus-prose">
+              <p>Bracketed label crowding is the main risk with a 6-layer stack. Position numbers help compactness.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="annot">
+    <strong>What this section is asking.</strong> The 0.2 ceiling in FocusBreadcrumb §6.2 was set when the breadcrumb was a faint legacy-style trail. With bracketed monospace labels carrying the Edit Mode vocabulary, the breadcrumb has more to offer at a glance — but only if you can read it. <strong>Recommendation: bump the steady-state max to 0.35 and admit 0.7 on hover for full read.</strong> The node name (e.g. "Anchor &amp; Conflict") only appears on hover. Series-of-Novels (D) shows the 6-label case fits comfortably.
+  </div>
+
+  <h2>05 — Beat navigation (⌘ ← / ⌘ → cycle siblings)</h2>
+  <div class="grid-2">
+    <div>
+      <div class="grid-label">E. Currently on Bt 2 of 5 (middle of scene)</div>
+      <div class="mini">
+        <div class="focus-canvas">
+          <div class="focus-breadcrumb focus-breadcrumb-proposed" style="top: 16px;">
+            <span class="bk-label">Book&nbsp;1</span><span class="bk-sep">·</span>
+            <span class="bk-label">Act&nbsp;1</span><span class="bk-sep">·</span>
+            <span class="bk-label">Ch&nbsp;1</span><span class="bk-sep">·</span>
+            <span class="bk-label">Sc&nbsp;1</span><span class="bk-sep">·</span>
+            <span class="bk-label">Bt&nbsp;2</span><span class="bk-sep">&nbsp;</span>
+            <span style="font-family:var(--font-mono); font-size:9.5px; color:var(--color-text-faint);">2 / 5</span>
+          </div>
+          <div class="focus-prose-area">
+            <div class="focus-prose">
+              <p>The barman looked up — a brief, professional glance that took him in and dismissed him at once — and went back to wiping a glass that did not need wiping.</p>
+            </div>
+          </div>
+          <div class="focus-nav-hint" style="bottom: 12px; font-size: 9.5px;">
+            <span><kbd>⌘ ←</kbd> Bt 1</span>
+            <span><kbd>⌘ →</kbd> Bt 3</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div>
+      <div class="grid-label">F. Last beat in scene — ⌘ → wraps to next scene's Bt 1</div>
+      <div class="mini">
+        <div class="focus-canvas">
+          <div class="focus-breadcrumb focus-breadcrumb-proposed" style="top: 16px;">
+            <span class="bk-label">Book&nbsp;1</span><span class="bk-sep">·</span>
+            <span class="bk-label">Act&nbsp;1</span><span class="bk-sep">·</span>
+            <span class="bk-label">Ch&nbsp;1</span><span class="bk-sep">·</span>
+            <span class="bk-label">Sc&nbsp;1</span><span class="bk-sep">·</span>
+            <span class="bk-label">Bt&nbsp;5</span><span class="bk-sep">&nbsp;</span>
+            <span style="font-family:var(--font-mono); font-size:9.5px; color:var(--color-text-faint);">5 / 5</span>
+          </div>
+          <div class="focus-prose-area">
+            <div class="focus-prose">
+              <p>He set the glass down without finishing it, paid in coin, and walked out into the rain.</p>
+            </div>
+          </div>
+          <div class="focus-nav-hint" style="bottom: 12px; font-size: 9.5px;">
+            <span><kbd>⌘ ←</kbd> Bt 4</span>
+            <span><kbd>⌘ →</kbd> Sc 2 · Bt 1</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="annot">
+    <strong>What this is asking.</strong> Phase 6 ships leaf-only mounting (per Component Spec v2.5 §5.4). Focus Mode is a leaf surface — one beat at a time. The current exit-tree-pick-re-enter cycle for sequential writing is friction. <strong>Recommendation: ⌘ ← / ⌘ → cycle siblings; at the end of the parent's children, cross to the next/previous sibling-parent's first/last child (E → F shows the wrap).</strong> Keyboard-only — no visible button, no Inviolable cost. Hint text appears on hover/idle alongside the Esc hint.
+  </div>
+
+  <h2>06 — Brand presence (do we show anything at all?)</h2>
+  <div class="grid-3">
+    <div>
+      <div class="grid-label">G. None (current — strict Inviolable #1)</div>
+      <div class="mini">
+        <div class="focus-canvas">
+          <div class="focus-prose-area">
+            <div class="focus-prose">
+              <p>Marcus crossed the floor. His boots were quiet on the boards. He kept his hands where they could be seen.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div>
+      <div class="grid-label">H. Lozenge dot top-right (opacity 0.25)</div>
+      <div class="mini">
+        <div class="focus-canvas">
+          <div class="focus-brand-corner" style="top:16px; right:20px;">
+            <span class="lozenge"></span>
+            <span style="font-family:var(--font-mono); font-size:9.5px;">stelavox</span>
+          </div>
+          <div class="focus-prose-area">
+            <div class="focus-prose">
+              <p>Marcus crossed the floor. His boots were quiet on the boards. He kept his hands where they could be seen.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div>
+      <div class="grid-label">I. Lozenge only, no wordmark</div>
+      <div class="mini">
+        <div class="focus-canvas">
+          <div class="focus-brand-corner" style="top:16px; right:20px;">
+            <span class="lozenge"></span>
+          </div>
+          <div class="focus-prose-area">
+            <div class="focus-prose">
+              <p>Marcus crossed the floor. His boots were quiet on the boards. He kept his hands where they could be seen.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="annot">
+    <strong>What this is asking.</strong> Focus Mode is the user's writing sanctuary. Brand presence is a question of "does the room know it's Stelavox" without pretending the author cares mid-sentence. <strong>Recommendation: G — none.</strong> The breadcrumb and wordcount already carry enough chrome; adding a brand mark even at 0.25 opacity earns nothing the author needs. The wordmark belongs in Edit Mode (per Brand Identity §6.4 wireframe iter, locked in dashboard iter3). If you want any presence at all, I — lozenge dot only — is the lightest option, but G is the honest answer.
+  </div>
+
+  <h2>07 — iPad layout (1024×720 viewport)</h2>
+  <div class="ipad-frame">
+    <div class="ipad-inner">
+      <div class="focus-canvas">
+        <div class="focus-breadcrumb focus-breadcrumb-proposed">
+          <span class="bk-label">Book&nbsp;1</span><span class="bk-sep">·</span>
+          <span class="bk-label">Act&nbsp;1</span><span class="bk-sep">·</span>
+          <span class="bk-label">Ch&nbsp;1</span><span class="bk-sep">·</span>
+          <span class="bk-label">Sc&nbsp;1</span><span class="bk-sep">·</span>
+          <span class="bk-label">Bt&nbsp;1</span>
+        </div>
+        <div class="focus-prose-area">
+          <div class="focus-prose">
+            <p>The Iron Ghost smelled of fried onions and stale beer, and Marcus stood at the threshold for a long moment before he stepped inside.</p>
+            <p>The barman looked up — a brief, professional glance that took him in and dismissed him at once — and went back to wiping a glass that did not need wiping.<span class="focus-cursor"></span></p>
+          </div>
+        </div>
+        <div class="focus-esc"><kbd>Esc</kbd> exit Focus Mode</div>
+        <div class="focus-nav-hint">
+          <span><kbd>⌘ ←</kbd> prev beat</span>
+          <span><kbd>⌘ →</kbd> next beat</span>
+        </div>
+        <div class="focus-wc"><strong>54</strong> / 350 words</div>
+      </div>
+    </div>
+  </div>
+  <div class="annot">
+    <strong>iPad notes.</strong> Same component, narrower content column (620px max vs 720px on desktop). Touch-aware behaviours that fall out for free: tap on breadcrumb area bumps it to hover-opacity for 4s. Wordcount permanently at 0.4 (no hover state on touch). Esc hint replaces with a small "← Edit" tap target in the same position. Beat navigation: swipe-left / swipe-right gestures map to ⌘ ← / ⌘ →. T-8 (full iPad layout pass across Edit + Director + Focus) will resolve gesture details in its own wireframe — this is just to confirm the desktop design doesn't break.
+  </div>
+
+  <h2>08 — Writer's eye review</h2>
+  <div class="annot">
+    <p><strong>What worked.</strong> Bracketed labels carry over from Edit Mode cleanly — the breadcrumb is now an actual orientation aid rather than a faint ghost. ⌘ ← / ⌘ → addresses the most-cited Focus Mode friction (sequential beats). Cursor blink-via-caret-color (CS v2.3 fix) means the text doesn't pulse with the cursor; only the cursor does. WordCount-goes-verdigris at target is the highest-value use of verdigris in this surface (use #6).</p>
+    <p><strong>What I'd watch in real use.</strong></p>
+    <ul>
+      <li><strong>F-1 — Breadcrumb opacity ceiling.</strong> 0.2 → 0.35 (steady) + 0.7 (hover). Component Spec §6.2 amendment required at consolidation.</li>
+      <li><strong>F-2 — Beat navigation shortcut.</strong> ⌘ ← / ⌘ → for prev/next sibling beat; wraps to next/prev sibling-parent's first/last child at the boundaries. Keyboard-only; no visible button. New behaviour, not in current spec — would land in Component Spec §6.1 + Product Spec §3.x.</li>
+      <li><strong>F-3 — Brand presence.</strong> None (Option G). Inviolable #1 stands.</li>
+      <li><strong>F-4 — Position counter in breadcrumb.</strong> Adding "2 / 5" after the leaf-label (see E/F) helps the author know where they are in the parent. Worth keeping permanently, or only on hover?</li>
+      <li><strong>F-5 — Nav hint visibility.</strong> Currently opacity 0.2 at rest, 0 while typing. Some authors will want to know the shortcut exists; others will hate the chrome. Tucking it bottom-centre between Esc (left) and WC (right) is the lightest placement.</li>
+      <li><strong>F-6 — Selection tooltip Link prompt.</strong> Still <code>window.prompt</code> in code (SU-22 closed 3/5; prose-editor Link + Notes Link prompts remain). Not blocking Focus Mode but flagged for Phase 8 polish.</li>
+      <li><strong>F-7 — Sentence Focus.</strong> Phase 8.9. Visual contract not designed here. When it lands, the active sentence is normal opacity and adjacent sentences fade to ~0.4 over 200ms. Don't design it in iter1 — that's Phase 8.9's wireframe.</li>
+      <li><strong>F-8 — Typewriter scroll.</strong> Phase 8.10 (opt-in via prose-editor three-dot menu, Phase 8.8). Don't design it here.</li>
+      <li><strong>F-9 — prefers-reduced-motion audit.</strong> Phase 8.11. Cursor blink should be reduced or disabled when set. Sentence Focus fades should respect it. Not in scope for this iter; flagged so the 280ms expo-out entry transition gets reviewed in 8.11.</li>
+    </ul>
+  </div>
+
+  <h2>09 — Decisions</h2>
+  <div class="decisions">
+    <h3>Locked (no further iter needed unless you object)</h3>
+    <ul>
+      <li><span class="lock">●</span> <strong>Bracketed labels in breadcrumb.</strong> Same convention as Edit Mode tree — JetBrains Mono, 10.5px, 1px border, position number from <code>nodes.order</code>.</li>
+      <li><span class="lock">●</span> <strong>Inviolable #1 holds.</strong> Background <code>--color-bg-base</code>, no toolbar, no formatting chrome at rest, no brand mark, no panel divisions.</li>
+      <li><span class="lock">●</span> <strong>Inviolable #5 holds.</strong> SelectionTooltip is the only formatting surface — Bold · Italic · Link, no headings.</li>
+      <li><span class="lock">●</span> <strong>Lora 18px / 1.85 line-height for prose.</strong> ProseEditor §5.4 unchanged.</li>
+      <li><span class="lock">●</span> <strong>Cursor: 2px verdigris caret-color, blink-via-caret-color (no text fade).</strong> CS v2.3 §5.5 unchanged. Verdigris use #3 unchanged.</li>
+      <li><span class="lock">●</span> <strong>WordCount: 0 typing / 0.4 idle / 0.9 hover; goes verdigris at target.</strong> §5.7 unchanged. Use #6 unchanged.</li>
+    </ul>
+
+    <h3>Open — need your call</h3>
+    <ul>
+      <li><span class="open">●</span> <strong>F-1 breadcrumb opacity.</strong> Recommend 0.35 steady / 0.7 hover. Approve, or hold at current 0.2 cap?</li>
+      <li><span class="open">●</span> <strong>F-2 ⌘ ← / ⌘ → beat navigation.</strong> Recommend ship in Phase 6 alongside leaf-only mount. Approve as new behaviour?</li>
+      <li><span class="open">●</span> <strong>F-3 brand presence.</strong> Recommend Option G — none. Approve?</li>
+      <li><span class="open">●</span> <strong>F-4 position counter (e.g. "2 / 5") in breadcrumb.</strong> Recommend hover-only — adds noise at rest, useful when checking position. Approve, or always-visible?</li>
+      <li><span class="open">●</span> <strong>F-5 nav-hint placement.</strong> Recommend bottom-centre, opacity 0.2 at rest, 0 while typing. Approve?</li>
+    </ul>
+
+    <h3>Deferred (Phase 8.x sub-items, not in this iter)</h3>
+    <ul>
+      <li><span class="defer">●</span> <strong>F-6</strong> — SelectionTooltip Link prompt → Dialog (Phase 8 polish).</li>
+      <li><span class="defer">●</span> <strong>F-7</strong> — Sentence Focus design (Phase 8.9).</li>
+      <li><span class="defer">●</span> <strong>F-8</strong> — Typewriter scroll opt-in (Phase 8.10) + three-dot menu host (8.8).</li>
+      <li><span class="defer">●</span> <strong>F-9</strong> — prefers-reduced-motion audit (Phase 8.11) — cursor blink + 280ms entry transition + any future Sentence Focus fades.</li>
+    </ul>
+  </div>
+
+</div>
+</body>
+</html>

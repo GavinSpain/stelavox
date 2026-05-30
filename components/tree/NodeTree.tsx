@@ -305,7 +305,12 @@ function NodeTreeInner({ documentId, documentType, onSelect, refreshKey }: NodeT
         <Tree<ArboristNode>
           key={`${refreshKey ?? 0}-${refreshTick}`}
           data={data}
-          rowHeight={36}
+          // Phase 8.01.A T-5: 44px universal (was 36) per Component Spec
+          // v2.21 §4.2 wireframe lock. react-arborist requires the height
+          // here AND inside NodeRow's inline style; the Tree's virtualised
+          // list uses this value to lay out rows, NodeRow uses its inline
+          // style for the actual row content.
+          rowHeight={44}
           width="100%"
           height={600}
           indent={16}

@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stelavox — Tree row labels · Option A vs B (Phase 8.01)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600&family=Cormorant+Garamond:ital,wght@1,300;1,400&family=Inter:wght@200;300;400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Lora:ital,wght@0,400&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --ink:#0d1014; --deep:#131820; --surface:#1a2030; --hover:#1e2838; --selected:#1f2d45;
+  --border-s:#1e2535; --border-d:#253045; --border-str:#3a4a62;
+  --text-p:#ecf0f5; --text-s:#8aa0b8; --text-m:#6884a4; --text-dis:#2a3850;
+  --verd:#3d7858; --verd-h:#5aa87a; --verd-muted:#1a3028;
+  --verd-bright:#5aa87a;
+  --st-running-bright:#4d8fd6;
+  --st-review-bright:#e09040;
+  --spec-bg:#0a0d12; --spec-pan:#111520; --callout:#e8b840;
+}
+html, body { background:var(--spec-bg); color:var(--text-p); font-family:'Inter',sans-serif; font-size:13px; line-height:1.5; }
+
+.doc-header { background:var(--spec-pan); border-bottom:1px solid var(--border-d); padding:24px 48px; display:flex; align-items:baseline; justify-content:space-between; }
+.wm-s{font-family:'Cinzel',serif;font-size:14px;font-weight:500;letter-spacing:.18em;color:var(--text-p);}
+.wm-v{font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:300;font-size:16px;letter-spacing:.08em;color:var(--text-p);opacity:.82;}
+.doc-meta{font-size:11px;font-weight:300;letter-spacing:.2em;text-transform:uppercase;color:var(--text-m);}
+.section{padding:40px 48px 0;}
+.slabel{font-size:9px;font-weight:400;letter-spacing:.45em;text-transform:uppercase;color:var(--text-m);margin-bottom:20px;padding-bottom:12px;border-bottom:1px solid var(--border-s);}
+
+/* Side-by-side comparison */
+.compare { display:grid; grid-template-columns:1fr 1fr; gap:18px; max-width:1280px; margin:0 auto; }
+.tree-card { background:var(--ink); border:1px solid var(--border-d); border-radius:8px; overflow:hidden; }
+.tree-card-hdr { padding:14px 20px; background:var(--deep); border-bottom:1px solid var(--border-s); display:flex; align-items:center; justify-content:space-between; }
+.tree-card-title { font-size:13px; font-weight:600; color:var(--text-p); letter-spacing:.04em; display:flex; align-items:center; gap:10px; }
+.tree-card-title-pip { width:8px; height:8px; border-radius:50%; background:var(--verd-bright); }
+.tree-card-rec { font-size:10px; font-weight:600; letter-spacing:.22em; text-transform:uppercase; color:var(--verd-bright); padding:3px 9px; border:1px solid var(--verd-bright); border-radius:3px; }
+.tree-card-rec.muted { color:var(--text-m); border-color:var(--border-d); }
+
+.tree-card-scenario-label { padding:14px 20px 6px; font-size:9px; font-weight:600; letter-spacing:.36em; text-transform:uppercase; color:var(--text-m); border-top:1px dashed var(--border-s); }
+.tree-card-scenario-label:first-child { border-top:none; }
+
+/* Common row infra */
+.tree-row {
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding:0 20px 0 16px;
+  cursor:default;
+  height:30px;
+  position:relative;
+}
+.tree-row.active { background:var(--selected); border-left:2px solid var(--verd-bright); padding-left:14px; }
+.tree-row:hover:not(.active) { background:var(--hover); }
+
+/* Indent — same in both options */
+.in-0 { padding-left:16px; }
+.in-1 { padding-left:36px; }
+.in-2 { padding-left:60px; }
+.in-3 { padding-left:88px; }
+.in-4 { padding-left:118px; }
+.in-5 { padding-left:152px; }
+
+/* Tree row name + meta */
+.row-name { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.row-wc { font-size:10.5px; font-weight:400; color:var(--text-m); font-variant-numeric:tabular-nums; min-width:64px; text-align:right; flex-shrink:0; }
+.row-wc.complete { color:var(--verd-bright); }
+.row-wc.over { color:var(--st-review-bright); }
+.row-status { min-width:90px; display:flex; align-items:center; gap:6px; justify-content:flex-end; flex-shrink:0; }
+.lifecycle-pill { font-size:9px; font-weight:600; letter-spacing:.12em; text-transform:uppercase; padding:2px 7px; border-radius:3px; border:1px solid transparent; }
+.lifecycle-running  { background:rgba(77,143,214,0.18); color:var(--st-running-bright); border-color:rgba(77,143,214,0.5); }
+.lifecycle-review   { background:rgba(224,144,64,0.18); color:var(--st-review-bright);  border-color:rgba(224,144,64,0.5); }
+.lifecycle-complete { background:rgba(90,168,122,0.18); color:var(--verd-bright); border-color:rgba(90,168,122,0.5); }
+.lifecycle-new      { background:rgba(232,184,64,0.18); color:var(--callout); border-color:rgba(232,184,64,0.5); }
+.lifecycle-queued   { background:rgba(104,132,164,0.18); color:#8aa0b8; border-color:rgba(104,132,164,0.35); }
+.status-pip { width:8px; height:8px; border-radius:50%; }
+.status-pip-complete { background:var(--verd-bright); }
+.status-pip-review   { background:var(--st-review-bright); box-shadow:0 0 5px rgba(224,144,64,0.4); }
+
+/* ── Option A — bracketed structured labels ── */
+.optA .row-label {
+  font-family:'JetBrains Mono', ui-monospace, monospace;
+  font-size:10.5px;
+  font-weight:500;
+  color:var(--text-s);
+  letter-spacing:.02em;
+  flex-shrink:0;
+  white-space:nowrap;
+  font-variant-numeric:tabular-nums;
+  text-align:left;
+}
+.optA .row-label-series  { color:#7aa8e0; min-width:74px; }
+.optA .row-label-book    { color:#5aa87a; min-width:62px; }
+.optA .row-label-act     { color:#7a8fb8; min-width:54px; }
+.optA .row-label-chapter { color:#8a99b3; min-width:50px; }
+.optA .row-label-scene   { color:#7a8a9e; min-width:50px; }
+.optA .row-label-beat    { color:#6884a4; min-width:50px; }
+.optA .row-name {
+  font-family:'Inter',sans-serif;
+  color:var(--text-p);
+}
+.optA .row-name-book    { font-size:14.5px; font-weight:600; }
+.optA .row-name-act     { font-size:13.5px; font-weight:500; }
+.optA .row-name-chapter { font-size:13px;   font-weight:500; }
+.optA .row-name-scene   { font-size:12.5px; font-weight:400; color:var(--text-s); }
+.optA .row-name-beat    { font-size:12px;   font-weight:300; color:var(--text-s); }
+.optA .row-name-series  { font-size:15px;   font-weight:600; color:var(--text-p); letter-spacing:-0.005em; }
+
+/* ── Option B — small-caps typographic labels, no brackets ── */
+.optB .row-label {
+  font-family:'Inter',sans-serif;
+  font-size:9.5px;
+  font-weight:700;
+  letter-spacing:.18em;
+  text-transform:uppercase;
+  flex-shrink:0;
+  white-space:nowrap;
+  font-variant-numeric:tabular-nums;
+  text-align:left;
+}
+.optB .row-label-series  { color:#7aa8e0; min-width:64px; }
+.optB .row-label-book    { color:#5aa87a; min-width:54px; }
+.optB .row-label-act     { color:#7a8fb8; min-width:44px; }
+.optB .row-label-chapter { color:#8a99b3; min-width:38px; }
+.optB .row-label-scene   { color:#7a8a9e; min-width:38px; }
+.optB .row-label-beat    { color:#6884a4; min-width:38px; }
+.optB .row-name {
+  font-family:'Inter',sans-serif;
+  color:var(--text-p);
+}
+.optB .row-name-book    { font-size:14.5px; font-weight:600; }
+.optB .row-name-act     { font-size:13.5px; font-weight:500; }
+.optB .row-name-chapter { font-size:13px;   font-weight:500; }
+.optB .row-name-scene   { font-size:12.5px; font-weight:400; color:var(--text-s); }
+.optB .row-name-beat    { font-size:12px;   font-weight:300; color:var(--text-s); }
+.optB .row-name-series  { font-size:15px;   font-weight:600; color:var(--text-p); letter-spacing:-0.005em; }
+
+/* Highlight the edge-case row so it's easy to see */
+.edge-case { background:rgba(232,184,64,0.06); border-left:2px solid var(--callout) !important; padding-left:14px !important; }
+.edge-case-note { font-size:10px; font-style:italic; color:var(--callout); padding:0 20px 8px 20px; }
+
+/* Decisions block */
+.notes-block { background:var(--spec-pan); border:1px solid var(--border-s); border-radius:6px; padding:22px 26px; max-width:1280px; margin:32px auto; }
+.notes-h { font-size:11px; font-weight:600; letter-spacing:.25em; text-transform:uppercase; color:var(--text-m); margin-bottom:14px; }
+.notes-p { font-size:13px; font-weight:300; color:var(--text-s); line-height:1.65; margin-bottom:10px; }
+.notes-p strong { color:var(--text-p); font-weight:500; }
+.notes-p code { background:var(--ink); padding:1px 6px; border-radius:3px; font-family:ui-monospace,monospace; font-size:11px; color:var(--callout); border:1px solid var(--border-s); }
+.notes-table { width:100%; border-collapse:collapse; margin-top:10px; margin-bottom:14px; font-size:12px; }
+.notes-table th { text-align:left; font-size:9px; font-weight:600; letter-spacing:.22em; text-transform:uppercase; color:var(--text-m); padding:6px 12px 6px 0; border-bottom:1px solid var(--border-s); }
+.notes-table td { color:var(--text-p); font-weight:300; padding:7px 12px 7px 0; border-bottom:1px solid var(--border-s); vertical-align:top; }
+.notes-table td:first-child { color:var(--text-s); font-weight:500; min-width:120px; }
+.notes-table tr:last-child td { border-bottom:none; }
+</style>
+</head>
+<body>
+
+<div class="doc-header">
+  <div>
+    <div style="display:flex;align-items:baseline;"><span class="wm-s">Stela</span><span class="wm-v">vox</span></div>
+    <div style="margin-top:6px;font-size:11px;font-weight:300;letter-spacing:.2em;text-transform:uppercase;color:var(--text-m);">Tree row labels — Option A vs B — Phase 8.01 · 2026-05-28</div>
+  </div>
+  <div class="doc-meta">Series-aware · positions from <code style="font-family:ui-monospace,monospace;color:var(--callout);">nodes.order</code> · system label always separated from name</div>
+</div>
+
+<!-- ───────────────────────────────────────────────────────── -->
+<!-- COMPARISON                                                -->
+<!-- ───────────────────────────────────────────────────────── -->
+
+<div class="section"><div class="slabel">01 — Side-by-side · standalone novel + series + edge cases</div></div>
+
+<div style="padding:32px 48px 0;">
+<div class="compare">
+
+  <!-- ── OPTION A ── -->
+  <div class="tree-card optA">
+    <div class="tree-card-hdr">
+      <div class="tree-card-title"><span class="tree-card-title-pip"></span> Option A — Bracketed monospace labels</div>
+      <div class="tree-card-rec">Recommended</div>
+    </div>
+
+    <!-- Standalone novel -->
+    <div class="tree-card-scenario-label">Standalone novel · Shadow Protocol</div>
+
+    <div class="tree-row in-0">
+      <span class="row-label row-label-book">[Book 1]</span>
+      <span class="row-name row-name-book">Shadow Protocol</span>
+      <span class="row-wc">14,237/37,500</span>
+      <span class="row-status"><span class="lifecycle-pill lifecycle-running">Brief</span></span>
+    </div>
+    <div class="tree-row in-1 active">
+      <span class="row-label row-label-act">[Act 1]</span>
+      <span class="row-name row-name-act">The Salvage</span>
+      <span class="row-wc">7,824/12,500</span>
+      <span class="row-status"><span class="lifecycle-pill lifecycle-running">3 running</span></span>
+    </div>
+    <div class="tree-row in-2">
+      <span class="row-label row-label-chapter">[Ch 1]</span>
+      <span class="row-name row-name-chapter">Salvage</span>
+      <span class="row-wc complete">4,213/4,000</span>
+      <span class="row-status"><span class="lifecycle-pill lifecycle-complete">Done</span></span>
+    </div>
+    <div class="tree-row in-3">
+      <span class="row-label row-label-scene">[Sc 1]</span>
+      <span class="row-name row-name-scene">The Iron Ghost</span>
+      <span class="row-wc">2,180w</span>
+      <span class="row-status"><span class="status-pip status-pip-complete"></span></span>
+    </div>
+    <div class="tree-row in-4">
+      <span class="row-label row-label-beat">[Bt 1]</span>
+      <span class="row-name row-name-beat">The Signal</span>
+      <span class="row-wc complete">320/300</span>
+      <span class="row-status"><span class="status-pip status-pip-complete"></span></span>
+    </div>
+    <div class="tree-row in-4">
+      <span class="row-label row-label-beat">[Bt 2]</span>
+      <span class="row-name row-name-beat">Recognition</span>
+      <span class="row-wc over">410/300</span>
+      <span class="row-status"><span class="lifecycle-pill lifecycle-review">Review</span></span>
+    </div>
+    <div class="tree-row in-4">
+      <span class="row-label row-label-beat">[Bt 3]</span>
+      <span class="row-name row-name-beat">The Breaking</span>
+      <span class="row-wc complete">295/300</span>
+      <span class="row-status"><span class="status-pip status-pip-complete"></span></span>
+    </div>
+    <div class="tree-row in-3">
+      <span class="row-label row-label-scene">[Sc 2]</span>
+      <span class="row-name row-name-scene">The Beacon in the Dark</span>
+      <span class="row-wc">1,750w</span>
+      <span class="row-status"><span class="lifecycle-pill lifecycle-running">2 run</span></span>
+    </div>
+    <div class="tree-row in-2">
+      <span class="row-label row-label-chapter">[Ch 2]</span>
+      <span class="row-name row-name-chapter">The Wipe</span>
+      <span class="row-wc">1,680/4,000</span>
+      <span class="row-status"><span class="lifecycle-pill lifecycle-new">3 new</span></span>
+    </div>
+    <div class="tree-row in-1">
+      <span class="row-label row-label-act">[Act 2]</span>
+      <span class="row-name row-name-act">The Bonding</span>
+      <span class="row-wc">2,253/12,500</span>
+      <span class="row-status"><span class="lifecycle-pill lifecycle-queued">Planning</span></span>
+    </div>
+
+    <!-- Series example -->
+    <div class="tree-card-scenario-label">Series of three · The Foundation Trilogy (Asimov)</div>
+
+    <div class="tree-row in-0">
+      <span class="row-label row-label-series">[Series]</span>
+      <span class="row-name row-name-series">The Foundation Trilogy</span>
+      <span class="row-wc">218k/240k</span>
+      <span class="row-status"><span class="lifecycle-pill lifecycle-complete">Done</span></span>
+    </div>
+    <div class="tree-row in-1">
+      <span class="row-label row-label-book">[Book 1]</span>
+      <span class="row-name row-name-book">Foundation</span>
+      <span class="row-wc complete">76,000/80k</span>
+      <span class="row-status"><span class="status-pip status-pip-complete"></span></span>
+    </div>
+    <div class="tree-row in-1">
+      <span class="row-label row-label-book">[Book 2]</span>
+      <span class="row-name row-name-book">Foundation and Empire</span>
+      <span class="row-wc complete">71,000/80k</span>
+      <span class="row-status"><span class="status-pip status-pip-complete"></span></span>
+    </div>
+    <div class="tree-row in-1">
+      <span class="row-label row-label-book">[Book 3]</span>
+      <span class="row-name row-name-book">Second Foundation</span>
+      <span class="row-wc complete">71,000/80k</span>
+      <span class="row-status"><span class="status-pip status-pip-complete"></span></span>
+    </div>
+
+    <!-- Long series example -->
+    <div class="tree-card-scenario-label">Long series · Lee Child style (showing 20+ books)</div>
+    <div class="tree-row in-0">
+      <span class="row-label row-label-series">[Series]</span>
+      <span class="row-name row-name-series">The Reacher Novels</span>
+      <span class="row-wc">2.1M/2.6M</span>
+      <span class="row-status"></span>
+    </div>
+    <div class="tree-row in-1">
+      <span class="row-label row-label-book">[Book 1]</span>
+      <span class="row-name row-name-book">Killing Floor</span>
+      <span class="row-wc complete">110k</span>
+      <span class="row-status"></span>
+    </div>
+    <div class="tree-row in-1">
+      <span class="row-label row-label-book">[Book 2]</span>
+      <span class="row-name row-name-book">Die Trying</span>
+      <span class="row-wc complete">120k</span>
+      <span class="row-status"></span>
+    </div>
+    <div class="tree-row in-1" style="opacity:.55;">
+      <span class="row-label row-label-book">[Book 3..27]</span>
+      <span class="row-name" style="font-family:'Inter',sans-serif;font-style:italic;color:var(--text-m);font-size:12px;font-weight:300;">— twenty-four more books —</span>
+      <span class="row-wc"></span>
+      <span class="row-status"></span>
+    </div>
+    <div class="tree-row in-1">
+      <span class="row-label row-label-book">[Book 28]</span>
+      <span class="row-name row-name-book">Past Tense</span>
+      <span class="row-wc">42k/110k</span>
+      <span class="row-status"><span class="lifecycle-pill lifecycle-running">Active</span></span>
+    </div>
+
+    <!-- Edge case: author names act literally "Act 1" -->
+    <div class="tree-card-scenario-label">Edge case · author named their Act literally "Act 1"</div>
+    <div class="edge-case-note">If the author types <code style="background:var(--ink);padding:1px 6px;border-radius:3px;font-family:ui-monospace,monospace;color:var(--callout);border:1px solid var(--border-s);">Act 1</code> as the node name, system label + name are both displayed — visibly distinct, no confusion.</div>
+    <div class="tree-row in-0">
+      <span class="row-label row-label-book">[Book 1]</span>
+      <span class="row-name row-name-book">Untitled Manuscript</span>
+      <span class="row-wc"></span><span class="row-status"></span>
+    </div>
+    <div class="tree-row in-1 edge-case">
+      <span class="row-label row-label-act">[Act 1]</span>
+      <span class="row-name row-name-act">Act 1</span>
+      <span class="row-wc"></span><span class="row-status"></span>
+    </div>
+    <div class="tree-row in-1 edge-case">
+      <span class="row-label row-label-act">[Act 2]</span>
+      <span class="row-name row-name-act">Act 2</span>
+      <span class="row-wc"></span><span class="row-status"></span>
+    </div>
+
+  </div>
+
+  <!-- ── OPTION B ── -->
+  <div class="tree-card optB">
+    <div class="tree-card-hdr">
+      <div class="tree-card-title"><span class="tree-card-title-pip" style="background:var(--text-m);"></span> Option B — Small-caps typographic labels</div>
+      <div class="tree-card-rec muted">For comparison</div>
+    </div>
+
+    <div class="tree-card-scenario-label">Standalone novel · Shadow Protocol</div>
+
+    <div class="tree-row in-0">
+      <span class="row-label row-label-book">Book 1</span>
+      <span class="row-name row-name-book">Shadow Protocol</span>
+      <span class="row-wc">14,237/37,500</span>
+      <span class="row-status"><span class="lifecycle-pill lifecycle-running">Brief</span></span>
+    </div>
+    <div class="tree-row in-1 active">
+      <span class="row-label row-label-act">Act 1</span>
+      <span class="row-name row-name-act">The Salvage</span>
+      <span class="row-wc">7,824/12,500</span>
+      <span class="row-status"><span class="lifecycle-pill lifecycle-running">3 running</span></span>
+    </div>
+    <div class="tree-row in-2">
+      <span class="row-label row-label-chapter">Ch 1</span>
+      <span class="row-name row-name-chapter">Salvage</span>
+      <span class="row-wc complete">4,213/4,000</span>
+      <span class="row-status"><span class="lifecycle-pill lifecycle-complete">Done</span></span>
+    </div>
+    <div class="tree-row in-3">
+      <span class="row-label row-label-scene">Sc 1</span>
+      <span class="row-name row-name-scene">The Iron Ghost</span>
+      <span class="row-wc">2,180w</span>
+      <span class="row-status"><span class="status-pip status-pip-complete"></span></span>
+    </div>
+    <div class="tree-row in-4">
+      <span class="row-label row-label-beat">Bt 1</span>
+      <span class="row-name row-name-beat">The Signal</span>
+      <span class="row-wc complete">320/300</span>
+      <span class="row-status"><span class="status-pip status-pip-complete"></span></span>
+    </div>
+    <div class="tree-row in-4">
+      <span class="row-label row-label-beat">Bt 2</span>
+      <span class="row-name row-name-beat">Recognition</span>
+      <span class="row-wc over">410/300</span>
+      <span class="row-status"><span class="lifecycle-pill lifecycle-review">Review</span></span>
+    </div>
+    <div class="tree-row in-4">
+      <span class="row-label row-label-beat">Bt 3</span>
+      <span class="row-name row-name-beat">The Breaking</span>
+      <span class="row-wc complete">295/300</span>
+      <span class="row-status"><span class="status-pip status-pip-complete"></span></span>
+    </div>
+    <div class="tree-row in-3">
+      <span class="row-label row-label-scene">Sc 2</span>
+      <span class="row-name row-name-scene">The Beacon in the Dark</span>
+      <span class="row-wc">1,750w</span>
+      <span class="row-status"><span class="lifecycle-pill lifecycle-running">2 run</span></span>
+    </div>
+    <div class="tree-row in-2">
+      <span class="row-label row-label-chapter">Ch 2</span>
+      <span class="row-name row-name-chapter">The Wipe</span>
+      <span class="row-wc">1,680/4,000</span>
+      <span class="row-status"><span class="lifecycle-pill lifecycle-new">3 new</span></span>
+    </div>
+    <div class="tree-row in-1">
+      <span class="row-label row-label-act">Act 2</span>
+      <span class="row-name row-name-act">The Bonding</span>
+      <span class="row-wc">2,253/12,500</span>
+      <span class="row-status"><span class="lifecycle-pill lifecycle-queued">Planning</span></span>
+    </div>
+
+    <div class="tree-card-scenario-label">Series of three · The Foundation Trilogy (Asimov)</div>
+
+    <div class="tree-row in-0">
+      <span class="row-label row-label-series">Series</span>
+      <span class="row-name row-name-series">The Foundation Trilogy</span>
+      <span class="row-wc">218k/240k</span>
+      <span class="row-status"><span class="lifecycle-pill lifecycle-complete">Done</span></span>
+    </div>
+    <div class="tree-row in-1">
+      <span class="row-label row-label-book">Book 1</span>
+      <span class="row-name row-name-book">Foundation</span>
+      <span class="row-wc complete">76,000/80k</span>
+      <span class="row-status"><span class="status-pip status-pip-complete"></span></span>
+    </div>
+    <div class="tree-row in-1">
+      <span class="row-label row-label-book">Book 2</span>
+      <span class="row-name row-name-book">Foundation and Empire</span>
+      <span class="row-wc complete">71,000/80k</span>
+      <span class="row-status"><span class="status-pip status-pip-complete"></span></span>
+    </div>
+    <div class="tree-row in-1">
+      <span class="row-label row-label-book">Book 3</span>
+      <span class="row-name row-name-book">Second Foundation</span>
+      <span class="row-wc complete">71,000/80k</span>
+      <span class="row-status"><span class="status-pip status-pip-complete"></span></span>
+    </div>
+
+    <div class="tree-card-scenario-label">Long series · Lee Child style</div>
+    <div class="tree-row in-0">
+      <span class="row-label row-label-series">Series</span>
+      <span class="row-name row-name-series">The Reacher Novels</span>
+      <span class="row-wc">2.1M/2.6M</span>
+      <span class="row-status"></span>
+    </div>
+    <div class="tree-row in-1">
+      <span class="row-label row-label-book">Book 1</span>
+      <span class="row-name row-name-book">Killing Floor</span>
+      <span class="row-wc complete">110k</span>
+      <span class="row-status"></span>
+    </div>
+    <div class="tree-row in-1">
+      <span class="row-label row-label-book">Book 2</span>
+      <span class="row-name row-name-book">Die Trying</span>
+      <span class="row-wc complete">120k</span>
+      <span class="row-status"></span>
+    </div>
+    <div class="tree-row in-1" style="opacity:.55;">
+      <span class="row-label row-label-book">Book 3-27</span>
+      <span class="row-name" style="font-family:'Inter',sans-serif;font-style:italic;color:var(--text-m);font-size:12px;font-weight:300;">— twenty-four more books —</span>
+      <span class="row-wc"></span>
+      <span class="row-status"></span>
+    </div>
+    <div class="tree-row in-1">
+      <span class="row-label row-label-book">Book 28</span>
+      <span class="row-name row-name-book">Past Tense</span>
+      <span class="row-wc">42k/110k</span>
+      <span class="row-status"><span class="lifecycle-pill lifecycle-running">Active</span></span>
+    </div>
+
+    <div class="tree-card-scenario-label">Edge case · author named act "Act 1"</div>
+    <div class="edge-case-note">Without brackets, system label vs name can run together when the author chose a similar string. Compare to A.</div>
+    <div class="tree-row in-0">
+      <span class="row-label row-label-book">Book 1</span>
+      <span class="row-name row-name-book">Untitled Manuscript</span>
+      <span class="row-wc"></span><span class="row-status"></span>
+    </div>
+    <div class="tree-row in-1 edge-case">
+      <span class="row-label row-label-act">Act 1</span>
+      <span class="row-name row-name-act">Act 1</span>
+      <span class="row-wc"></span><span class="row-status"></span>
+    </div>
+    <div class="tree-row in-1 edge-case">
+      <span class="row-label row-label-act">Act 2</span>
+      <span class="row-name row-name-act">Act 2</span>
+      <span class="row-wc"></span><span class="row-status"></span>
+    </div>
+
+  </div>
+
+</div>
+</div>
+
+<!-- ───────────────────────────────────────────────────────── -->
+<!-- DECISIONS                                                 -->
+<!-- ───────────────────────────────────────────────────────── -->
+
+<div class="section" style="padding-top:50px;"><div class="slabel">02 — Notes & decisions</div></div>
+
+<div style="padding:32px 48px 0;">
+
+<div class="notes-block">
+<div class="notes-h">Why I recommend Option A</div>
+<p class="notes-p"><strong>Brackets are the disambiguator.</strong> Look at the bottom "edge case" rows. In Option A the row reads <code>[Act 1] Act 1</code> — the system-generated label is visibly distinct from the author's name, even when they happen to share the same string. In Option B the same row reads <code>Act 1 Act 1</code> with no visual separation; the two collide.</p>
+<p class="notes-p"><strong>Monospace anchors the metadata.</strong> JetBrains Mono / ui-monospace at 10.5px in the bracketed label feels like a structural tag. Inter at the same level (Option B) is harder to distinguish from the name's typography at small sizes. The eye learns "this looks like metadata" within seconds.</p>
+<p class="notes-p"><strong>Tabular alignment is automatic.</strong> Mono fonts have a fixed column width, so labels at the same indent level naturally align vertically — <code>[Book 1]</code> / <code>[Book 2]</code> / <code>[Book 3]</code> line up perfectly down the page. With Option B's proportional Inter the alignment drifts.</p>
+<p class="notes-p"><strong>Subtle layer-tinting preserved but no longer load-bearing.</strong> Both options use a faint per-layer colour on the label only — for those who notice it, it's a secondary cue. The label text itself is the primary identifier. No more "what colour is sea-glass vs slate."</p>
+</div>
+
+<div class="notes-block">
+<div class="notes-h">Series-aware hierarchy</div>
+<table class="notes-table">
+  <tr><th>Document shape</th><th>Layer stack (top → bottom)</th></tr>
+  <tr><td>Standalone novel</td><td>Book → Act → Chapter → Scene → Beat</td></tr>
+  <tr><td>Trilogy / series</td><td><strong>Series</strong> → Book → Act → Chapter → Scene → Beat</td></tr>
+  <tr><td>Long series (Reacher-style)</td><td>Series → Book (1..N) → Act → Chapter → Scene → Beat</td></tr>
+  <tr><td>Anthology, paper, etc.</td><td>(future) — different stacks per <code>layer_stacks</code></td></tr>
+</table>
+<p class="notes-p">No special-casing for any layer. The labelling logic is the same at every level: <strong>type-name + position-within-parent</strong>. The system reads <code>nodes.order</code> for the position. No UI-side counting; no drift.</p>
+</div>
+
+<div class="notes-block">
+<div class="notes-h">Director reference vocabulary (locks in for 8.03)</div>
+<p class="notes-p">The unambiguous Director-side reference becomes a structured path of layer + position pairs. Examples:</p>
+<table class="notes-table">
+  <tr><th>What the writer types in <code>@</code>-pick</th><th>Resolves to</th></tr>
+  <tr><td><code>@act1ch2sc3bt1</code></td><td>Act 1 → Chapter 2 → Scene 3 → Beat 1</td></tr>
+  <tr><td><code>@b2act1ch2</code></td><td>Book 2 → Act 1 → Chapter 2 (series context)</td></tr>
+  <tr><td><code>@ch2</code> (when in scope of one Act)</td><td>Disambiguates from a single ancestor</td></tr>
+  <tr><td><code>@</code> + node name</td><td>Free-text picker — falls back to existing name search</td></tr>
+</table>
+<p class="notes-p">This eliminates the name-matching ambiguity we hit with "The Countdown" earlier (three nodes with the same name across two scenes and one beat). <strong>Out of scope for 8.01 visual pass</strong> — Director tool work is 8.03 or later. Locking the direction now so the visual labels and the future tool surface share one vocabulary.</p>
+</div>
+
+<div class="notes-block">
+<div class="notes-h">Abbreviation question — still open</div>
+<p class="notes-p">Current draft uses <strong>Book / Act / Ch / Sc / Bt</strong>. Book and Act stay full-word (short enough). Chapter / Scene / Beat abbreviate (long words at deep indents would crowd the name column). Series gets its own word.</p>
+<p class="notes-p">Alternative: every layer abbreviates (B / A / C / S / Bt) — most compact, but Book / Act lose their immediately-readable form. Or every layer full-word (Book / Act / Chapter / Scene / Beat) — most readable, but at indent level 5 the labels eat ~80px of name column.</p>
+<p class="notes-p"><strong>Recommend the current mixed form</strong> — readability where it costs nothing, abbreviation only at deeper indents. Your call.</p>
+</div>
+
+<div class="notes-block">
+<div class="notes-h">Data migration concern (for the eventual functional ship)</div>
+<p class="notes-p">Existing Shadow Protocol data has nodes named <code>Act One: The Salvage</code>, <code>Act Two: The Bonding</code> etc. — the author manually prepended structural labels because the system didn't show them. Once the new label system ships, the redundant prefix should be stripped. Two options for the migration:</p>
+<p class="notes-p"><strong>(a) Automatic clean-up</strong> on the system-prefix pattern (<code>^(Act|Book|Chapter|Scene|Beat) (One|Two|\d+):\s*</code>) → strip and bump <code>updated_at</code>. Reversible.</p>
+<p class="notes-p"><strong>(b) Show a one-time banner</strong> per document offering the user to "Clean up structural prefixes from node names — these are now auto-displayed."</p>
+<p class="notes-p">I'd recommend (b) — the author keeps control, and they explicitly choose to migrate (or not). Tracked as an 8.03 functional task.</p>
+</div>
+
+</div>
+
+</body>
+</html>

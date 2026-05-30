@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stelavox — Dashboard v2 iter2 (Phase 8.01)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600&family=Cormorant+Garamond:ital,wght@1,300;1,400&family=Inter:wght@200;300;400;500;600;700&family=Lora:ital,wght@0,400&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --ink:#0d1014; --deep:#131820; --surface:#1a2030; --hover:#1e2838; --selected:#1f2d45;
+  --border-s:#1e2535; --border-d:#253045; --border-str:#3a4a62;
+  --text-p:#ecf0f5; --text-s:#8aa0b8; --text-m:#6884a4; --text-dis:#2a3850;
+  --verd:#3d7858; --verd-h:#5aa87a; --verd-muted:#1a3028;
+  --st-draft:#4a6080; --st-rev:#b87030; --st-app:#3d7858; --st-lock:#6a3888;
+  --info:#3a6090; --warning:#b87030; --error:#b03c3c; --agent-running:#2e5a90;
+  --st-running-bright:#4d8fd6;
+  --st-review-bright:#e09040;
+  --verd-bright:#5aa87a;
+  --spec-bg:#0a0d12; --spec-pan:#111520; --callout:#e8b840;
+}
+html, body { background:var(--spec-bg); color:var(--text-p); font-family:'Inter',sans-serif; font-size:13px; line-height:1.5; }
+
+.doc-header { background:var(--spec-pan); border-bottom:1px solid var(--border-d); padding:24px 48px; display:flex; align-items:baseline; justify-content:space-between; }
+.wm-s{font-family:'Cinzel',serif;font-size:14px;font-weight:500;letter-spacing:.18em;color:var(--text-p);}
+.wm-v{font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:300;font-size:16px;letter-spacing:.08em;color:var(--text-p);opacity:.82;}
+.doc-meta{font-size:11px;font-weight:300;letter-spacing:.2em;text-transform:uppercase;color:var(--text-m);}
+.section{padding:40px 48px 0;}
+.slabel{font-size:9px;font-weight:400;letter-spacing:.45em;text-transform:uppercase;color:var(--text-m);margin-bottom:20px;padding-bottom:12px;border-bottom:1px solid var(--border-s);}
+
+.screen { width:1280px; height:820px; background:var(--ink); border:1px solid var(--border-d); border-radius:8px; overflow:hidden; display:flex; flex-direction:column; box-shadow:0 24px 80px rgba(0,0,0,.6); margin:0 auto; }
+
+/* ── Wordmark — iteration 2: BUMPED SIZES ── */
+/* Header sm variant: 14→17 Cinzel / 16→19 Cormorant / 80→100 rule width.
+   That puts the wordmark at roughly the same visual size as the Linear, Notion, and
+   Figma wordmarks (typical SaaS header logos sit in the 16–20px x-height range).
+   Cinzel is a serif so it reads slightly larger than equivalent Inter sizes. */
+.wm { display:flex; flex-direction:column; align-items:flex-start; }
+.wm-text { display:flex; align-items:baseline; }
+.wm-stela { font-family:'Cinzel',serif; font-weight:500; letter-spacing:.18em; color:var(--text-p); }
+.wm-vox   { font-family:'Cormorant Garamond',serif; font-style:italic; font-weight:400; letter-spacing:.08em; color:var(--text-p); opacity:.88; }
+.wm-rule-wrap { position:relative; margin-top:4px; }
+.wm-rule { height:1px; background:linear-gradient(90deg, var(--verd-bright) 0%, rgba(90,168,122,0.55) 45%, transparent 85%); }
+.wm-lozenge { position:absolute; left:-3px; top:-4px; width:9px; height:9px; background:var(--verd-bright); transform:rotate(45deg); box-shadow:0 0 8px rgba(90,168,122,0.45); }
+.wm-sm .wm-stela { font-size:17px; }
+.wm-sm .wm-vox   { font-size:19px; }
+.wm-sm .wm-rule  { width:100px; }
+.wm-lg .wm-stela { font-size:38px; }
+.wm-lg .wm-vox   { font-size:42px; }
+.wm-lg .wm-rule  { width:220px; }
+
+/* ── App header ── */
+.app-hdr { height:52px; min-height:52px; background:var(--deep); border-bottom:1px solid var(--border-s); display:flex; align-items:center; padding:0 24px; gap:0; }
+.app-hdr-right { display:flex; align-items:center; gap:14px; margin-left:auto; }
+.cmd-chip { font-size:11px; font-weight:400; color:var(--text-s); border:1px solid var(--border-str); background:var(--surface); padding:4px 10px 4px 9px; border-radius:4px; cursor:pointer; display:flex; align-items:center; gap:7px; }
+.cmd-chip:hover { border-color:var(--verd-bright); color:var(--text-p); }
+.cmd-chip-kbd { font-family:ui-monospace,monospace; font-size:10px; color:var(--text-m); }
+.hdr-link { font-size:12px; font-weight:400; color:var(--text-s); cursor:pointer; }
+.hdr-link:hover { color:var(--text-p); }
+.uav { width:30px; height:30px; background:var(--surface); border:1px solid var(--border-str); border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:500; color:var(--text-p); cursor:pointer; }
+
+/* ── App body ── */
+.app-body { flex:1; overflow-y:auto; display:flex; }
+
+/* ── Sidebar — iter2 thicker hairline (1px wide, 50% opacity gradient) ── */
+.app-sidebar { width:220px; min-width:220px; background:var(--deep); border-right:1px solid var(--border-s); padding:20px 0 16px; display:flex; flex-direction:column; gap:0; position:relative; }
+.app-sidebar::after {
+  content:"";
+  position:absolute;
+  right:0; top:48px; bottom:48px;
+  width:1px;
+  background:linear-gradient(180deg, transparent 0%, rgba(90,168,122,0.55) 20%, rgba(90,168,122,0.55) 80%, transparent 100%);
+}
+.sb-section-label { font-size:9px; font-weight:600; letter-spacing:.38em; text-transform:uppercase; color:var(--text-m); padding:0 20px 8px; }
+.sb-item { display:flex; align-items:center; gap:10px; padding:8px 20px; font-size:13px; font-weight:400; color:var(--text-s); cursor:pointer; border-left:2px solid transparent; }
+.sb-item:hover { background:var(--hover); color:var(--text-p); }
+.sb-item.active { color:var(--text-p); background:var(--selected); border-left:2px solid var(--verd-bright); }
+.sb-item-icon { font-size:13px; opacity:.85; width:18px; display:flex; justify-content:center; }
+.sb-divider { height:1px; background:var(--border-s); margin:12px 16px; }
+.sb-foot { margin-top:auto; padding-top:8px; }
+.sb-foot .sb-item { font-size:12px; color:var(--text-m); }
+
+/* ── Main content ── */
+.app-main { flex:1; padding:36px 44px 48px; overflow-y:auto; }
+.greeting { font-size:26px; font-weight:600; color:var(--text-p); letter-spacing:-0.01em; margin-bottom:6px; }
+.greeting-sub { font-size:13px; font-weight:300; color:var(--text-m); margin-bottom:32px; }
+
+.sec-hdr { display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
+.sec-hdr-title { font-size:11px; font-weight:600; letter-spacing:.28em; text-transform:uppercase; color:var(--text-s); }
+.sec-hdr-action { font-size:11px; font-weight:400; color:var(--text-s); cursor:pointer; border:1px solid var(--border-d); padding:5px 12px; border-radius:4px; background:var(--deep); display:flex; align-items:center; gap:6px; }
+.sec-hdr-action:hover { border-color:var(--verd-bright); color:var(--text-p); }
+.sec-hdr-action.primary { background:var(--verd); color:#fff; border-color:var(--verd); }
+.sec-hdr-action.primary:hover { background:var(--verd-bright); border-color:var(--verd-bright); }
+
+/* Recent docs grid — iter2: card-shaped "new doc" slot removed; grid is 2 across now */
+.docs-grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:40px; }
+.doc-card { background:var(--surface); border:1px solid var(--border-d); border-radius:6px; padding:18px 18px 16px; display:flex; flex-direction:column; gap:9px; cursor:pointer; transition:border-color 120ms, transform 120ms; position:relative; }
+.doc-card:hover { border-color:var(--verd-bright); transform:translateY(-1px); }
+.doc-card-type { font-size:10px; font-weight:600; letter-spacing:.25em; text-transform:uppercase; color:var(--text-m); display:flex; align-items:center; gap:8px; }
+.doc-type-icon { width:22px; height:22px; border-radius:4px; background:var(--verd-muted); color:var(--verd-bright); display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; font-family:'Cinzel',serif; letter-spacing:0; }
+.doc-card-title { font-size:16px; font-weight:500; color:var(--text-p); line-height:1.3; }
+.doc-card-meta-row { display:flex; align-items:center; gap:12px; }
+.doc-meta-item { font-size:11px; font-weight:300; color:var(--text-m); display:flex; align-items:center; gap:5px; }
+.doc-card-progress-row { display:flex; align-items:center; gap:8px; margin-top:6px; }
+.doc-card-progress { height:6px; background:var(--border-s); border-radius:3px; overflow:hidden; flex:1; }
+.doc-card-progress-fill { height:100%; background:linear-gradient(90deg, var(--verd) 0%, var(--verd-bright) 100%); border-radius:3px; }
+.doc-card-progress-text { font-size:10px; font-weight:500; color:var(--text-s); white-space:nowrap; font-variant-numeric:tabular-nums; }
+.doc-card-status { display:flex; align-items:center; gap:8px; }
+.status-pip { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+.status-pip-running { background:var(--st-running-bright); box-shadow:0 0 6px rgba(77,143,214,0.55); animation:pulse-running 2s ease-in-out infinite; }
+.status-pip-review { background:var(--st-review-bright); box-shadow:0 0 5px rgba(224,144,64,0.4); }
+.status-pip-complete { background:var(--verd-bright); }
+.status-pip-draft { background:var(--st-draft); }
+@keyframes pulse-running { 0%,100% { opacity:1; } 50% { opacity:0.55; } }
+.status-text { font-size:11px; font-weight:400; color:var(--text-s); }
+.continue-row { display:flex; align-items:center; justify-content:flex-end; padding-top:6px; border-top:1px solid var(--border-s); margin-top:4px; }
+.continue-link { font-size:11px; font-weight:500; color:var(--verd-bright); display:flex; align-items:center; gap:5px; cursor:pointer; }
+.continue-link:hover { color:var(--text-p); }
+
+/* ── Projects list ── */
+.proj-list { display:flex; flex-direction:column; gap:6px; margin-bottom:28px; }
+.proj-item { background:var(--surface); border:1px solid var(--border-s); border-radius:5px; padding:14px 18px; display:flex; align-items:center; gap:14px; cursor:pointer; transition:border-color 120ms; }
+.proj-item:hover { border-color:var(--verd-bright); }
+.proj-icon-wrap { width:32px; height:32px; border-radius:5px; background:var(--verd-muted); display:flex; align-items:center; justify-content:center; color:var(--verd-bright); font-size:14px; }
+.proj-info { flex:1; }
+.proj-name { font-size:14px; font-weight:500; color:var(--text-p); }
+.proj-meta { font-size:11px; font-weight:300; color:var(--text-m); margin-top:2px; }
+.proj-meta strong { color:var(--text-s); font-weight:400; }
+.proj-actions { display:flex; align-items:center; gap:10px; }
+.proj-add-doc { font-size:11px; font-weight:400; color:var(--text-s); padding:5px 11px; border:1px solid var(--border-d); border-radius:4px; cursor:pointer; background:var(--deep); }
+.proj-add-doc:hover { border-color:var(--verd-bright); color:var(--text-p); }
+.proj-arrow { font-size:14px; color:var(--text-m); }
+
+/* ── Callouts ── */
+.callout-set { position:relative; max-width:1280px; margin:0 auto; }
+.callout-pin { position:absolute; width:22px; height:22px; border-radius:50%; background:var(--callout); color:#1a1a1a; font-size:11px; font-weight:700; display:flex; align-items:center; justify-content:center; border:2px solid var(--ink); box-shadow:0 0 0 1px var(--callout); z-index:5; }
+.callout-list { background:var(--spec-pan); border:1px solid var(--border-s); border-radius:6px; padding:20px 24px; margin-top:32px; }
+.callout-list-title { font-size:11px; font-weight:600; letter-spacing:.25em; text-transform:uppercase; color:var(--text-m); margin-bottom:14px; }
+.callout-row { display:flex; gap:14px; margin-bottom:11px; align-items:flex-start; }
+.callout-row:last-child { margin-bottom:0; }
+.callout-num { width:22px; height:22px; border-radius:50%; background:var(--callout); color:#1a1a1a; font-size:11px; font-weight:700; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.callout-text { font-size:13px; font-weight:300; color:var(--text-s); line-height:1.55; }
+.callout-text strong { color:var(--text-p); font-weight:500; }
+.callout-text code { background:var(--ink); padding:1px 6px; border-radius:3px; font-family:ui-monospace,monospace; font-size:11px; color:var(--callout); border:1px solid var(--border-s); }
+
+/* ── Writer's eye block ── */
+.writer-block { background:linear-gradient(135deg, var(--spec-pan) 0%, #14181f 100%); border:1px solid var(--border-d); border-radius:8px; padding:28px 32px; margin-top:32px; }
+.writer-title { font-size:11px; font-weight:600; letter-spacing:.32em; text-transform:uppercase; color:var(--verd-bright); margin-bottom:18px; display:flex; align-items:center; gap:10px; }
+.writer-title::before { content:""; width:16px; height:1px; background:var(--verd-bright); }
+.writer-h { font-size:15px; font-weight:500; color:var(--text-p); margin-top:18px; margin-bottom:8px; }
+.writer-h:first-of-type { margin-top:0; }
+.writer-p { font-size:13px; font-weight:300; color:var(--text-s); line-height:1.7; margin-bottom:10px; }
+.writer-p em { color:var(--text-m); }
+.writer-recos { display:flex; flex-direction:column; gap:8px; margin-top:14px; }
+.writer-reco { display:flex; gap:12px; align-items:flex-start; font-size:13px; color:var(--text-s); line-height:1.55; }
+.writer-reco-tag { background:var(--verd-muted); color:var(--verd-bright); font-size:10px; font-weight:600; letter-spacing:.1em; padding:3px 8px; border-radius:3px; white-space:nowrap; margin-top:2px; }
+.writer-reco strong { color:var(--text-p); font-weight:500; }
+
+/* Decisions block (same as iter1) */
+.spec-section{padding:0 48px 80px;}
+.spec-block{background:var(--spec-pan);border:1px solid var(--border-s);border-radius:6px;margin-bottom:18px;overflow:hidden;}
+.spec-block-header{padding:14px 22px;background:var(--ink);border-bottom:1px solid var(--border-s);font-size:11px;font-weight:600;letter-spacing:.25em;text-transform:uppercase;color:var(--text-p);display:flex;justify-content:space-between;align-items:center;}
+.spec-block-body{padding:18px 22px;}
+.spec-row{display:grid;grid-template-columns:200px 1fr;gap:18px;padding:9px 0;border-bottom:1px solid var(--border-s);font-size:12px;align-items:start;}
+.spec-row:last-child{border-bottom:none;}
+.spec-row-k{color:var(--text-s);font-weight:500;font-size:11px;letter-spacing:.08em;text-transform:uppercase;padding-top:1px;}
+.spec-row-v{color:var(--text-p);font-weight:300;line-height:1.6;}
+.spec-row-v code{background:var(--ink);padding:1px 6px;border-radius:3px;font-family:ui-monospace,monospace;font-size:11px;color:var(--callout);border:1px solid var(--border-s);}
+.spec-row-v em { color:var(--text-m); font-style:italic; }
+</style>
+</head>
+<body>
+
+<div class="doc-header">
+  <div>
+    <div style="display:flex;align-items:baseline;"><span class="wm-s">Stela</span><span class="wm-v">vox</span></div>
+    <div style="margin-top:6px;font-size:11px;font-weight:300;letter-spacing:.2em;text-transform:uppercase;color:var(--text-m);">Dashboard v2 — iteration 2 — Phase 8.01</div>
+  </div>
+  <div class="doc-meta">2026-05-28 · sandbox dropped · new-doc flow corrected · wordmark + hairline +20%</div>
+</div>
+
+<!-- ───────────────────────────────────────────────────────── -->
+<!-- 01 — POPULATED STATE                                      -->
+<!-- ───────────────────────────────────────────────────────── -->
+
+<div class="section"><div class="slabel">01 — Dashboard / Populated · iteration 2</div></div>
+
+<div style="padding:32px 48px 0;">
+<div class="callout-set">
+<div class="screen">
+
+  <div class="app-hdr">
+    <a class="wm wm-sm" href="#" style="text-decoration:none;">
+      <div class="wm-text"><span class="wm-stela">Stela</span><span class="wm-vox">vox</span></div>
+      <div class="wm-rule-wrap"><div class="wm-rule"></div><div class="wm-lozenge"></div></div>
+    </a>
+    <div class="app-hdr-right">
+      <div class="cmd-chip">Search <span class="cmd-chip-kbd">⌘K</span></div>
+      <div class="hdr-link">Settings</div>
+      <div class="uav">AS</div>
+    </div>
+  </div>
+
+  <div class="app-body">
+
+    <!-- Sidebar -->
+    <div class="app-sidebar">
+      <div class="sb-section-label">Workspace</div>
+      <div class="sb-item active"><span class="sb-item-icon">⌂</span> Home</div>
+      <div class="sb-item"><span class="sb-item-icon">⊟</span> All projects</div>
+      <div class="sb-item"><span class="sb-item-icon">◷</span> Recent</div>
+
+      <div class="sb-divider"></div>
+      <div class="sb-section-label">Projects</div>
+      <div class="sb-item"><span class="sb-item-icon">◆</span> Shadow Protocol</div>
+
+      <div class="sb-foot">
+        <div class="sb-divider"></div>
+        <div class="sb-item"><span class="sb-item-icon">⚙</span> Settings</div>
+        <div class="sb-item"><span class="sb-item-icon">?</span> Help</div>
+      </div>
+    </div>
+
+    <!-- Main -->
+    <div class="app-main">
+      <div class="greeting">Good afternoon, Author.</div>
+      <div class="greeting-sub">1 project · 1 document · 1 brief active</div>
+
+      <!-- Recent Documents — 2-column grid (no "new document" tile) -->
+      <div class="sec-hdr">
+        <div class="sec-hdr-title">Recent Documents</div>
+        <div class="sec-hdr-action">All documents →</div>
+      </div>
+      <div class="docs-grid">
+
+        <div class="doc-card">
+          <div class="doc-card-type"><span class="doc-type-icon">N</span> Novel</div>
+          <div class="doc-card-title">Shadow Protocol</div>
+          <div class="doc-card-meta-row">
+            <div class="doc-meta-item">in <strong style="color:var(--text-s);">Shadow Protocol</strong></div>
+            <div class="doc-meta-item">last edit 12 min ago</div>
+          </div>
+          <div class="doc-card-progress-row">
+            <div class="doc-card-progress"><div class="doc-card-progress-fill" style="width:38%;"></div></div>
+            <div class="doc-card-progress-text">38%</div>
+          </div>
+          <div class="doc-card-status">
+            <div class="status-pip status-pip-running"></div>
+            <span class="status-text">Director: synthesising prose for Act 2 hook (3 beats)</span>
+          </div>
+          <div class="continue-row">
+            <div class="continue-link">Continue writing →</div>
+          </div>
+        </div>
+
+        <!-- Placeholder example second card kept so the grid breathes; in V1 only one
+             doc exists (Shadow Protocol), so this slot would be empty or carry a
+             "Recent activity" mini-feed instead — flagged in the writer's eye below. -->
+        <div class="doc-card" style="opacity:.55;border-style:dashed;cursor:default;">
+          <div class="doc-card-type"><span class="doc-type-icon" style="background:transparent;color:var(--text-m);border:1px dashed var(--border-d);">—</span> No second document yet</div>
+          <div class="doc-card-title" style="color:var(--text-m);font-weight:300;font-style:italic;">Add another document to this project, or start a new project.</div>
+          <div class="doc-card-meta-row" style="margin-top:auto;">
+            <a class="sec-hdr-action" style="font-size:11px;">+ New document in Shadow Protocol</a>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- All projects -->
+      <div class="sec-hdr">
+        <div class="sec-hdr-title">Projects</div>
+        <div class="sec-hdr-action primary">+ New project</div>
+      </div>
+      <div class="proj-list">
+        <div class="proj-item">
+          <div class="proj-icon-wrap">◆</div>
+          <div class="proj-info">
+            <div class="proj-name">Shadow Protocol</div>
+            <div class="proj-meta">Novel · <strong>1 document</strong> · last active 12 min ago</div>
+          </div>
+          <div class="proj-actions">
+            <div class="proj-add-doc">+ Document</div>
+            <div class="proj-arrow">→</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+  <!-- Callout pins -->
+  <div class="callout-pin" style="top:62px;  left:64px;">1</div>
+  <div class="callout-pin" style="top:160px; left:265px;">2</div>
+  <div class="callout-pin" style="top:230px; left:340px;">3</div>
+  <div class="callout-pin" style="top:455px; left:455px;">4</div>
+  <div class="callout-pin" style="top:585px; left:380px;">5</div>
+  <div class="callout-pin" style="top:706px; left:1020px;">6</div>
+</div>
+
+  <div class="callout-list">
+    <div class="callout-list-title">Iteration 2 — changes from iter1</div>
+    <div class="callout-row"><div class="callout-num">1</div><div class="callout-text"><strong>Wordmark scaled up ~20%.</strong> Cinzel 14→17, Cormorant 16→19, rule 80→100px, lozenge 7→9px with stronger glow. Header height also bumped 48→52px to give the wordmark visual room. <em>Compared to other SaaS apps: Linear ~17px, Notion ~16px, Figma ~18px, Vercel ~16px. We're now in the middle of that range.</em></div></div>
+    <div class="callout-row"><div class="callout-num">2</div><div class="callout-text"><strong>Sidebar hairline louder.</strong> Gradient opacity bumped from 35% → 55% at peak. Visible as a defined brand element now rather than "is that something or just my screen?"</div></div>
+    <div class="callout-row"><div class="callout-num">3</div><div class="callout-text"><strong>Sandbox concept dropped.</strong> Test-fixture projects (<code>exec-pw-*</code>) are deleted from the DB outright as a one-time cleanup. The disclosure block is gone. Only Shadow Protocol remains.</div></div>
+    <div class="callout-row"><div class="callout-num">4</div><div class="callout-text"><strong>Continue writing →.</strong> NEW per-card affordance at the bottom of each doc card, verdigris-tinted text link. The single most-likely action from dashboard is "open the document I was last in and keep going" — making it explicit (not just "click anywhere on the card") gives the eye a target.</div></div>
+    <div class="callout-row"><div class="callout-num">5</div><div class="callout-text"><strong>"New document" flow corrected.</strong> The card-slot placeholder is gone from the dashboard. Documents live inside projects, so the dashboard primary CTA is "<strong>+ New project</strong>" (verdigris, use #7 affirmative-action); per-project rows carry a small "<strong>+ Document</strong>" button that knows its parent project. Cmd+K palette will also support "new document" with a project picker — but the visual-affordance gap on dashboard is closed.</div></div>
+    <div class="callout-row"><div class="callout-num">6</div><div class="callout-text"><strong>Per-project "+ Document" affordance.</strong> Tucked alongside the project's arrow, neutral chrome, verdigris-on-hover. Doesn't fight for attention with "+ New project" (the primary CTA) but is reachable in one click without entering the project.</div></div>
+  </div>
+</div>
+
+<!-- ───────────────────────────────────────────────────────── -->
+<!-- 02 — EMPTY STATE (unchanged from iter1 except wordmark +20%) -->
+<!-- ───────────────────────────────────────────────────────── -->
+
+<div class="section" style="padding-top:60px;"><div class="slabel">02 — Dashboard / Empty · new user · iteration 2</div></div>
+
+<div style="padding:32px 48px 0;">
+<div class="screen" style="height:500px;">
+  <div class="app-hdr">
+    <a class="wm wm-sm" href="#" style="text-decoration:none;">
+      <div class="wm-text"><span class="wm-stela">Stela</span><span class="wm-vox">vox</span></div>
+      <div class="wm-rule-wrap"><div class="wm-rule"></div><div class="wm-lozenge"></div></div>
+    </a>
+    <div class="app-hdr-right">
+      <div class="uav">AS</div>
+    </div>
+  </div>
+
+  <div class="app-body">
+    <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:30px;padding:60px;">
+      <div class="wm wm-lg" style="align-items:center;">
+        <div class="wm-text"><span class="wm-stela">Stela</span><span class="wm-vox">vox</span></div>
+        <div class="wm-rule-wrap" style="margin-top:8px;"><div class="wm-rule"></div><div class="wm-lozenge" style="left:-4px;top:-5px;width:12px;height:12px;"></div></div>
+      </div>
+      <div style="font-size:14px;font-weight:300;color:var(--text-m);font-style:italic;font-family:'Cormorant Garamond',serif;letter-spacing:.04em;">The author's thought should arrive on the page undistorted.</div>
+
+      <div style="text-align:center;max-width:440px;margin-top:6px;">
+        <div style="font-size:17px;font-weight:400;color:var(--text-p);margin-bottom:8px;">Begin with a project.</div>
+        <div style="font-size:13px;font-weight:300;color:var(--text-s);line-height:1.7;">A project holds one or more documents — a novel, a thesis, a set of board papers. Create your first project to begin.</div>
+      </div>
+
+      <button style="background:var(--verd);color:white;font-size:13px;font-weight:500;padding:12px 34px;border-radius:5px;border:none;cursor:pointer;font-family:'Inter',sans-serif;box-shadow:0 6px 18px rgba(61,120,88,0.4);">Create your first project</button>
+
+      <div style="font-size:11px;font-weight:300;color:var(--text-m);">or press <span style="background:var(--surface);border:1px solid var(--border-d);padding:2px 7px;border-radius:3px;font-size:10px;font-family:ui-monospace,monospace;">⌘K</span> to search</div>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- ───────────────────────────────────────────────────────── -->
+<!-- 03 — WRITER'S EYE                                         -->
+<!-- ───────────────────────────────────────────────────────── -->
+
+<div class="section" style="padding-top:60px;"><div class="slabel">03 — Writer's eye · my honest reaction</div></div>
+
+<div style="padding:32px 48px 0;">
+<div class="writer-block">
+<div class="writer-title">A writer opens Stelavox at 9:14am with their first coffee</div>
+
+<p class="writer-p">I'm imagining I sat down at my desk yesterday and wrote half a chapter of Shadow Protocol. This morning I want to keep going. I open the laptop, navigate to the bookmark, the login is muscle memory, and now I'm here. <em>What do I want, what do I see?</em></p>
+
+<div class="writer-h">What works</div>
+<p class="writer-p">The wordmark at the top-left finally says "<strong>this is a craft tool</strong>" instead of "this is a CRUD app." The sidebar hairline is small but the eye registers it — peripheral confirmation that I'm in a designed space. The Recent Documents card carries enough information that I don't need to click into the project just to remember where I am: it tells me I was at 38% completion, that the Director is currently working on something, and that "<em>last edit 12 min ago</em>" matches my mental clock. "<strong>Continue writing →</strong>" gives my eye a single target — I press that and I'm in the prose, no detours.</p>
+
+<div class="writer-h">What still feels off, after iter2</div>
+
+<div class="writer-recos">
+
+<div class="writer-reco"><span class="writer-reco-tag">R-1</span><div><strong>Only one document, but the doc grid takes half the page.</strong> When there's one doc and one project, the dashboard reads "<em>2/3 of this screen is empty space and dashed placeholders</em>". The dashed second-slot card is a half-measure — it works as a Fitts target but it doesn't carry information. Suggestion: when the doc count is ≤1, collapse to a single full-width doc card with richer information (recent activity preview, the last sentence I wrote, today's word count target vs actual), and only switch to the grid when there are ≥2 documents.</div></div>
+
+<div class="writer-reco"><span class="writer-reco-tag">R-2</span><div><strong>No sense of how much I wrote yesterday / this week.</strong> Writers track output. There's no streak indicator, no "<em>1,247 words yesterday</em>", no "<em>you're on day 4 of 7</em>". This is the kind of thing that makes someone come back. Could be a slim band above Recent Documents — "<strong>Today: 0 words · Yesterday: 1,247 · 7-day total: 8,432 · 12-day streak</strong>" — Cormorant Garamond italic for the numbers, very subtle, but always there.</div></div>
+
+<div class="writer-reco"><span class="writer-reco-tag">R-3</span><div><strong>The greeting is the same forever.</strong> "Good afternoon, Author." after the first day of use becomes pure chrome. Iterating ideas: greeting cycles through a small set of quiet phrases ("<em>Where were we, Author?</em>", "<em>Welcome back.</em>", "<em>Day 12.</em>") — or the greeting can be replaced after first-visit-of-the-day by the most recent paragraph the author wrote, in Lora 18px italic, indented, like a journal returning to itself. That's a touch I think makes this a "writer's tool" rather than "doc tool."</div></div>
+
+<div class="writer-reco"><span class="writer-reco-tag">R-4</span><div><strong>Director status is in the doc card, but the Director itself is invisible from dashboard.</strong> If I want to talk to the Director without first opening the document, I can't. Should the Director status pip be clickable — opens a small popover with the most recent message + "Reply" link? Or is that overload? Honest answer: probably overload for V1, but worth flagging because it'll come up.</div></div>
+
+<div class="writer-reco"><span class="writer-reco-tag">R-5</span><div><strong>"All documents" and "All projects" actions feel redundant in a 1-doc 1-project world.</strong> Once you have 8 projects and 30 documents you'll want them. At V1 launch they're chrome noise. Consider hiding these section-header actions when the underlying count is small enough that everything's already on screen.</div></div>
+
+<div class="writer-reco"><span class="writer-reco-tag">R-6</span><div><strong>The sidebar duplicates the Projects list in the main area.</strong> "Shadow Protocol" appears in the sidebar and in the project row beneath Recent Documents. With more projects this gets noisy. Suggestion: sidebar shows only pinned/recent projects (max ~5), with "All projects" expanding the rest in-place or routing to a separate list view. We don't need to solve this for V1's 1-project state, but the pattern should be set before it becomes ugly at 10+.</div></div>
+
+<div class="writer-reco"><span class="writer-reco-tag">R-7</span><div><strong>The dashboard doesn't say what's NEXT.</strong> Card shows "<em>Director: synthesising prose for Act 2 hook (3 beats)</em>" — but I don't see "<em>3 beats waiting for your accept</em>" or "<em>nothing for you right now</em>". The first thing a writer wants to know on returning is "<em>do I have to do anything, or can I just write?</em>". A single line answering that — maybe under the greeting, in a quieter colour — would do a lot of work.</div></div>
+
+<div class="writer-reco"><span class="writer-reco-tag">R-8</span><div><strong>Pulsing status pip on agent-running is correct, but only on the dashboard.</strong> If I'm scanning peripherally to see "are we still working?", the pulse is exactly right. But once I'm in Edit Mode, watching it pulse forever in the corner becomes a distraction. The animation should pause when the user is actively typing (autosave keystroke recency) and resume when they idle. Out of scope for this dashboard wireframe but flagging for Edit Mode v2.</div></div>
+
+</div>
+
+<div class="writer-h" style="margin-top:24px;">Honest gut feel</div>
+<p class="writer-p">The page is meaningfully better than iter1. The wordmark + hairline give it "this is Stelavox" the instant you see it. The doc card gives you actionable state at a glance. The greeting plus the "Continue writing →" link gives me a clear next step. But I think it's still <strong>40% chrome and 60% empty for the 1-doc state</strong>. The single biggest improvement we could make is R-1: collapse the doc grid to a single richer card when there's one doc — fill the page with what matters. R-2 and R-3 are the personality touches that would make a writer come back daily.</p>
+
+</div>
+</div>
+
+<!-- ───────────────────────────────────────────────────────── -->
+<!-- 04 — DECISIONS                                            -->
+<!-- ───────────────────────────────────────────────────────── -->
+
+<div class="section" style="padding-top:60px;"><div class="slabel">04 — Decisions (iteration 2 deltas)</div></div>
+<div class="spec-section" style="padding-top:18px;">
+
+  <div class="spec-block">
+    <div class="spec-block-header">Iteration 2 changes</div>
+    <div class="spec-block-body">
+      <div class="spec-row"><div class="spec-row-k">Wordmark size</div><div class="spec-row-v">Cinzel 14 → 17, Cormorant 16 → 19, rule 80 → 100px, lozenge 7 → 9px (with stronger glow). Header height 48 → 52px. Comparable to Linear/Notion/Figma/Vercel wordmark scale.</div></div>
+      <div class="spec-row"><div class="spec-row-k">Hairline opacity</div><div class="spec-row-v">35% → 55% gradient peak. Visible as a designed element now.</div></div>
+      <div class="spec-row"><div class="spec-row-k">Sandbox section</div><div class="spec-row-v">Removed entirely. Cleanup task: delete <code>exec-pw-*</code> projects (and any other test-fixture projects) from the DB. Preserve Shadow Protocol. Tracked as part of 8.01 close-out.</div></div>
+      <div class="spec-row"><div class="spec-row-k">"New document" flow</div><div class="spec-row-v">Card-slot placeholder removed from dashboard. Primary CTA: "+ New project" (verdigris). Per-project "+ Document" affordance on each project row (neutral chrome, verdigris-on-hover). Cmd+K palette will support "new document" with project picker. <em>This is the corrected mental model: dashboard → projects → documents.</em></div></div>
+      <div class="spec-row"><div class="spec-row-k">Continue writing →</div><div class="spec-row-v">NEW per-doc-card affordance. Verdigris-tinted text link. Single-target eye-anchor for the most likely action from dashboard.</div></div>
+    </div>
+  </div>
+
+  <div class="spec-block">
+    <div class="spec-block-header">Writer's-eye recommendations · open</div>
+    <div class="spec-block-body">
+      <div class="spec-row"><div class="spec-row-k">R-1 collapsed solo-doc card</div><div class="spec-row-v">Single full-width card when doc count ≤1, with richer information panel. <strong>Strongly recommend.</strong> The biggest single win for the empty-feel problem.</div></div>
+      <div class="spec-row"><div class="spec-row-k">R-2 writing stats band</div><div class="spec-row-v">Thin "Today / yesterday / streak / target" line. Highly characterful. <strong>Recommend.</strong></div></div>
+      <div class="spec-row"><div class="spec-row-k">R-3 dynamic greeting</div><div class="spec-row-v">Cycling greeting OR last-paragraph echo. Personality touch. <strong>Like the last-paragraph idea — has weight. Recommend for iter3.</strong></div></div>
+      <div class="spec-row"><div class="spec-row-k">R-4 Director popover from card</div><div class="spec-row-v">Status pip becomes clickable popover. <em>Defer — likely overload for V1.</em></div></div>
+      <div class="spec-row"><div class="spec-row-k">R-5 hide "All …" at low counts</div><div class="spec-row-v">Section-header actions visible only when there's more than fits the visible region. <strong>Cheap recommendation.</strong></div></div>
+      <div class="spec-row"><div class="spec-row-k">R-6 sidebar dedup</div><div class="spec-row-v">Cap sidebar projects at ~5, route the rest behind "All projects." Pattern-set for scale. <em>Flag for iter3 or Edit Mode v2.</em></div></div>
+      <div class="spec-row"><div class="spec-row-k">R-7 "what's next for me" line</div><div class="spec-row-v">Quiet single sentence under greeting answering "do I have to do anything?". <strong>Recommend.</strong></div></div>
+      <div class="spec-row"><div class="spec-row-k">R-8 pulse pause on type</div><div class="spec-row-v">Out of scope for dashboard. Flag for Edit Mode v2.</div></div>
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>

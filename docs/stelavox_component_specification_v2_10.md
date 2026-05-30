@@ -1,5 +1,5 @@
 # Stelavox — Component Specification
-## Version 2.20
+## Version 2.21
 
 > **VersionHistory — hover-diff tooltip removed (2026-05-24):** Two parallel inspection surfaces in the History tab were redundant. The v2.19 amendment shipped a click-to-preview pane below the list that renders the selected version's Summary + Prose + Notes faithfully; the legacy 320px hover-tooltip word-diff was kept alongside it as a "for at-a-glance change-shape" surface. In practice having both was confusing UX — the user had to choose between hovering for a partial view or clicking for the full view. v2.20 keeps only the click-to-preview pane. `components/detail/VersionHistory.tsx` removes the `extractPlainText` + `diffWords` + `DiffSeg` helpers (the LCS word-diff machinery), the `hoveredVersion`/`diffSegs` state, the `onHover`/`onLeave` handlers that fetched content on mouse-enter, and the tooltip render block. A simpler `hoveredRowVersion` boolean replaces the old `hoveredVersion` state purely to drive the Restore button's appears-on-hover fade-in (Phase 6.C affordance preserved). §5.11 table drops the "Hover preview" row. Playwright `TC-U-21 — Hover diff preview` superseded as a `test.skip` placeholder (numbering preserved for historical reports). No new behaviour, no Inviolable change, verdigris-use count unchanged. Type-check exit 0. Per-row content fetching is now click-driven via `getVersionFull` (used by `VersionPreviewPane`), removing the on-hover network and JSON-parse work that was wasted whenever the author mouse-passed across the list.
 
@@ -465,9 +465,10 @@ Root react-arborist component with custom `NodeRow` renderer.
 
 | Property | Value |
 |---|---|
-| Height | 36px desktop, 44px tablet |
+| Height | 44px universal (Phase 8.01 iPad wireframe lock — desktop loses no functional density and gains tap-friendliness; supersedes "36px desktop, 44px tablet") |
 | Padding | `0 8px 0 [depth * 16px + 8px]` (indented by depth) |
 | Layout | `display: flex; align-items: center` |
+| Layer label | 🔒 **Bracketed monospace label prefixes the name** — `[Book 1]`, `[Act 1]`, `[Ch 1]`, `[Sc 1]`, `[Bt 1]` — ui-monospace / JetBrains Mono 10.5px, letter-spacing 0.02em, 1px `--color-border-default` border, 3px radius, 1px×5px padding. Position number derived from `nodes.order` — no client-side counting. Locked Phase 8.01 wireframe iter2 (Option A vs small-caps; Option A chosen). |
 
 **States:**
 
@@ -1065,16 +1066,24 @@ Cursor position preserved. Scroll position preserved.
 | Format | `Document · Layer · Layer · Current` |
 | Separator | `·` (middot) at opacity 0.4 |
 
-**Opacity state machine:**
+**Opacity state machine (Phase 8.01 wireframe-lock revision — F-1).**
 
 | Trigger | Opacity | Transition |
 |---|---|---|
 | Typing | 0 | instant |
-| At rest >3s | 0.2 | 800ms `--easing-prose` ⚡ |
-| Mouse movement | 0.2 | 800ms `--easing-prose` ⚡ |
-| Maximum | 🔒 0.2 | Never higher |
+| At rest >3s | 0.35 | 800ms `--easing-prose` ⚡ |
+| Mouse movement | 0.35 | 800ms `--easing-prose` ⚡ |
+| Hover on breadcrumb | 0.7 | 200ms `--easing-default` ⚡ |
+| Touch tap (iPad) | 0.7 for 4s, then fade to 0.35 | 200ms in / 800ms out ⚡ |
+| Maximum | 0.7 | Hover/touch reveal only |
 
-♿ `aria-hidden="true"` — decorative location text, not navigation.
+**Rationale for the bump (was 🔒 0.2 max).** v2.20 capped the breadcrumb at opacity 0.2 with the lock symbol because the legacy breadcrumb was a faint Inter trail with low information value at any opacity. With Phase 8.01's bracketed monospace labels carrying the same vocabulary as the Edit Mode tree (§4.2), the breadcrumb has more to offer at a glance and can be read for actual orientation rather than treated as decoration. The 0.35 ceiling at rest stays gentle; the 0.7 hover ceiling admits the full read (including the position counter "2 / 5" and the node name) when the author actively reaches for it. The full leaf-node name only renders at the hover/touch opacity — not at rest.
+
+**Breadcrumb content:**
+- At rest: bracketed labels only — `[Book 1] · [Act 1] · [Ch 1] · [Sc 1] · [Bt 1]`.
+- On hover/touch: append the leaf node name and position counter — `[Book 1] · [Act 1] · [Ch 1] · [Sc 1] · [Bt 1]  2 / 5  — Anchor & Conflict`. The "N / M" counter is hover-only (Phase 8.01 wireframe lock F-4).
+
+♿ `aria-hidden="true"` — decorative location text, not navigation. The position counter and node name are inside the same `aria-hidden` subtree (still decorative; screen readers reach the node identity via the tree, not the breadcrumb).
 
 ---
 
@@ -1085,11 +1094,13 @@ Cursor position preserved. Scroll position preserved.
 | Property | Value |
 |---|---|
 | Font | Inter 300 10px tracking 0.12em `--color-text-disabled` |
-| Position | Bottom-right of viewport, inside prose column right edge |
-| Text | `Esc to exit` |
+| Position | Bottom-left of viewport (Phase 8.01 lock — was bottom-right; FocusWordCount now owns bottom-right per §5.7). Inside prose column left edge. |
+| Text | `Esc to exit` (desktop) — keyboard hint |
+| Touch variant (iPad / no-keyboard) | Rendered as a 44×44px tap target pill with copy `← Edit` and a chevron glyph. Replaces the `Esc to exit` text; the action is identical (exits Focus Mode and returns to the previously-active mode). |
 | Entry opacity | 0.3 |
 | Fade out | After 5000ms → opacity 0, `--duration-slow` ⚡ |
-| Returns | 🔒 Never. No hover behaviour after fade. |
+| Returns | 🔒 Never on desktop. iPad pill stays at 0.4 permanently — tap is the only exit on touch, so the affordance cannot fade out of existence. |
+| Beat-nav hint sibling | A second decorative hint may be rendered bottom-centre when idle: `⌘ ←` / `⌘ →` (desktop) or `swipe to switch beats` (iPad). Opacity 0.2 at rest, 0 while typing. See §6.1 navigation. |
 
 ---
 
@@ -1882,7 +1893,166 @@ Reflective acknowledgement (Director re-reads artefacts and offers observation) 
 
 ---
 
-## 18. Changelog
+## 18. Phase 8.01 — UX Consistency
+
+This section captures the component-level deltas from the Phase 8.01 UX consistency pass. The pass produced eight wireframes under `docs/wireframes/wireframe_phase8_01_ux_consistency/` and locked the decisions enumerated below. Targeted edits to existing sections (§4.2 NodeRow 44px universal + bracketed labels; §6.2 FocusBreadcrumb 0.35/0.7 opacity; §6.3 FocusEscHint iPad pill) already landed in the relevant sections. New component families and the responsive contract live here.
+
+### 18.1 Bracketed monospace layer labels (universal vocabulary)
+
+Phase 8.01 locks a single visual vocabulary for naming layer positions across every surface that shows a hierarchy: the tree (§4.2), the detail-pane crumb (§5.2), the Focus Mode breadcrumb (§6.2), the Director Mode `@` mention picker (§18.5), the project-page export tree (§18.7), and the dashboard hero crumb (§18.4).
+
+**Format:** `[Book 1]`, `[Act 1]`, `[Ch 1]`, `[Sc 1]`, `[Bt 1]`. For the Series-of-Novels layer_stack: `[Series]`, `[Book 1]`, `[Act 1]`, `[Ch 1]`, `[Sc 1]`, `[Bt 1]`.
+
+**Typography:** ui-monospace / JetBrains Mono 10.5px, letter-spacing 0.02em, 1px `--color-border-default` border, 3px radius, 1px×5px padding, colour `--color-text-primary`.
+
+**Position number** is read from `nodes.order` — never computed client-side. (The layer-stack source-of-truth question — labels currently hardcoded in `components/tree/NodeTree.tsx` vs the `layer_stacks.layers[i].label` JSON — is closed in V1 by hardcoding Novel + Series-of-Novels, and reopened post-V1 as Phase 14 — Layer Stack Generalisation. See TA §11 and `memory/project_layer_stack_generalisation.md`.)
+
+**Tap behaviour:** every bracketed crumb element is a tap target that navigates up to the matching ancestor node. Tap `[Ch 1]` in any detail-header crumb to land on the chapter; tap `[Act 1]` to land on the act. Selecting via tap is a tree-row selection (not a context menu).
+
+### 18.2 Responsive breakpoints — the canonical contract
+
+| Viewport | Edit Mode | Director Mode | Focus Mode |
+|---|---|---|---|
+| ≥1280px desktop | Tree 280 · Detail flex (no Director) | Tree 340 · Detail flex · Director 500 | Full-screen Portal · 720px prose column |
+| 1024–1279px iPad landscape / small desktop | Tree 260 · Detail flex | Tree summon-only · Detail flex · Director 420 | Full-screen · 620px prose column |
+| 768–1023px iPad portrait | Tree slide-over (default closed) · Detail full-width | Detail summary strip (100px) + Director full-width OR Tree slide-over · Director full-width | Full-screen · 560px prose column |
+| <768px phone | *Out of scope for V1 — Backlog* | *Out of scope* | *Out of scope* |
+
+**Slide-over edges.** Tree from the left edge. Director from the right edge. Focus is its own full-screen Portal (per §6.1 portal mount). Backdrop dim at `rgba(0,0,0,0.4)`; tap on backdrop dismisses.
+
+**Slide-over widths.** Tree slide-over 320px (wider than pinned 260px because tap targets need breathing room). Director slide-over 440px (wider than pinned 420px for the same reason).
+
+**Tree row minimum height is 44px universal** across all viewports (Phase 8.01 wireframe lock; supersedes §4.2's prior "36px desktop, 44px tablet" split — desktop loses no functional density and gains tap-friendliness).
+
+### 18.3 Touch interactions (canonical table)
+
+| Action | iPad gesture | Desktop equivalent |
+|---|---|---|
+| Open tree in Edit/Director portrait | Tap `☰` summon button OR swipe right from left edge | Always visible |
+| Dismiss tree slide-over | Tap backdrop, tap `☰`, OR swipe left | — |
+| Reorder tree row | Long-press 350ms then drag | Click and drag |
+| Select tree row | Single tap | Click |
+| Row context menu | Long-press 800ms with no movement | Right-click / hover "More" menu |
+| Next / previous beat in Focus | Swipe left / swipe right on prose surface | `⌘ →` / `⌘ ←` |
+| Exit Focus Mode | Tap "← Edit" pill (§6.3 iPad variant) | `Esc` |
+| Director `@` mention picker | Tap `@` → tap node row (no hover preview) | Type `@` → arrow keys → Enter |
+| Selection tooltip | Standard iPad text selection → handles + tooltip | Click-drag selection → tooltip (§5.6) |
+| Bump Focus breadcrumb opacity to 0.7 | Tap breadcrumb (4s reveal) | Hover (§6.2) |
+| Bump detail-pane crumb opacity to "read" | Tap crumb (4s) | Hover |
+
+**Long-press timings — Phase 8.01 lock:** 350ms drag-start, 800ms context menu. Tighter than iOS standard (500/1000) to feel decisive on a writing-focused interface. Validation pass scheduled at the build-time tactile review.
+
+### 18.4 Dashboard component family (NEW)
+
+The dashboard is the application root for an authenticated user. It has two surface shapes — populated and first-time empty.
+
+**Populated shape (≥1 project):**
+
+- **Header.** `Wordmark` (§3.1) left + global search (`⌘K`) centred + user avatar right. 56px height.
+- **Sidebar (240px).** Three sections: LIBRARY (All projects / Recent / Archived with counts), CONTEXT (Characters / Locations / Themes with counts), SYSTEM (Settings / Exports / Usage). Inter 12.5px rows; counts in monospace; row min-height 44px universal.
+- **Main canvas.**
+  1. `ResumeWritingHero` — left 2/3 of a hero row. Shows the last beat the author worked on as a Lora 14px block, bracketed crumb above (`[Book 1] · [Act 1] · [Ch 1] · [Sc 1] · [Bt 3]`), node name, "Continue writing →" CTA (neutral ghost button — NOT verdigris; passive return action, not affirmative commit).
+  2. `NeedsAttentionStrip` — right 1/3 of the same hero row. Pulls `AppShellStatusIndicator` (§17.1) data: Director proposals, beats awaiting Accept, budget signals. Amber dot for action wanted; info-blue dot for informational. No verdigris.
+  3. `ProjectGrid` — 3-column grid of `ProjectCard`s. Each card: title (Inter 500 15px), layer-stack subtitle (mono 10.5px), progress line ("87% drafted · 73,440 / 84,000 words"), 4px progress bar (`--color-text-faint` fill on `--color-bg-base` track), meta line ("1 doc · Last: 4m ago").
+
+**First-time shape (zero projects):**
+
+- **Header.** Wordmark + user avatar (no search yet — there is nothing to search).
+- **Sidebar.** `QuickStartChecklist` (§18.6) + LEARN section (Walkthrough · Sample novel tour).
+- **Main canvas.** `EmptyHero` (welcome headline Inter 400 26px + tagline Lora 15px italic) + `EmptyActions` (verdigris primary "Get started" + ghost secondary "Try the sample novel") + 3-tile philosophy strip (Structure-first writing · A Director, not an author · `YoursTile` with encryption line — see §18.6).
+
+### 18.5 DirectorPanel rendering refinements (extension to §7.1, §7.4, §7.9)
+
+Phase 8.01 introduces three rendering refinements to the existing Director conversation surface. None of these are new components — they are presentation changes to `DirectorMessage` (§7.4) and `DirectorInput` (§7.9). All defer to existing logic in `lib/director/parse-message-proposals.ts` and the iteration-runner SSE stream — no API contract changes.
+
+**Reasoning chip (replaces visible `<plan>` blocks in Director responses):**
+- When a Director response contains a `<plan>…</plan>` XML block, the block is stripped from the rendered Lora prose and replaced with a collapsed monospace chip: `Reasoning · N lines` (N = line count of the stripped block).
+- Default state: collapsed. The user can tap to expand; expanded state shows the plain-text plan in `--color-text-muted` 12px monospace inside a `--color-bg-elevated` block. Tap to recollapse.
+- The chip uses `--color-text-muted` on `--color-bg-elevated` with a 1px `--color-border-subtle` border, 12px border-radius (pill shape), 3×9px padding.
+- Wireframe lock M-1 from `05_director_mode_v1_iter1.html`: collapsed-by-default.
+
+**Tool-call chips:**
+- Each tool invocation in a Director response renders as a single line: monospace 11px chip with the tool name and short parameter summary, e.g. `get_node(node_id: …8def)` or `find_node_by_name("Marcus")`.
+- Multiple consecutive read-tool calls in the same turn may be grouped under a single "Looked at N nodes" expandable line (wireframe lock M-2 — recommend grouping; threshold ≥3).
+- Tool chips never claim or imply verdigris use — they are decorative meta, not affirmative actions.
+
+**Workflow proposal inline cards (lighter than `PlanCard`):**
+- `propose_workflow` artefacts in Director conversation render as inline cards within the conversation thread, distinct from the existing `PlanCard` mounted in the detail panel.
+- Card shape: 1px `--color-accent` left border (verdigris use #7 — within the existing affirmative-action triggers category; no new category, no broadening of count), Inter 13px body, step list rendered as a compact ordered list with bracketed target labels, single "Approve" verdigris button + neutral "Modify" link.
+- The inline card is the conversation-thread surface. The detail-panel `PlanCard` (§7.6) remains the authoritative dispatch surface. Wireframe lock M-3.
+
+**`@` mention picker — positional path syntax (extension to §7.9 DirectorInput):**
+- Trigger: typing `@` opens the node picker.
+- Each picker row shows the node name with the canonical bracketed-path crumb below it: `[Act 1] · [Ch 1] · [Sc 1]  The Iron Ghost`.
+- Confirmed selection inserts a positional-path token into the input: `@act1ch1sc1bt2` (rendered as a chip in the editing input with the bracketed-path tooltip on hover).
+- V1 accepts both partial-name search (`@iron`) and position-path entry (`@act1`); recommended via wireframe lock M-4. The chip is the canonical reference passed to the Director.
+- Mentioned-node highlight in tree pane: a 2px `--color-accent` left border on the row (this is the same verdigris use #9 already documented in §4.2 NodeRow active-node treatment; no new use). The `@` glyph prefixes the row name while a mention is active in the input.
+
+### 18.6 New first-time onboarding components
+
+**`QuickStartChecklist`** — appears in the sidebar of the first-time dashboard shape (§18.4 first-time).
+
+| Property | Value |
+|---|---|
+| Items | Exactly 5: Sign in (pre-checked); Create your first project; Add a beat and write; Try the Director; Export your first chapter |
+| Row | 8×10px padding, Inter 12px, 14px square checkbox border `--color-border-strong` |
+| Checked state | Verdigris fill + verdigris border + ✓ glyph in `--color-bg-base` (this is NOT a new verdigris use; checklist ticks are passive completion indicators within the existing "approved status badge" semantic family — use #5) |
+| Sub-meta | Optional second line, Inter 10.5px `--color-text-muted` (e.g. "Novel or Series", "~2 minutes") |
+| Lifecycle | Each item ticks when the milestone fires. Once all 5 are complete, the entire checklist condenses to a single "Setup complete ✓" line for one session, then disappears permanently. Not a permanent fixture. |
+
+**`YoursTile`** — third tile in the first-time philosophy strip (§18.4 first-time).
+
+| Property | Value |
+|---|---|
+| Icon | 28×28px verdigris dot in a 1px `rgba(61,120,88,0.35)` border, 6px radius — verdigris use here is decorative-informational, NOT verdigris use #5/#7. **Open Inviolable question:** strictly this is a 10th use category. Recommend treating as a brand-identity reinforcement within use #1 (brand mark) — the same category as the wordmark lozenge. To be confirmed at the next Inviolable audit. |
+| Headline | Inter 500 14px — "Your work, yours alone" |
+| Body | Inter 12px `--color-text-secondary` — "Every project belongs to you. Export anytime, in standard formats. No lock-in." |
+| Lock line | Top-border divider, monospace 10.5px small-caps `--color-text-muted` — `ENCRYPTED AT REST · PRIVATE TO YOUR ACCOUNT`. Phrasing locked at wireframe iter4 D-1: accurate (Postgres + Vault encryption) without overclaiming end-to-end. |
+
+**`SampleNovelImportModal`** — opened by the "Try the sample novel" secondary CTA.
+
+| Property | Value |
+|---|---|
+| Header | Inter 500 19px — "Load the sample novel" |
+| Sub | Inter 13px `--color-text-secondary` — purpose statement |
+| Preview block | `--color-bg-elevated`, 1px border, 6px radius. Shows: sample title, scale meta (`NOVEL · ~24,000 words drafted · 4 acts · 12 chapters · 47 scenes · 138 beats · 8 characters · 3 locations`), bracketed-label preview row |
+| Actions | Right-aligned: ghost "Cancel" + verdigris primary "Import to my workspace" (verdigris use #7 within affirmative-action triggers family — no broadening) |
+| Imported project tagging | The imported sample carries a `SAMPLE` badge — monospace 10px small-caps in `--color-text-muted` — shown in the project card and the tree header so the author cannot mistake it for their own work. (Wireframe lock D-3.) |
+
+**Tagline copy lock (D-4).** The first-time `EmptyHero` tagline is: *"A hierarchical writing workspace where structure stays in your hands and AI helps where you ask it to."* The longer form retains the "structure stays in your hands" differentiator.
+
+### 18.7 ProjectPage + ExportTreeView (NEW)
+
+The Project page is the surface entered when the author clicks a project from the dashboard. It has two viewport regions and two view modes.
+
+**Layout (≥1280px):** Project header (Wordmark + bracketed crumb + page tabs) + main canvas. The page has two top-level tabs: **Documents** and **Export**.
+
+**Documents view.** Lists all documents in the project. For Novel layer-stack this is typically one document; for Series-of-Novels this can be many. Each document row shows title, layer-stack badge, draft progress, last-modified relative time, and a click-through into the document's tree.
+
+**Export view — `ExportTreeView`.** A checkbox-tree of the project's full structure with the canonical bracketed labels. Click any node to toggle the checkbox; parent-state computes from children (mixed / all / none). The user picks an export profile (DOCX-Manuscript / DOCX-KDP / EPUB-Standard / Outline-Structural / JSON; from V1.x-Phase-7) and a destination format, then hits the verdigris "Export" button.
+
+Surface inviolable note: the Export button on the Export view is verdigris use #7 (affirmative-action triggers — same family as PlanCard Approve, Send, etc.). No new use category.
+
+### 18.8 Detail pane variants (NEW spec)
+
+`NodeDetailPanel` (§5.1) has two rendered shapes depending on `node.is_leaf`.
+
+**Leaf variant — "prose canvas".** The existing §5.4 ProseEditor + §5.3 SummaryEditor pair, with the §5.9 AgentTab / §5.10 CommentThread / §5.11 VersionHistory tab strip. Mounting unchanged.
+
+**Non-leaf variant — "structure overview".** Replaces the prose canvas with:
+
+- **Header.** Bracketed crumb (tappable, §18.1), node title in Inter 500 22px, status / aggregate meta line in monospace 11px (`REVIEW · 3 of 5 beats drafted · 1,247 words`).
+- **Summary block.** SummaryEditor for the node's own summary text (Inter 13px — see §5.3).
+- **Children panel.** A `--color-bg-elevated` block listing immediate children with their bracketed labels, names, and status pips. The children panel is read-only at this level — clicking a row navigates into the child node. (Phase 8.01 wireframe iter `04_detail_panes_v1_iter1.html` decision: no "open in tree" affordance; one level down is always visible from here.)
+- **Tab strip.** Same shape as leaf (Content / Agent / Comments / History) but the Content tab is the summary + children panel rather than the prose canvas.
+
+Wireframe lock: the non-leaf shape is the *cold* version (no aggregate dashboards within the children panel — could confuse). Aggregate roll-ups remain a V2 candidate.
+
+---
+
+## 19. Changelog
+
+**v2.21 — 2026-05-31** Phase 8.01 — UX Consistency wireframe-lock consolidation. **New §18 documents the UX consistency pass in full**; existing sections receive targeted edits where the change is small enough to land in place. (1) **§4.2 NodeRow:** height collapses from "36px desktop, 44px tablet" to **44px universal** per the iPad wireframe lock (desktop loses no functional density, gains tap-friendliness). NodeRow gains a 🔒 **bracketed monospace layer-label prefix** — `[Book 1]` / `[Act 1]` / `[Ch 1]` / `[Sc 1]` / `[Bt 1]` — ui-monospace 10.5px with 1px `--color-border-default` border. Position number sourced from `nodes.order` (no client-side counting). Locked Option A (bracketed) over Option B (small-caps) in wireframe iter2. (2) **§6.2 FocusBreadcrumb:** opacity ceiling bumped from 🔒 0.2 max to **0.35 steady / 0.7 hover**. The 0.2 cap suited the legacy faint Inter trail; with Phase 8.01's bracketed labels carrying real orientation value, 0.35 lets it function at rest, 0.7 reveals the full read (position counter "2 / 5" + leaf name) on hover/touch. (3) **§6.3 FocusEscHint:** moves bottom-left (was bottom-right; WordCount now owns bottom-right per §5.7). On touch, the kbd "Esc to exit" hint is replaced by a 44×44 "← Edit" pill that does not fade out (tap is the only exit on touch — affordance must persist). Adds beat-nav hint sibling at bottom-centre. (4) **NEW §18 Phase 8.01 — UX Consistency** documents the new component families: §18.1 bracketed-label vocabulary as a universal contract; §18.2 canonical responsive-breakpoint table (≥1280 three-pane / 1024–1279 two-pane / 768–1023 single-pane with slide-overs / <768 backlog); §18.3 touch interactions table; §18.4 Dashboard component family (Wordmark + Sidebar three-section + Main canvas Resume Writing hero + Needs Attention strip + ProjectGrid for populated; EmptyHero + EmptyActions + 3-tile philosophy strip for first-time); §18.5 DirectorPanel rendering refinements (`<plan>` blocks render as collapsed "Reasoning · N lines" chip; tool calls as monospace chips with optional grouping; workflow proposals as inline cards with verdigris-border + Approve/Modify; `@` mention picker positional-path syntax `@act1ch1sc1bt2`); §18.6 first-time onboarding components (QuickStartChecklist 5-item progressive tick + condense-and-remove; YoursTile with `ENCRYPTED AT REST · PRIVATE TO YOUR ACCOUNT` lock line; SampleNovelImportModal with `SAMPLE` badge convention; tagline copy lock); §18.7 ProjectPage + ExportTreeView with checkbox tree; §18.8 Detail pane variants (leaf "prose canvas" unchanged; new non-leaf "structure overview" with read-only children panel). **Inviolable note:** verdigris-use count remains nine. PlanCard, BriefProposalCard Approve / Modify, QuickStartChecklist ticks, Approve on inline workflow proposal, Send on DirectorInput, ExportTreeView Export, SampleNovelImportModal Import — all sit within existing verdigris use categories (#5 approved status + #7 affirmative-action triggers). **Two open Inviolable questions raised:** (a) YoursTile decorative verdigris dot strictly counts as a 10th use category; recommend treating as brand-mark reinforcement (use #1 family) — needs Inviolable audit. (b) Mentioned-node tree-row left border in Director Mode reuses the active-node verdigris use #9 treatment — no broadening, but logically a second function under the same use. **Cross-cutting Brand Identity dependency:** the Phase 8.01 lock surfaced that Inviolable #3 (Cinzel-only) had no symmetric protection for Cormorant Garamond italic; Brand Identity v2.2 adds **Inviolable #6 — Cormorant Garamond italic appears only in the wordmark**. Brand Identity is now the canonical home for both Cinzel and Cormorant Garamond reservations; Component Spec sections that mount the Wordmark (§3.1) defer to Brand Identity §3.2 for typography. Tagged decisions from the wireframes (M-1..M-8 Director Mode, F-1..F-5 Focus Mode, I-1..I-4 iPad, D-1..D-4 Dashboard) are all in the wireframes themselves under `docs/wireframes/wireframe_phase8_01_ux_consistency/`. Changelog section renumbers §18 → §19 to accommodate new §18. Five-Inviolables-becomes-six-Inviolables change is captured in Brand Identity, not here; this spec accepts the higher count by reference.
 
 **v2.10 — 2026-05-12** Director Architecture V2 deep-dive absorption. **New §17** documents the V1.x component layer: six new components (`AppShellStatusIndicator`, `BriefViewer`, `StageCard`, `SchedulerPanel`, `AdminDashboard`, `CostMeter`) and five extensions to existing components (`PlanCard` simplification + cost-estimate + `batched_24h` toggle + over-budget warning, `NodeRow`/`NodeStatusBadge` auto-lock + lifecycle states + AI-changed flag, Stop-button refinement with Resume/Cancel/View follow-on, `DirectorPanel` Conversation Clear button, conversation-thread Director completion acknowledgement). Changelog section number moves from §17 to §18 to accommodate the new §17. No Inviolables changed; verdigris use #7 (affirmative-action triggers) extends to the simplified `PlanCard` Approve and stays within the existing four-element family — no new use category introduced. Architectural source: `docs/stelavox_director_architecture_v2_0.md` §15 (UX surfaces). Session record: `docs/sessions/director_v2_deep_dive_session_record_2026-05-11.md`. Five Inviolables unchanged; verdigris-use count remains nine.
 

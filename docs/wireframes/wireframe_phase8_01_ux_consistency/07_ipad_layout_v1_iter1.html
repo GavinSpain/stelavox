@@ -1,0 +1,1024 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Phase 8.01 — iPad layout (iter1)</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<style>
+  :root {
+    --color-bg-base: #0d1014;
+    --color-bg-elevated: #14181e;
+    --color-bg-surface: #1a1f26;
+    --color-border-subtle: rgba(255,255,255,0.06);
+    --color-border-default: rgba(255,255,255,0.10);
+    --color-border-strong: rgba(255,255,255,0.18);
+    --color-text-primary: #e8e3d8;
+    --color-text-secondary: rgba(232,227,216,0.72);
+    --color-text-muted: rgba(232,227,216,0.45);
+    --color-text-faint: rgba(232,227,216,0.22);
+    --color-accent: #3d7858;
+    --color-accent-soft: rgba(61,120,88,0.18);
+    --color-info: #4a7a9e;
+    --color-status-review: #b8924a;
+    --color-error: #b15555;
+    --font-inter: -apple-system, BlinkMacSystemFont, "Inter", system-ui, sans-serif;
+    --font-lora: "Lora", Georgia, "Iowan Old Style", serif;
+    --font-mono: ui-monospace, SFMono-Regular, "JetBrains Mono", Menlo, monospace;
+  }
+
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: #07090c;
+    color: var(--color-text-primary);
+    font-family: var(--font-inter);
+    font-size: 13px; line-height: 1.5;
+  }
+  .wf-doc { max-width: 1320px; margin: 0 auto; padding: 32px 24px 96px; }
+  .wf-doc h1 {
+    font-family: var(--font-inter); font-weight: 600; font-size: 22px;
+    letter-spacing: -0.01em; margin: 0 0 6px;
+  }
+  .wf-doc h2 {
+    font-family: var(--font-inter); font-weight: 500; font-size: 15px;
+    color: var(--color-text-secondary); margin: 36px 0 12px;
+    letter-spacing: 0.04em; text-transform: uppercase;
+  }
+  .wf-doc h3 {
+    font-family: var(--font-inter); font-weight: 500; font-size: 13px;
+    color: var(--color-text-secondary); margin: 18px 0 8px;
+  }
+  .wf-doc p, .wf-doc li { color: var(--color-text-secondary); }
+  .wf-meta {
+    color: var(--color-text-muted); font-size: 12px;
+    margin: 0 0 24px; padding-bottom: 16px;
+    border-bottom: 1px solid var(--color-border-subtle);
+  }
+  .wf-meta strong { color: var(--color-text-secondary); font-weight: 500; }
+
+  /* ---------- iPad surface frame ---------- */
+  .ipad {
+    margin: 0 auto;
+    border: 12px solid #1a1f26;
+    border-radius: 22px;
+    overflow: hidden;
+    position: relative;
+    background: var(--color-bg-base);
+    box-shadow: 0 24px 60px rgba(0,0,0,0.5);
+  }
+  .ipad-portrait { width: 768px; height: 1024px; }
+  .ipad-landscape { width: 1024px; height: 720px; }
+  .ipad-inner { position: absolute; inset: 0; display: flex; flex-direction: column; }
+
+  /* ---------- App chrome (header + tabs) ---------- */
+  .header {
+    height: 48px;
+    border-bottom: 1px solid var(--color-border-subtle);
+    background: var(--color-bg-base);
+    display: flex; align-items: center;
+    padding: 0 16px;
+    gap: 12px;
+    flex-shrink: 0;
+  }
+  .header-summon {
+    width: 32px; height: 32px;
+    border: 1px solid var(--color-border-default);
+    border-radius: 6px;
+    background: transparent;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .header-summon-on {
+    background: var(--color-bg-elevated);
+    color: var(--color-text-primary);
+    border-color: var(--color-border-strong);
+  }
+  .header-brand {
+    display: flex; align-items: center; gap: 8px;
+    font-family: var(--font-inter); font-size: 12px;
+    color: var(--color-text-primary);
+    letter-spacing: 0.06em; text-transform: uppercase;
+  }
+  .header-brand .lozenge {
+    width: 6px; height: 6px;
+    background: var(--color-accent);
+    border-radius: 1px;
+  }
+  .header-crumb {
+    flex: 1;
+    font-family: var(--font-inter); font-size: 12px;
+    color: var(--color-text-muted);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .header-crumb strong { color: var(--color-text-primary); font-weight: 500; }
+  .header-actions { display: flex; gap: 8px; }
+  .header-actions button {
+    width: 32px; height: 32px;
+    border: 1px solid var(--color-border-default);
+    border-radius: 6px;
+    background: transparent;
+    color: var(--color-text-secondary);
+    cursor: pointer;
+  }
+
+  .tabbar {
+    height: 36px;
+    border-bottom: 1px solid var(--color-border-subtle);
+    background: var(--color-bg-base);
+    display: flex; align-items: center;
+    padding: 0 16px;
+    gap: 16px;
+    flex-shrink: 0;
+  }
+  .tabbar button {
+    background: transparent; border: 0;
+    color: var(--color-text-muted);
+    font-family: var(--font-inter); font-size: 12px;
+    padding: 8px 0;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    letter-spacing: 0.02em;
+  }
+  .tabbar button.active {
+    color: var(--color-text-primary);
+    border-bottom-color: rgba(232,227,216,0.6);
+  }
+
+  /* ---------- Body region ---------- */
+  .body-region { flex: 1; display: flex; min-height: 0; position: relative; }
+
+  /* ---------- Tree pane (when pinned in landscape) ---------- */
+  .tree-pane {
+    width: 260px;
+    border-right: 1px solid var(--color-border-subtle);
+    background: var(--color-bg-base);
+    overflow-y: auto;
+    padding: 12px 0;
+    flex-shrink: 0;
+  }
+  .tree-pane.slide-over {
+    position: absolute;
+    top: 0; left: 0; bottom: 0;
+    width: 320px;
+    z-index: 30;
+    border-right: 1px solid var(--color-border-strong);
+    box-shadow: 8px 0 24px rgba(0,0,0,0.4);
+  }
+  .tree-backdrop {
+    position: absolute; inset: 0;
+    background: rgba(0,0,0,0.4);
+    z-index: 25;
+  }
+  .tree-section-label {
+    font-family: var(--font-mono); font-size: 10px;
+    color: var(--color-text-muted);
+    padding: 8px 16px 4px;
+    letter-spacing: 0.06em;
+  }
+  .tree-row {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 16px;
+    font-family: var(--font-inter); font-size: 13px;
+    color: var(--color-text-primary);
+    min-height: 44px; /* touch target */
+  }
+  .tree-row.active {
+    background: var(--color-bg-elevated);
+    border-left: 2px solid var(--color-accent);
+    padding-left: 14px;
+  }
+  .tree-row .bk-label {
+    font-family: var(--font-mono); font-size: 10.5px;
+    padding: 1px 5px;
+    border: 1px solid var(--color-border-default);
+    border-radius: 3px;
+    letter-spacing: 0.02em;
+    color: var(--color-text-primary);
+    flex-shrink: 0;
+  }
+  .tree-row .row-name {
+    color: var(--color-text-primary);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .tree-row .row-status {
+    width: 6px; height: 6px; border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .tree-row .row-status.draft { background: var(--color-text-faint); }
+  .tree-row .row-status.review { background: var(--color-status-review); }
+  .tree-row .row-status.approved { background: var(--color-accent); }
+  .tree-indent-1 { padding-left: 16px; }
+  .tree-indent-2 { padding-left: 32px; }
+  .tree-indent-3 { padding-left: 48px; }
+  .tree-indent-4 { padding-left: 64px; }
+  .tree-indent-5 { padding-left: 80px; }
+
+  /* ---------- Detail pane ---------- */
+  .detail-pane {
+    flex: 1;
+    overflow-y: auto;
+    background: var(--color-bg-base);
+    display: flex; flex-direction: column;
+  }
+  .detail-header {
+    padding: 20px 24px 12px;
+    border-bottom: 1px solid var(--color-border-subtle);
+  }
+  .detail-header .crumb {
+    font-family: var(--font-inter); font-size: 11px;
+    color: var(--color-text-muted);
+    letter-spacing: 0.02em;
+    margin-bottom: 6px;
+    display: flex; gap: 4px;
+  }
+  .detail-header .crumb .bk-label {
+    font-family: var(--font-mono); font-size: 10px;
+    padding: 0 4px;
+    border: 1px solid var(--color-border-default);
+    border-radius: 3px;
+    color: var(--color-text-primary);
+  }
+  .detail-header h1 {
+    font-family: var(--font-inter); font-weight: 500; font-size: 22px;
+    margin: 0 0 8px;
+    color: var(--color-text-primary);
+    letter-spacing: -0.01em;
+  }
+  .detail-header .meta {
+    font-family: var(--font-mono); font-size: 11px;
+    color: var(--color-text-muted);
+    letter-spacing: 0.02em;
+  }
+  .detail-tabs {
+    display: flex; gap: 18px;
+    padding: 12px 24px 0;
+    border-bottom: 1px solid var(--color-border-subtle);
+  }
+  .detail-tabs button {
+    background: transparent; border: 0;
+    color: var(--color-text-muted);
+    font-family: var(--font-inter); font-size: 12px;
+    padding: 8px 0;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    min-height: 36px;
+  }
+  .detail-tabs button.active {
+    color: var(--color-text-primary);
+    border-bottom-color: rgba(232,227,216,0.6);
+  }
+  .detail-body {
+    padding: 18px 24px;
+    flex: 1;
+  }
+  .detail-body .summary-block {
+    font-family: var(--font-inter); font-size: 13px;
+    color: var(--color-text-primary);
+    line-height: 1.55;
+  }
+  .detail-body .prose-block {
+    font-family: var(--font-lora); font-size: 16px;
+    color: var(--color-text-primary);
+    line-height: 1.85;
+  }
+  .detail-body .prose-block p { margin: 0 0 1em; }
+
+  /* ---------- Director pane (when split) ---------- */
+  .director-pane {
+    width: 420px;
+    border-left: 1px solid var(--color-border-subtle);
+    background: var(--color-bg-base);
+    display: flex; flex-direction: column;
+    flex-shrink: 0;
+  }
+  .director-pane.slide-over {
+    position: absolute;
+    top: 0; right: 0; bottom: 0;
+    width: 440px;
+    z-index: 30;
+    border-left: 1px solid var(--color-border-strong);
+    box-shadow: -8px 0 24px rgba(0,0,0,0.4);
+  }
+  .director-header {
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--color-border-subtle);
+    display: flex; align-items: center; gap: 10px;
+  }
+  .director-mark {
+    width: 28px; height: 28px;
+    background: linear-gradient(135deg, var(--color-accent), #5fa07a);
+    border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    font-family: "Cinzel", serif; font-weight: 600; font-size: 15px;
+    color: #0d1014;
+  }
+  .director-header .title {
+    font-family: var(--font-inter); font-size: 13px; font-weight: 500;
+    color: var(--color-text-primary);
+  }
+  .director-header .subtitle {
+    font-family: var(--font-mono); font-size: 10.5px;
+    color: var(--color-text-muted);
+    letter-spacing: 0.02em;
+  }
+  .director-body { flex: 1; overflow-y: auto; padding: 16px 18px; }
+  .dir-msg-user {
+    background: var(--color-bg-elevated);
+    border: 1px solid var(--color-border-subtle);
+    border-radius: 8px;
+    padding: 10px 12px;
+    margin-bottom: 14px;
+    font-family: var(--font-inter); font-size: 12.5px;
+    color: var(--color-text-primary);
+  }
+  .dir-msg-dir {
+    font-family: var(--font-lora); font-size: 14.5px;
+    color: var(--color-text-primary);
+    line-height: 1.7;
+    margin-bottom: 14px;
+  }
+  .dir-msg-dir p { margin: 0 0 0.8em; }
+  .dir-chip-reasoning {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-family: var(--font-mono); font-size: 11px;
+    color: var(--color-text-muted);
+    background: var(--color-bg-elevated);
+    border: 1px solid var(--color-border-subtle);
+    border-radius: 12px;
+    padding: 3px 9px;
+    margin-bottom: 10px;
+  }
+  .dir-input-row {
+    border-top: 1px solid var(--color-border-subtle);
+    padding: 12px 18px;
+    display: flex; gap: 8px; align-items: flex-end;
+  }
+  .dir-input {
+    flex: 1;
+    background: var(--color-bg-elevated);
+    border: 1px solid var(--color-border-default);
+    border-radius: 8px;
+    padding: 10px 12px;
+    color: var(--color-text-primary);
+    font-family: var(--font-inter); font-size: 13px;
+    min-height: 44px;
+  }
+  .dir-send {
+    width: 44px; height: 44px;
+    background: var(--color-accent);
+    border: 0; border-radius: 8px;
+    color: #0d1014;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  /* ---------- Focus mode body ---------- */
+  .focus-body {
+    flex: 1; display: flex; flex-direction: column;
+    align-items: center;
+    position: relative;
+    background: var(--color-bg-base);
+  }
+  .focus-crumb {
+    margin-top: 24px;
+    display: flex; gap: 6px; align-items: center;
+    font-family: var(--font-inter); font-size: 11px;
+    color: var(--color-text-primary);
+    opacity: 0.35;
+  }
+  .focus-crumb .bk-label {
+    font-family: var(--font-mono); font-size: 10.5px;
+    padding: 1px 5px;
+    border: 1px solid var(--color-border-default);
+    border-radius: 3px;
+  }
+  .focus-prose-wrap {
+    width: 100%; max-width: 620px;
+    padding: 0 32px;
+    margin-top: 80px;
+    flex: 1; overflow-y: auto;
+  }
+  .focus-prose {
+    font-family: var(--font-lora); font-size: 18px; line-height: 1.85;
+    color: var(--color-text-primary);
+  }
+  .focus-prose p { margin: 0 0 1.2em; }
+  .focus-cursor {
+    display: inline-block; width: 2px; height: 1.1em;
+    background: var(--color-accent);
+    vertical-align: text-bottom;
+    margin-bottom: 2px;
+  }
+  .focus-exit {
+    position: absolute; bottom: 20px; left: 24px;
+    font-family: var(--font-inter); font-size: 12px;
+    color: var(--color-text-primary);
+    opacity: 0.4;
+    display: flex; align-items: center; gap: 6px;
+    padding: 8px 12px;
+    min-height: 44px;
+    border: 1px solid var(--color-border-subtle);
+    border-radius: 6px;
+    background: var(--color-bg-elevated);
+  }
+  .focus-wc {
+    position: absolute; bottom: 20px; right: 24px;
+    font-family: var(--font-inter); font-size: 12px;
+    color: var(--color-text-primary);
+    opacity: 0.4;
+  }
+  .focus-wc strong { font-weight: 500; }
+  .focus-swipe-hint {
+    position: absolute; bottom: 28px; left: 50%;
+    transform: translateX(-50%);
+    font-family: var(--font-inter); font-size: 11px;
+    color: var(--color-text-primary);
+    opacity: 0.2;
+    letter-spacing: 0.04em;
+    pointer-events: none;
+  }
+  .focus-swipe-hint .arrow { opacity: 0.5; }
+
+  /* ---------- Callout pins ---------- */
+  .pin {
+    position: absolute;
+    width: 20px; height: 20px;
+    border-radius: 50%;
+    background: var(--color-status-review);
+    color: #0d1014;
+    font-family: var(--font-mono); font-size: 10.5px; font-weight: 600;
+    display: flex; align-items: center; justify-content: center;
+    border: 2px solid var(--color-bg-base);
+    z-index: 80;
+  }
+
+  /* ---------- Annotation block ---------- */
+  .annot {
+    background: var(--color-bg-elevated);
+    border: 1px solid var(--color-border-subtle);
+    border-radius: 6px;
+    padding: 14px 16px;
+    margin: 16px 0 24px;
+    font-size: 12.5px;
+    color: var(--color-text-secondary);
+  }
+  .annot strong { color: var(--color-text-primary); font-weight: 500; }
+  .annot ul { margin: 4px 0 0; padding-left: 18px; }
+  .annot li { margin: 4px 0; }
+  .annot li code {
+    font-family: var(--font-mono); font-size: 11.5px;
+    color: var(--color-text-primary);
+    background: rgba(255,255,255,0.04);
+    padding: 1px 5px; border-radius: 3px;
+  }
+
+  /* ---------- Decisions block ---------- */
+  .decisions {
+    background: var(--color-bg-elevated);
+    border: 1px solid var(--color-border-subtle);
+    border-radius: 6px;
+    padding: 16px 18px;
+    margin: 16px 0 32px;
+  }
+  .decisions h3 {
+    color: var(--color-text-primary);
+    margin: 0 0 10px;
+    font-size: 13px; font-weight: 500;
+    letter-spacing: 0.04em; text-transform: uppercase;
+  }
+  .decisions ul { margin: 0; padding-left: 18px; font-size: 12.5px; }
+  .decisions li { margin: 6px 0; color: var(--color-text-secondary); }
+  .decisions li strong { color: var(--color-text-primary); font-weight: 500; }
+  .decisions .lock { color: var(--color-accent); }
+  .decisions .open { color: var(--color-status-review); }
+  .decisions .defer { color: var(--color-info); }
+
+  /* ---------- Section caption ---------- */
+  .caption {
+    font-family: var(--font-mono); font-size: 11px;
+    color: var(--color-text-muted);
+    margin: 0 0 12px;
+    letter-spacing: 0.04em;
+  }
+
+  /* ---------- Two-column ---------- */
+  .two-col {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 24px;
+    align-items: start;
+  }
+  .two-col > div { min-width: 0; }
+
+  /* ---------- Breakpoint table ---------- */
+  .bp-table {
+    width: 100%; border-collapse: collapse;
+    margin: 12px 0 8px;
+    font-size: 12.5px;
+  }
+  .bp-table th, .bp-table td {
+    text-align: left;
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--color-border-subtle);
+  }
+  .bp-table th {
+    color: var(--color-text-secondary);
+    font-weight: 500;
+    font-family: var(--font-mono); font-size: 11px;
+    letter-spacing: 0.04em;
+  }
+  .bp-table td { color: var(--color-text-secondary); }
+  .bp-table td code {
+    font-family: var(--font-mono); font-size: 11px;
+    color: var(--color-text-primary);
+    background: rgba(255,255,255,0.04);
+    padding: 1px 5px; border-radius: 3px;
+  }
+</style>
+</head>
+<body>
+<div class="wf-doc">
+
+  <h1>Phase 8.01 — iPad layout (T-8 iter1)</h1>
+  <p class="wf-meta">
+    <strong>Wireframe path:</strong> <code>docs/wireframes/wireframe_phase8_01_ux_consistency/07_ipad_layout_v1_iter1.html</code>
+    &nbsp;·&nbsp; <strong>Scope:</strong> presentation-only adaptation of Edit + Director + Focus to iPad widths. No new functional behaviour beyond Focus Mode beat-nav already approved in 06.
+  </p>
+
+  <h2>01 — Responsive breakpoint rules</h2>
+  <table class="bp-table">
+    <thead>
+      <tr><th>Viewport</th><th>Edit Mode</th><th>Director Mode</th><th>Focus Mode</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>≥ 1280px</code> desktop</td>
+        <td>tree 280 · detail flex · (no director)</td>
+        <td>tree 340 · detail flex · director 500</td>
+        <td>full-screen Portal · 720 content col</td>
+      </tr>
+      <tr>
+        <td><code>1024–1279px</code> iPad landscape / small desktop</td>
+        <td>tree 260 · detail flex</td>
+        <td>tree 220 · detail flex · director 420 <br/><em>OR</em> tree slide-over · detail flex · director 460</td>
+        <td>full-screen · 620 content col</td>
+      </tr>
+      <tr>
+        <td><code>768–1023px</code> iPad portrait</td>
+        <td>tree slide-over (default closed) · detail full-width</td>
+        <td>tree slide-over · director full-width <em>OR</em> detail full-width with director slide-over</td>
+        <td>full-screen · 560 content col</td>
+      </tr>
+      <tr>
+        <td><code>&lt; 768px</code> phone</td>
+        <td colspan="3"><em>Out of scope for V1.</em> Component Spec doesn't ship phone layout; flagged for Backlog.</td>
+      </tr>
+    </tbody>
+  </table>
+  <div class="annot">
+    <strong>Layout decisions implied here.</strong>
+    <ul>
+      <li>Three-pane layout collapses to two below 1280px; tree is the first thing to become slide-over below 1024px.</li>
+      <li>Director Mode never collapses below the panel + tree split — at iPad portrait the tree slides over the conversation, not the other way around. The conversation is the user's task surface; tree is a navigation aid.</li>
+      <li>Slide-overs are always edge-anchored: tree from left, director from right, focus is its own full-screen Portal.</li>
+      <li>Touch targets: every tappable element has a 44px minimum hit area. The summon buttons, tree rows, tab buttons, Esc button — all meet HIG.</li>
+    </ul>
+  </div>
+
+  <h2>02 — Edit Mode · iPad portrait (768 × 1024) · tree slide-over closed</h2>
+  <p class="caption">// default state. Author lands on a leaf node, sees the detail pane edge-to-edge.</p>
+  <div class="ipad ipad-portrait">
+    <div class="ipad-inner">
+      <div class="header">
+        <button class="header-summon" title="Open tree">☰</button>
+        <div class="header-brand"><span class="lozenge"></span> stelavox</div>
+        <div class="header-crumb"><strong>Shadow Protocol</strong> / Chapter 1</div>
+        <div class="header-actions"><button>?</button></div>
+      </div>
+      <div class="tabbar">
+        <button class="active">Edit</button>
+        <button>Director</button>
+        <button>Focus</button>
+      </div>
+      <div class="body-region">
+        <div class="detail-pane">
+          <div class="detail-header">
+            <div class="crumb">
+              <span class="bk-label">Book 1</span>
+              <span class="bk-label">Act 1</span>
+              <span class="bk-label">Ch 1</span>
+              <span class="bk-label">Sc 1</span>
+              <span class="bk-label">Bt 1</span>
+            </div>
+            <h1>Anchor &amp; Conflict</h1>
+            <div class="meta">DRAFT · 87 / 350 words · v3</div>
+          </div>
+          <div class="detail-tabs">
+            <button class="active">Content</button>
+            <button>Agent</button>
+            <button>Comments</button>
+            <button>History</button>
+          </div>
+          <div class="detail-body">
+            <div class="summary-block">Marcus enters The Iron Ghost looking for a contact. The barman ignores him. He waits, evaluating exits.</div>
+            <div style="margin-top: 24px;">
+              <div class="caption" style="margin-bottom: 8px;">// Prose</div>
+              <div class="prose-block">
+                <p>The Iron Ghost smelled of fried onions and stale beer, and Marcus stood at the threshold for a long moment before he stepped inside.</p>
+                <p>The barman looked up — a brief, professional glance that took him in and dismissed him at once — and went back to wiping a glass that did not need wiping.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="pin" style="top: 14px; left: 14px;">1</div>
+      <div class="pin" style="top: 14px; right: 14px;">2</div>
+      <div class="pin" style="top: 100px; left: 240px;">3</div>
+    </div>
+  </div>
+  <div class="annot">
+    <strong>Pins.</strong>
+    <ul>
+      <li><strong>1 — Tree summon button.</strong> ☰ glyph, 32×32 button in 44px tap area. Tap to slide tree in from left edge. Same icon used in Director Mode for symmetry.</li>
+      <li><strong>2 — Help / overflow.</strong> Single icon button for help, settings overflow. Avoids cluttering the slim header. Tap target 32×32 visually, 44×44 hit area.</li>
+      <li><strong>3 — Bracketed crumb in detail header.</strong> Picks up the same convention as Edit Mode tree. Each label is a tap target — tap on <code>[Ch 1]</code> in the crumb navigates up to the chapter node.</li>
+    </ul>
+  </div>
+
+  <h2>03 — Edit Mode · iPad portrait · tree slide-over OPEN</h2>
+  <p class="caption">// triggered by tapping ☰ or swiping right from left edge. Backdrop dims the detail pane.</p>
+  <div class="ipad ipad-portrait">
+    <div class="ipad-inner">
+      <div class="header">
+        <button class="header-summon header-summon-on" title="Close tree">☰</button>
+        <div class="header-brand"><span class="lozenge"></span> stelavox</div>
+        <div class="header-crumb"><strong>Shadow Protocol</strong> / Chapter 1</div>
+        <div class="header-actions"><button>?</button></div>
+      </div>
+      <div class="tabbar">
+        <button class="active">Edit</button>
+        <button>Director</button>
+        <button>Focus</button>
+      </div>
+      <div class="body-region">
+        <div class="detail-pane">
+          <div class="detail-header" style="opacity: 0.5;">
+            <div class="crumb">
+              <span class="bk-label">Book 1</span>
+              <span class="bk-label">Act 1</span>
+              <span class="bk-label">Ch 1</span>
+              <span class="bk-label">Sc 1</span>
+              <span class="bk-label">Bt 1</span>
+            </div>
+            <h1>Anchor &amp; Conflict</h1>
+            <div class="meta">DRAFT · 87 / 350 words · v3</div>
+          </div>
+        </div>
+        <div class="tree-backdrop"></div>
+        <div class="tree-pane slide-over">
+          <div class="tree-section-label">STRUCTURE</div>
+          <div class="tree-row tree-indent-1">
+            <span class="bk-label">Book 1</span>
+            <span class="row-name">The Foundation</span>
+            <span class="row-status approved" style="margin-left: auto;"></span>
+          </div>
+          <div class="tree-row tree-indent-2">
+            <span class="bk-label">Act 1</span>
+            <span class="row-name">Departure</span>
+            <span class="row-status approved" style="margin-left: auto;"></span>
+          </div>
+          <div class="tree-row tree-indent-3">
+            <span class="bk-label">Ch 1</span>
+            <span class="row-name">Cold Open</span>
+            <span class="row-status review" style="margin-left: auto;"></span>
+          </div>
+          <div class="tree-row tree-indent-4">
+            <span class="bk-label">Sc 1</span>
+            <span class="row-name">The Iron Ghost</span>
+            <span class="row-status review" style="margin-left: auto;"></span>
+          </div>
+          <div class="tree-row tree-indent-5 active">
+            <span class="bk-label">Bt 1</span>
+            <span class="row-name">Anchor &amp; Conflict</span>
+            <span class="row-status draft" style="margin-left: auto;"></span>
+          </div>
+          <div class="tree-row tree-indent-5">
+            <span class="bk-label">Bt 2</span>
+            <span class="row-name">Barman Refuses</span>
+            <span class="row-status draft" style="margin-left: auto;"></span>
+          </div>
+          <div class="tree-row tree-indent-5">
+            <span class="bk-label">Bt 3</span>
+            <span class="row-name">Outsider Notices</span>
+            <span class="row-status draft" style="margin-left: auto;"></span>
+          </div>
+          <div class="tree-row tree-indent-4">
+            <span class="bk-label">Sc 2</span>
+            <span class="row-name">The Back Room</span>
+            <span class="row-status draft" style="margin-left: auto;"></span>
+          </div>
+          <div class="tree-row tree-indent-3">
+            <span class="bk-label">Ch 2</span>
+            <span class="row-name">The Accusation</span>
+            <span class="row-status draft" style="margin-left: auto;"></span>
+          </div>
+        </div>
+      </div>
+      <div class="pin" style="top: 200px; left: 280px;">4</div>
+      <div class="pin" style="top: 80px; left: 14px;">5</div>
+    </div>
+  </div>
+  <div class="annot">
+    <strong>Pins.</strong>
+    <ul>
+      <li><strong>4 — Tree slide-over.</strong> 320px width (wider than landscape's 260px pinned, because tap targets need more breathing room). Slides in over the dimmed detail pane. Tap on backdrop or ☰ again to dismiss.</li>
+      <li><strong>5 — Summon button toggled "on" state.</strong> Elevated background + bright text + stronger border — same affordance as a depressed button.</li>
+    </ul>
+  </div>
+
+  <h2>04 — Edit Mode · iPad landscape (1024 × 720) · tree pinned</h2>
+  <p class="caption">// the writing orientation for most authors. Tree pinned at 260px; detail fills the rest.</p>
+  <div class="ipad ipad-landscape">
+    <div class="ipad-inner">
+      <div class="header">
+        <div class="header-brand"><span class="lozenge"></span> stelavox</div>
+        <div class="header-crumb"><strong>Shadow Protocol</strong> / Book 1 · Act 1 · Chapter 1</div>
+        <div class="header-actions"><button>?</button></div>
+      </div>
+      <div class="tabbar">
+        <button class="active">Edit</button>
+        <button>Director</button>
+        <button>Focus</button>
+      </div>
+      <div class="body-region">
+        <div class="tree-pane">
+          <div class="tree-section-label">STRUCTURE</div>
+          <div class="tree-row tree-indent-1">
+            <span class="bk-label">Book 1</span>
+            <span class="row-name">The Foundation</span>
+            <span class="row-status approved" style="margin-left: auto;"></span>
+          </div>
+          <div class="tree-row tree-indent-2">
+            <span class="bk-label">Act 1</span>
+            <span class="row-name">Departure</span>
+            <span class="row-status approved" style="margin-left: auto;"></span>
+          </div>
+          <div class="tree-row tree-indent-3">
+            <span class="bk-label">Ch 1</span>
+            <span class="row-name">Cold Open</span>
+            <span class="row-status review" style="margin-left: auto;"></span>
+          </div>
+          <div class="tree-row tree-indent-4">
+            <span class="bk-label">Sc 1</span>
+            <span class="row-name">The Iron Ghost</span>
+            <span class="row-status review" style="margin-left: auto;"></span>
+          </div>
+          <div class="tree-row tree-indent-5 active">
+            <span class="bk-label">Bt 1</span>
+            <span class="row-name">Anchor &amp; Conflict</span>
+            <span class="row-status draft" style="margin-left: auto;"></span>
+          </div>
+          <div class="tree-row tree-indent-5">
+            <span class="bk-label">Bt 2</span>
+            <span class="row-name">Barman Refuses</span>
+            <span class="row-status draft" style="margin-left: auto;"></span>
+          </div>
+          <div class="tree-row tree-indent-5">
+            <span class="bk-label">Bt 3</span>
+            <span class="row-name">Outsider Notices</span>
+            <span class="row-status draft" style="margin-left: auto;"></span>
+          </div>
+          <div class="tree-row tree-indent-4">
+            <span class="bk-label">Sc 2</span>
+            <span class="row-name">The Back Room</span>
+            <span class="row-status draft" style="margin-left: auto;"></span>
+          </div>
+        </div>
+        <div class="detail-pane">
+          <div class="detail-header">
+            <div class="crumb">
+              <span class="bk-label">Book 1</span>
+              <span class="bk-label">Act 1</span>
+              <span class="bk-label">Ch 1</span>
+              <span class="bk-label">Sc 1</span>
+              <span class="bk-label">Bt 1</span>
+            </div>
+            <h1>Anchor &amp; Conflict</h1>
+            <div class="meta">DRAFT · 87 / 350 words · v3</div>
+          </div>
+          <div class="detail-tabs">
+            <button class="active">Content</button>
+            <button>Agent</button>
+            <button>Comments</button>
+            <button>History</button>
+          </div>
+          <div class="detail-body">
+            <div class="summary-block">Marcus enters The Iron Ghost looking for a contact. The barman ignores him. He waits, evaluating exits.</div>
+            <div style="margin-top: 24px;">
+              <div class="caption" style="margin-bottom: 8px;">// Prose</div>
+              <div class="prose-block">
+                <p>The Iron Ghost smelled of fried onions and stale beer, and Marcus stood at the threshold for a long moment before he stepped inside.</p>
+                <p>The barman looked up — a brief, professional glance that took him in and dismissed him at once — and went back to wiping a glass that did not need wiping.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="pin" style="top: 84px; left: 250px;">6</div>
+      <div class="pin" style="top: 84px; left: 580px;">7</div>
+    </div>
+  </div>
+  <div class="annot">
+    <strong>Pins.</strong>
+    <ul>
+      <li><strong>6 — Pinned tree at 260px.</strong> No summon button needed when tree is visible. Reorderable via drag-and-drop with longer-than-desktop press-and-hold (350ms vs 200ms) to disambiguate from scroll.</li>
+      <li><strong>7 — Detail pane fills 760px.</strong> Prose column doesn't expand fully — capped at ~640px max-width inside the pane to keep line length readable. The remaining space is padding.</li>
+    </ul>
+  </div>
+
+  <h2>05 — Director Mode · iPad landscape · tree slide-over (Option A)</h2>
+  <p class="caption">// Director gets the room. Tree available on demand. This is the recommended pattern.</p>
+  <div class="ipad ipad-landscape">
+    <div class="ipad-inner">
+      <div class="header">
+        <button class="header-summon" title="Open tree">☰</button>
+        <div class="header-brand"><span class="lozenge"></span> stelavox</div>
+        <div class="header-crumb"><strong>Shadow Protocol</strong> / Director</div>
+        <div class="header-actions"><button>?</button></div>
+      </div>
+      <div class="tabbar">
+        <button>Edit</button>
+        <button class="active">Director</button>
+        <button>Focus</button>
+      </div>
+      <div class="body-region">
+        <div class="detail-pane" style="background: var(--color-bg-base);">
+          <div class="detail-header">
+            <div class="crumb">
+              <span class="bk-label">Sc 1</span>
+            </div>
+            <h1>The Iron Ghost</h1>
+            <div class="meta">REVIEW · 3 of 5 beats drafted · 1,247 words</div>
+          </div>
+          <div class="detail-body">
+            <div class="summary-block">A scene at a noir bar where Marcus seeks a contact. Bracket's organisation is closing in.</div>
+            <div style="margin-top: 18px; padding: 12px; border: 1px solid var(--color-border-subtle); border-radius: 6px; background: var(--color-bg-elevated);">
+              <div class="caption" style="margin: 0 0 6px;">// 3 child beats</div>
+              <div style="display: flex; gap: 8px; align-items: center; padding: 4px 0;">
+                <span class="bk-label" style="font-family: var(--font-mono); font-size: 10.5px; padding: 1px 5px; border: 1px solid var(--color-border-default); border-radius: 3px; color: var(--color-text-primary);">Bt 1</span>
+                <span style="font-size: 12.5px;">Anchor &amp; Conflict</span>
+                <span class="row-status draft" style="width: 6px; height: 6px; border-radius: 50%; background: var(--color-text-faint); margin-left: auto;"></span>
+              </div>
+              <div style="display: flex; gap: 8px; align-items: center; padding: 4px 0;">
+                <span class="bk-label" style="font-family: var(--font-mono); font-size: 10.5px; padding: 1px 5px; border: 1px solid var(--color-border-default); border-radius: 3px; color: var(--color-text-primary);">Bt 2</span>
+                <span style="font-size: 12.5px;">Barman Refuses</span>
+                <span class="row-status draft" style="width: 6px; height: 6px; border-radius: 50%; background: var(--color-text-faint); margin-left: auto;"></span>
+              </div>
+              <div style="display: flex; gap: 8px; align-items: center; padding: 4px 0;">
+                <span class="bk-label" style="font-family: var(--font-mono); font-size: 10.5px; padding: 1px 5px; border: 1px solid var(--color-border-default); border-radius: 3px; color: var(--color-text-primary);">Bt 3</span>
+                <span style="font-size: 12.5px;">Outsider Notices</span>
+                <span class="row-status draft" style="width: 6px; height: 6px; border-radius: 50%; background: var(--color-text-faint); margin-left: auto;"></span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="director-pane">
+          <div class="director-header">
+            <div class="director-mark">S</div>
+            <div>
+              <div class="title">Director</div>
+              <div class="subtitle">Sonnet 4.6 · 1.247 / 8k context</div>
+            </div>
+          </div>
+          <div class="director-body">
+            <div class="dir-msg-user">Pacing feels slack in Sc 1. Can you tighten the back half?</div>
+            <div class="dir-chip-reasoning">Reasoning · 4 lines</div>
+            <div class="dir-msg-dir">
+              <p>Reading <em>The Iron Ghost</em> — Bt 1 lands the threshold, Bt 2 the refusal, Bt 3 introduces the watcher. The slack you're feeling is between Bt 2 and Bt 3: the silence after the refusal goes on for two paragraphs before the outsider enters.</p>
+              <p>I'd recommend trimming Bt 2's tail and using Bt 3 to land the watcher sooner.</p>
+            </div>
+          </div>
+          <div class="dir-input-row">
+            <div class="dir-input">Reply…</div>
+            <button class="dir-send">↑</button>
+          </div>
+        </div>
+      </div>
+      <div class="pin" style="top: 84px; left: 580px;">8</div>
+      <div class="pin" style="top: 14px; left: 14px;">9</div>
+    </div>
+  </div>
+  <div class="annot">
+    <strong>Pins.</strong>
+    <ul>
+      <li><strong>8 — Detail pane at 600px, Director at 420px.</strong> At 1024 wide with tree summon-only, detail gets the larger share. Note the detail pane is non-leaf (Sc 1), so it shows the structure overview from wireframe 04 — children list, scene summary — rather than a prose canvas.</li>
+      <li><strong>9 — Tree summon button.</strong> Same icon and behaviour as Edit Mode. The mode-bar tab indicates which mode you're in; the summon button is mode-independent.</li>
+    </ul>
+  </div>
+
+  <h2>06 — Focus Mode · iPad landscape (1024 × 720)</h2>
+  <p class="caption">// full-screen Portal. Header + tabbar gone. Swipe gestures replace ⌘ ← / ⌘ →.</p>
+  <div class="ipad ipad-landscape">
+    <div class="ipad-inner">
+      <div class="focus-body">
+        <div class="focus-crumb">
+          <span class="bk-label">Book 1</span> ·
+          <span class="bk-label">Act 1</span> ·
+          <span class="bk-label">Ch 1</span> ·
+          <span class="bk-label">Sc 1</span> ·
+          <span class="bk-label">Bt 1</span>
+        </div>
+        <div class="focus-prose-wrap">
+          <div class="focus-prose">
+            <p>The Iron Ghost smelled of fried onions and stale beer, and Marcus stood at the threshold for a long moment before he stepped inside.</p>
+            <p>The barman looked up — a brief, professional glance that took him in and dismissed him at once — and went back to wiping a glass that did not need wiping.</p>
+            <p>Marcus crossed the floor. His boots were quiet on the boards. He kept his hands where they could be seen.<span class="focus-cursor"></span></p>
+          </div>
+        </div>
+        <div class="focus-exit">← Edit</div>
+        <div class="focus-swipe-hint">
+          <span class="arrow">‹</span> swipe to switch beats <span class="arrow">›</span>
+        </div>
+        <div class="focus-wc"><strong>87</strong> / 350 words</div>
+      </div>
+      <div class="pin" style="top: 14px; left: 14px;">10</div>
+      <div class="pin" style="bottom: 14px; left: 130px;">11</div>
+      <div class="pin" style="bottom: 14px; left: 50%; transform: translateX(-50%);">12</div>
+    </div>
+  </div>
+  <div class="annot">
+    <strong>Pins.</strong>
+    <ul>
+      <li><strong>10 — Breadcrumb at iPad opacity 0.35.</strong> Same value as desktop F-1 recommendation. Tap on it briefly bumps to 0.7 for 4s, then fades back — replaces the desktop hover affordance.</li>
+      <li><strong>11 — Exit pill replaces Esc hint.</strong> Inter 12px in an elevated chip, 44px tap target. "← Edit" because Focus is a sub-mode of the Edit context; tapping returns to whichever mode was active before Focus opened.</li>
+      <li><strong>12 — Swipe hint.</strong> Bottom-centre, opacity 0.2, replaces the ⌘ ← / ⌘ → kbd hints. Swipe-left = next beat; swipe-right = previous. At sibling boundaries wraps to next/previous parent's first/last child, same as F-2 desktop behaviour.</li>
+    </ul>
+  </div>
+
+  <h2>07 — Touch interaction summary</h2>
+  <table class="bp-table">
+    <thead>
+      <tr><th>Action</th><th>iPad gesture</th><th>Desktop equivalent</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Open tree in Edit/Director portrait</td><td>Tap ☰ or swipe right from left edge</td><td>Always visible</td></tr>
+      <tr><td>Dismiss tree slide-over</td><td>Tap backdrop, tap ☰, or swipe left</td><td>—</td></tr>
+      <tr><td>Reorder tree row</td><td>Long-press 350ms then drag</td><td>Click and drag</td></tr>
+      <tr><td>Select tree row</td><td>Single tap</td><td>Click</td></tr>
+      <tr><td>Row context menu</td><td>Long-press 800ms (no movement)</td><td>Right-click / "More" menu</td></tr>
+      <tr><td>Next/previous beat in Focus</td><td>Swipe left / swipe right on prose surface</td><td>⌘ → / ⌘ ←</td></tr>
+      <tr><td>Exit Focus Mode</td><td>Tap "← Edit" pill</td><td>Esc</td></tr>
+      <tr><td>Director @ mention picker</td><td>Tap @ → tap node row (no hover preview)</td><td>Type @ → arrow keys → Enter</td></tr>
+      <tr><td>Selection tooltip</td><td>Standard iPad text selection → handles + tooltip</td><td>Click-drag selection → tooltip</td></tr>
+      <tr><td>Bump breadcrumb opacity in Focus</td><td>Tap breadcrumb (4s reveal)</td><td>Hover</td></tr>
+    </tbody>
+  </table>
+
+  <h2>08 — Writer's eye review</h2>
+  <div class="annot">
+    <p><strong>What worked.</strong> The slide-over pattern keeps the iPad design honest with the desktop one — no app reflow, no different component shapes, just panes moving from pinned to slide-over by breakpoint. The bracketed-label vocabulary travels well to small widths because the labels are inherently compact. Detail-pane structure-overview for non-leaf nodes (Section 05 detail pane) works the same on iPad as on desktop — the previously-decided shape was viewport-agnostic.</p>
+    <p><strong>What I'd watch.</strong></p>
+    <ul>
+      <li><strong>I-1 — Detail pane prose column cap.</strong> At iPad landscape (760px detail pane), uncapped prose runs to ~660px. The desktop reads at 640–680px line-width. Confirming the same ~640px max-width cap applies on iPad — content centres in the remaining space.</li>
+      <li><strong>I-2 — Director Mode portrait layout.</strong> Not shown above — should detail collapse and Director go full-width, or detail-as-summary-strip-on-top + Director full-width below? Recommend the second (a 100px summary strip showing the current node), so the conversation always has context without a tree open.</li>
+      <li><strong>I-3 — Swipe gesture interference with text selection.</strong> Standard iPad text selection uses long-press to begin selection. Our beat-nav swipe uses horizontal swipe. These shouldn't conflict, but worth a tactile test in build. If interference shows up, the fallback is two-finger horizontal swipe for beat-nav.</li>
+      <li><strong>I-4 — Long-press timings (350ms drag, 800ms context menu).</strong> Slightly tweakable. The 350ms drag-start delay needs to feel decisive without false-positives during scroll. iOS standard is 500ms for drag, 1000ms for context — we're tighter on both. Worth a tactile pass in build.</li>
+      <li><strong>I-5 — Status pip touch targets.</strong> The 6px status dot in tree rows is decorative-only — not tappable. Tap anywhere on the row selects. Confirming this matches Phase 6 lock UI expectations (status pip is informational, not interactive).</li>
+      <li><strong>I-6 — Slide-over width.</strong> Tree slide-over at 320px. Some content (long node names with bracketed labels) will still truncate. Acceptable — long names truncate everywhere; the bracketed position is what matters.</li>
+      <li><strong>I-7 — Portrait Director Mode.</strong> Worth a dedicated section in iter2 if I-2 needs more visual debate.</li>
+      <li><strong>I-8 — Phone layout.</strong> Out of scope for V1. Document as Backlog row in the phase plan — phone is V2 polish at minimum.</li>
+    </ul>
+  </div>
+
+  <h2>09 — Decisions</h2>
+  <div class="decisions">
+    <h3>Locked (no further iter needed unless you object)</h3>
+    <ul>
+      <li><span class="lock">●</span> <strong>Breakpoint rules.</strong> ≥1280 three-pane · 1024–1279 two-pane · 768–1023 single-pane with slide-overs · &lt;768 out of V1 scope.</li>
+      <li><span class="lock">●</span> <strong>Tree summon icon ☰</strong> in header, 44px hit, mode-independent.</li>
+      <li><span class="lock">●</span> <strong>Slide-over edges.</strong> Tree from left, Director from right, Focus is full-screen Portal.</li>
+      <li><span class="lock">●</span> <strong>Tree slide-over width 320px</strong> (wider than landscape's pinned 260px because tap targets need breathing room).</li>
+      <li><span class="lock">●</span> <strong>Tree row min-height 44px</strong> across all viewports (was 36px on desktop in Component Spec §4.2; the new 44px holds on both iPad and desktop — desktop loses no functional density, gains tap-friendliness).</li>
+      <li><span class="lock">●</span> <strong>Tap on bracketed crumb label navigates up.</strong> Universal in detail header and Director context strip.</li>
+      <li><span class="lock">●</span> <strong>Swipe gestures in Focus Mode</strong> mirror ⌘ ← / ⌘ → desktop behaviour from wireframe 06.</li>
+      <li><span class="lock">●</span> <strong>Five Inviolables.</strong> Unchanged. Verdigris-use count remains nine.</li>
+    </ul>
+
+    <h3>Open — need your call</h3>
+    <ul>
+      <li><span class="open">●</span> <strong>I-1 — Prose column cap on iPad.</strong> Recommend keeping the desktop ~640px max-width cap inside the detail pane (centred in the available width). Approve, or let prose fill the pane?</li>
+      <li><span class="open">●</span> <strong>I-2 — Director Mode portrait layout.</strong> Recommend 100px summary strip on top + Director full-width below. Approve as the portrait shape, or full-width Director with tree summon only?</li>
+      <li><span class="open">●</span> <strong>I-4 — Long-press timings.</strong> Recommend 350ms for drag, 800ms for context menu. Approve, or use iOS standard (500/1000)?</li>
+    </ul>
+
+    <h3>Deferred (Phase 8.x sub-items or Backlog)</h3>
+    <ul>
+      <li><span class="defer">●</span> <strong>I-3</strong> — swipe vs text-selection tactile interference test (build-time verification, not wireframe).</li>
+      <li><span class="defer">●</span> <strong>I-7</strong> — dedicated iPad-portrait Director Mode wireframe (only if I-2 needs visual debate).</li>
+      <li><span class="defer">●</span> <strong>I-8</strong> — phone layout, V2+.</li>
+    </ul>
+  </div>
+
+</div>
+</body>
+</html>

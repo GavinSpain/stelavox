@@ -1,9 +1,14 @@
 // Spec: stelavox_component_specification_v2_0.md §4.2 (NodeRow)
 //       stelavox_brand_identity_v2_0.md §5.1 (verdigris reservation #9)
 //       stelavox_phase2_build_checklist_v1_0.md v1.1 §3.4 T-4.3
+//       stelavox_phase8_01_A_build_checklist_v1_0.md T-5 (44px universal +
+//         bracketed LayerLabel prefix for structural nodes)
 //
-// 36px row (44px tablet — Phase 2 desktop only). Indent comes from
-// react-arborist's `style.paddingLeft`; we MUST NOT override it.
+// Phase 8.01.A T-5: row height moves from "36px desktop, 44px tablet" to
+// **44px universal** per Component Spec v2.21 §4.2 wireframe lock (desktop
+// loses no functional density, gains tap-friendliness). Structural rows
+// now carry a bracketed monospace LayerLabel prefix sourced from the
+// node's `node_type` + `order`.
 //
 // Four states per Component Spec §4.2:
 //   default — transparent bg, text-secondary
@@ -32,8 +37,17 @@ import type { NodeRendererProps } from 'react-arborist'
 import { NodeStatusBadge } from './NodeStatusBadge'
 import { NodeLifecycleBadge, lifecycleFromJobStatus } from './NodeLifecycleBadge'
 import { NodeLockIndicator } from './NodeLockIndicator'
+import { LayerLabel, type LayerKind } from './LayerLabel'
 import { useActiveJobForNode, useNodeHasRunningJob } from '@/lib/hooks/useAgentJobsRealtime'
 import { useAiChangedFlag, markNodeAsViewed } from '@/lib/hooks/useAiChangedFlag'
+
+// V1 layer-stack canonical structural types — the abbreviation map in
+// LayerLabel covers exactly these. Anything not in this set falls through
+// to LayerLabel's defensive title-case fallback. Phase 14 (post-V1)
+// replaces this guard with layer_stack-driven type validation.
+const STRUCTURAL_LAYER_KINDS: ReadonlySet<string> = new Set<LayerKind>([
+  'series', 'book', 'act', 'chapter', 'scene', 'beat',
+])
 
 export interface NodeActions {
   onAddChild?: (parentId: string) => void
@@ -131,7 +145,9 @@ export function NodeRow({ node, style, dragHandle }: NodeRendererProps<ArboristN
       onMouseLeave={() => setHovered(false)}
       style={{
         ...style,
-        height: '36px',
+        // Phase 8.01.A T-5: 44px universal (was "36px desktop, 44px tablet").
+        // Component Spec v2.21 §4.2 wireframe lock.
+        height: '44px',
         display: 'flex',
         alignItems: 'center',
         gap: '6px',
@@ -172,6 +188,18 @@ export function NodeRow({ node, style, dragHandle }: NodeRendererProps<ArboristN
           on this node, show 🔒 in --color-info with a small clock
           overlay to disambiguate from user-lock (Component Spec §17.8). */}
       <NodeLockIndicator nodeId={data.id} userLocked={locked} />
+
+      {/* Phase 8.01.A T-5.1: bracketed monospace LayerLabel prefix for
+          structural nodes. Context nodes (characters, locations, themes,
+          etc.) render without a label — they have no canonical position
+          in the hierarchy. */}
+      {data.node_category === 'structural' && STRUCTURAL_LAYER_KINDS.has(data.node_type) && (
+        <LayerLabel
+          layer={data.node_type as LayerKind}
+          position={data.order}
+          style={{ marginRight: '2px' }}
+        />
+      )}
 
       {/* Name — flex 1, truncate */}
       <span
