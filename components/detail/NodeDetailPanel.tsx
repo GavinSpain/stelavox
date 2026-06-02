@@ -26,6 +26,8 @@ import { TabStrip } from './TabStrip'
 import { NodeStatusBadge } from '@/components/tree/NodeStatusBadge'
 import { SummaryEditor } from './SummaryEditor'
 import { ProseEditor } from './ProseEditor'
+import { StructureOverview } from './StructureOverview'
+import { DetailPaneCrumb } from './DetailPaneCrumb'
 import { NotesEditor } from './NotesEditor'
 import { FocusModeButton } from './FocusModeButton'
 import { ConflictBanner } from './ConflictBanner'
@@ -59,6 +61,10 @@ interface NodeRecord {
   document_id: string | null
   depth: number
   layer_index: number | null
+  // Phase 8.01.B T-1.1 — exposed so FocusMode can render the bracketed
+  // leaf-label in the breadcrumb (Component Spec v2.21 §6.2 / §18.1).
+  // The API already returns this column (lib/data/nodes.ts NODE_SELECT).
+  order: number
   short_description: string | null
   word_count_target: number | null
   word_count_actual: number | null
@@ -79,6 +85,15 @@ interface NodeDetailPanelProps {
   refreshKey?: number
   onMutated?: () => void
   onClose?: () => void
+  /**
+   * Phase 8.01.E T-5 — optional navigation callback used by the new
+   * non-leaf "structure overview" children panel. When a child row in
+   * the panel is clicked, the caller (typically the document client)
+   * updates `selectedNodeId` so the tree + detail panel reflect the
+   * new selection. Omit to disable child-row navigation (the children
+   * panel still renders but rows become no-ops).
+   */
+  onSelectNode?: (nodeId: string) => void
 }
 
 // Phase 6 D7 reduced the status enum from 4 values to 2.
@@ -98,7 +113,7 @@ const TABS = [
   { id: 'context',  label: 'Context'  },
 ] as const
 
-export function NodeDetailPanel({ nodeId, refreshKey, onMutated, onClose }: NodeDetailPanelProps) {
+export function NodeDetailPanel({ nodeId, refreshKey, onMutated, onClose, onSelectNode }: NodeDetailPanelProps) {
   const [node, setNode] = useState<NodeRecord | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [editing, setEditing] = useState(false)
@@ -273,6 +288,20 @@ export function NodeDetailPanel({ nodeId, refreshKey, onMutated, onClose }: Node
     >
       {/* Header — title + status + tabs */}
       <div style={{ padding: 'var(--space-4) var(--space-5)', flexShrink: 0 }}>
+        {/* Phase 8.01.E T-7 — Detail-pane crumb above the title. Closes
+            the 8.01.A T-7 deferral. Hidden when onSelectNode is
+            unavailable AND ancestor chain would be empty + node isn't
+            a context node — the DetailPaneCrumb internally returns
+            null in that case. */}
+        <DetailPaneCrumb
+          node={{
+            id: node.id,
+            node_type: node.node_type,
+            node_category: node.node_category,
+            order: node.order,
+          }}
+          onSelectAncestor={(ancestorId) => onSelectNode?.(ancestorId)}
+        />
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-3)' }}>
           {editing ? (
             <input
@@ -474,6 +503,18 @@ export function NodeDetailPanel({ nodeId, refreshKey, onMutated, onClose }: Node
                     wordTarget={node.word_count_target}
                   />
                 </div>
+              )}
+
+              {/* Phase 8.01.E T-5 — non-leaf "structure overview" children
+                  panel. Replaces the prose canvas (which is leaf-only above)
+                  with a read-only listing of immediate children. Only mounts
+                  for STRUCTURAL non-leaves; context non-leaves keep the
+                  existing MetadataForm-driven shape below. */}
+              {!node.is_leaf && node.node_category === 'structural' && (
+                <StructureOverview
+                  nodeId={node.id}
+                  onChildSelect={(childId) => onSelectNode?.(childId)}
+                />
               )}
 
               <MetadataForm

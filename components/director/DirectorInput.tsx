@@ -18,6 +18,7 @@ import {
   type KeyboardEvent,
 } from 'react'
 import { NodePicker, type NodePickerItem } from './NodePicker'
+import { setMentionedNodeIds } from '@/lib/stores/mentioned-nodes'
 
 interface DirectorInputProps {
   documentId: string
@@ -173,7 +174,19 @@ export function DirectorInput({
     setValue('')
     setMentions([])
     setPickerOpen(false)
+    // Phase 8.01.C T-8.3 — clear the mentioned-nodes store on send so the
+    // tree highlight doesn't linger after the message goes out.
+    setMentionedNodeIds([])
   }, [value, mentions, isStreaming, onSend])
+
+  // Phase 8.01.C T-8.3 — push the active mention set into the shared
+  // store so NodeTree rows can highlight themselves. Re-syncs whenever
+  // mentions or value change (a user backspace over a pill drops the id
+  // from `stillReferenced` and therefore from the store).
+  useEffect(() => {
+    const stillReferenced = mentions.filter((m) => value.includes(pillToken(m)))
+    setMentionedNodeIds(stillReferenced.map((m) => m.id))
+  }, [mentions, value])
 
   // Close the picker on outside-click.
   useEffect(() => {

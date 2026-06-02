@@ -1,0 +1,824 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stelavox — Project Page v1 iter1 (Phase 8.01)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600&family=Cormorant+Garamond:ital,wght@1,300;1,400&family=Inter:wght@200;300;400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Lora:ital,wght@0,400&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --ink:#0d1014; --deep:#131820; --surface:#1a2030; --hover:#1e2838; --selected:#1f2d45;
+  --border-s:#1e2535; --border-d:#253045; --border-str:#3a4a62;
+  --text-p:#ecf0f5; --text-s:#8aa0b8; --text-m:#6884a4; --text-dis:#2a3850;
+  --verd:#3d7858; --verd-h:#5aa87a; --verd-muted:#1a3028;
+  --verd-bright:#5aa87a;
+  --st-running-bright:#4d8fd6; --st-review-bright:#e09040;
+  --layer-series:#7aa8e0; --layer-book:#5aa87a; --layer-act:#7a8fb8;
+  --layer-chapter:#8a99b3; --layer-scene:#7a8a9e; --layer-beat:#6884a4;
+  --spec-bg:#0a0d12; --spec-pan:#111520; --callout:#e8b840;
+}
+html, body { background:var(--spec-bg); color:var(--text-p); font-family:'Inter',sans-serif; font-size:13px; line-height:1.5; }
+
+.doc-header { background:var(--spec-pan); border-bottom:1px solid var(--border-d); padding:24px 48px; display:flex; align-items:baseline; justify-content:space-between; }
+.wm-s{font-family:'Cinzel',serif;font-size:14px;font-weight:500;letter-spacing:.18em;color:var(--text-p);}
+.wm-v{font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:300;font-size:16px;letter-spacing:.08em;color:var(--text-p);opacity:.82;}
+.doc-meta{font-size:11px;font-weight:300;letter-spacing:.2em;text-transform:uppercase;color:var(--text-m);}
+.section{padding:40px 48px 0;}
+.slabel{font-size:9px;font-weight:400;letter-spacing:.45em;text-transform:uppercase;color:var(--text-m);margin-bottom:20px;padding-bottom:12px;border-bottom:1px solid var(--border-s);}
+.screen { width:1280px; height:820px; background:var(--ink); border:1px solid var(--border-d); border-radius:8px; overflow:hidden; display:flex; flex-direction:column; box-shadow:0 24px 80px rgba(0,0,0,.6); margin:0 auto; position:relative; }
+
+.wm { display:flex; flex-direction:column; align-items:flex-start; }
+.wm-text { display:flex; align-items:baseline; }
+.wm-stela { font-family:'Cinzel',serif; font-weight:500; letter-spacing:.18em; color:var(--text-p); }
+.wm-vox   { font-family:'Cormorant Garamond',serif; font-style:italic; font-weight:400; letter-spacing:.08em; color:var(--text-p); opacity:.88; }
+.wm-rule-wrap { position:relative; margin-top:4px; }
+.wm-rule { height:1px; background:linear-gradient(90deg, var(--verd-bright) 0%, rgba(90,168,122,0.55) 45%, transparent 85%); }
+.wm-lozenge { position:absolute; left:-3px; top:-4px; width:9px; height:9px; background:var(--verd-bright); transform:rotate(45deg); box-shadow:0 0 8px rgba(90,168,122,0.45); }
+.wm-sm .wm-stela { font-size:17px; } .wm-sm .wm-vox { font-size:19px; } .wm-sm .wm-rule { width:100px; }
+
+.app-hdr { height:52px; min-height:52px; background:var(--deep); border-bottom:1px solid var(--border-s); display:flex; align-items:center; padding:0 24px; gap:0; }
+.app-hdr-right { display:flex; align-items:center; gap:14px; margin-left:auto; }
+.cmd-chip { font-size:11px; font-weight:400; color:var(--text-s); border:1px solid var(--border-str); background:var(--surface); padding:4px 10px 4px 9px; border-radius:4px; cursor:pointer; display:flex; align-items:center; gap:7px; }
+.cmd-chip:hover { border-color:var(--verd-bright); color:var(--text-p); }
+.cmd-chip-kbd { font-family:ui-monospace,monospace; font-size:10px; color:var(--text-m); }
+.hdr-link { font-size:12px; font-weight:400; color:var(--text-s); cursor:pointer; }
+.hdr-link:hover { color:var(--text-p); }
+.uav { width:30px; height:30px; background:var(--surface); border:1px solid var(--border-str); border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:500; color:var(--text-p); cursor:pointer; }
+.mode-tabs { display:flex; align-items:center; gap:2px; background:var(--surface); border:1px solid var(--border-d); border-radius:5px; padding:2px; margin:0 18px; }
+.mode-tab { font-size:12px; font-weight:500; color:var(--text-s); padding:5px 14px; border-radius:3px; cursor:pointer; display:flex; align-items:center; gap:6px; opacity:.5; }
+.mode-tab.disabled { cursor:default; }
+
+.app-body { flex:1; overflow:hidden; display:flex; }
+
+.app-sidebar { width:240px; min-width:240px; background:var(--deep); border-right:1px solid var(--border-s); padding:18px 0 14px; display:flex; flex-direction:column; gap:0; position:relative; }
+.app-sidebar::after { content:""; position:absolute; right:0; top:48px; bottom:48px; width:1px; background:linear-gradient(180deg, transparent 0%, rgba(90,168,122,0.55) 20%, rgba(90,168,122,0.55) 80%, transparent 100%); }
+.sb-section-label { font-size:9px; font-weight:600; letter-spacing:.38em; text-transform:uppercase; color:var(--text-m); padding:0 20px 8px; }
+.sb-item { display:flex; align-items:center; gap:10px; padding:7px 20px; font-size:13px; font-weight:400; color:var(--text-s); cursor:pointer; border-left:2px solid transparent; }
+.sb-item:hover { background:var(--hover); color:var(--text-p); }
+.sb-item.active { color:var(--text-p); background:var(--selected); border-left:2px solid var(--verd-bright); }
+.sb-item-icon { font-size:13px; opacity:.85; width:18px; display:flex; justify-content:center; }
+.sb-item-count { margin-left:auto; font-size:10px; font-weight:300; color:var(--text-m); font-variant-numeric:tabular-nums; }
+.sb-divider { height:1px; background:var(--border-s); margin:10px 16px; }
+.sb-foot { margin-top:auto; padding-top:8px; }
+.sb-foot .sb-item { font-size:12px; color:var(--text-m); }
+
+/* Main pane */
+.proj-main { flex:1; min-width:0; display:flex; flex-direction:column; background:var(--ink); }
+.proj-hdr { padding:18px 28px 0; }
+.proj-breadcrumb { font-size:11px; color:var(--text-m); margin-bottom:8px; display:flex; align-items:center; gap:8px; }
+.proj-breadcrumb a { color:var(--text-s); text-decoration:none; cursor:pointer; }
+.proj-breadcrumb a:hover { color:var(--text-p); }
+.proj-title-row { display:flex; align-items:baseline; gap:14px; margin-bottom:6px; }
+.proj-title { font-size:24px; font-weight:600; color:var(--text-p); letter-spacing:-0.01em; }
+.stack-badge { font-family:'JetBrains Mono', ui-monospace, monospace; font-size:10px; font-weight:500; letter-spacing:.04em; color:var(--verd-bright); padding:2px 8px; border:1px solid rgba(90,168,122,0.4); border-radius:3px; background:rgba(61,120,88,0.06); }
+.proj-meta { font-size:12px; font-weight:300; color:var(--text-m); margin-bottom:16px; }
+.proj-meta strong { color:var(--text-s); font-weight:400; }
+
+/* Tab strip */
+.proj-tabs { display:flex; align-items:center; gap:0; border-bottom:1px solid var(--border-s); padding:0 28px; }
+.proj-tab { font-size:13px; font-weight:400; color:var(--text-s); padding:10px 16px 11px; cursor:pointer; border-bottom:2px solid transparent; display:flex; align-items:center; gap:8px; }
+.proj-tab:hover { color:var(--text-p); }
+.proj-tab.active { color:var(--text-p); border-bottom:2px solid rgba(236,240,245,0.6); font-weight:500; }
+.proj-tab .tab-count { font-size:11px; color:var(--text-m); font-variant-numeric:tabular-nums; }
+.proj-tab .tab-attn { width:6px; height:6px; border-radius:50%; background:var(--st-running-bright); box-shadow:0 0 4px rgba(77,143,214,0.6); }
+
+.proj-body { flex:1; overflow-y:auto; padding:24px 28px 28px; display:grid; grid-template-columns:1fr 320px; gap:28px; }
+
+/* Left col — documents list */
+.docs-section { display:flex; flex-direction:column; gap:14px; }
+.docs-hdr { display:flex; align-items:center; justify-content:space-between; }
+.docs-hdr-title { font-size:11px; font-weight:600; letter-spacing:.28em; text-transform:uppercase; color:var(--text-s); }
+.docs-hdr-action { font-size:11px; font-weight:500; color:#fff; padding:6px 14px; background:var(--verd); border:1px solid var(--verd); border-radius:4px; cursor:pointer; display:flex; align-items:center; gap:6px; }
+.docs-hdr-action:hover { background:var(--verd-bright); border-color:var(--verd-bright); }
+
+.doc-row { background:var(--surface); border:1px solid var(--border-d); border-radius:6px; padding:18px 20px; display:flex; gap:18px; align-items:center; cursor:pointer; transition:border-color 120ms, transform 120ms; position:relative; }
+.doc-row:hover { border-color:var(--verd-bright); transform:translateY(-1px); }
+
+.doc-row-ord { width:36px; height:36px; border-radius:6px; background:var(--verd-muted); color:var(--verd-bright); display:flex; align-items:center; justify-content:center; font-family:'JetBrains Mono', ui-monospace, monospace; font-size:13px; font-weight:600; flex-shrink:0; }
+
+.doc-row-main { flex:1; min-width:0; display:flex; flex-direction:column; gap:6px; }
+.doc-row-title-row { display:flex; align-items:baseline; gap:10px; }
+.doc-row-title { font-size:16px; font-weight:500; color:var(--text-p); letter-spacing:-0.005em; }
+.doc-row-stack-tag { font-family:'JetBrains Mono', ui-monospace, monospace; font-size:9.5px; color:var(--layer-series); padding:1px 6px; background:rgba(122,168,224,0.12); border:1px solid rgba(122,168,224,0.3); border-radius:2px; letter-spacing:.04em; }
+.doc-row-meta { display:flex; align-items:center; gap:14px; font-size:11px; color:var(--text-m); }
+.doc-row-meta-item { display:flex; align-items:center; gap:5px; }
+.doc-row-meta strong { color:var(--text-s); font-weight:400; }
+
+.doc-row-progress-col { width:160px; display:flex; flex-direction:column; gap:6px; flex-shrink:0; }
+.doc-row-progress-bar { height:6px; background:var(--border-s); border-radius:3px; overflow:hidden; }
+.doc-row-progress-fill { height:100%; background:linear-gradient(90deg, var(--verd) 0%, var(--verd-bright) 100%); border-radius:3px; }
+.doc-row-progress-text { font-size:10.5px; font-weight:500; color:var(--text-s); font-variant-numeric:tabular-nums; display:flex; justify-content:space-between; }
+.doc-row-progress-pct { color:var(--text-p); }
+
+.doc-row-status-col { display:flex; align-items:center; gap:8px; flex-shrink:0; min-width:120px; justify-content:flex-end; }
+.lifecycle-pill { font-size:9px; font-weight:600; letter-spacing:.12em; text-transform:uppercase; padding:2px 7px; border-radius:3px; border:1px solid transparent; }
+.lifecycle-running  { background:rgba(77,143,214,0.18);  color:var(--st-running-bright); border-color:rgba(77,143,214,0.5); }
+.lifecycle-review   { background:rgba(224,144,64,0.18);  color:var(--st-review-bright);  border-color:rgba(224,144,64,0.5); }
+.lifecycle-complete { background:rgba(90,168,122,0.18);  color:var(--verd-bright); border-color:rgba(90,168,122,0.5); }
+.lifecycle-queued   { background:rgba(104,132,164,0.18); color:#8aa0b8; border-color:rgba(104,132,164,0.35); }
+.status-pip { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+.status-pip-running { background:var(--st-running-bright); box-shadow:0 0 6px rgba(77,143,214,0.55); animation:pulse 2s ease-in-out infinite; }
+.status-pip-complete { background:var(--verd-bright); }
+.status-pip-review { background:var(--st-review-bright); box-shadow:0 0 5px rgba(224,144,64,0.4); }
+@keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.55; } }
+
+.doc-row-actions { position:absolute; right:14px; top:50%; transform:translateY(-50%); display:flex; align-items:center; gap:1px; background:var(--selected); border:1px solid var(--border-str); border-radius:4px; padding:2px; opacity:0; pointer-events:none; transition:opacity 120ms ease; }
+.doc-row:hover .doc-row-actions { opacity:1; pointer-events:auto; }
+.doc-row-action { font-size:10.5px; font-weight:500; color:var(--text-s); padding:3px 8px; border-radius:2px; cursor:pointer; white-space:nowrap; }
+.doc-row-action:hover { background:var(--hover); color:var(--text-p); }
+.doc-row-action.primary { color:var(--verd-bright); }
+.doc-row-action.primary:hover { background:rgba(61,120,88,0.18); color:var(--verd-h); }
+.doc-row-action-sep { width:1px; background:var(--border-d); height:14px; margin:0 2px; }
+
+/* Right col — profile + context + activity summaries */
+.side-card { background:var(--deep); border:1px solid var(--border-s); border-radius:6px; padding:16px 18px; display:flex; flex-direction:column; gap:10px; }
+.side-card-title { font-size:10px; font-weight:600; letter-spacing:.28em; text-transform:uppercase; color:var(--text-m); }
+.side-card-edit { font-size:10px; color:var(--text-s); margin-left:auto; cursor:pointer; }
+.side-card-edit:hover { color:var(--text-p); }
+.profile-empty { font-size:12px; font-weight:300; color:var(--text-m); font-style:italic; line-height:1.55; }
+.profile-line { font-size:12px; color:var(--text-s); line-height:1.6; }
+.profile-line strong { color:var(--text-p); font-weight:500; }
+
+.ctx-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.ctx-item { display:flex; align-items:center; gap:8px; padding:7px 10px; background:var(--surface); border:1px solid var(--border-s); border-radius:4px; font-size:11.5px; color:var(--text-s); cursor:pointer; }
+.ctx-item:hover { border-color:var(--verd-bright); color:var(--text-p); }
+.ctx-item-icon { color:var(--text-m); font-size:12px; }
+.ctx-item-count { margin-left:auto; font-size:10px; color:var(--text-m); font-variant-numeric:tabular-nums; }
+
+.activity-list { display:flex; flex-direction:column; gap:8px; }
+.activity-row { display:flex; align-items:flex-start; gap:8px; font-size:11.5px; color:var(--text-s); line-height:1.5; }
+.activity-row strong { color:var(--text-p); font-weight:500; }
+.activity-time { color:var(--text-m); font-size:10.5px; flex-shrink:0; }
+
+/* Export tab specifics */
+.export-grid { display:grid; grid-template-columns:1fr 320px; gap:28px; }
+.export-tree { background:var(--ink); border:1px solid var(--border-d); border-radius:6px; padding:6px 0; max-height:560px; overflow-y:auto; }
+.exp-row { display:flex; align-items:center; gap:10px; padding:0 16px; height:30px; cursor:pointer; position:relative; }
+.exp-row:hover { background:var(--hover); }
+.exp-cbx { width:14px; height:14px; border-radius:3px; border:1.5px solid var(--border-str); background:var(--surface); flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:10px; color:var(--verd-bright); }
+.exp-cbx.checked { background:var(--verd); border-color:var(--verd); color:#fff; }
+.exp-cbx.partial { background:var(--verd-muted); border-color:var(--verd-bright); }
+.exp-cbx.partial::after { content:"−"; color:var(--verd-bright); font-weight:700; font-size:11px; }
+.exp-chev { width:12px; flex-shrink:0; color:var(--text-m); font-size:10px; opacity:.7; }
+.exp-label { font-family:'JetBrains Mono', ui-monospace, monospace; font-size:10.5px; font-weight:500; flex-shrink:0; white-space:nowrap; font-variant-numeric:tabular-nums; }
+.exp-label-series { color:var(--layer-series); min-width:74px; }
+.exp-label-book { color:var(--layer-book); min-width:62px; }
+.exp-label-act { color:var(--layer-act); min-width:54px; }
+.exp-label-chapter { color:var(--layer-chapter); min-width:50px; }
+.exp-name { font-size:12px; font-weight:400; color:var(--text-s); flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.exp-row.book .exp-name { font-size:13px; color:var(--text-p); font-weight:500; }
+.exp-row.series-row .exp-name { font-size:13.5px; color:var(--text-p); font-weight:600; }
+.exp-wc { font-size:10px; color:var(--text-m); font-variant-numeric:tabular-nums; flex-shrink:0; }
+.exp-indent-0 { padding-left:16px; }
+.exp-indent-1 { padding-left:36px; }
+.exp-indent-2 { padding-left:60px; }
+.exp-indent-3 { padding-left:88px; }
+
+.export-options { display:flex; flex-direction:column; gap:18px; }
+.export-card { background:var(--deep); border:1px solid var(--border-s); border-radius:6px; padding:16px 18px; }
+.export-card-h { font-size:10px; font-weight:600; letter-spacing:.28em; text-transform:uppercase; color:var(--text-m); margin-bottom:12px; }
+.format-grid { display:grid; grid-template-columns:1fr 1fr; gap:6px; }
+.format-tile { padding:10px 12px; border:1px solid var(--border-d); background:var(--surface); border-radius:4px; cursor:pointer; display:flex; flex-direction:column; gap:3px; }
+.format-tile:hover { border-color:var(--verd-bright); }
+.format-tile.active { background:rgba(61,120,88,0.08); border-color:var(--verd-bright); }
+.format-tile-h { font-size:12px; font-weight:500; color:var(--text-p); }
+.format-tile-meta { font-size:10px; color:var(--text-m); }
+
+.profile-dropdown { padding:8px 12px; border:1px solid var(--border-d); background:var(--surface); border-radius:4px; font-size:12px; color:var(--text-p); display:flex; align-items:center; justify-content:space-between; cursor:pointer; }
+.profile-dropdown:hover { border-color:var(--verd-bright); }
+
+.export-summary-line { font-size:11.5px; color:var(--text-s); padding:9px 12px; background:var(--surface); border:1px solid var(--border-s); border-radius:4px; line-height:1.5; }
+.export-summary-line strong { color:var(--text-p); font-weight:500; }
+
+.export-submit { background:var(--verd); color:#fff; font-size:13px; font-weight:600; padding:11px 24px; border-radius:5px; border:none; cursor:pointer; font-family:'Inter',sans-serif; box-shadow:0 4px 14px rgba(61,120,88,0.35); width:100%; }
+.export-submit:hover { background:var(--verd-bright); }
+.export-submit:disabled { background:var(--border-d); color:var(--text-m); box-shadow:none; cursor:not-allowed; }
+
+.export-cancel { background:transparent; color:var(--text-s); font-size:12px; font-weight:400; padding:8px 16px; border:1px solid var(--border-d); border-radius:4px; cursor:pointer; width:100%; margin-top:6px; }
+.export-cancel:hover { border-color:var(--text-s); color:var(--text-p); }
+
+/* Callouts */
+.callout-set { position:relative; max-width:1280px; margin:0 auto; }
+.callout-pin { position:absolute; width:22px; height:22px; border-radius:50%; background:var(--callout); color:#1a1a1a; font-size:11px; font-weight:700; display:flex; align-items:center; justify-content:center; border:2px solid var(--ink); box-shadow:0 0 0 1px var(--callout); z-index:5; }
+.callout-list { background:var(--spec-pan); border:1px solid var(--border-s); border-radius:6px; padding:20px 24px; margin-top:32px; }
+.callout-list-title { font-size:11px; font-weight:600; letter-spacing:.25em; text-transform:uppercase; color:var(--text-m); margin-bottom:14px; }
+.callout-row { display:flex; gap:14px; margin-bottom:11px; align-items:flex-start; }
+.callout-row:last-child { margin-bottom:0; }
+.callout-num { width:22px; height:22px; border-radius:50%; background:var(--callout); color:#1a1a1a; font-size:11px; font-weight:700; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.callout-text { font-size:13px; font-weight:300; color:var(--text-s); line-height:1.55; }
+.callout-text strong { color:var(--text-p); font-weight:500; }
+.callout-text code { background:var(--ink); padding:1px 6px; border-radius:3px; font-family:ui-monospace,monospace; font-size:11px; color:var(--callout); border:1px solid var(--border-s); }
+
+.writer-block { background:linear-gradient(135deg, var(--spec-pan) 0%, #14181f 100%); border:1px solid var(--border-d); border-radius:8px; padding:28px 32px; margin-top:32px; }
+.writer-title { font-size:11px; font-weight:600; letter-spacing:.32em; text-transform:uppercase; color:var(--verd-bright); margin-bottom:18px; display:flex; align-items:center; gap:10px; }
+.writer-title::before { content:""; width:16px; height:1px; background:var(--verd-bright); }
+.writer-h { font-size:15px; font-weight:500; color:var(--text-p); margin-top:18px; margin-bottom:8px; }
+.writer-h:first-of-type { margin-top:0; }
+.writer-p { font-size:13px; font-weight:300; color:var(--text-s); line-height:1.7; margin-bottom:10px; }
+.writer-p em { color:var(--text-m); }
+.writer-p strong { color:var(--text-p); font-weight:500; }
+.writer-recos { display:flex; flex-direction:column; gap:8px; margin-top:14px; }
+.writer-reco { display:flex; gap:12px; align-items:flex-start; font-size:13px; color:var(--text-s); line-height:1.55; }
+.writer-reco-tag { background:var(--verd-muted); color:var(--verd-bright); font-size:10px; font-weight:600; letter-spacing:.1em; padding:3px 8px; border-radius:3px; white-space:nowrap; margin-top:2px; }
+.writer-reco strong { color:var(--text-p); font-weight:500; }
+
+.spec-section{padding:0 48px 80px;}
+.spec-block{background:var(--spec-pan);border:1px solid var(--border-s);border-radius:6px;margin-bottom:18px;overflow:hidden;}
+.spec-block-header{padding:14px 22px;background:var(--ink);border-bottom:1px solid var(--border-s);font-size:11px;font-weight:600;letter-spacing:.25em;text-transform:uppercase;color:var(--text-p);}
+.spec-block-body{padding:18px 22px;}
+.spec-row{display:grid;grid-template-columns:200px 1fr;gap:18px;padding:9px 0;border-bottom:1px solid var(--border-s);font-size:12px;align-items:start;}
+.spec-row:last-child{border-bottom:none;}
+.spec-row-k{color:var(--text-s);font-weight:500;font-size:11px;letter-spacing:.08em;text-transform:uppercase;padding-top:1px;}
+.spec-row-v{color:var(--text-p);font-weight:300;line-height:1.6;}
+.spec-row-v code{background:var(--ink);padding:1px 6px;border-radius:3px;font-family:ui-monospace,monospace;font-size:11px;color:var(--callout);border:1px solid var(--border-s);}
+.spec-row-v em { color:var(--text-m); font-style:italic; }
+</style>
+</head>
+<body>
+
+<div class="doc-header">
+  <div>
+    <div style="display:flex;align-items:baseline;"><span class="wm-s">Stela</span><span class="wm-v">vox</span></div>
+    <div style="margin-top:6px;font-size:11px;font-weight:300;letter-spacing:.2em;text-transform:uppercase;color:var(--text-m);">Project Page v1 — iteration 1 — Phase 8.01 · multi-document workspace + export</div>
+  </div>
+  <div class="doc-meta">2026-05-28 · Series-of-Novels example · tree-with-checkboxes export</div>
+</div>
+
+<!-- ───────────────────────────────────────────────────────── -->
+<!-- 01 — Documents view                                       -->
+<!-- ───────────────────────────────────────────────────────── -->
+
+<div class="section"><div class="slabel">01 — Project page · Documents view · Series-of-Novels example</div></div>
+
+<div style="padding:32px 48px 0;">
+<div class="callout-set">
+<div class="screen">
+
+  <div class="app-hdr">
+    <a class="wm wm-sm" href="#" style="text-decoration:none;">
+      <div class="wm-text"><span class="wm-stela">Stela</span><span class="wm-vox">vox</span></div>
+      <div class="wm-rule-wrap"><div class="wm-rule"></div><div class="wm-lozenge"></div></div>
+    </a>
+    <div class="mode-tabs">
+      <div class="mode-tab disabled">Edit</div>
+      <div class="mode-tab disabled">Director</div>
+      <div class="mode-tab disabled">Focus</div>
+    </div>
+    <div class="app-hdr-right">
+      <div class="cmd-chip">Search <span class="cmd-chip-kbd">⌘K</span></div>
+      <div class="hdr-link">Settings</div>
+      <div class="uav">AS</div>
+    </div>
+  </div>
+
+  <div class="app-body">
+
+    <div class="app-sidebar">
+      <div class="sb-section-label">Workspace</div>
+      <div class="sb-item"><span class="sb-item-icon">⌂</span> Home</div>
+
+      <div class="sb-divider"></div>
+      <div class="sb-section-label">Asimov Catalog</div>
+      <div class="sb-item active"><span class="sb-item-icon">⊟</span> Documents <span class="sb-item-count">3</span></div>
+      <div class="sb-item"><span class="sb-item-icon">⊕</span> Profile</div>
+      <div class="sb-item"><span class="sb-item-icon">⧗</span> Activity <span class="sb-item-count">5</span></div>
+      <div class="sb-item"><span class="sb-item-icon">↗</span> Export</div>
+
+      <div class="sb-divider"></div>
+      <div class="sb-section-label">Context library</div>
+      <div class="sb-item"><span class="sb-item-icon">☉</span> Characters <span class="sb-item-count">28</span></div>
+      <div class="sb-item"><span class="sb-item-icon">⌖</span> Locations <span class="sb-item-count">12</span></div>
+      <div class="sb-item"><span class="sb-item-icon">⌬</span> Organisations <span class="sb-item-count">4</span></div>
+      <div class="sb-item"><span class="sb-item-icon">✶</span> Themes <span class="sb-item-count">6</span></div>
+      <div class="sb-item"><span class="sb-item-icon">⟿</span> Plot threads <span class="sb-item-count">9</span></div>
+      <div class="sb-item"><span class="sb-item-icon">◯</span> Worlds <span class="sb-item-count">2</span></div>
+
+      <div class="sb-foot">
+        <div class="sb-divider"></div>
+        <div class="sb-item"><span class="sb-item-icon">⚙</span> Settings</div>
+      </div>
+    </div>
+
+    <div class="proj-main">
+
+      <div class="proj-hdr">
+        <div class="proj-breadcrumb">
+          <a>Home</a>
+          <span style="color:var(--text-dis);">/</span>
+          <span style="color:var(--text-s);">Asimov Catalog</span>
+        </div>
+        <div class="proj-title-row">
+          <div class="proj-title">Asimov Catalog</div>
+          <span class="stack-badge">Series of Novels</span>
+        </div>
+        <div class="proj-meta"><strong>3 documents</strong> · 218,400 words across the project · last active 12 min ago</div>
+      </div>
+
+      <div class="proj-tabs">
+        <div class="proj-tab active">Documents <span class="tab-count">3</span></div>
+        <div class="proj-tab">Profile</div>
+        <div class="proj-tab">Activity <span class="tab-attn"></span></div>
+        <div class="proj-tab">Export</div>
+      </div>
+
+      <div class="proj-body">
+
+        <!-- Left col — Documents list -->
+        <div class="docs-section">
+          <div class="docs-hdr">
+            <div class="docs-hdr-title">Documents in this project</div>
+            <div class="docs-hdr-action">+ New document</div>
+          </div>
+
+          <div class="doc-row">
+            <div class="doc-row-ord">1</div>
+            <div class="doc-row-main">
+              <div class="doc-row-title-row">
+                <div class="doc-row-title">The Foundation Trilogy</div>
+                <span class="doc-row-stack-tag">Series · 3 books</span>
+              </div>
+              <div class="doc-row-meta">
+                <div class="doc-row-meta-item">last edit 12 min ago</div>
+                <div class="doc-row-meta-item">·</div>
+                <div class="doc-row-meta-item">114 nodes · 38% complete</div>
+                <div class="doc-row-meta-item">·</div>
+                <div class="doc-row-meta-item" style="color:var(--st-running-bright);">Director active</div>
+              </div>
+            </div>
+            <div class="doc-row-progress-col">
+              <div class="doc-row-progress-bar"><div class="doc-row-progress-fill" style="width:38%;"></div></div>
+              <div class="doc-row-progress-text">
+                <span>14,237 / 37,500</span><span class="doc-row-progress-pct">38%</span>
+              </div>
+            </div>
+            <div class="doc-row-status-col">
+              <span class="status-pip status-pip-running"></span>
+              <span class="lifecycle-pill lifecycle-running">3 beats running</span>
+            </div>
+            <div class="doc-row-actions">
+              <div class="doc-row-action primary">Open</div>
+              <div class="doc-row-action-sep"></div>
+              <div class="doc-row-action">Export</div>
+              <div class="doc-row-action">Archive</div>
+            </div>
+          </div>
+
+          <div class="doc-row">
+            <div class="doc-row-ord">2</div>
+            <div class="doc-row-main">
+              <div class="doc-row-title-row">
+                <div class="doc-row-title">The Robot Series</div>
+                <span class="doc-row-stack-tag">Series · 5 books</span>
+              </div>
+              <div class="doc-row-meta">
+                <div class="doc-row-meta-item">last edit yesterday</div>
+                <div class="doc-row-meta-item">·</div>
+                <div class="doc-row-meta-item">186 nodes · 64% complete</div>
+                <div class="doc-row-meta-item">·</div>
+                <div class="doc-row-meta-item" style="color:var(--st-review-bright);">3 nodes awaiting review</div>
+              </div>
+            </div>
+            <div class="doc-row-progress-col">
+              <div class="doc-row-progress-bar"><div class="doc-row-progress-fill" style="width:64%;"></div></div>
+              <div class="doc-row-progress-text">
+                <span>32,000 / 50,000</span><span class="doc-row-progress-pct">64%</span>
+              </div>
+            </div>
+            <div class="doc-row-status-col">
+              <span class="status-pip status-pip-review"></span>
+              <span class="lifecycle-pill lifecycle-review">3 review</span>
+            </div>
+          </div>
+
+          <div class="doc-row">
+            <div class="doc-row-ord">3</div>
+            <div class="doc-row-main">
+              <div class="doc-row-title-row">
+                <div class="doc-row-title">The Empire Series</div>
+                <span class="doc-row-stack-tag">Series · 3 books</span>
+              </div>
+              <div class="doc-row-meta">
+                <div class="doc-row-meta-item">last edit 2 weeks ago</div>
+                <div class="doc-row-meta-item">·</div>
+                <div class="doc-row-meta-item">82 nodes · 100% complete</div>
+              </div>
+            </div>
+            <div class="doc-row-progress-col">
+              <div class="doc-row-progress-bar"><div class="doc-row-progress-fill" style="width:100%;"></div></div>
+              <div class="doc-row-progress-text">
+                <span>240,000 / 240,000</span><span class="doc-row-progress-pct" style="color:var(--verd-bright);">100%</span>
+              </div>
+            </div>
+            <div class="doc-row-status-col">
+              <span class="status-pip status-pip-complete"></span>
+              <span class="lifecycle-pill lifecycle-complete">Complete</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right col — side cards -->
+        <div style="display:flex; flex-direction:column; gap:14px;">
+
+          <div class="side-card">
+            <div style="display:flex; align-items:center; gap:8px;">
+              <div class="side-card-title">Project profile</div>
+              <div class="side-card-edit">Edit →</div>
+            </div>
+            <div class="profile-line"><strong>Voice:</strong> sparse, analytic, Asimovian — long sentences sparing on adjectives.</div>
+            <div class="profile-line"><strong>Tense:</strong> third-person, past.</div>
+            <div class="profile-line"><strong>Decisions:</strong> 8 locked decisions across the catalog (e.g., Galactic Empire dates, Foundation founding year).</div>
+            <div class="profile-line"><strong>Named entities:</strong> 28 characters · 12 locations · 4 organisations shared across all documents.</div>
+          </div>
+
+          <div class="side-card">
+            <div class="side-card-title">Recent activity</div>
+            <div class="activity-list">
+              <div class="activity-row">
+                <span class="status-pip status-pip-running" style="margin-top:4px;"></span>
+                <div style="flex:1;"><strong>Synthesise</strong> · 3 beats in <em>Foundation Trilogy</em> · <span class="activity-time">4 min ago</span></div>
+              </div>
+              <div class="activity-row">
+                <span class="status-pip status-pip-review" style="margin-top:4px;"></span>
+                <div style="flex:1;"><strong>Refine</strong> awaiting review · <em>Robot Series</em> · <span class="activity-time">yesterday</span></div>
+              </div>
+              <div class="activity-row">
+                <span class="status-pip status-pip-complete" style="margin-top:4px;"></span>
+                <div style="flex:1;"><strong>Expand</strong> completed · 5 chapters · <span class="activity-time">2 days ago</span></div>
+              </div>
+            </div>
+            <div style="font-size:10.5px; color:var(--text-m); margin-top:2px; cursor:pointer; text-decoration:underline;">See all activity →</div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+  <div class="callout-pin" style="top:120px;left:60px;">1</div>
+  <div class="callout-pin" style="top:225px;left:295px;">2</div>
+  <div class="callout-pin" style="top:340px;left:445px;">3</div>
+  <div class="callout-pin" style="top:355px;left:980px;">4</div>
+  <div class="callout-pin" style="top:610px;left:980px;">5</div>
+</div>
+
+  <div class="callout-list">
+    <div class="callout-list-title">Project page · Documents view</div>
+    <div class="callout-row"><div class="callout-num">1</div><div class="callout-text"><strong>Sidebar project sub-nav.</strong> When you're inside a project, the sidebar's project section becomes the navigation: <em>Documents · Profile · Activity · Export</em>. Plus the Context library always lives below. Mode tabs at the top (Edit / Director / Focus) are <em>disabled</em> at the project level — they activate when you've opened a specific document. Honest UX: the modes apply to a document, not a project.</div></div>
+    <div class="callout-row"><div class="callout-num">2</div><div class="callout-text"><strong>Stack badge near project title.</strong> <code>Series of Novels</code> in monospace verdigris. Tells you the layer_stack at a glance. For a <code>Novel</code> project it'd read "Novel"; for <code>Anthology</code> it'd read "Anthology"; etc. Single source of truth for "what shape of work is this project."</div></div>
+    <div class="callout-row"><div class="callout-num">3</div><div class="callout-text"><strong>Document rows.</strong> Each = one document. Numbered (<code>1, 2, 3</code>) for position within the project. Title + small "Series · 3 books" tag (telling you what the document's tree contains at the top level of its layer_stack). Meta line tucks last-edit + node count + status events. Progress bar column standardised — same shape as the tree's word-count column from Edit Mode iter3. Hover reveals quick actions: <em>Open · Export · Archive</em>.</div></div>
+    <div class="callout-row"><div class="callout-num">4</div><div class="callout-text"><strong>Project Profile card.</strong> Compact summary of voice / tense / locked decisions / named-entity counts. "Edit →" link to the full Profile tab. The profile is project-level — shared across all 3 documents in this project. This makes the "shared context across the catalog" benefit explicit.</div></div>
+    <div class="callout-row"><div class="callout-num">5</div><div class="callout-text"><strong>Recent activity panel.</strong> Lightweight feed of recent agent operations across all documents in the project. Acts as a "what happened while I was away" surface. Click → Activity tab for the full feed.</div></div>
+  </div>
+</div>
+
+<!-- ───────────────────────────────────────────────────────── -->
+<!-- 02 — Export view                                          -->
+<!-- ───────────────────────────────────────────────────────── -->
+
+<div class="section" style="padding-top:60px;"><div class="slabel">02 — Project page · Export view · tree-with-checkboxes</div></div>
+
+<div style="padding:32px 48px 0;">
+<div class="callout-set">
+<div class="screen">
+
+  <div class="app-hdr">
+    <a class="wm wm-sm" href="#" style="text-decoration:none;">
+      <div class="wm-text"><span class="wm-stela">Stela</span><span class="wm-vox">vox</span></div>
+      <div class="wm-rule-wrap"><div class="wm-rule"></div><div class="wm-lozenge"></div></div>
+    </a>
+    <div class="mode-tabs">
+      <div class="mode-tab disabled">Edit</div>
+      <div class="mode-tab disabled">Director</div>
+      <div class="mode-tab disabled">Focus</div>
+    </div>
+    <div class="app-hdr-right">
+      <div class="cmd-chip">Search <span class="cmd-chip-kbd">⌘K</span></div>
+      <div class="hdr-link">Settings</div>
+      <div class="uav">AS</div>
+    </div>
+  </div>
+
+  <div class="app-body">
+
+    <div class="app-sidebar">
+      <div class="sb-section-label">Workspace</div>
+      <div class="sb-item"><span class="sb-item-icon">⌂</span> Home</div>
+
+      <div class="sb-divider"></div>
+      <div class="sb-section-label">Asimov Catalog</div>
+      <div class="sb-item"><span class="sb-item-icon">⊟</span> Documents <span class="sb-item-count">3</span></div>
+      <div class="sb-item"><span class="sb-item-icon">⊕</span> Profile</div>
+      <div class="sb-item"><span class="sb-item-icon">⧗</span> Activity <span class="sb-item-count">5</span></div>
+      <div class="sb-item active"><span class="sb-item-icon">↗</span> Export</div>
+
+      <div class="sb-divider"></div>
+      <div class="sb-section-label">Context library</div>
+      <div class="sb-item"><span class="sb-item-icon">☉</span> Characters <span class="sb-item-count">28</span></div>
+      <div class="sb-item"><span class="sb-item-icon">⌖</span> Locations <span class="sb-item-count">12</span></div>
+      <div class="sb-item"><span class="sb-item-icon">⌬</span> Organisations <span class="sb-item-count">4</span></div>
+      <div class="sb-item"><span class="sb-item-icon">✶</span> Themes <span class="sb-item-count">6</span></div>
+      <div class="sb-item"><span class="sb-item-icon">⟿</span> Plot threads <span class="sb-item-count">9</span></div>
+      <div class="sb-item"><span class="sb-item-icon">◯</span> Worlds <span class="sb-item-count">2</span></div>
+
+      <div class="sb-foot">
+        <div class="sb-divider"></div>
+        <div class="sb-item"><span class="sb-item-icon">⚙</span> Settings</div>
+      </div>
+    </div>
+
+    <div class="proj-main">
+
+      <div class="proj-hdr">
+        <div class="proj-breadcrumb">
+          <a>Home</a><span style="color:var(--text-dis);">/</span><span style="color:var(--text-s);">Asimov Catalog</span><span style="color:var(--text-dis);">/</span><span style="color:var(--text-p);">Export</span>
+        </div>
+        <div class="proj-title-row">
+          <div class="proj-title">Export</div>
+          <span class="stack-badge">Series of Novels</span>
+        </div>
+        <div class="proj-meta">Select what to export from the tree below. The same UI works at any layer — series, book, act, chapter, scene, or single beat.</div>
+      </div>
+
+      <div class="proj-tabs">
+        <div class="proj-tab">Documents <span class="tab-count">3</span></div>
+        <div class="proj-tab">Profile</div>
+        <div class="proj-tab">Activity</div>
+        <div class="proj-tab active">Export</div>
+      </div>
+
+      <div class="proj-body" style="display:block;">
+
+        <div class="export-grid">
+
+          <!-- Left col — tree with checkboxes -->
+          <div>
+            <div class="docs-hdr" style="margin-bottom:10px;">
+              <div class="docs-hdr-title">Scope · Asimov Catalog</div>
+              <div style="font-size:10.5px;color:var(--text-m);">Click a row's checkbox; children auto-select</div>
+            </div>
+
+            <div class="export-tree">
+
+              <!-- Document 1: Foundation Trilogy -->
+              <div class="exp-row series-row exp-indent-0">
+                <div class="exp-cbx partial"></div>
+                <span class="exp-chev">▾</span>
+                <span class="exp-label exp-label-series">[Series 1]</span>
+                <span class="exp-name">The Foundation Trilogy</span>
+                <span class="exp-wc">218k</span>
+              </div>
+
+              <div class="exp-row book exp-indent-1">
+                <div class="exp-cbx checked">✓</div>
+                <span class="exp-chev">▾</span>
+                <span class="exp-label exp-label-book">[Book 1]</span>
+                <span class="exp-name">Foundation</span>
+                <span class="exp-wc">76,000</span>
+              </div>
+              <div class="exp-row exp-indent-2">
+                <div class="exp-cbx checked">✓</div>
+                <span class="exp-chev">▸</span>
+                <span class="exp-label exp-label-act">[Act 1]</span>
+                <span class="exp-name">The Psychohistorians</span>
+                <span class="exp-wc">19,200</span>
+              </div>
+              <div class="exp-row exp-indent-2">
+                <div class="exp-cbx checked">✓</div>
+                <span class="exp-chev">▸</span>
+                <span class="exp-label exp-label-act">[Act 2]</span>
+                <span class="exp-name">The Encyclopedists</span>
+                <span class="exp-wc">21,400</span>
+              </div>
+              <div class="exp-row exp-indent-2">
+                <div class="exp-cbx checked">✓</div>
+                <span class="exp-chev">▸</span>
+                <span class="exp-label exp-label-act">[Act 3]</span>
+                <span class="exp-name">The Mayors</span>
+                <span class="exp-wc">17,800</span>
+              </div>
+              <div class="exp-row exp-indent-2">
+                <div class="exp-cbx checked">✓</div>
+                <span class="exp-chev">▸</span>
+                <span class="exp-label exp-label-act">[Act 4]</span>
+                <span class="exp-name">The Traders</span>
+                <span class="exp-wc">17,600</span>
+              </div>
+
+              <div class="exp-row book exp-indent-1">
+                <div class="exp-cbx"></div>
+                <span class="exp-chev">▸</span>
+                <span class="exp-label exp-label-book">[Book 2]</span>
+                <span class="exp-name">Foundation and Empire</span>
+                <span class="exp-wc">71,000</span>
+              </div>
+
+              <div class="exp-row book exp-indent-1">
+                <div class="exp-cbx"></div>
+                <span class="exp-chev">▸</span>
+                <span class="exp-label exp-label-book">[Book 3]</span>
+                <span class="exp-name">Second Foundation</span>
+                <span class="exp-wc">71,000</span>
+              </div>
+
+              <!-- Document 2: Robot Series -->
+              <div class="exp-row series-row exp-indent-0">
+                <div class="exp-cbx"></div>
+                <span class="exp-chev">▸</span>
+                <span class="exp-label exp-label-series">[Series 1]</span>
+                <span class="exp-name">The Robot Series</span>
+                <span class="exp-wc">32,000</span>
+              </div>
+
+              <!-- Document 3: Empire Series -->
+              <div class="exp-row series-row exp-indent-0">
+                <div class="exp-cbx"></div>
+                <span class="exp-chev">▸</span>
+                <span class="exp-label exp-label-series">[Series 1]</span>
+                <span class="exp-name">The Empire Series</span>
+                <span class="exp-wc">240,000</span>
+              </div>
+
+            </div>
+
+            <div style="margin-top:14px; font-size:11.5px; color:var(--text-m); line-height:1.6; padding:0 4px;">
+              <strong style="color:var(--text-s);">Selection rules.</strong> Checking a parent selects all descendants. Checking some descendants of a parent shows a partial-fill indicator (<span class="exp-cbx partial" style="display:inline-flex;vertical-align:middle;margin:0 2px;"></span>). Each document is independent — you can pick any combination across documents.
+            </div>
+
+          </div>
+
+          <!-- Right col — format + profile + summary -->
+          <div class="export-options">
+
+            <div class="export-card">
+              <div class="export-card-h">Format</div>
+              <div class="format-grid">
+                <div class="format-tile active">
+                  <div class="format-tile-h">EPUB</div>
+                  <div class="format-tile-meta">Standard reflowable</div>
+                </div>
+                <div class="format-tile">
+                  <div class="format-tile-h">DOCX</div>
+                  <div class="format-tile-meta">Word manuscript</div>
+                </div>
+                <div class="format-tile">
+                  <div class="format-tile-h">PDF</div>
+                  <div class="format-tile-meta">Print-ready</div>
+                </div>
+                <div class="format-tile">
+                  <div class="format-tile-h">Outline</div>
+                  <div class="format-tile-meta">Markdown structure</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="export-card">
+              <div class="export-card-h">Profile</div>
+              <div class="profile-dropdown">
+                <span>EPUB-Standard</span>
+                <span style="color:var(--text-m);">▾</span>
+              </div>
+              <div style="font-size:10.5px; color:var(--text-m); margin-top:6px; line-height:1.5;">
+                Lora prose typography, chapter headings as h1, scene-break ornaments.
+              </div>
+            </div>
+
+            <div class="export-card">
+              <div class="export-card-h">Output</div>
+              <div class="export-summary-line" style="margin-bottom:8px;">
+                <strong>1 file:</strong> <code style="font-family:ui-monospace,monospace;color:var(--callout);">Foundation.epub</code>
+              </div>
+              <div class="export-summary-line">
+                <strong>76,000 words</strong> · 4 acts · 30 chapters · 142 beats
+              </div>
+            </div>
+
+            <div>
+              <button class="export-submit">Export →</button>
+              <button class="export-cancel">Cancel</button>
+            </div>
+
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+  <div class="callout-pin" style="top:285px;left:300px;">1</div>
+  <div class="callout-pin" style="top:355px;left:340px;">2</div>
+  <div class="callout-pin" style="top:455px;left:340px;">3</div>
+  <div class="callout-pin" style="top:355px;left:935px;">4</div>
+  <div class="callout-pin" style="top:625px;left:935px;">5</div>
+</div>
+
+  <div class="callout-list">
+    <div class="callout-list-title">Project page · Export</div>
+    <div class="callout-row"><div class="callout-num">1</div><div class="callout-text"><strong>Tree-with-checkboxes scope picker.</strong> Same bracketed-label vocabulary as Edit Mode iter3 — <code>[Series 1]</code>, <code>[Book 1]</code>, <code>[Act 1]</code>, etc. The project's documents sit at the root level; their internal trees expand below. <strong>You can check any node at any layer</strong> — the output is determined by what's selected.</div></div>
+    <div class="callout-row"><div class="callout-num">2</div><div class="callout-text"><strong>Partial-fill checkbox.</strong> When some-but-not-all descendants are checked, the parent shows a "−" partial-fill indicator (rather than full check or empty). Standard pattern — but worth calling out because it makes the export scope unambiguous: <em>"this series is partly selected; click to expand and see which books are included."</em></div></div>
+    <div class="callout-row"><div class="callout-num">3</div><div class="callout-text"><strong>Auto-selection rules.</strong> Checking a parent selects all its descendants. Unchecking a descendant makes the parent partial. Independent across documents — you can export Book 1 of Foundation + Book 3 of Robot Series in one go. <strong>One mental model: "tick what you want."</strong></div></div>
+    <div class="callout-row"><div class="callout-num">4</div><div class="callout-text"><strong>Format picker — 2×2 tile grid.</strong> EPUB / DOCX / PDF / Outline. Verdigris-active on the selected format. Each tile shows the format name + a one-line descriptor. Tiles instead of dropdown because format choice is meaningful and worth showing the options without a click.</div></div>
+    <div class="callout-row"><div class="callout-num">5</div><div class="callout-text"><strong>Output summary in plain English.</strong> Tells you exactly what will come out: <em>"1 file: Foundation.epub · 76,000 words · 4 acts · 30 chapters · 142 beats."</em> Updates live as the selection changes. For multi-doc selections the summary becomes <em>"2 files: Foundation.epub + Foundation-and-Empire.epub · …"</em> or <em>"1 bundle (foundation-trilogy.zip)"</em> depending on the user's bundle preference (open for iter2 — see decisions).</div></div>
+  </div>
+</div>
+
+<!-- ───────────────────────────────────────────────────────── -->
+<!-- 03 — Writer's eye                                         -->
+<!-- ───────────────────────────────────────────────────────── -->
+
+<div class="section" style="padding-top:60px;"><div class="slabel">03 — Writer's eye · iter1</div></div>
+
+<div style="padding:32px 48px 0;">
+<div class="writer-block">
+<div class="writer-title">A writer with three series — the project page is "where do I want to write today?"</div>
+
+<p class="writer-p">I'm imagining I'm working on three connected series (Asimov-style) — they share characters, a unifying galactic history, named locations. The project page is the surface where I see all of that together. I'm not writing here. I'm deciding what to do, or seeing what was done while I was away, or pulling everything together for export.</p>
+
+<div class="writer-h">What works in iter1</div>
+
+<p class="writer-p">The Documents list is what I'd want. Each row tells me the doc's state at a glance — progress, last edit, what the Director's been up to, whether anything needs my review. The hover-revealed actions mean I don't need to click in to do something common. <strong>The Project Profile card on the right is a quiet "you're at the project level now" signal</strong> — it shows the shared voice / decisions / named entities. That's the reminder that this is where the cross-series consistency lives.</p>
+
+<p class="writer-p">The Export tree-with-checkboxes is the right model. <em>"Tick what you want."</em> Same vocabulary as the rest of the app (bracketed labels), same visual rhythm, same hierarchy. The output preview answers the only question I have when exporting: <em>"what will I get?"</em> Plain English. No surprises.</p>
+
+<div class="writer-h">What I'd push or revise</div>
+
+<div class="writer-recos">
+
+<div class="writer-reco"><span class="writer-reco-tag">P-1</span><div><strong>The mode tabs at the top are disabled at the project level.</strong> That's correct (modes apply to a document, not a project), but having them visible-but-disabled is visual noise on a project page. Three options: (a) hide them entirely, (b) replace them with "← Project" breadcrumb-style chip, (c) keep them disabled with a tooltip "Open a document to use Edit / Director / Focus." I'd hide them — the user understands modes once they're in a document.</div></div>
+
+<div class="writer-reco"><span class="writer-reco-tag">P-2</span><div><strong>Single-document projects (most standalone novel users).</strong> Right now the wireframe shows the multi-doc case. For a standalone novel (1 project, 1 document), the project page is mostly redundant — the writer wants to be in Edit Mode, not staring at a single-row list. Options: (a) clicking the project from Dashboard auto-opens the doc's Edit Mode and the Project page becomes accessible only via sidebar; (b) Project page still appears but collapsed to "Open document →" + Profile + Context shortcuts. <strong>Recommend (a).</strong> Project page is for the multi-doc case; single-doc users skip it.</div></div>
+
+<div class="writer-reco"><span class="writer-reco-tag">P-3</span><div><strong>"Documents" tab title is correct but feels generic.</strong> For Series-of-Novels projects, the docs are <em>series</em>. For Anthology projects, they're <em>anthologies</em>. For Novel projects, they're <em>books</em>. Worth pulling the label from the layer_stack's top-level node_type plural — "Series", "Books", "Anthologies", "Papers". <strong>Costs nothing once Phase 14 lands; for V1 we hardcode the two cases.</strong></div></div>
+
+<div class="writer-reco"><span class="writer-reco-tag">P-4</span><div><strong>Bundle vs separate files.</strong> When the user selects multiple documents for export, the output is "N files." But the user might want them bundled (one .zip / one bound .epub). Need a toggle: <em>"Output as: ● Separate files · ○ Single bundle."</em> Could live alongside the Format picker. <strong>Iter2 candidate.</strong></div></div>
+
+<div class="writer-reco"><span class="writer-reco-tag">P-5</span><div><strong>Profile card is a summary, not editable inline.</strong> "Edit →" sends you to the full Profile tab. That's right — the profile is dense and deserves its own surface — but the summary card itself could show one more thing: a small "Last updated 3 days ago" timestamp. So the writer knows whether the profile reflects current state.</div></div>
+
+<div class="writer-reco"><span class="writer-reco-tag">P-6</span><div><strong>Activity panel is too compact for "what changed while I was away."</strong> Three rows is enough for "right now" but not for "I haven't logged in for 3 days." Either (a) expand the side card to show 5-7 rows when there's substantial activity, or (b) auto-route to the full Activity tab on first visit when there's >N unread events. I lean (b) with a subtle "5 new events since you were last here" header in the Activity card.</div></div>
+
+<div class="writer-reco"><span class="writer-reco-tag">P-7</span><div><strong>Export — "Export →" is a big verdigris button. Big-button-end-of-flow is correct.</strong> But for novice users the lack of confirmation might be scary. Should there be a "Preview first?" link beneath the Export button that opens a quick render preview (especially for EPUB)? Probably not for V1 — adds complexity. Flag for V2.</div></div>
+
+<div class="writer-reco"><span class="writer-reco-tag">P-8</span><div><strong>"+ New document" is a primary action when the layer_stack permits multiple documents.</strong> What about layer_stacks that imply single-document (e.g., a hypothetical "Single Novel" layer_stack that's strictly one book per project)? The button needs to be hidden in those cases. For V1 both Novel + Series-of-Novels allow multiple documents in principle, so the button stays. <em>Worth thinking about per-stack constraints in Phase 14.</em></div></div>
+
+</div>
+
+<div class="writer-h" style="margin-top:24px;">Honest gut feel</div>
+<p class="writer-p">The two-column layout (docs on the left, profile + activity on the right) reads as "where I am, what's here, what happened." That's the right job for a project page. Export is the most polished part of the wireframe — the tree-with-checkboxes maps cleanly onto user intent ("tick what you want"). The main thing I'd want to address next is <strong>P-2</strong> — making sure single-document users don't see this page unnecessarily — and <strong>P-3</strong> — using the layer_stack's terminology consistently. Both are small iterations.</p>
+
+</div>
+</div>
+
+<!-- ───────────────────────────────────────────────────────── -->
+<!-- 04 — Decisions                                            -->
+<!-- ───────────────────────────────────────────────────────── -->
+
+<div class="section" style="padding-top:60px;"><div class="slabel">04 — Decisions iter1</div></div>
+<div class="spec-section" style="padding-top:18px;">
+
+  <div class="spec-block">
+    <div class="spec-block-header">Locked in this iteration</div>
+    <div class="spec-block-body">
+      <div class="spec-row"><div class="spec-row-k">Project sub-nav</div><div class="spec-row-v">Sidebar's project section becomes nav: Documents · Profile · Activity · Export. Context library always below. Mode tabs disabled at project level.</div></div>
+      <div class="spec-row"><div class="spec-row-k">Documents list</div><div class="spec-row-v">Numbered rows (position 1, 2, 3). Title + small stack-internal tag ("Series · 3 books"). Progress bar column same shape as Edit Mode tree. Hover quick actions: Open / Export / Archive.</div></div>
+      <div class="spec-row"><div class="spec-row-k">Stack badge</div><div class="spec-row-v">Same monospace verdigris badge as Edit Mode — appears near project title, tells the user what shape of work this project is.</div></div>
+      <div class="spec-row"><div class="spec-row-k">Profile card</div><div class="spec-row-v">Compact summary of voice / tense / decisions / named-entity counts on the right. "Edit →" to full tab.</div></div>
+      <div class="spec-row"><div class="spec-row-k">Activity panel</div><div class="spec-row-v">Lightweight feed of recent agent operations across all documents in the project.</div></div>
+      <div class="spec-row"><div class="spec-row-k">Export tree-with-checkboxes</div><div class="spec-row-v">Project-level scope picker. Same bracketed-label vocabulary as Edit Mode. Auto-select rules (parent → descendants; partial-fill indicator). Independent across documents.</div></div>
+      <div class="spec-row"><div class="spec-row-k">Format tile grid</div><div class="spec-row-v">2×2 tiles: EPUB / DOCX / PDF / Outline. Verdigris-active on selected.</div></div>
+      <div class="spec-row"><div class="spec-row-k">Output summary</div><div class="spec-row-v">Plain English: "1 file: Foundation.epub · 76,000 words · 4 acts · 30 chapters · 142 beats." Live-updates with selection.</div></div>
+    </div>
+  </div>
+
+  <div class="spec-block">
+    <div class="spec-block-header">P-* iter1 open</div>
+    <div class="spec-block-body">
+      <div class="spec-row"><div class="spec-row-k">P-1 mode tabs at project level</div><div class="spec-row-v">Hide vs. disable-with-tooltip. <strong>Recommend hide.</strong></div></div>
+      <div class="spec-row"><div class="spec-row-k">P-2 single-doc projects</div><div class="spec-row-v">Skip project page entirely (auto-route to Edit Mode), with sidebar links still providing access to Profile / Activity / Export. <strong>Recommend.</strong></div></div>
+      <div class="spec-row"><div class="spec-row-k">P-3 layer-stack-typed terminology</div><div class="spec-row-v">"Documents" → "Series" / "Books" / "Anthologies" / "Papers" depending on layer_stack. Hardcoded in V1; pulled from layer_stack JSON in Phase 14.</div></div>
+      <div class="spec-row"><div class="spec-row-k">P-4 bundle vs separate files</div><div class="spec-row-v">Toggle in Output options when >1 file would be produced. <strong>Iter2 candidate.</strong></div></div>
+      <div class="spec-row"><div class="spec-row-k">P-5 profile last-updated</div><div class="spec-row-v">Timestamp under profile card title.</div></div>
+      <div class="spec-row"><div class="spec-row-k">P-6 activity panel size</div><div class="spec-row-v">Auto-expand or auto-route to full tab when N new events since last visit.</div></div>
+      <div class="spec-row"><div class="spec-row-k">P-7 export preview</div><div class="spec-row-v">Defer to V2.</div></div>
+      <div class="spec-row"><div class="spec-row-k">P-8 per-stack new-doc allowance</div><div class="spec-row-v">Per-layer_stack constraint on whether multiple documents are permitted. Phase 14.</div></div>
+    </div>
+  </div>
+
+  <div class="spec-block">
+    <div class="spec-block-header">Carried from prior iterations · not lost</div>
+    <div class="spec-block-body">
+      <div class="spec-row"><div class="spec-row-k">Dashboard iter4 pending</div><div class="spec-row-v">Top-of-page reorganisation; F-1 sample tour; F-4 "Get started" reframe; F-6 sidebar empty state; F-7 "Yours" tile + encryption line; F-8 vertical compression.</div></div>
+      <div class="spec-row"><div class="spec-row-k">T-5 non-leaf detail pane</div><div class="spec-row-v">Detail pane for Book / Act / Chapter / Scene (vs Beat) — own wireframe next.</div></div>
+      <div class="spec-row"><div class="spec-row-k">T-8 iPad layout</div><div class="spec-row-v">Slide-over detail pane at 1024px — own wireframe.</div></div>
+      <div class="spec-row"><div class="spec-row-k">Director Mode</div><div class="spec-row-v">Conversational presentation, plan-tag stripping, @-reference picker — own wireframe.</div></div>
+      <div class="spec-row"><div class="spec-row-k">Focus Mode</div><div class="spec-row-v">Pure writing surface — own wireframe.</div></div>
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>

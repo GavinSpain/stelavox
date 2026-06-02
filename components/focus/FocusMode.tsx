@@ -16,11 +16,83 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { ProseEditor } from '@/components/detail/ProseEditor'
-import { FocusBreadcrumb } from './FocusBreadcrumb'
+import { FocusBreadcrumb, type FocusBreadcrumbSegment } from './FocusBreadcrumb'
 import { FocusEscHint } from './FocusEscHint'
 import { TypewriterContainer } from './TypewriterContainer'
 import { SentenceFocus } from './SentenceFocus'
 import { useEditorStore } from '@/lib/stores/editor-store'
+import { createClient } from '@/lib/supabase/client'
+import { getAncestorChain } from '@/lib/nodes/getAncestorChain'
+import { classifySwipe } from '@/lib/focus/swipeDetect'
+import type { LayerKind } from '@/components/tree/LayerLabel'
+
+// Phase 8.01.B T-1 — V1 structural layer set for the breadcrumb's leaf
+// segment. Phase 14 replaces with layer_stack-driven validation.
+const FOCUS_LAYER_KINDS: ReadonlySet<string> = new Set<LayerKind>([
+  'series', 'book', 'act', 'chapter', 'scene', 'beat',
+])
+
+// Phase 8.01.B T-6.2 — cross-parent wrap helpers. When the same-parent
+// siblings list is exhausted in direction `dir` (forward=1 / back=-1),
+// walk UP through ancestors to find the nearest level with a next/previous
+// sibling, then descend to find the appropriate leaf:
+//   forward → leftmost leaf descendant of the next aunt/uncle (recursively
+//             at deeper levels)
+//   back    → rightmost leaf descendant of the previous aunt/uncle
+//
+// Recursive: if there's no aunt at the scene level (e.g. the active beat
+// is the last leaf of the last scene of an act), we ascend to the act
+// level and try the next/previous act, then descend into its first/last
+// leaf. This handles the real-world case where the same act has only one
+// scene but the document has multiple acts.
+//
+// If no aunt exists at any ancestor level (the document boundary),
+// return undefined and the caller no-ops per T-6.3 stop-at-document-end.
+//
+// Exported for unit tests (T-7).
+export function findCrossParentLeaf(
+  allNodes: ReadonlyArray<SiblingRow>,
+  parentId: string,
+  dir: -1 | 1,
+): SiblingRow | undefined {
+  const parentRow = allNodes.find(n => n.id === parentId)
+  if (!parentRow) return undefined
+  const aunts = allNodes
+    .filter(n => n.parent_id === parentRow.parent_id)
+    .sort((a, b) => a.order - b.order)
+  const auntIdx = aunts.findIndex(a => a.id === parentId)
+  if (auntIdx < 0) return undefined
+  const nextAunt = aunts[auntIdx + dir]
+  if (nextAunt) {
+    return findLeafDescendant(allNodes, nextAunt.id, dir)
+  }
+  // No sibling at this level — recurse up to the next ancestor and try
+  // its siblings. T-6.3 stop-at-document-end implicitly handled by the
+  // recursion terminating when parentRow.parent_id is null.
+  if (parentRow.parent_id === null) return undefined
+  return findCrossParentLeaf(allNodes, parentRow.parent_id, dir)
+}
+
+export function findLeafDescendant(
+  allNodes: ReadonlyArray<SiblingRow>,
+  rootId: string,
+  dir: -1 | 1,
+): SiblingRow | undefined {
+  let cursor: SiblingRow | undefined = allNodes.find(n => n.id === rootId)
+  let safety = 20
+  while (cursor && safety > 0) {
+    if (cursor.is_leaf === true) {
+      return cursor
+    }
+    const kids = allNodes
+      .filter(n => n.parent_id === cursor!.id)
+      .sort((a, b) => a.order - b.order)
+    if (kids.length === 0) return undefined
+    cursor = dir === 1 ? kids[0] : kids[kids.length - 1]
+    safety -= 1
+  }
+  return undefined
+}
 
 interface FocusModeNode {
   id: string
@@ -28,6 +100,13 @@ interface FocusModeNode {
   parent_id: string | null
   document_id: string | null
   word_count_target: number | null
+  // Phase 8.01.B T-1.1 — needed for the structured-segment breadcrumb
+  // (Component Spec v2.21 §6.2 / §18.1). Optional for backward compat
+  // with any caller not yet migrated; missing values disable the leaf
+  // bracketed-label rendering but the rest of the breadcrumb still works.
+  node_type?: string
+  order?: number
+  layer_index?: number | null
 }
 
 interface FocusModeProps {
@@ -41,6 +120,13 @@ interface SiblingRow {
   parent_id: string | null
   order: number
   word_count_target: number | null
+  // Phase 8.01.B T-1: needed so navigateSibling can populate activeNode's
+  // node_type for the breadcrumb without re-fetching the row.
+  node_type?: string
+  // Phase 8.01.B T-6.1 — filter siblings to leaf-only per Spec §6.1
+  // ("the navigation never lands on a non-leaf"). The /api/documents/.../nodes
+  // route decorates every row with is_leaf.
+  is_leaf?: boolean
 }
 
 const TYPEWRITER_KEY = 'stelavox_typewriter_enabled'
@@ -49,11 +135,23 @@ const SENTENCE_KEY   = 'stelavox_sentence_focus_enabled'
 export function FocusMode({ node, onExit }: FocusModeProps) {
   const [activeNode, setActiveNode] = useState<FocusModeNode>(node)
   const [siblings, setSiblings] = useState<SiblingRow[]>([])
+  // Phase 8.01.B T-6.2 — keep the full document node array so navigateSibling
+  // can walk it for cross-parent wrap (advance from the last beat of a scene
+  // to the first beat of the next scene, etc.). Sibling array stays filtered
+  // by parent for the same-parent fast path.
+  const [allNodes, setAllNodes] = useState<SiblingRow[]>([])
+  // Phase 8.01.B T-1.2 — ancestor chain for the structured breadcrumb.
+  // Root-first order, EXCLUDING the active node (the active node renders
+  // as the last segment with its leaf name available for hover-reveal).
+  const [ancestors, setAncestors] = useState<FocusBreadcrumbSegment[]>([])
   const [proseFading, setProseFading] = useState(false)
   // Default ON in Focus Mode for typewriter; OFF for sentence focus (§6.4 / §6.5).
   const [typewriterEnabled, setTypewriterEnabled] = useState(true)
   const [sentenceFocusEnabled, setSentenceFocusEnabled] = useState(false)
   const enteringRef = useRef(true)
+  // Phase 8.01.B T-5 — swipe-tracking refs. Stored on a ref (not state)
+  // so updating start coords doesn't trigger a re-render.
+  const swipeStartRef = useRef<{ x: number; y: number; t: number; type: string } | null>(null)
 
   const prose = useEditorStore(s => s.prose)
   const setField = useEditorStore(s => s.setField)
@@ -105,10 +203,19 @@ export function FocusMode({ node, onExit }: FocusModeProps) {
       .then(body => {
         if (cancelled || !body) return
         const all = (body.nodes ?? []) as Array<SiblingRow & { parent_id: string | null }>
+        // Phase 8.01.B T-6.1: filter siblings to leaf-only ("navigation
+        // never lands on a non-leaf" per Spec §6.1). Most V1 layer_stacks
+        // have all-leaf children at a given parent so this is a no-op in
+        // practice, but the filter is defensive against mixed-children
+        // scenarios + Phase 14 layer_stack variations.
         const sibs = all
-          .filter(r => r.parent_id === node.parent_id)
+          .filter(r => r.parent_id === node.parent_id && r.is_leaf !== false)
           .sort((a, b) => a.order - b.order)
         setSiblings(sibs)
+        // Phase 8.01.B T-6.2: keep full doc node array for cross-parent
+        // wrap. Caching the full result avoids a second round-trip when
+        // the wrap fires at a parent boundary.
+        setAllNodes(all)
       })
       .catch(e => {
         // F-248: explicit silent catch. Surface.
@@ -117,11 +224,38 @@ export function FocusMode({ node, onExit }: FocusModeProps) {
     return () => { cancelled = true }
   }, [node.document_id, node.parent_id])
 
+  // Phase 8.01.B T-1.2 — fetch ancestor chain for the breadcrumb. Re-runs
+  // when activeNode.id changes (sibling navigation always keeps the same
+  // parent so ancestors don't change, but cross-parent wrap in T-6.2
+  // will land here too).
+  useEffect(() => {
+    if (!activeNode.id) return
+    let cancelled = false
+    const supabase = createClient()
+    getAncestorChain(supabase, activeNode.id)
+      .then(chain => {
+        if (cancelled) return
+        setAncestors(chain)
+      })
+      .catch(e => {
+        console.error('[FocusMode] ancestor fetch failed', e)
+      })
+    return () => { cancelled = true }
+  }, [activeNode.id])
+
   const navigateSibling = useCallback(async (dir: -1 | 1) => {
     if (siblings.length === 0) return
     const idx = siblings.findIndex(s => s.id === activeNode.id)
     if (idx < 0) return
-    const target = siblings[idx + dir]
+
+    // Phase 8.01.B T-6.2 — same-parent fast path; cross-parent wrap fallback
+    // when the same-parent boundary is reached.
+    let target: SiblingRow | undefined = siblings[idx + dir]
+    if (!target && activeNode.parent_id) {
+      target = findCrossParentLeaf(allNodes, activeNode.parent_id, dir)
+    }
+    // If still no target, we're at the document's first or last leaf — no-op
+    // per T-6.3 stop-at-document-end guard.
     if (!target) return
 
     // Prose fades out 150ms, breadcrumb updates instantly, prose fades in 150ms
@@ -150,11 +284,16 @@ export function FocusMode({ node, onExit }: FocusModeProps) {
       parent_id: fetched.parent_id,
       document_id: fetched.document_id,
       word_count_target: fetched.word_count_target,
+      // Phase 8.01.B T-1: thread the new fields through so the breadcrumb
+      // can render the leaf bracketed label without a second fetch.
+      node_type: fetched.node_type,
+      order: fetched.order,
+      layer_index: fetched.layer_index,
     })
 
     // Briefly hold the fade-out, then fade in
     setTimeout(() => setProseFading(false), 150)
-  }, [siblings, activeNode.id, flushPending, loadNode])
+  }, [siblings, allNodes, activeNode.id, activeNode.parent_id, flushPending, loadNode])
 
   // Keybindings (T-6.8 + T-6.7)
   useEffect(() => {
@@ -190,7 +329,79 @@ export function FocusMode({ node, onExit }: FocusModeProps) {
     return () => window.removeEventListener('keydown', onKeydown, { capture: true } as EventListenerOptions)
   }, [navigateSibling, onExit])
 
-  const breadcrumbSegments = ['Document', activeNode.name ?? '(untitled)']
+  // Phase 8.01.B T-1.3 — compose the structured segment array. The leaf
+  // segment carries the node name for the §6.2 hover/touch reveal; ancestor
+  // segments are bare bracketed labels. If activeNode.node_type isn't a
+  // known V1 layer kind, fall back to ancestors-only (avoids passing an
+  // ill-shaped segment to LayerLabel; defensive against Phase 14 mismatch).
+  const breadcrumbSegments: FocusBreadcrumbSegment[] = (() => {
+    if (
+      activeNode.node_type &&
+      typeof activeNode.order === 'number' &&
+      FOCUS_LAYER_KINDS.has(activeNode.node_type)
+    ) {
+      return [
+        ...ancestors,
+        {
+          layer: activeNode.node_type as LayerKind,
+          position: activeNode.order,
+          name: activeNode.name ?? undefined,
+        },
+      ]
+    }
+    return ancestors
+  })()
+
+  // Phase 8.01.B T-1.4 — position counter for §6.2 hover/touch reveal.
+  // 1-based for display per OQ-1 lock (recommendation accepted: "2 / 5").
+  const breadcrumbPosition: { index: number; total: number } | undefined =
+    (() => {
+      if (siblings.length === 0) return undefined
+      const idx = siblings.findIndex(s => s.id === activeNode.id)
+      if (idx < 0) return undefined
+      return { index: idx + 1, total: siblings.length }
+    })()
+
+  // Phase 8.01.B T-5 — swipe gesture handlers. Touch-only by gating in
+  // classifySwipe. Text-selection guard prevents stealing from native
+  // iPad selection inside the prose surface: any gesture starting inside
+  // an editable element or an explicitly marked swipe-block ignores.
+  const onSwipeDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.pointerType !== 'touch') {
+      swipeStartRef.current = null
+      return
+    }
+    const target = e.target as HTMLElement | null
+    if (
+      target &&
+      target.closest('[contenteditable], textarea, input, [data-focus-swipe-block]')
+    ) {
+      swipeStartRef.current = null
+      return
+    }
+    swipeStartRef.current = {
+      x: e.clientX,
+      y: e.clientY,
+      t: performance.now(),
+      type: e.pointerType,
+    }
+  }, [])
+
+  const onSwipeUp = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    const start = swipeStartRef.current
+    swipeStartRef.current = null
+    if (!start) return
+    const direction = classifySwipe({
+      startX: start.x,
+      startY: start.y,
+      endX: e.clientX,
+      endY: e.clientY,
+      durationMs: performance.now() - start.t,
+      pointerType: start.type,
+    })
+    if (direction === 'next') void navigateSibling(1)
+    else if (direction === 'prev') void navigateSibling(-1)
+  }, [navigateSibling])
 
   // Portal target. Mount on document.body during hydration only — SSR has no
   // body and we can't render a portal there. Returning null on the server is
@@ -214,6 +425,8 @@ export function FocusMode({ node, onExit }: FocusModeProps) {
       data-testid="focus-mode"
       data-focus-mode="active"
       data-sentence-focus={sentenceFocusEnabled ? '' : undefined}
+      onPointerDown={onSwipeDown}
+      onPointerUp={onSwipeUp}
       style={{
         position: 'fixed',
         inset: 0,
@@ -222,7 +435,7 @@ export function FocusMode({ node, onExit }: FocusModeProps) {
         overflow: 'auto',
       }}
     >
-      <FocusBreadcrumb segments={breadcrumbSegments} />
+      <FocusBreadcrumb segments={breadcrumbSegments} position={breadcrumbPosition} />
 
       <div
         style={{
@@ -246,7 +459,7 @@ export function FocusMode({ node, onExit }: FocusModeProps) {
 
       <SentenceFocus enabled={sentenceFocusEnabled} />
 
-      <FocusEscHint />
+      <FocusEscHint onExit={onExit} />
     </div>,
     portalTarget,
   )

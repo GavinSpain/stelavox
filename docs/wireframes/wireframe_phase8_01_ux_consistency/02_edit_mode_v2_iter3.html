@@ -1,0 +1,902 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stelavox — Edit Mode v2 iter3 (Phase 8.01)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600&family=Cormorant+Garamond:ital,wght@1,300;1,400&family=Inter:wght@200;300;400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Lora:ital,wght@0,400&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --ink:#0d1014; --deep:#131820; --surface:#1a2030; --hover:#1e2838; --selected:#1f2d45;
+  --border-s:#1e2535; --border-d:#253045; --border-str:#3a4a62;
+  --text-p:#ecf0f5; --text-s:#8aa0b8; --text-m:#6884a4; --text-dis:#2a3850;
+  --verd:#3d7858; --verd-h:#5aa87a; --verd-muted:#1a3028;
+  --verd-bright:#5aa87a;
+  --st-draft:#4a6080;
+  --st-running-bright:#4d8fd6;
+  --st-review-bright:#e09040;
+
+  /* Per-layer tints — kept but DEMOTED to secondary signal. Bracketed labels
+     are the primary identifier; colour is now just a calm aesthetic anchor. */
+  --layer-series:  #7aa8e0;
+  --layer-book:    #5aa87a;
+  --layer-act:     #7a8fb8;
+  --layer-chapter: #8a99b3;
+  --layer-scene:   #7a8a9e;
+  --layer-beat:    #6884a4;
+
+  --spec-bg:#0a0d12; --spec-pan:#111520; --callout:#e8b840;
+}
+html, body { background:var(--spec-bg); color:var(--text-p); font-family:'Inter',sans-serif; font-size:13px; line-height:1.5; }
+
+.doc-header { background:var(--spec-pan); border-bottom:1px solid var(--border-d); padding:24px 48px; display:flex; align-items:baseline; justify-content:space-between; }
+.wm-s{font-family:'Cinzel',serif;font-size:14px;font-weight:500;letter-spacing:.18em;color:var(--text-p);}
+.wm-v{font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:300;font-size:16px;letter-spacing:.08em;color:var(--text-p);opacity:.82;}
+.doc-meta{font-size:11px;font-weight:300;letter-spacing:.2em;text-transform:uppercase;color:var(--text-m);}
+.section{padding:40px 48px 0;}
+.slabel{font-size:9px;font-weight:400;letter-spacing:.45em;text-transform:uppercase;color:var(--text-m);margin-bottom:20px;padding-bottom:12px;border-bottom:1px solid var(--border-s);}
+.screen { width:1280px; height:820px; background:var(--ink); border:1px solid var(--border-d); border-radius:8px; overflow:hidden; display:flex; flex-direction:column; box-shadow:0 24px 80px rgba(0,0,0,.6); margin:0 auto; }
+
+/* Wordmark */
+.wm { display:flex; flex-direction:column; align-items:flex-start; }
+.wm-text { display:flex; align-items:baseline; }
+.wm-stela { font-family:'Cinzel',serif; font-weight:500; letter-spacing:.18em; color:var(--text-p); }
+.wm-vox   { font-family:'Cormorant Garamond',serif; font-style:italic; font-weight:400; letter-spacing:.08em; color:var(--text-p); opacity:.88; }
+.wm-rule-wrap { position:relative; margin-top:4px; }
+.wm-rule { height:1px; background:linear-gradient(90deg, var(--verd-bright) 0%, rgba(90,168,122,0.55) 45%, transparent 85%); }
+.wm-lozenge { position:absolute; left:-3px; top:-4px; width:9px; height:9px; background:var(--verd-bright); transform:rotate(45deg); box-shadow:0 0 8px rgba(90,168,122,0.45); }
+.wm-sm .wm-stela { font-size:17px; } .wm-sm .wm-vox { font-size:19px; } .wm-sm .wm-rule { width:100px; }
+
+/* Header */
+.app-hdr { height:52px; min-height:52px; background:var(--deep); border-bottom:1px solid var(--border-s); display:flex; align-items:center; padding:0 24px; gap:0; }
+.app-hdr-right { display:flex; align-items:center; gap:14px; margin-left:auto; }
+.cmd-chip { font-size:11px; font-weight:400; color:var(--text-s); border:1px solid var(--border-str); background:var(--surface); padding:4px 10px 4px 9px; border-radius:4px; cursor:pointer; display:flex; align-items:center; gap:7px; }
+.cmd-chip:hover { border-color:var(--verd-bright); color:var(--text-p); }
+.cmd-chip-kbd { font-family:ui-monospace,monospace; font-size:10px; color:var(--text-m); }
+.hdr-link { font-size:12px; font-weight:400; color:var(--text-s); cursor:pointer; }
+.hdr-link:hover { color:var(--text-p); }
+.uav { width:30px; height:30px; background:var(--surface); border:1px solid var(--border-str); border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:500; color:var(--text-p); cursor:pointer; }
+
+/* Mode tab bar */
+.mode-tabs { display:flex; align-items:center; gap:2px; background:var(--surface); border:1px solid var(--border-d); border-radius:5px; padding:2px; margin:0 18px; }
+.mode-tab { font-size:12px; font-weight:500; color:var(--text-s); padding:5px 14px; border-radius:3px; cursor:pointer; display:flex; align-items:center; gap:6px; }
+.mode-tab:hover { color:var(--text-p); }
+.mode-tab.active { background:var(--selected); color:var(--text-p); }
+.mode-tab .dir-attn { width:6px; height:6px; border-radius:50%; background:var(--st-running-bright); box-shadow:0 0 4px rgba(77,143,214,0.6); }
+
+.app-body { flex:1; overflow:hidden; display:flex; }
+
+/* Sidebar */
+.app-sidebar { width:220px; min-width:220px; background:var(--deep); border-right:1px solid var(--border-s); padding:18px 0 14px; display:flex; flex-direction:column; gap:0; position:relative; }
+.app-sidebar::after { content:""; position:absolute; right:0; top:48px; bottom:48px; width:1px; background:linear-gradient(180deg, transparent 0%, rgba(90,168,122,0.55) 20%, rgba(90,168,122,0.55) 80%, transparent 100%); }
+.sb-section-label { font-size:9px; font-weight:600; letter-spacing:.38em; text-transform:uppercase; color:var(--text-m); padding:0 20px 8px; }
+.sb-item { display:flex; align-items:center; gap:10px; padding:7px 20px; font-size:13px; font-weight:400; color:var(--text-s); cursor:pointer; border-left:2px solid transparent; }
+.sb-item:hover { background:var(--hover); color:var(--text-p); }
+.sb-item.active { color:var(--text-p); background:var(--selected); border-left:2px solid var(--verd-bright); }
+.sb-item-icon { font-size:13px; opacity:.85; width:18px; display:flex; justify-content:center; }
+.sb-item-count { margin-left:auto; font-size:10px; font-weight:300; color:var(--text-m); font-variant-numeric:tabular-nums; }
+.sb-divider { height:1px; background:var(--border-s); margin:10px 16px; }
+.sb-foot { margin-top:auto; padding-top:8px; }
+.sb-foot .sb-item { font-size:12px; color:var(--text-m); }
+
+/* Tree pane */
+.tree-pane { flex:1; min-width:0; display:flex; flex-direction:column; background:var(--ink); }
+.tree-toolbar { padding:14px 20px 12px; border-bottom:1px solid var(--border-s); display:flex; flex-direction:column; gap:10px; }
+.tree-breadcrumb-row { display:flex; align-items:center; gap:10px; font-size:11px; color:var(--text-m); }
+.tree-breadcrumb-row a { color:var(--text-s); text-decoration:none; cursor:pointer; }
+.tree-breadcrumb-row a:hover { color:var(--text-p); }
+.tree-breadcrumb-sep { color:var(--text-dis); }
+.tree-title-row { display:flex; align-items:baseline; gap:14px; }
+.tree-doc-title { font-size:18px; font-weight:600; color:var(--text-p); letter-spacing:-0.005em; }
+.tree-doc-meta { font-size:11px; font-weight:300; color:var(--text-m); }
+.tree-doc-meta strong { color:var(--text-s); font-weight:400; }
+
+/* Filter row */
+.filter-row { display:flex; align-items:center; gap:8px; padding:0 20px; height:36px; border-bottom:1px solid var(--border-s); background:linear-gradient(180deg, rgba(26,32,48,0.4) 0%, transparent 100%); }
+.filter-chip { font-size:11px; font-weight:400; color:var(--text-s); border:1px solid var(--border-d); background:var(--deep); padding:3px 10px; border-radius:3px; cursor:pointer; display:flex; align-items:center; gap:5px; }
+.filter-chip:hover { border-color:var(--verd-bright); color:var(--text-p); }
+.filter-chip.active { background:var(--selected); border-color:var(--verd-bright); color:var(--text-p); }
+.filter-chip .count { color:var(--text-m); font-size:10px; }
+.filter-search { margin-left:auto; display:flex; align-items:center; gap:6px; padding:3px 10px 3px 10px; background:var(--surface); border:1px solid var(--border-d); border-radius:3px; font-size:11px; color:var(--text-m); }
+.filter-search .kbd { font-family:ui-monospace,monospace; font-size:10px; color:var(--text-dis); margin-left:6px; }
+.filter-placeholder-banner { font-size:10px; font-weight:600; letter-spacing:.15em; text-transform:uppercase; color:var(--callout); padding:3px 8px; border:1px dashed var(--callout); border-radius:3px; margin-left:8px; }
+
+/* Layer column header — DEMOTED to lightweight legend, since bracketed labels now identify layer per row */
+.tree-layer-hdr { display:flex; padding:10px 20px 8px; border-bottom:1px solid var(--border-s); background:linear-gradient(180deg, rgba(19,24,32,0.7) 0%, transparent 100%); gap:0; }
+.tlh-cell { font-family:'JetBrains Mono', ui-monospace, monospace; font-size:9px; font-weight:500; letter-spacing:.04em; color:var(--text-m); opacity:.7; }
+.tlh-cell.l-book    { color:var(--layer-book);    margin-left:0; }
+.tlh-cell.l-act     { color:var(--layer-act);     margin-left:22px; }
+.tlh-cell.l-chapter { color:var(--layer-chapter); margin-left:22px; }
+.tlh-cell.l-scene   { color:var(--layer-scene);   margin-left:22px; }
+.tlh-cell.l-beat    { color:var(--layer-beat);    margin-left:22px; }
+.tlh-cell.l-series  { color:var(--layer-series); }
+
+/* Tree rows */
+.tree-scroll { flex:1; overflow-y:auto; padding:6px 0 12px; position:relative; }
+
+.tree-row {
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding-right:20px;
+  height:30px;
+  cursor:pointer;
+  position:relative;
+  border-left:2px solid transparent;
+}
+.tree-row:hover:not(.active) { background:var(--hover); }
+.tree-row.active { background:var(--selected); border-left:2px solid var(--verd-bright); }
+
+/* Indent per layer — slightly compressed so deep trees breathe */
+.in-0 { padding-left:16px; }
+.in-1 { padding-left:36px; }
+.in-2 { padding-left:60px; }
+.in-3 { padding-left:88px; }
+.in-4 { padding-left:118px; }
+.in-5 { padding-left:152px; }
+
+/* T-4: indent guides — opacity bumped to 0.32 with subtle layer tint */
+.guide { position:absolute; top:0; bottom:0; width:1px; background:rgba(104,132,164,0.32); pointer-events:none; }
+.guide-l1 { left:30px; background:rgba(122,143,184,0.28); }
+.guide-l2 { left:54px; background:rgba(138,153,179,0.26); }
+.guide-l3 { left:82px; background:rgba(122,138,158,0.24); }
+.guide-l4 { left:112px; background:rgba(104,132,164,0.22); }
+
+/* Chevron */
+.chev { width:14px; flex-shrink:0; color:var(--text-m); font-size:10px; display:flex; align-items:center; justify-content:center; opacity:.6; }
+.chev.expanded { opacity:.85; }
+.chev.empty    { opacity:.25; }
+
+/* Bracketed monospace label — Option A as locked */
+.row-label {
+  font-family:'JetBrains Mono', ui-monospace, monospace;
+  font-size:10.5px;
+  font-weight:500;
+  color:var(--text-s);
+  letter-spacing:.02em;
+  flex-shrink:0;
+  white-space:nowrap;
+  font-variant-numeric:tabular-nums;
+  text-align:left;
+}
+.row-label-series  { color:var(--layer-series); min-width:74px; }
+.row-label-book    { color:var(--layer-book);   min-width:62px; }
+.row-label-act     { color:var(--layer-act);    min-width:54px; }
+.row-label-chapter { color:var(--layer-chapter);min-width:50px; }
+.row-label-scene   { color:var(--layer-scene);  min-width:50px; }
+.row-label-beat    { color:var(--layer-beat);   min-width:50px; }
+
+/* Row text — typography hierarchy by layer */
+.row-name { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.row-book    .row-name { font-size:14.5px; font-weight:600; color:var(--text-p); letter-spacing:-0.005em; }
+.row-act     .row-name { font-size:13.5px; font-weight:500; color:var(--text-p); }
+.row-chapter .row-name { font-size:13px;   font-weight:500; color:var(--text-p); }
+.row-scene   .row-name { font-size:12.5px; font-weight:400; color:var(--text-s); }
+.row-beat    .row-name { font-size:12px;   font-weight:300; color:var(--text-s); }
+.row-series  .row-name { font-size:15px;   font-weight:600; color:var(--text-p); letter-spacing:-0.005em; }
+
+/* T-2: word-count column — STANDARDISED. Progress bar everywhere there's a target; plain word count only when target is null. */
+.row-wc { display:flex; align-items:center; gap:7px; font-size:10.5px; font-weight:400; color:var(--text-m); font-variant-numeric:tabular-nums; flex-shrink:0; min-width:120px; justify-content:flex-end; }
+.row-wc-bar { width:46px; height:4px; background:var(--border-s); border-radius:2px; overflow:hidden; position:relative; }
+.row-wc-bar-fill { height:100%; background:var(--verd-bright); border-radius:2px; }
+.row-wc-bar-fill.over { background:var(--st-review-bright); }
+.row-wc-ratio { font-size:10.5px; min-width:60px; text-align:right; }
+.row-wc-ratio.complete { color:var(--verd-bright); }
+.row-wc-ratio.over     { color:var(--st-review-bright); }
+
+/* Status + actions column */
+.row-status { display:flex; align-items:center; gap:6px; flex-shrink:0; min-width:140px; justify-content:flex-end; position:relative; }
+.lifecycle-pill { font-size:9px; font-weight:600; letter-spacing:.12em; text-transform:uppercase; padding:2px 7px; border-radius:3px; border:1px solid transparent; }
+.lifecycle-queued   { background:rgba(104,132,164,0.18); color:#8aa0b8; border-color:rgba(104,132,164,0.35); }
+.lifecycle-running  { background:rgba(77,143,214,0.18);  color:var(--st-running-bright); border-color:rgba(77,143,214,0.5); }
+.lifecycle-review   { background:rgba(224,144,64,0.18);  color:var(--st-review-bright);  border-color:rgba(224,144,64,0.5); }
+.lifecycle-complete { background:rgba(90,168,122,0.18);  color:var(--verd-bright); border-color:rgba(90,168,122,0.5); }
+.lifecycle-new      { background:rgba(232,184,64,0.18);  color:var(--callout); border-color:rgba(232,184,64,0.5); }
+
+.status-pip { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+.status-pip-running { background:var(--st-running-bright); box-shadow:0 0 6px rgba(77,143,214,0.55); animation:pulse 2s ease-in-out infinite; }
+.status-pip-review { background:var(--st-review-bright); box-shadow:0 0 5px rgba(224,144,64,0.4); }
+.status-pip-complete { background:var(--verd-bright); }
+.status-pip-draft { background:var(--st-draft); }
+@keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.55; } }
+
+/* T-6: hover-revealed action strip — hidden under lifecycle pill until row hover */
+.row-actions {
+  position:absolute;
+  right:0;
+  top:50%;
+  transform:translateY(-50%);
+  display:flex;
+  align-items:center;
+  gap:1px;
+  background:var(--selected);
+  border:1px solid var(--border-str);
+  border-radius:4px;
+  padding:2px;
+  opacity:0;
+  pointer-events:none;
+  transition:opacity 120ms ease;
+}
+.tree-row:hover .row-actions { opacity:1; pointer-events:auto; }
+.row-action {
+  font-size:10.5px;
+  font-weight:500;
+  color:var(--text-s);
+  padding:3px 8px;
+  border-radius:2px;
+  cursor:pointer;
+  white-space:nowrap;
+}
+.row-action:hover { background:var(--hover); color:var(--text-p); }
+.row-action.primary { color:var(--verd-bright); }
+.row-action.primary:hover { background:rgba(61,120,88,0.18); color:var(--verd-h); }
+.row-action.danger { color:var(--st-review-bright); }
+.row-action-sep { width:1px; background:var(--border-d); height:14px; margin:0 2px; }
+
+/* Right detail panel */
+.detail-pane { width:480px; min-width:380px; max-width:580px; background:var(--ink); border-left:1px solid var(--border-s); display:flex; flex-direction:column; }
+.dp-hdr { padding:14px 18px 12px; border-bottom:1px solid var(--border-s); display:flex; flex-direction:column; gap:6px; }
+.dp-title-row { display:flex; align-items:center; gap:10px; }
+.dp-label { font-family:'JetBrains Mono', ui-monospace, monospace; font-size:10.5px; font-weight:500; color:var(--layer-beat); padding:3px 8px; background:rgba(104,132,164,0.18); border-radius:3px; }
+.dp-title { font-size:16px; font-weight:600; color:var(--text-p); letter-spacing:-0.005em; flex:1; }
+.dp-meta-row { display:flex; align-items:center; gap:14px; font-size:11px; color:var(--text-m); }
+.dp-tabs { display:flex; align-items:center; gap:0; border-bottom:1px solid var(--border-s); padding:0 18px; }
+.dp-tab { font-size:12px; font-weight:400; color:var(--text-s); padding:10px 14px 9px; cursor:pointer; border-bottom:2px solid transparent; }
+.dp-tab:hover { color:var(--text-p); }
+.dp-tab.active { color:var(--text-p); border-bottom:2px solid rgba(236,240,245,0.6); font-weight:500; }
+.dp-body { flex:1; overflow-y:auto; padding:18px 22px; }
+.dp-fieldset-label { font-size:9px; font-weight:600; letter-spacing:.32em; text-transform:uppercase; color:var(--text-m); margin-bottom:8px; }
+.summary-box { font-family:'Inter',sans-serif; font-size:13px; font-weight:400; line-height:1.55; color:var(--text-p); background:var(--ink); border:1px solid var(--border-s); border-radius:4px; padding:10px 12px; margin-bottom:18px; }
+.prose-box { font-family:'Lora',serif; font-size:16px; font-weight:400; line-height:1.85; color:var(--text-p); padding:6px 4px; }
+.prose-box p { margin-bottom:1.25em; }
+
+/* AppShell status indicator */
+.app-status { position:absolute; bottom:14px; right:14px; display:flex; align-items:center; gap:8px; padding:7px 12px; background:var(--surface); border:1px solid var(--border-d); border-radius:6px; box-shadow:0 6px 18px rgba(0,0,0,0.4); }
+.app-status-pip { width:8px; height:8px; border-radius:50%; background:var(--st-running-bright); box-shadow:0 0 6px rgba(77,143,214,0.55); animation:pulse 2s ease-in-out infinite; }
+.app-status-text { font-size:11px; font-weight:500; color:var(--text-p); }
+.app-status-meta { font-size:10px; color:var(--text-s); }
+
+/* Callouts */
+.callout-set { position:relative; max-width:1280px; margin:0 auto; }
+.callout-pin { position:absolute; width:22px; height:22px; border-radius:50%; background:var(--callout); color:#1a1a1a; font-size:11px; font-weight:700; display:flex; align-items:center; justify-content:center; border:2px solid var(--ink); box-shadow:0 0 0 1px var(--callout); z-index:5; }
+.callout-list { background:var(--spec-pan); border:1px solid var(--border-s); border-radius:6px; padding:20px 24px; margin-top:32px; }
+.callout-list-title { font-size:11px; font-weight:600; letter-spacing:.25em; text-transform:uppercase; color:var(--text-m); margin-bottom:14px; }
+.callout-row { display:flex; gap:14px; margin-bottom:11px; align-items:flex-start; }
+.callout-row:last-child { margin-bottom:0; }
+.callout-num { width:22px; height:22px; border-radius:50%; background:var(--callout); color:#1a1a1a; font-size:11px; font-weight:700; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.callout-text { font-size:13px; font-weight:300; color:var(--text-s); line-height:1.55; }
+.callout-text strong { color:var(--text-p); font-weight:500; }
+.callout-text code { background:var(--ink); padding:1px 6px; border-radius:3px; font-family:ui-monospace,monospace; font-size:11px; color:var(--callout); border:1px solid var(--border-s); }
+
+/* Writer's-eye block */
+.writer-block { background:linear-gradient(135deg, var(--spec-pan) 0%, #14181f 100%); border:1px solid var(--border-d); border-radius:8px; padding:28px 32px; margin-top:32px; }
+.writer-title { font-size:11px; font-weight:600; letter-spacing:.32em; text-transform:uppercase; color:var(--verd-bright); margin-bottom:18px; display:flex; align-items:center; gap:10px; }
+.writer-title::before { content:""; width:16px; height:1px; background:var(--verd-bright); }
+.writer-h { font-size:15px; font-weight:500; color:var(--text-p); margin-top:18px; margin-bottom:8px; }
+.writer-h:first-of-type { margin-top:0; }
+.writer-p { font-size:13px; font-weight:300; color:var(--text-s); line-height:1.7; margin-bottom:10px; }
+.writer-p em { color:var(--text-m); }
+.writer-p strong { color:var(--text-p); font-weight:500; }
+.writer-recos { display:flex; flex-direction:column; gap:8px; margin-top:14px; }
+.writer-reco { display:flex; gap:12px; align-items:flex-start; font-size:13px; color:var(--text-s); line-height:1.55; }
+.writer-reco-tag { background:var(--verd-muted); color:var(--verd-bright); font-size:10px; font-weight:600; letter-spacing:.1em; padding:3px 8px; border-radius:3px; white-space:nowrap; margin-top:2px; }
+.writer-reco strong { color:var(--text-p); font-weight:500; }
+
+/* Decisions block */
+.spec-section{padding:0 48px 80px;}
+.spec-block{background:var(--spec-pan);border:1px solid var(--border-s);border-radius:6px;margin-bottom:18px;overflow:hidden;}
+.spec-block-header{padding:14px 22px;background:var(--ink);border-bottom:1px solid var(--border-s);font-size:11px;font-weight:600;letter-spacing:.25em;text-transform:uppercase;color:var(--text-p);}
+.spec-block-body{padding:18px 22px;}
+.spec-row{display:grid;grid-template-columns:200px 1fr;gap:18px;padding:9px 0;border-bottom:1px solid var(--border-s);font-size:12px;align-items:start;}
+.spec-row:last-child{border-bottom:none;}
+.spec-row-k{color:var(--text-s);font-weight:500;font-size:11px;letter-spacing:.08em;text-transform:uppercase;padding-top:1px;}
+.spec-row-v{color:var(--text-p);font-weight:300;line-height:1.6;}
+.spec-row-v code{background:var(--ink);padding:1px 6px;border-radius:3px;font-family:ui-monospace,monospace;font-size:11px;color:var(--callout);border:1px solid var(--border-s);}
+.spec-row-v em { color:var(--text-m); font-style:italic; }
+
+/* Layer-stack badge in the title row of a screen */
+.stack-badge { font-family:'JetBrains Mono', ui-monospace, monospace; font-size:10px; font-weight:500; letter-spacing:.04em; color:var(--verd-bright); padding:2px 8px; border:1px solid rgba(90,168,122,0.4); border-radius:3px; }
+</style>
+</head>
+<body>
+
+<div class="doc-header">
+  <div>
+    <div style="display:flex;align-items:baseline;"><span class="wm-s">Stela</span><span class="wm-v">vox</span></div>
+    <div style="margin-top:6px;font-size:11px;font-weight:300;letter-spacing:.2em;text-transform:uppercase;color:var(--text-m);">Edit Mode v2 — iteration 3 — Phase 8.01 · bracketed labels + T-2/T-4/T-6</div>
+  </div>
+  <div class="doc-meta">2026-05-28 · Novel + Series-of-Novels · decisions baked in</div>
+</div>
+
+<!-- ───────────────────────────────────────────────────────── -->
+<!-- 01 — Full Edit Mode · Novel layer_stack                   -->
+<!-- ───────────────────────────────────────────────────────── -->
+
+<div class="section"><div class="slabel">01 — Full Edit Mode · Novel layer_stack · Shadow Protocol</div></div>
+
+<div style="padding:32px 48px 0;">
+<div class="callout-set">
+<div class="screen" style="position:relative;">
+
+  <div class="app-hdr">
+    <a class="wm wm-sm" href="#" style="text-decoration:none;">
+      <div class="wm-text"><span class="wm-stela">Stela</span><span class="wm-vox">vox</span></div>
+      <div class="wm-rule-wrap"><div class="wm-rule"></div><div class="wm-lozenge"></div></div>
+    </a>
+    <div class="mode-tabs" style="margin-left:32px;">
+      <div class="mode-tab active">Edit</div>
+      <div class="mode-tab">Director <span class="dir-attn"></span></div>
+      <div class="mode-tab">Focus</div>
+    </div>
+    <div class="app-hdr-right">
+      <div class="cmd-chip">Search <span class="cmd-chip-kbd">⌘K</span></div>
+      <div class="hdr-link">Settings</div>
+      <div class="uav">AS</div>
+    </div>
+  </div>
+
+  <div class="app-body">
+
+    <div class="app-sidebar">
+      <div class="sb-section-label">Workspace</div>
+      <div class="sb-item"><span class="sb-item-icon">⌂</span> Home</div>
+
+      <div class="sb-divider"></div>
+      <div class="sb-section-label">Shadow Protocol</div>
+      <div class="sb-item active"><span class="sb-item-icon">◈</span> Manuscript</div>
+      <div class="sb-item"><span class="sb-item-icon">⌬</span> Scheduler <span class="sb-item-count">3</span></div>
+
+      <div class="sb-divider"></div>
+      <div class="sb-section-label">Context library</div>
+      <div class="sb-item"><span class="sb-item-icon">☉</span> Characters <span class="sb-item-count">2</span></div>
+      <div class="sb-item"><span class="sb-item-icon">⌖</span> Locations <span class="sb-item-count">5</span></div>
+      <div class="sb-item"><span class="sb-item-icon">⌬</span> Organisations <span class="sb-item-count">0</span></div>
+      <div class="sb-item"><span class="sb-item-icon">✶</span> Themes <span class="sb-item-count">2</span></div>
+      <div class="sb-item"><span class="sb-item-icon">⟿</span> Plot threads <span class="sb-item-count">4</span></div>
+      <div class="sb-item"><span class="sb-item-icon">◯</span> Worlds <span class="sb-item-count">1</span></div>
+
+      <div class="sb-foot">
+        <div class="sb-divider"></div>
+        <div class="sb-item"><span class="sb-item-icon">⚙</span> Settings</div>
+      </div>
+    </div>
+
+    <div class="tree-pane">
+
+      <div class="tree-toolbar">
+        <div class="tree-breadcrumb-row">
+          <a>Shadow Protocol</a>
+          <span class="tree-breadcrumb-sep">/</span>
+          <span style="color:var(--text-s);">Manuscript</span>
+        </div>
+        <div class="tree-title-row">
+          <div class="tree-doc-title">Shadow Protocol</div>
+          <span class="stack-badge">Novel</span>
+          <div class="tree-doc-meta">· <strong>114 nodes</strong> · <strong>38%</strong> complete · 12 min ago</div>
+        </div>
+      </div>
+
+      <div class="filter-row">
+        <div class="filter-chip active">All <span class="count">114</span></div>
+        <div class="filter-chip">Incomplete <span class="count">36</span></div>
+        <div class="filter-chip">Pending review <span class="count">3</span></div>
+        <div class="filter-chip">Running <span class="count">3</span></div>
+        <div class="filter-placeholder-banner">Filtering — 8.03</div>
+        <div class="filter-search">
+          <span style="font-size:10px;">⌕</span> Find a node <span class="kbd">⌘F</span>
+        </div>
+      </div>
+
+      <div class="tree-layer-hdr">
+        <div class="tlh-cell l-book">[Book]</div>
+        <div class="tlh-cell l-act">[Act]</div>
+        <div class="tlh-cell l-chapter">[Ch]</div>
+        <div class="tlh-cell l-scene">[Sc]</div>
+        <div class="tlh-cell l-beat">[Bt]</div>
+      </div>
+
+      <div class="tree-scroll">
+        <div class="guide guide-l1" style="top:30px;height:580px;"></div>
+        <div class="guide guide-l2" style="top:60px;height:550px;"></div>
+        <div class="guide guide-l3" style="top:90px;height:520px;"></div>
+        <div class="guide guide-l4" style="top:150px;height:240px;"></div>
+
+        <!-- Book -->
+        <div class="tree-row row-book in-0">
+          <span class="chev expanded">▾</span>
+          <span class="row-label row-label-book">[Book 1]</span>
+          <span class="row-name">Shadow Protocol</span>
+          <span class="row-wc">
+            <span class="row-wc-bar"><span class="row-wc-bar-fill" style="width:38%;"></span></span>
+            <span class="row-wc-ratio">14,237 / 37,500</span>
+          </span>
+          <span class="row-status">
+            <span class="lifecycle-pill lifecycle-running">Brief Active</span>
+          </span>
+        </div>
+
+        <!-- Act 1 (active) -->
+        <div class="tree-row row-act in-1 active">
+          <span class="chev expanded">▾</span>
+          <span class="row-label row-label-act">[Act 1]</span>
+          <span class="row-name">The Salvage</span>
+          <span class="row-wc">
+            <span class="row-wc-bar"><span class="row-wc-bar-fill" style="width:62%;"></span></span>
+            <span class="row-wc-ratio">7,824 / 12,500</span>
+          </span>
+          <span class="row-status">
+            <span class="lifecycle-pill lifecycle-running">3 running</span>
+            <div class="row-actions">
+              <div class="row-action primary">+ Expand</div>
+              <div class="row-action">Refine</div>
+              <div class="row-action-sep"></div>
+              <div class="row-action">Comment</div>
+              <div class="row-action danger">Lock</div>
+            </div>
+          </span>
+        </div>
+
+        <div class="tree-row row-chapter in-2">
+          <span class="chev expanded">▾</span>
+          <span class="row-label row-label-chapter">[Ch 1]</span>
+          <span class="row-name">Salvage</span>
+          <span class="row-wc">
+            <span class="row-wc-bar"><span class="row-wc-bar-fill" style="width:100%;"></span></span>
+            <span class="row-wc-ratio complete">4,213 / 4,000</span>
+          </span>
+          <span class="row-status">
+            <span class="lifecycle-pill lifecycle-complete">Complete</span>
+          </span>
+        </div>
+
+        <div class="tree-row row-scene in-3">
+          <span class="chev expanded">▾</span>
+          <span class="row-label row-label-scene">[Sc 1]</span>
+          <span class="row-name">The Iron Ghost</span>
+          <span class="row-wc">
+            <span class="row-wc-bar"><span class="row-wc-bar-fill" style="width:91%;"></span></span>
+            <span class="row-wc-ratio">2,180 / 2,400</span>
+          </span>
+          <span class="row-status">
+            <span class="status-pip status-pip-complete"></span>
+          </span>
+        </div>
+
+        <!-- Beats — show hover action strip on one of them -->
+        <div class="tree-row row-beat in-4">
+          <span class="chev empty">·</span>
+          <span class="row-label row-label-beat">[Bt 1]</span>
+          <span class="row-name">The Signal</span>
+          <span class="row-wc">
+            <span class="row-wc-bar"><span class="row-wc-bar-fill" style="width:107%;"></span></span>
+            <span class="row-wc-ratio complete">320 / 300</span>
+          </span>
+          <span class="row-status">
+            <span class="status-pip status-pip-complete"></span>
+          </span>
+        </div>
+
+        <div class="tree-row row-beat in-4">
+          <span class="chev empty">·</span>
+          <span class="row-label row-label-beat">[Bt 2]</span>
+          <span class="row-name">Recognition</span>
+          <span class="row-wc">
+            <span class="row-wc-bar"><span class="row-wc-bar-fill over" style="width:100%;"></span></span>
+            <span class="row-wc-ratio over">410 / 300</span>
+          </span>
+          <span class="row-status">
+            <span class="lifecycle-pill lifecycle-review">Review</span>
+          </span>
+        </div>
+
+        <div class="tree-row row-beat in-4">
+          <span class="chev empty">·</span>
+          <span class="row-label row-label-beat">[Bt 3]</span>
+          <span class="row-name">The Breaking</span>
+          <span class="row-wc">
+            <span class="row-wc-bar"><span class="row-wc-bar-fill" style="width:98%;"></span></span>
+            <span class="row-wc-ratio">295 / 300</span>
+          </span>
+          <span class="row-status">
+            <span class="status-pip status-pip-complete"></span>
+          </span>
+        </div>
+
+        <div class="tree-row row-scene in-3">
+          <span class="chev expanded">▾</span>
+          <span class="row-label row-label-scene">[Sc 2]</span>
+          <span class="row-name">The Beacon in the Dark</span>
+          <span class="row-wc">
+            <span class="row-wc-bar"><span class="row-wc-bar-fill" style="width:73%;"></span></span>
+            <span class="row-wc-ratio">1,750 / 2,400</span>
+          </span>
+          <span class="row-status">
+            <span class="lifecycle-pill lifecycle-running">2 run</span>
+          </span>
+        </div>
+
+        <div class="tree-row row-beat in-4">
+          <span class="chev empty">·</span>
+          <span class="row-label row-label-beat">[Bt 1]</span>
+          <span class="row-name">The Signal Deepens</span>
+          <span class="row-wc">
+            <span class="row-wc-bar"><span class="row-wc-bar-fill" style="width:103%;"></span></span>
+            <span class="row-wc-ratio complete">310 / 300</span>
+          </span>
+          <span class="row-status">
+            <span class="status-pip status-pip-complete"></span>
+          </span>
+        </div>
+
+        <div class="tree-row row-beat in-4">
+          <span class="chev empty">·</span>
+          <span class="row-label row-label-beat">[Bt 2]</span>
+          <span class="row-name">The Graveyard</span>
+          <span class="row-wc">
+            <span class="row-wc-bar"><span class="row-wc-bar-fill" style="width:0%;"></span></span>
+            <span class="row-wc-ratio">0 / 300</span>
+          </span>
+          <span class="row-status">
+            <span class="status-pip status-pip-running"></span>
+            <span class="lifecycle-pill lifecycle-running">Running</span>
+          </span>
+        </div>
+
+        <div class="tree-row row-beat in-4">
+          <span class="chev empty">·</span>
+          <span class="row-label row-label-beat">[Bt 3]</span>
+          <span class="row-name">The Probe Emerges</span>
+          <span class="row-wc">
+            <span class="row-wc-bar"><span class="row-wc-bar-fill" style="width:0%;"></span></span>
+            <span class="row-wc-ratio">0 / 300</span>
+          </span>
+          <span class="row-status">
+            <span class="status-pip status-pip-running"></span>
+            <span class="lifecycle-pill lifecycle-running">Running</span>
+          </span>
+        </div>
+
+        <div class="tree-row row-beat in-4">
+          <span class="chev empty">·</span>
+          <span class="row-label row-label-beat">[Bt 4]</span>
+          <span class="row-name">The Threshold</span>
+          <span class="row-wc">
+            <span class="row-wc-bar"><span class="row-wc-bar-fill" style="width:0%;"></span></span>
+            <span class="row-wc-ratio">0 / 300</span>
+          </span>
+          <span class="row-status">
+            <span class="lifecycle-pill lifecycle-queued">Queued</span>
+          </span>
+        </div>
+
+        <div class="tree-row row-chapter in-2">
+          <span class="chev">▸</span>
+          <span class="row-label row-label-chapter">[Ch 2]</span>
+          <span class="row-name">The Wipe</span>
+          <span class="row-wc">
+            <span class="row-wc-bar"><span class="row-wc-bar-fill" style="width:42%;"></span></span>
+            <span class="row-wc-ratio">1,680 / 4,000</span>
+          </span>
+          <span class="row-status">
+            <span class="lifecycle-pill lifecycle-new">3 new</span>
+          </span>
+        </div>
+
+        <div class="tree-row row-act in-1">
+          <span class="chev">▸</span>
+          <span class="row-label row-label-act">[Act 2]</span>
+          <span class="row-name">The Bonding</span>
+          <span class="row-wc">
+            <span class="row-wc-bar"><span class="row-wc-bar-fill" style="width:18%;"></span></span>
+            <span class="row-wc-ratio">2,253 / 12,500</span>
+          </span>
+          <span class="row-status">
+            <span class="lifecycle-pill lifecycle-queued">Planning</span>
+          </span>
+        </div>
+
+        <div class="tree-row row-act in-1">
+          <span class="chev">▸</span>
+          <span class="row-label row-label-act">[Act 3]</span>
+          <span class="row-name">The Echo</span>
+          <span class="row-wc">
+            <span class="row-wc-bar"><span class="row-wc-bar-fill" style="width:0%;"></span></span>
+            <span class="row-wc-ratio">0 / 12,500</span>
+          </span>
+          <span class="row-status">
+            <span class="lifecycle-pill lifecycle-queued">Not started</span>
+          </span>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Detail pane: Act 1 selected -->
+    <div class="detail-pane">
+      <div class="dp-hdr">
+        <div class="dp-title-row">
+          <span class="dp-label" style="color:var(--layer-act);background:rgba(122,143,184,0.18);">[Act 1]</span>
+          <div class="dp-title">The Salvage</div>
+        </div>
+        <div class="dp-meta-row">
+          <span>7,824 of 12,500 words · 62%</span>
+          <span>·</span>
+          <span style="color:var(--st-running-bright);">3 beats running</span>
+        </div>
+      </div>
+      <div class="dp-tabs">
+        <div class="dp-tab active">Content</div>
+        <div class="dp-tab">Agent</div>
+        <div class="dp-tab">Comments</div>
+        <div class="dp-tab">History</div>
+        <div class="dp-tab">Jobs</div>
+      </div>
+      <div class="dp-body">
+        <div class="dp-fieldset-label">Summary</div>
+        <div class="summary-box">A cargo salvager in the outer system answers a beacon he should ignore. The signal is old — far older than human spaceflight — and what he finds at the source rewrites everything he believed about humanity's place in the universe. The cost of going is paid in seven years of silence already broken.</div>
+
+        <div class="dp-fieldset-label">Author's note</div>
+        <div class="summary-box" style="font-style:italic;color:var(--text-s);font-weight:300;">The Act establishes Kael as a man hiding from grief through routine. By Act's end, he has chosen — for the first time in seven years — to follow a call that costs him.</div>
+
+        <div class="dp-fieldset-label" style="margin-top:6px;">Recent agent activity</div>
+        <div style="display:flex;flex-direction:column;gap:6px;">
+          <div style="font-size:11.5px;color:var(--text-s);display:flex;gap:8px;align-items:center;">
+            <span class="status-pip status-pip-running"></span>
+            <span><strong style="color:var(--text-p);font-weight:500;">Synthesise</strong> — The Graveyard, The Probe Emerges, The Threshold · started 4 min ago</span>
+          </div>
+          <div style="font-size:11.5px;color:var(--text-m);display:flex;gap:8px;align-items:center;">
+            <span class="status-pip status-pip-complete"></span>
+            <span><strong style="color:var(--text-s);font-weight:500;">Refine</strong> — Recognition · accepted yesterday 14:18</span>
+          </div>
+        </div>
+
+        <div style="margin-top:32px;padding-top:16px;border-top:1px dashed var(--border-d);font-size:11px;font-style:italic;color:var(--text-m);">
+          Note — Act (non-leaf) detail layout is provisional. The full design lands in iter4 (covers detail panes for Book / Act / Chapter / Scene vs Beat).
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="app-status">
+    <span class="app-status-pip"></span>
+    <span class="app-status-text">Director working</span>
+    <span class="app-status-meta">· 3 beats · ~2 min remaining</span>
+  </div>
+</div>
+
+  <div class="callout-pin" style="top:160px;left:280px;">1</div>
+  <div class="callout-pin" style="top:215px;left:280px;">2</div>
+  <div class="callout-pin" style="top:295px;left:760px;">3</div>
+  <div class="callout-pin" style="top:455px;left:580px;">4</div>
+  <div class="callout-pin" style="top:295px;left:920px;">5</div>
+</div>
+
+  <div class="callout-list">
+    <div class="callout-list-title">What's different from iter1</div>
+    <div class="callout-row"><div class="callout-num">1</div><div class="callout-text"><strong>Layer column header demoted.</strong> Now reads as <code>[Book] [Act] [Ch] [Sc] [Bt]</code> in monospace, smaller, lower-emphasis. The bracketed labels on each row do the layer-identification work — the header is now a one-time orientation legend, not a load-bearing element.</div></div>
+    <div class="callout-row"><div class="callout-num">2</div><div class="callout-text"><strong>Bracketed monospace labels at every row.</strong> <code>[Book 1]</code>, <code>[Act 1]</code>, <code>[Ch 1]</code>, <code>[Sc 1]</code>, <code>[Bt 1]</code>. Tabular alignment per layer. Numbers come from <code>nodes.order</code> — no UI-side counting. Layer-tinted but tint is now secondary; the bracketed text is the primary identifier.</div></div>
+    <div class="callout-row"><div class="callout-num">3</div><div class="callout-text"><strong>T-2: word-count standardised.</strong> Every row with a target shows the same shape — mini progress bar + actual/target ratio, right-aligned. Beats, scenes, chapters, acts, books all use the same column. Over-target rows show amber. The ratio aggregates upward (Act 1 sums its chapters; Ch 1 sums its scenes).</div></div>
+    <div class="callout-row"><div class="callout-num">4</div><div class="callout-text"><strong>T-4: indent guides bumped.</strong> Vertical guide lines now at <code>rgba(*, 0.22-0.32)</code> with subtle layer tinting — visible without dominating. Connects parent rows to their children visually so the eye can follow the tree structure even when scrolling fast.</div></div>
+    <div class="callout-row"><div class="callout-num">5</div><div class="callout-text"><strong>T-6: hover action strip.</strong> Hover any row → a compact action bar slides in over the lifecycle pill: <em>+ Expand · Refine · Comment · Lock</em> (actions vary by node type — beats get "Synthesise" instead of "Expand"). Eliminates the need to open the detail pane for common ops.</div></div>
+  </div>
+</div>
+
+<!-- ───────────────────────────────────────────────────────── -->
+<!-- 02 — Tree-pane only · Series-of-Novels layer_stack        -->
+<!-- ───────────────────────────────────────────────────────── -->
+
+<div class="section" style="padding-top:60px;"><div class="slabel">02 — Tree pane only · Series-of-Novels layer_stack · Foundation Trilogy (example)</div></div>
+
+<div style="padding:32px 48px 0;max-width:1280px;margin:0 auto;">
+<div style="background:var(--ink);border:1px solid var(--border-d);border-radius:8px;overflow:hidden;">
+  <div class="tree-toolbar">
+    <div class="tree-breadcrumb-row">
+      <a>Asimov Catalog</a>
+      <span class="tree-breadcrumb-sep">/</span>
+      <span style="color:var(--text-s);">Foundation Trilogy</span>
+    </div>
+    <div class="tree-title-row">
+      <div class="tree-doc-title">The Foundation Trilogy</div>
+      <span class="stack-badge">Series of Novels</span>
+      <div class="tree-doc-meta">· <strong>3 books</strong> · <strong>92%</strong> complete</div>
+    </div>
+  </div>
+
+  <div class="tree-layer-hdr">
+    <div class="tlh-cell l-series">[Series]</div>
+    <div class="tlh-cell l-book">[Book]</div>
+    <div class="tlh-cell l-act">[Act]</div>
+    <div class="tlh-cell l-chapter">[Ch]</div>
+    <div class="tlh-cell l-scene">[Sc]</div>
+    <div class="tlh-cell l-beat">[Bt]</div>
+  </div>
+
+  <div style="padding:6px 0 12px;position:relative;">
+    <div class="guide guide-l1" style="top:30px;height:340px;"></div>
+    <div class="guide guide-l2" style="top:60px;height:240px;"></div>
+
+    <div class="tree-row row-series in-0">
+      <span class="chev expanded">▾</span>
+      <span class="row-label row-label-series">[Series 1]</span>
+      <span class="row-name">The Foundation Trilogy</span>
+      <span class="row-wc">
+        <span class="row-wc-bar"><span class="row-wc-bar-fill" style="width:92%;"></span></span>
+        <span class="row-wc-ratio">218k / 240k</span>
+      </span>
+      <span class="row-status">
+        <span class="lifecycle-pill lifecycle-complete">Complete</span>
+      </span>
+    </div>
+
+    <div class="tree-row row-book in-1">
+      <span class="chev expanded">▾</span>
+      <span class="row-label row-label-book">[Book 1]</span>
+      <span class="row-name">Foundation</span>
+      <span class="row-wc">
+        <span class="row-wc-bar"><span class="row-wc-bar-fill" style="width:100%;"></span></span>
+        <span class="row-wc-ratio complete">76,000 / 80,000</span>
+      </span>
+      <span class="row-status">
+        <span class="status-pip status-pip-complete"></span>
+      </span>
+    </div>
+    <div class="tree-row row-act in-2">
+      <span class="chev">▸</span>
+      <span class="row-label row-label-act">[Act 1]</span>
+      <span class="row-name">The Psychohistorians</span>
+      <span class="row-wc">
+        <span class="row-wc-bar"><span class="row-wc-bar-fill" style="width:100%;"></span></span>
+        <span class="row-wc-ratio complete">19,200 / 20,000</span>
+      </span>
+      <span class="row-status"><span class="status-pip status-pip-complete"></span></span>
+    </div>
+    <div class="tree-row row-act in-2">
+      <span class="chev">▸</span>
+      <span class="row-label row-label-act">[Act 2]</span>
+      <span class="row-name">The Encyclopedists</span>
+      <span class="row-wc">
+        <span class="row-wc-bar"><span class="row-wc-bar-fill" style="width:100%;"></span></span>
+        <span class="row-wc-ratio complete">21,400 / 20,000</span>
+      </span>
+      <span class="row-status"><span class="status-pip status-pip-complete"></span></span>
+    </div>
+
+    <div class="tree-row row-book in-1">
+      <span class="chev">▸</span>
+      <span class="row-label row-label-book">[Book 2]</span>
+      <span class="row-name">Foundation and Empire</span>
+      <span class="row-wc">
+        <span class="row-wc-bar"><span class="row-wc-bar-fill" style="width:89%;"></span></span>
+        <span class="row-wc-ratio">71,000 / 80,000</span>
+      </span>
+      <span class="row-status">
+        <span class="status-pip status-pip-complete"></span>
+      </span>
+    </div>
+
+    <div class="tree-row row-book in-1">
+      <span class="chev">▸</span>
+      <span class="row-label row-label-book">[Book 3]</span>
+      <span class="row-name">Second Foundation</span>
+      <span class="row-wc">
+        <span class="row-wc-bar"><span class="row-wc-bar-fill" style="width:89%;"></span></span>
+        <span class="row-wc-ratio">71,000 / 80,000</span>
+      </span>
+      <span class="row-status">
+        <span class="status-pip status-pip-complete"></span>
+      </span>
+    </div>
+
+  </div>
+</div>
+
+<div style="margin-top:18px;font-size:12px;font-weight:300;color:var(--text-m);line-height:1.6;max-width:920px;">
+  <strong style="color:var(--text-s);">Note.</strong> Same visual language as the Novel layer_stack above — bracketed monospace labels, position from <code style="font-family:ui-monospace,monospace;color:var(--callout);background:var(--ink);padding:1px 5px;border-radius:2px;border:1px solid var(--border-s);">nodes.order</code>, layer column header as legend. The only differences: an extra <code style="font-family:ui-monospace,monospace;color:var(--callout);background:var(--ink);padding:1px 5px;border-radius:2px;border:1px solid var(--border-s);">[Series]</code> row at the top because the Series-of-Novels layer_stack puts Series above Book; per-row indent shifts down one level. Everything else — pills, pips, word-count column, indent guides — is identical. <strong style="color:var(--text-p);">This is the visual proof that the layer_stack mechanism gives us per-doc-type structure with zero per-type styling work.</strong> A Paper or Anthology or TV-Series stack would render the same way with its own layers.
+</div>
+
+</div>
+
+<!-- ───────────────────────────────────────────────────────── -->
+<!-- 03 — Writer's eye                                         -->
+<!-- ───────────────────────────────────────────────────────── -->
+
+<div class="section" style="padding-top:60px;"><div class="slabel">03 — Writer's eye · iter3</div></div>
+
+<div style="padding:32px 48px 0;">
+<div class="writer-block">
+<div class="writer-title">Re-reading the tree at 3pm with a real document in mind</div>
+
+<p class="writer-p">Two things have to be true at once. <strong>The tree has to disappear when I'm writing</strong> — I want to find a beat, click it, and start typing without the interface narrating itself. <strong>The tree has to wake up when I'm planning</strong> — when I'm scanning the structure for "what needs doing next," it needs to communicate state clearly without me having to lean in. Iter3 lands closer to that balance than iter1 did.</p>
+
+<div class="writer-h">What works in iter3</div>
+
+<p class="writer-p">The bracketed labels mean I never have to count indents to know what a row is. <code>[Bt 3] Recognition</code> tells me everything in a glance — it's Beat 3, named Recognition, on the third row of its parent. <strong>The position-number-from-data is the win.</strong> Before, the tree just said "Recognition" and I had to know it was the second beat under The Iron Ghost; now the row tells me.</p>
+
+<p class="writer-p">The standardised word-count column is the right unit-of-progress at every layer. Looking at the Act 1 row I see <code>7,824 / 12,500</code> and a 62%-full bar — I know exactly how much more I have to write at this level. Looking at the Book row tells me 38% of the whole novel. Looking at a beat tells me 320/300 in green (over target but completed) or 410/300 in amber (over target, needs review). <strong>The eye finds problems by colour</strong> — amber jumps out among green.</p>
+
+<p class="writer-p">The hover action strip is the right pattern. I never want to open the detail pane just to fire a Refine command — that's three clicks to do one thing. Now it's: hover, click Refine. The strip vanishes when I move my mouse away — quiet at rest, present on demand.</p>
+
+<div class="writer-h">What I'd push or revise</div>
+
+<div class="writer-recos">
+
+<div class="writer-reco"><span class="writer-reco-tag">R-1</span><div><strong>The word-count column is taking ~145px of horizontal space on every row.</strong> That's fine on a 1280px screen but borderline on iPad and tight if the detail pane is also visible. Counter-proposal: word-count column collapses to <em>just the bar</em> at narrow widths, with the ratio shown on hover or in the detail pane. Or: word-count column appears only at parent rows (Book / Act / Chapter), with per-beat counts shown in the detail pane. The data is always there; the question is how much real-estate it deserves.</div></div>
+
+<div class="writer-reco"><span class="writer-reco-tag">R-2</span><div><strong>The "3 running" / "3 new" / "Brief Active" lifecycle pills on parent rows are useful but the count can mislead.</strong> "Act 1: 3 running" — three beats? Three scenes? Three of anything? The eye guesses. Consider adding the unit: "<code>3 beats running</code>", "<code>3 new beats</code>". Small text bump, removes ambiguity.</div></div>
+
+<div class="writer-reco"><span class="writer-reco-tag">R-3</span><div><strong>The chevron on parent rows reads as decorative, not interactive.</strong> Right now it's <code>▸</code> (collapsed) / <code>▾</code> (expanded) at <code>opacity:0.85</code>. To make it feel like an affordance, increase opacity on parent rows OR make the entire <code>chev + label + name</code> area the click target for expand-collapse (separate from row-select). Current behaviour ambiguous — does clicking a parent row expand it or just select it?</div></div>
+
+<div class="writer-reco"><span class="writer-reco-tag">R-4</span><div><strong>Hover action strip on parent rows feels heavy.</strong> Five actions appearing every time I hover a chapter or act might be noisier than the value justifies. Consider: only show on leaf rows (beats), where the actions are most natural. Parent rows could show a simpler "Open" button (or nothing — clicking expands/selects and that's enough). Test in real use.</div></div>
+
+<div class="writer-reco"><span class="writer-reco-tag">R-5</span><div><strong>The Series-of-Novels example renders fine, but I want to see what 200 nodes looks like.</strong> Theoretical scaling works in a 15-row mock; real authors will have trees of 200+. Worth a stress-test wireframe at high depth + breadth. iter4 candidate: <em>"Edit Mode · Heavy Tree"</em> showing a 250-node tree with realistic density.</div></div>
+
+<div class="writer-reco"><span class="writer-reco-tag">R-6</span><div><strong>The detail pane title "[Act 1] The Salvage" works.</strong> The same bracketed-label pattern from the tree shows up in the detail pane header, so the eye knows it's looking at the same row it just clicked. Visual continuity. Keep this pattern in every node-detail context (Director references, comments, jobs, history).</div></div>
+
+<div class="writer-reco"><span class="writer-reco-tag">R-7</span><div><strong>The "Director working" status pill at bottom-right plus the "Director" tab dot at top means there are two indicators of the same thing.</strong> They can drift (one updates, the other doesn't). Single source of truth or live-bind both. Engineering note, not a design one.</div></div>
+
+</div>
+
+<div class="writer-h" style="margin-top:24px;">Honest gut feel</div>
+<p class="writer-p">This is the first iteration where I'd actually want to open Stelavox and start writing. The tree is no longer "what does this row mean?" — it's <em>"where am I, what's done, what's running, what needs me."</em> The visual language scales (the Series-of-Novels example proves it). The two unsolved items are the iPad layout (T-8) and the non-leaf detail pane shape (T-5) — both worth their own wireframes rather than being squeezed into this one. <strong>For me, iter3 is good enough to move on to those two and to Director Mode.</strong></p>
+
+</div>
+</div>
+
+<!-- ───────────────────────────────────────────────────────── -->
+<!-- 04 — Decisions                                            -->
+<!-- ───────────────────────────────────────────────────────── -->
+
+<div class="section" style="padding-top:60px;"><div class="slabel">04 — Decisions iter3</div></div>
+<div class="spec-section" style="padding-top:18px;">
+
+  <div class="spec-block">
+    <div class="spec-block-header">Locked from prior iterations</div>
+    <div class="spec-block-body">
+      <div class="spec-row"><div class="spec-row-k">Label format</div><div class="spec-row-v">Bracketed monospace (<code>[Book 1]</code>, <code>[Act 1]</code>, <code>[Ch 1]</code>, <code>[Sc 1]</code>, <code>[Bt 1]</code>). JetBrains Mono / ui-monospace. Per-layer colour as secondary cue only.</div></div>
+      <div class="spec-row"><div class="spec-row-k">Abbreviation form</div><div class="spec-row-v">Book / Act / Ch / Sc / Bt — short labels full word, longer labels abbreviated. Series gets <code>[Series N]</code>.</div></div>
+      <div class="spec-row"><div class="spec-row-k">Position source</div><div class="spec-row-v">Numbers come from <code>nodes.order</code>. No UI-side counting. Drift impossible.</div></div>
+      <div class="spec-row"><div class="spec-row-k">Director @-reference</div><div class="spec-row-v">Same vocabulary — <code>@series1book1act1ch2sc3bt1</code> resolves via the project's layer_stack. Functional work is Phase 14 / 8.03; visual language locked now.</div></div>
+      <div class="spec-row"><div class="spec-row-k">No universal Series wrapper</div><div class="spec-row-v">Project = generic workspace. Series appears as a node_type in some layer_stacks (Series-of-Novels, TV Series, Anthology). Not a special row above the tree.</div></div>
+    </div>
+  </div>
+
+  <div class="spec-block">
+    <div class="spec-block-header">New in iter3</div>
+    <div class="spec-block-body">
+      <div class="spec-row"><div class="spec-row-k">Layer column header</div><div class="spec-row-v">Demoted to lightweight monospace legend (<code>[Book] [Act] [Ch] [Sc] [Bt]</code>) — orientation only, not load-bearing. The row-level bracketed labels do the layer-identification work.</div></div>
+      <div class="spec-row"><div class="spec-row-k">Word-count column (T-2)</div><div class="spec-row-v">Standardised at every row with a target: mini bar + actual/target ratio, right-aligned. Aggregates upward. Amber when over target. Green when complete. Muted under.</div></div>
+      <div class="spec-row"><div class="spec-row-k">Indent guides (T-4)</div><div class="spec-row-v">Vertical guides at opacity 0.22-0.32 with subtle per-layer tint. Visible without dominating.</div></div>
+      <div class="spec-row"><div class="spec-row-k">Hover action strip (T-6)</div><div class="spec-row-v">Compact action bar appears on row hover. Actions vary by node type: beats get Refine + Synthesise + Comment + Lock; parents get + Expand + Refine + Comment + Lock. Primary action in verdigris, destructive in amber.</div></div>
+      <div class="spec-row"><div class="spec-row-k">Detail pane label</div><div class="spec-row-v">Title row carries the same bracketed label as the tree row — visual continuity. Layer-tinted.</div></div>
+      <div class="spec-row"><div class="spec-row-k">Stack badge</div><div class="spec-row-v">Small <code>Novel</code> / <code>Series of Novels</code> / etc. badge near the document title — communicates the layer_stack at a glance. Verdigris-bordered.</div></div>
+    </div>
+  </div>
+
+  <div class="spec-block">
+    <div class="spec-block-header">R-* iter3 open — for your review</div>
+    <div class="spec-block-body">
+      <div class="spec-row"><div class="spec-row-k">R-1 word-count width</div><div class="spec-row-v">~145px per row. Fine at 1280; tight on iPad with detail pane open. Collapse to bar-only at narrow widths? Or show per-parent only?</div></div>
+      <div class="spec-row"><div class="spec-row-k">R-2 lifecycle-pill unit</div><div class="spec-row-v">"3 running" → "3 beats running" / "3 scenes running" — add the unit for clarity.</div></div>
+      <div class="spec-row"><div class="spec-row-k">R-3 chevron affordance</div><div class="spec-row-v">Click semantics on parent rows — does clicking expand, select, or both? Currently ambiguous. Recommend: chevron-area expands, row-area selects.</div></div>
+      <div class="spec-row"><div class="spec-row-k">R-4 hover strip on parents</div><div class="spec-row-v">Show on leaf-rows only, or all rows? Lighter pattern for parents (single "Open" button)?</div></div>
+      <div class="spec-row"><div class="spec-row-k">R-5 heavy-tree stress test</div><div class="spec-row-v">200+ nodes at realistic depth. Worth its own wireframe before iter4 closes?</div></div>
+    </div>
+  </div>
+
+  <div class="spec-block">
+    <div class="spec-block-header">Deferred to their own wireframes</div>
+    <div class="spec-block-body">
+      <div class="spec-row"><div class="spec-row-k">T-5 non-leaf detail pane</div><div class="spec-row-v">Detail pane for Book / Act / Chapter / Scene needs its own design — sub-tree summary, sparkline, child overview. Beats already get the prose canvas. <strong>Own wireframe.</strong></div></div>
+      <div class="spec-row"><div class="spec-row-k">T-8 iPad layout</div><div class="spec-row-v">At 1024px, sidebar 220 + detail 480 leaves 324 for the tree — doesn't fit. Slide-over detail pane proposal. <strong>Own wireframe.</strong></div></div>
+      <div class="spec-row"><div class="spec-row-k">Project page</div><div class="spec-row-v">Multi-document workflows live here. Where the export "tree-with-checkboxes" UI fits. <strong>Own wireframe.</strong></div></div>
+      <div class="spec-row"><div class="spec-row-k">Director Mode</div><div class="spec-row-v">Conversational presentation, plan-tag stripping, @-reference picker. <strong>Own wireframe.</strong></div></div>
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>

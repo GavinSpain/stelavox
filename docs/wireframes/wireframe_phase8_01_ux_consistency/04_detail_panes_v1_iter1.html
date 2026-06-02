@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stelavox — Detail Panes v1 iter1 (Phase 8.01 · T-5)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600&family=Cormorant+Garamond:ital,wght@1,300;1,400&family=Inter:wght@200;300;400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Lora:ital,wght@0,400;1,400&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --ink:#0d1014; --deep:#131820; --surface:#1a2030; --hover:#1e2838; --selected:#1f2d45;
+  --border-s:#1e2535; --border-d:#253045; --border-str:#3a4a62;
+  --text-p:#ecf0f5; --text-s:#8aa0b8; --text-m:#6884a4; --text-dis:#2a3850;
+  --verd:#3d7858; --verd-h:#5aa87a; --verd-muted:#1a3028;
+  --verd-bright:#5aa87a;
+  --st-running-bright:#4d8fd6; --st-review-bright:#e09040;
+  --layer-series:#7aa8e0; --layer-book:#5aa87a; --layer-act:#7a8fb8;
+  --layer-chapter:#8a99b3; --layer-scene:#7a8a9e; --layer-beat:#6884a4;
+  --spec-bg:#0a0d12; --spec-pan:#111520; --callout:#e8b840;
+}
+html, body { background:var(--spec-bg); color:var(--text-p); font-family:'Inter',sans-serif; font-size:13px; line-height:1.5; }
+
+.doc-header { background:var(--spec-pan); border-bottom:1px solid var(--border-d); padding:24px 48px; display:flex; align-items:baseline; justify-content:space-between; }
+.wm-s{font-family:'Cinzel',serif;font-size:14px;font-weight:500;letter-spacing:.18em;color:var(--text-p);}
+.wm-v{font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:300;font-size:16px;letter-spacing:.08em;color:var(--text-p);opacity:.82;}
+.doc-meta{font-size:11px;font-weight:300;letter-spacing:.2em;text-transform:uppercase;color:var(--text-m);}
+.section{padding:40px 48px 0;}
+.slabel{font-size:9px;font-weight:400;letter-spacing:.45em;text-transform:uppercase;color:var(--text-m);margin-bottom:20px;padding-bottom:12px;border-bottom:1px solid var(--border-s);}
+
+/* Detail pane chrome */
+.dp { background:var(--ink); border:1px solid var(--border-d); border-radius:8px; overflow:hidden; height:820px; display:flex; flex-direction:column; box-shadow:0 24px 80px rgba(0,0,0,.6); }
+.dp-card-title { font-size:11px; font-weight:600; letter-spacing:.18em; text-transform:uppercase; color:var(--text-s); padding:10px 18px 6px; display:flex; align-items:center; justify-content:space-between; background:var(--deep); border-bottom:1px solid var(--border-s); }
+.dp-card-title-pip { font-family:'JetBrains Mono', ui-monospace, monospace; font-size:10px; color:var(--text-m); font-weight:500; letter-spacing:.04em; }
+
+.dp-hdr { padding:18px 22px 14px; border-bottom:1px solid var(--border-s); display:flex; flex-direction:column; gap:8px; }
+.dp-title-row { display:flex; align-items:center; gap:10px; }
+.dp-label { font-family:'JetBrains Mono', ui-monospace, monospace; font-size:11px; font-weight:500; padding:3px 9px; border-radius:3px; letter-spacing:.04em; }
+.dp-label-book    { color:var(--layer-book);    background:rgba(90,168,122,0.12); }
+.dp-label-act     { color:var(--layer-act);     background:rgba(122,143,184,0.18); }
+.dp-label-chapter { color:var(--layer-chapter); background:rgba(138,153,179,0.18); }
+.dp-label-scene   { color:var(--layer-scene);   background:rgba(122,138,158,0.18); }
+.dp-label-beat    { color:var(--layer-beat);    background:rgba(104,132,164,0.18); }
+.dp-title { font-size:18px; font-weight:600; color:var(--text-p); letter-spacing:-0.005em; flex:1; }
+.dp-meta { display:flex; align-items:center; gap:12px; font-size:11.5px; color:var(--text-m); flex-wrap:wrap; }
+.dp-meta strong { color:var(--text-s); font-weight:500; }
+.dp-meta .running { color:var(--st-running-bright); }
+.dp-meta .review { color:var(--st-review-bright); }
+.dp-meta .complete { color:var(--verd-bright); }
+
+.dp-tabs { display:flex; align-items:center; gap:0; border-bottom:1px solid var(--border-s); padding:0 22px; background:var(--ink); }
+.dp-tab { font-size:12px; font-weight:400; color:var(--text-s); padding:10px 14px 9px; cursor:pointer; border-bottom:2px solid transparent; }
+.dp-tab:hover { color:var(--text-p); }
+.dp-tab.active { color:var(--text-p); border-bottom:2px solid rgba(236,240,245,0.6); font-weight:500; }
+
+.dp-body { flex:1; overflow-y:auto; padding:18px 22px; }
+
+/* Section blocks within detail pane */
+.dp-block { margin-bottom:22px; }
+.dp-block-h { font-size:9px; font-weight:600; letter-spacing:.32em; text-transform:uppercase; color:var(--text-m); margin-bottom:10px; display:flex; align-items:center; justify-content:space-between; }
+.dp-block-h-action { font-size:10px; color:var(--text-s); cursor:pointer; font-weight:400; letter-spacing:.04em; text-transform:none; }
+.dp-block-h-action:hover { color:var(--text-p); }
+
+/* Summary / notes box */
+.summary-box { font-family:'Inter',sans-serif; font-size:13px; font-weight:400; line-height:1.55; color:var(--text-p); background:var(--surface); border:1px solid var(--border-s); border-radius:4px; padding:11px 14px; }
+.notes-box { font-family:'Inter',sans-serif; font-size:13px; font-style:italic; font-weight:300; line-height:1.6; color:var(--text-s); background:transparent; border:none; border-left:2px solid var(--border-d); border-radius:0; padding:4px 14px; }
+
+/* Aggregate metrics row */
+.metrics-row { display:flex; align-items:stretch; gap:0; padding:0; margin-bottom:6px; }
+.metric-cell { flex:1; padding:0 12px; border-right:1px solid var(--border-s); display:flex; flex-direction:column; gap:3px; }
+.metric-cell:first-child { padding-left:0; }
+.metric-cell:last-child { padding-right:0; border-right:none; }
+.metric-value { font-family:'JetBrains Mono', ui-monospace, monospace; font-size:18px; font-weight:500; color:var(--text-p); letter-spacing:-0.005em; font-variant-numeric:tabular-nums; line-height:1.1; }
+.metric-value.verd { color:var(--verd-bright); }
+.metric-value.run  { color:var(--st-running-bright); }
+.metric-value.rev  { color:var(--st-review-bright); }
+.metric-label { font-size:10px; font-weight:600; letter-spacing:.18em; text-transform:uppercase; color:var(--text-m); }
+
+/* Children list */
+.children-list { display:flex; flex-direction:column; gap:5px; }
+.child-row { display:flex; align-items:center; gap:10px; padding:7px 11px; background:var(--surface); border:1px solid var(--border-s); border-radius:4px; cursor:pointer; transition:border-color 120ms; }
+.child-row:hover { border-color:var(--verd-bright); }
+.child-row-label { font-family:'JetBrains Mono', ui-monospace, monospace; font-size:10px; font-weight:500; color:var(--text-m); flex-shrink:0; min-width:50px; }
+.child-row-label.chapter { color:var(--layer-chapter); }
+.child-row-label.scene   { color:var(--layer-scene); }
+.child-row-label.beat    { color:var(--layer-beat); }
+.child-row-label.act     { color:var(--layer-act); }
+.child-row-name { flex:1; min-width:0; font-size:12.5px; color:var(--text-p); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.child-row-wc { width:90px; display:flex; align-items:center; gap:6px; flex-shrink:0; }
+.child-row-wc-bar { flex:1; height:4px; background:var(--border-s); border-radius:2px; overflow:hidden; }
+.child-row-wc-bar-fill { height:100%; background:var(--verd-bright); border-radius:2px; }
+.child-row-wc-bar-fill.over { background:var(--st-review-bright); }
+.child-row-wc-pct { font-size:9.5px; color:var(--text-m); font-variant-numeric:tabular-nums; min-width:26px; text-align:right; }
+.child-row-status { flex-shrink:0; }
+.lifecycle-pill { font-size:8.5px; font-weight:600; letter-spacing:.1em; text-transform:uppercase; padding:1px 6px; border-radius:3px; border:1px solid transparent; white-space:nowrap; }
+.lifecycle-running  { background:rgba(77,143,214,0.18); color:var(--st-running-bright); border-color:rgba(77,143,214,0.5); }
+.lifecycle-review   { background:rgba(224,144,64,0.18); color:var(--st-review-bright);  border-color:rgba(224,144,64,0.5); }
+.lifecycle-complete { background:rgba(90,168,122,0.18); color:var(--verd-bright); border-color:rgba(90,168,122,0.5); }
+.lifecycle-queued   { background:rgba(104,132,164,0.18); color:#8aa0b8; border-color:rgba(104,132,164,0.35); }
+.status-pip { width:7px; height:7px; border-radius:50%; }
+.status-pip-running { background:var(--st-running-bright); box-shadow:0 0 5px rgba(77,143,214,0.55); animation:pulse 2s ease-in-out infinite; }
+.status-pip-review { background:var(--st-review-bright); box-shadow:0 0 4px rgba(224,144,64,0.4); }
+.status-pip-complete { background:var(--verd-bright); }
+@keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.55; } }
+
+/* Activity list */
+.activity-list { display:flex; flex-direction:column; gap:8px; }
+.activity-row { display:flex; align-items:flex-start; gap:8px; font-size:11.5px; color:var(--text-s); line-height:1.5; }
+.activity-row strong { color:var(--text-p); font-weight:500; }
+.activity-pip { width:7px; height:7px; border-radius:50%; flex-shrink:0; margin-top:4px; }
+.activity-time { color:var(--text-m); font-size:10.5px; }
+
+/* Quick-actions strip at bottom of pane */
+.dp-actions { border-top:1px solid var(--border-s); padding:12px 22px; display:flex; align-items:center; gap:8px; background:var(--deep); }
+.dp-action { font-size:11.5px; font-weight:500; color:var(--text-s); padding:6px 12px; background:transparent; border:1px solid var(--border-d); border-radius:4px; cursor:pointer; display:flex; align-items:center; gap:6px; }
+.dp-action:hover { border-color:var(--verd-bright); color:var(--text-p); }
+.dp-action.primary { background:var(--verd); color:#fff; border-color:var(--verd); }
+.dp-action.primary:hover { background:var(--verd-bright); border-color:var(--verd-bright); }
+
+/* ── BEAT (LEAF) detail pane — prose-forward layout ── */
+.prose-canvas { font-family:'Lora',serif; font-size:16px; font-weight:400; line-height:1.85; color:var(--text-p); padding:4px 8px; }
+.prose-canvas p { margin-bottom:1.25em; }
+.prose-canvas p:last-child::after { content:""; display:inline-block; width:2px; height:1.1em; background:var(--verd-bright); vertical-align:text-bottom; margin-left:2px; animation:caret-blink 1.2s ease-in-out infinite; }
+@keyframes caret-blink { 0%,49% { opacity:1; } 50%,100% { opacity:0.3; } }
+.wc-meter { display:flex; align-items:center; gap:10px; padding:9px 0; border-top:1px solid var(--border-s); font-size:11px; }
+.wc-meter-bar { flex:1; height:5px; background:var(--border-s); border-radius:3px; overflow:hidden; }
+.wc-meter-bar-fill { height:100%; background:linear-gradient(90deg, var(--verd) 0%, var(--verd-bright) 100%); border-radius:3px; }
+.wc-meter-bar-fill.over { background:var(--st-review-bright); }
+.wc-meter-text { color:var(--text-s); font-weight:500; font-variant-numeric:tabular-nums; min-width:96px; text-align:right; }
+.wc-meter-text.complete { color:var(--verd-bright); }
+.wc-meter-text.over { color:var(--st-review-bright); }
+
+/* Callouts */
+.callout-set { position:relative; max-width:1280px; margin:0 auto; }
+.callout-pin { position:absolute; width:22px; height:22px; border-radius:50%; background:var(--callout); color:#1a1a1a; font-size:11px; font-weight:700; display:flex; align-items:center; justify-content:center; border:2px solid var(--ink); box-shadow:0 0 0 1px var(--callout); z-index:5; }
+.callout-list { background:var(--spec-pan); border:1px solid var(--border-s); border-radius:6px; padding:20px 24px; margin-top:32px; }
+.callout-list-title { font-size:11px; font-weight:600; letter-spacing:.25em; text-transform:uppercase; color:var(--text-m); margin-bottom:14px; }
+.callout-row { display:flex; gap:14px; margin-bottom:11px; align-items:flex-start; }
+.callout-row:last-child { margin-bottom:0; }
+.callout-num { width:22px; height:22px; border-radius:50%; background:var(--callout); color:#1a1a1a; font-size:11px; font-weight:700; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.callout-text { font-size:13px; font-weight:300; color:var(--text-s); line-height:1.55; }
+.callout-text strong { color:var(--text-p); font-weight:500; }
+.callout-text code { background:var(--ink); padding:1px 6px; border-radius:3px; font-family:ui-monospace,monospace; font-size:11px; color:var(--callout); border:1px solid var(--border-s); }
+
+.writer-block { background:linear-gradient(135deg, var(--spec-pan) 0%, #14181f 100%); border:1px solid var(--border-d); border-radius:8px; padding:28px 32px; margin-top:32px; }
+.writer-title { font-size:11px; font-weight:600; letter-spacing:.32em; text-transform:uppercase; color:var(--verd-bright); margin-bottom:18px; display:flex; align-items:center; gap:10px; }
+.writer-title::before { content:""; width:16px; height:1px; background:var(--verd-bright); }
+.writer-h { font-size:15px; font-weight:500; color:var(--text-p); margin-top:18px; margin-bottom:8px; }
+.writer-h:first-of-type { margin-top:0; }
+.writer-p { font-size:13px; font-weight:300; color:var(--text-s); line-height:1.7; margin-bottom:10px; }
+.writer-p em { color:var(--text-m); }
+.writer-p strong { color:var(--text-p); font-weight:500; }
+.writer-recos { display:flex; flex-direction:column; gap:8px; margin-top:14px; }
+.writer-reco { display:flex; gap:12px; align-items:flex-start; font-size:13px; color:var(--text-s); line-height:1.55; }
+.writer-reco-tag { background:var(--verd-muted); color:var(--verd-bright); font-size:10px; font-weight:600; letter-spacing:.1em; padding:3px 8px; border-radius:3px; white-space:nowrap; margin-top:2px; }
+.writer-reco strong { color:var(--text-p); font-weight:500; }
+
+.spec-section{padding:0 48px 80px;}
+.spec-block{background:var(--spec-pan);border:1px solid var(--border-s);border-radius:6px;margin-bottom:18px;overflow:hidden;}
+.spec-block-header{padding:14px 22px;background:var(--ink);border-bottom:1px solid var(--border-s);font-size:11px;font-weight:600;letter-spacing:.25em;text-transform:uppercase;color:var(--text-p);}
+.spec-block-body{padding:18px 22px;}
+.spec-row{display:grid;grid-template-columns:200px 1fr;gap:18px;padding:9px 0;border-bottom:1px solid var(--border-s);font-size:12px;align-items:start;}
+.spec-row:last-child{border-bottom:none;}
+.spec-row-k{color:var(--text-s);font-weight:500;font-size:11px;letter-spacing:.08em;text-transform:uppercase;padding-top:1px;}
+.spec-row-v{color:var(--text-p);font-weight:300;line-height:1.6;}
+.spec-row-v code{background:var(--ink);padding:1px 6px;border-radius:3px;font-family:ui-monospace,monospace;font-size:11px;color:var(--callout);border:1px solid var(--border-s);}
+.spec-row-v em { color:var(--text-m); font-style:italic; }
+
+/* Comparison label above the panes */
+.compare-grid { display:grid; grid-template-columns:1fr 1fr; gap:24px; max-width:1280px; margin:0 auto; }
+.compare-label { font-size:10px; font-weight:600; letter-spacing:.36em; text-transform:uppercase; color:var(--verd-bright); margin-bottom:12px; padding-bottom:8px; border-bottom:1px solid rgba(90,168,122,0.3); }
+.compare-label-meta { font-size:11px; color:var(--text-m); font-weight:300; text-transform:none; letter-spacing:.02em; margin-top:3px; }
+
+/* Mini-pane preview for the all-layers row */
+.mini-row { display:grid; grid-template-columns:repeat(5,1fr); gap:14px; max-width:1280px; margin:0 auto; }
+.mini-pane { background:var(--ink); border:1px solid var(--border-d); border-radius:6px; overflow:hidden; height:380px; display:flex; flex-direction:column; }
+.mini-hdr { padding:10px 12px; border-bottom:1px solid var(--border-s); display:flex; flex-direction:column; gap:4px; }
+.mini-title-row { display:flex; align-items:center; gap:6px; }
+.mini-label { font-family:'JetBrains Mono', ui-monospace, monospace; font-size:9px; font-weight:500; padding:2px 6px; border-radius:2px; letter-spacing:.02em; }
+.mini-title { font-size:12px; font-weight:500; color:var(--text-p); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.mini-meta { font-size:9.5px; color:var(--text-m); }
+.mini-content { flex:1; padding:10px 12px; overflow:hidden; font-size:10px; color:var(--text-s); line-height:1.5; }
+.mini-section-h { font-size:8px; font-weight:600; letter-spacing:.24em; text-transform:uppercase; color:var(--text-m); margin-bottom:5px; margin-top:9px; }
+.mini-section-h:first-child { margin-top:0; }
+.mini-children { display:flex; flex-direction:column; gap:3px; }
+.mini-child { display:flex; align-items:center; gap:4px; font-size:9.5px; }
+.mini-child-label { font-family:ui-monospace,monospace; font-size:8.5px; color:var(--text-m); min-width:32px; }
+.mini-child-name { flex:1; color:var(--text-s); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.mini-child-pip { width:5px; height:5px; border-radius:50%; }
+.mini-prose-preview { font-family:'Lora',serif; font-size:11px; font-style:italic; color:var(--text-s); line-height:1.6; }
+</style>
+</head>
+<body>
+
+<div class="doc-header">
+  <div>
+    <div style="display:flex;align-items:baseline;"><span class="wm-s">Stela</span><span class="wm-v">vox</span></div>
+    <div style="margin-top:6px;font-size:11px;font-weight:300;letter-spacing:.2em;text-transform:uppercase;color:var(--text-m);">Detail Panes v1 — iteration 1 — Phase 8.01 · T-5 · non-leaf vs leaf shapes</div>
+  </div>
+  <div class="doc-meta">2026-05-28 · five layers · one common template</div>
+</div>
+
+<!-- ───────────────────────────────────────────────────────── -->
+<!-- 01 — Side-by-side · non-leaf vs leaf                      -->
+<!-- ───────────────────────────────────────────────────────── -->
+
+<div class="section"><div class="slabel">01 — Side-by-side · non-leaf vs leaf · the two essential shapes</div></div>
+
+<div style="padding:32px 48px 0;">
+<div class="compare-grid">
+
+  <!-- ── NON-LEAF: Act 1 ── -->
+  <div>
+    <div class="compare-label">Non-leaf · Act 1: The Salvage<div class="compare-label-meta">Shape for Book / Act / Chapter / Scene — "see the structure beneath"</div></div>
+    <div class="dp">
+      <div class="dp-hdr">
+        <div class="dp-title-row">
+          <span class="dp-label dp-label-act">[Act 1]</span>
+          <div class="dp-title">The Salvage</div>
+        </div>
+        <div class="dp-meta">
+          <span><strong>62%</strong> complete</span>
+          <span>·</span>
+          <span>7,824 / 12,500 words</span>
+          <span>·</span>
+          <span class="running">3 beats running</span>
+        </div>
+      </div>
+
+      <div class="dp-tabs">
+        <div class="dp-tab active">Overview</div>
+        <div class="dp-tab">Notes</div>
+        <div class="dp-tab">Activity</div>
+        <div class="dp-tab">Comments</div>
+        <div class="dp-tab">History</div>
+      </div>
+
+      <div class="dp-body">
+
+        <div class="dp-block">
+          <div class="dp-block-h">
+            <span>Summary</span>
+            <span class="dp-block-h-action">Edit</span>
+          </div>
+          <div class="summary-box">A cargo salvager in the outer system answers a beacon he should ignore. The signal is old — far older than human spaceflight — and what he finds at the source rewrites everything he believed about humanity's place in the universe. The cost of going is paid in seven years of silence already broken.</div>
+        </div>
+
+        <div class="dp-block">
+          <div class="dp-block-h">
+            <span>Author's note</span>
+            <span class="dp-block-h-action">Edit</span>
+          </div>
+          <div class="notes-box">The Act establishes Kael as a man hiding from grief through routine. By Act's end, he has chosen — for the first time in seven years — to follow a call that costs him.</div>
+        </div>
+
+        <div class="dp-block">
+          <div class="dp-block-h">Aggregate</div>
+          <div class="metrics-row">
+            <div class="metric-cell"><div class="metric-value">2</div><div class="metric-label">Chapters</div></div>
+            <div class="metric-cell"><div class="metric-value">3</div><div class="metric-label">Scenes</div></div>
+            <div class="metric-cell"><div class="metric-value">11</div><div class="metric-label">Beats</div></div>
+            <div class="metric-cell"><div class="metric-value run">3</div><div class="metric-label">Running</div></div>
+            <div class="metric-cell"><div class="metric-value rev">1</div><div class="metric-label">Review</div></div>
+          </div>
+        </div>
+
+        <div class="dp-block">
+          <div class="dp-block-h">
+            <span>In this Act · 2 chapters</span>
+            <span class="dp-block-h-action">Open in tree →</span>
+          </div>
+          <div class="children-list">
+            <div class="child-row">
+              <span class="child-row-label chapter">[Ch 1]</span>
+              <span class="child-row-name">Salvage</span>
+              <span class="child-row-wc">
+                <span class="child-row-wc-bar"><span class="child-row-wc-bar-fill" style="width:100%;"></span></span>
+                <span class="child-row-wc-pct" style="color:var(--verd-bright);">100%</span>
+              </span>
+              <span class="child-row-status"><span class="lifecycle-pill lifecycle-complete">Complete</span></span>
+            </div>
+            <div class="child-row">
+              <span class="child-row-label chapter">[Ch 2]</span>
+              <span class="child-row-name">The Wipe</span>
+              <span class="child-row-wc">
+                <span class="child-row-wc-bar"><span class="child-row-wc-bar-fill" style="width:42%;"></span></span>
+                <span class="child-row-wc-pct">42%</span>
+              </span>
+              <span class="child-row-status"><span class="lifecycle-pill lifecycle-running">3 run</span></span>
+            </div>
+          </div>
+        </div>
+
+        <div class="dp-block" style="margin-bottom:0;">
+          <div class="dp-block-h">Recent activity · this Act</div>
+          <div class="activity-list">
+            <div class="activity-row">
+              <span class="activity-pip status-pip-running"></span>
+              <span><strong>Synthesise</strong> · The Graveyard, The Probe Emerges, The Threshold · <span class="activity-time">4 min ago</span></span>
+            </div>
+            <div class="activity-row">
+              <span class="activity-pip status-pip-complete"></span>
+              <span><strong>Refine</strong> · Recognition accepted · <span class="activity-time">yesterday 14:18</span></span>
+            </div>
+            <div class="activity-row">
+              <span class="activity-pip status-pip-complete"></span>
+              <span><strong>Expand</strong> · 3 beats added to The Beacon · <span class="activity-time">2 days ago</span></span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="dp-actions">
+        <button class="dp-action primary">+ Expand</button>
+        <button class="dp-action">Refine summary</button>
+        <button class="dp-action">Generate context</button>
+        <div style="flex:1;"></div>
+        <button class="dp-action">Lock</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── LEAF: Beat ── -->
+  <div>
+    <div class="compare-label">Leaf · Beat 1: The Signal<div class="compare-label-meta">Shape for Beats only — "read & write the prose"</div></div>
+    <div class="dp">
+      <div class="dp-hdr">
+        <div class="dp-title-row">
+          <span class="dp-label dp-label-beat">[Bt 1]</span>
+          <div class="dp-title">The Signal</div>
+        </div>
+        <div class="dp-meta">
+          <span><strong class="complete">320 / 300</strong> words</span>
+          <span>·</span>
+          <span>accepted yesterday 14:18</span>
+          <span>·</span>
+          <span class="complete">complete</span>
+        </div>
+      </div>
+
+      <div class="dp-tabs">
+        <div class="dp-tab active">Content</div>
+        <div class="dp-tab">Notes</div>
+        <div class="dp-tab">Activity</div>
+        <div class="dp-tab">Comments</div>
+        <div class="dp-tab">History</div>
+      </div>
+
+      <div class="dp-body">
+
+        <div class="dp-block" style="margin-bottom:18px;">
+          <div class="dp-block-h">
+            <span>Summary</span>
+            <span class="dp-block-h-action">Edit</span>
+          </div>
+          <div class="summary-box">A blip appears on Kael's scanner. Degraded. Old. The signal that should have died decades ago. It pulses across the Kuiper Belt frequencies, fragmented and incoherent — but persistent. Kael's first instinct is to mark it as noise and move on. That is what survival demands. But something in the signal's rhythm catches him. For the first time in seven years, the part of him that used to *answer* wakes. Just barely. Just enough to make him pause.</div>
+        </div>
+
+        <div class="dp-block">
+          <div class="dp-block-h">
+            <span>Prose</span>
+            <span class="dp-block-h-action">Open in Focus Mode →</span>
+          </div>
+          <div class="prose-canvas">
+            <p>The neural static hit first — a fragment of screaming, distorted through ice and helmet speakers. Marcus's voice, or what was left of it, cut through the white noise.</p>
+            <p>Kael's fingers moved on instinct. Delete. Purge. Bury.</p>
+            <p>The memory file dissolved. He ran the suppression routine again, watching the waveform collapse into silence on his display. Seven years of this. Seven years of the same ritual: wake, suppress, work, suppress again before sleep. The effort never got easier. It only got quieter.</p>
+            <p>He leaned back in the pilot's seat and closed his eyes. The screaming faded to static. The static faded to nothing.</p>
+            <p>The scanner's ping cut through the dark like a crack in ice.</p>
+          </div>
+        </div>
+
+        <div class="wc-meter">
+          <span style="font-weight:500;color:var(--text-s);">320 / 300 words</span>
+          <span class="wc-meter-bar"><span class="wc-meter-bar-fill" style="width:107%;"></span></span>
+          <span class="wc-meter-text complete">107% · complete</span>
+        </div>
+
+      </div>
+
+      <div class="dp-actions">
+        <button class="dp-action primary">Refine</button>
+        <button class="dp-action">Synthesise</button>
+        <button class="dp-action">Comment</button>
+        <div style="flex:1;"></div>
+        <button class="dp-action">Lock</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div style="max-width:1280px; margin:32px auto 0;" class="callout-list">
+  <div class="callout-list-title">Two shapes, one template</div>
+  <div class="callout-row"><div class="callout-num">1</div><div class="callout-text"><strong>Shared header.</strong> Both panes carry the bracketed label + title + meta-line. Same visual rhythm. The eye knows it's looking at the same kind of object regardless of layer.</div></div>
+  <div class="callout-row"><div class="callout-num">2</div><div class="callout-text"><strong>Non-leaf = "see the structure."</strong> Summary + Author's note + Aggregate metrics + Children list with mini-progress bars + Recent activity scoped to subtree. The dominant block is "<em>In this Act · 2 chapters</em>" — what's beneath, at a glance.</div></div>
+  <div class="callout-row"><div class="callout-num">3</div><div class="callout-text"><strong>Leaf = "read & write the prose."</strong> Summary stays compact at the top (the author's reminder of what this beat is for). The dominant block is the <strong>prose canvas</strong> in Lora 16px — same typography as Focus Mode. A subtle verdigris caret marks the cursor position. Word-count meter docked at the bottom. The eye doesn't see the chrome; it sees the words.</div></div>
+  <div class="callout-row"><div class="callout-num">4</div><div class="callout-text"><strong>Different tabs per shape.</strong> Non-leaf: <em>Overview · Notes · Activity · Comments · History</em>. Leaf: <em>Content · Notes · Activity · Comments · History</em>. The first tab swaps because the "default" view is fundamentally different — structure overview vs prose content.</div></div>
+  <div class="callout-row"><div class="callout-num">5</div><div class="callout-text"><strong>Different actions per shape.</strong> Non-leaf actions: <em>+ Expand</em> (primary, verdigris) / <em>Refine summary</em> / <em>Generate context</em> / <em>Lock</em>. Leaf actions: <em>Refine</em> (primary) / <em>Synthesise</em> / <em>Comment</em> / <em>Lock</em>. Same docked-bottom bar; contextually appropriate verbs.</div></div>
+  <div class="callout-row"><div class="callout-num">6</div><div class="callout-text"><strong>"Open in tree →" link on the children block.</strong> Quick affordance for the writer who wants to drill into a child without going back to the tree pane. Same pattern for "Open in Focus Mode →" on the prose block.</div></div>
+</div>
+</div>
+
+<!-- ───────────────────────────────────────────────────────── -->
+<!-- 02 — All five layers — mini previews                      -->
+<!-- ───────────────────────────────────────────────────────── -->
+
+<div class="section" style="padding-top:60px;"><div class="slabel">02 — All five layers · mini previews · same template at each level</div></div>
+
+<div style="padding:32px 48px 0;">
+<div class="mini-row">
+
+  <!-- Book -->
+  <div class="mini-pane">
+    <div class="mini-hdr">
+      <div class="mini-title-row">
+        <span class="mini-label" style="color:var(--layer-book);background:rgba(90,168,122,0.12);">[Book 1]</span>
+      </div>
+      <div class="mini-title">Shadow Protocol</div>
+      <div class="mini-meta">38% · 14,237 / 37,500</div>
+    </div>
+    <div class="mini-content">
+      <div class="mini-section-h">Summary</div>
+      <div style="font-size:9.5px; color:var(--text-s); margin-bottom:9px; font-style:italic;">A cargo salvager answers an ancient beacon and finds himself the bridge between humanity and what is coming…</div>
+
+      <div class="mini-section-h">In this book · 3 acts</div>
+      <div class="mini-children">
+        <div class="mini-child">
+          <span class="mini-child-label">[Act 1]</span>
+          <span class="mini-child-name">The Salvage</span>
+          <span class="mini-child-pip status-pip-running"></span>
+        </div>
+        <div class="mini-child">
+          <span class="mini-child-label">[Act 2]</span>
+          <span class="mini-child-name">The Bonding</span>
+          <span class="mini-child-pip" style="background:#8aa0b8;"></span>
+        </div>
+        <div class="mini-child">
+          <span class="mini-child-label">[Act 3]</span>
+          <span class="mini-child-name">The Echo</span>
+          <span class="mini-child-pip" style="background:#8aa0b8;"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Act -->
+  <div class="mini-pane">
+    <div class="mini-hdr">
+      <div class="mini-title-row">
+        <span class="mini-label" style="color:var(--layer-act);background:rgba(122,143,184,0.18);">[Act 1]</span>
+      </div>
+      <div class="mini-title">The Salvage</div>
+      <div class="mini-meta">62% · 7,824 / 12,500</div>
+    </div>
+    <div class="mini-content">
+      <div class="mini-section-h">Summary</div>
+      <div style="font-size:9.5px; color:var(--text-s); margin-bottom:9px; font-style:italic;">Kael answers a signal he should have ignored. By Act's end he has chosen — for the first time in seven years — a call that costs him.</div>
+
+      <div class="mini-section-h">In this Act · 2 chapters</div>
+      <div class="mini-children">
+        <div class="mini-child">
+          <span class="mini-child-label">[Ch 1]</span>
+          <span class="mini-child-name">Salvage</span>
+          <span class="mini-child-pip status-pip-complete"></span>
+        </div>
+        <div class="mini-child">
+          <span class="mini-child-label">[Ch 2]</span>
+          <span class="mini-child-name">The Wipe</span>
+          <span class="mini-child-pip status-pip-running"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Chapter -->
+  <div class="mini-pane">
+    <div class="mini-hdr">
+      <div class="mini-title-row">
+        <span class="mini-label" style="color:var(--layer-chapter);background:rgba(138,153,179,0.18);">[Ch 1]</span>
+      </div>
+      <div class="mini-title">Salvage</div>
+      <div class="mini-meta">100% · 4,213 / 4,000</div>
+    </div>
+    <div class="mini-content">
+      <div class="mini-section-h">Summary</div>
+      <div style="font-size:9.5px; color:var(--text-s); margin-bottom:9px; font-style:italic;">Kael's salvage run is interrupted by the signal. He decides to investigate.</div>
+
+      <div class="mini-section-h">In this Chapter · 2 scenes</div>
+      <div class="mini-children">
+        <div class="mini-child">
+          <span class="mini-child-label">[Sc 1]</span>
+          <span class="mini-child-name">The Iron Ghost</span>
+          <span class="mini-child-pip status-pip-complete"></span>
+        </div>
+        <div class="mini-child">
+          <span class="mini-child-label">[Sc 2]</span>
+          <span class="mini-child-name">The Beacon in the Dark</span>
+          <span class="mini-child-pip status-pip-running"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scene -->
+  <div class="mini-pane">
+    <div class="mini-hdr">
+      <div class="mini-title-row">
+        <span class="mini-label" style="color:var(--layer-scene);background:rgba(122,138,158,0.18);">[Sc 1]</span>
+      </div>
+      <div class="mini-title">The Iron Ghost</div>
+      <div class="mini-meta">91% · 2,180 / 2,400</div>
+    </div>
+    <div class="mini-content">
+      <div class="mini-section-h">Summary</div>
+      <div style="font-size:9.5px; color:var(--text-s); margin-bottom:9px; font-style:italic;">Kael alone on his salvage ship. The scanner ping. The signal that breaks routine.</div>
+
+      <div class="mini-section-h">In this Scene · 3 beats</div>
+      <div class="mini-children">
+        <div class="mini-child">
+          <span class="mini-child-label">[Bt 1]</span>
+          <span class="mini-child-name">The Signal</span>
+          <span class="mini-child-pip status-pip-complete"></span>
+        </div>
+        <div class="mini-child">
+          <span class="mini-child-label">[Bt 2]</span>
+          <span class="mini-child-name">Recognition</span>
+          <span class="mini-child-pip status-pip-review"></span>
+        </div>
+        <div class="mini-child">
+          <span class="mini-child-label">[Bt 3]</span>
+          <span class="mini-child-name">The Breaking</span>
+          <span class="mini-child-pip status-pip-complete"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Beat -->
+  <div class="mini-pane" style="border:1px solid var(--verd-bright); box-shadow:0 0 0 1px rgba(90,168,122,0.18);">
+    <div class="mini-hdr">
+      <div class="mini-title-row">
+        <span class="mini-label" style="color:var(--layer-beat);background:rgba(104,132,164,0.18);">[Bt 1]</span>
+      </div>
+      <div class="mini-title">The Signal</div>
+      <div class="mini-meta" style="color:var(--verd-bright);">107% · 320 / 300</div>
+    </div>
+    <div class="mini-content">
+      <div class="mini-section-h">Prose</div>
+      <div class="mini-prose-preview" style="font-size:10.5px;">The neural static hit first — a fragment of screaming, distorted through ice and helmet speakers. Marcus's voice, or what was left of it, cut through the white noise. Kael's fingers moved on instinct. Delete. Purge. Bury.</div>
+      <div style="margin-top:auto; padding-top:10px; font-size:8.5px; color:var(--verd-bright); font-weight:600; letter-spacing:.2em; text-transform:uppercase;">Leaf — prose canvas dominant</div>
+    </div>
+  </div>
+
+</div>
+
+<div style="max-width:1280px; margin:24px auto 0; font-size:12px; font-weight:300; color:var(--text-m); line-height:1.6;">
+  <strong style="color:var(--text-p);">Same template scales across all five layers.</strong> Book / Act / Chapter / Scene each show summary + their direct children + per-layer aggregate. Children list adapts: a Book's children are Acts; an Act's children are Chapters; a Chapter's children are Scenes; a Scene's children are Beats. <strong style="color:var(--text-p);">The Beat is the singular case</strong> — instead of children, it has prose. That's the only structural break in the pattern, and it's the most meaningful one.
+</div>
+
+</div>
+
+<!-- ───────────────────────────────────────────────────────── -->
+<!-- 03 — Writer's eye                                         -->
+<!-- ───────────────────────────────────────────────────────── -->
+
+<div class="section" style="padding-top:60px;"><div class="slabel">03 — Writer's eye · the detail pane in practice</div></div>
+
+<div style="padding:32px 48px 0;">
+<div class="writer-block">
+<div class="writer-title">Two days of writing — what each detail pane actually does</div>
+
+<p class="writer-p">I notice my own use of detail panes is bimodal. <strong>When I'm structuring</strong> (planning the next act, deciding where the next chapter break goes, checking my progress) I want to see the shape of the work below the row I clicked. <strong>When I'm writing</strong> (open a beat, type) I want everything else to disappear — just the prose and the word count. The non-leaf vs leaf split mirrors those two modes directly. That's why this iteration feels more honest than the iter1 attempt where every detail pane had the same Summary / Prose / Notes shape regardless of node type.</p>
+
+<div class="writer-h">What works</div>
+
+<p class="writer-p">The "In this Act · 2 chapters" block does the work of "where are we." I see Ch 1 (complete) and Ch 2 (3 running) and the eye finds Ch 2 immediately — that's where the active work is. <strong>I can act from this view without going back to the tree</strong> — click Ch 2's row and the detail pane updates. One-level navigation inside the detail pane reduces tree-pane traffic significantly.</p>
+
+<p class="writer-p">The aggregate metrics row (Chapters / Scenes / Beats / Running / Review) is a clean five-cell summary. Numbers in JetBrains Mono so they have weight and rhythm. <em>3 running</em> in blue jumps off the page when I'm scanning for what to attend to next.</p>
+
+<p class="writer-p">The Beat detail pane is the cleanest the prose-writing surface has ever been. The Summary stays present (one tap of attention) but the dominant block is the Lora prose canvas. <strong>The verdigris caret indicator at the end of the last paragraph is the kind of detail that says "this is a writing tool, not an editor for someone else's text."</strong></p>
+
+<div class="writer-h">What I'd push or revise</div>
+
+<div class="writer-recos">
+
+<div class="writer-reco"><span class="writer-reco-tag">D-1</span><div><strong>The "Aggregate" block reads as analytics-dashboard rather than writing-tool.</strong> Five numbers in mono is information-dense but emotionally cold. Counter-proposal: collapse to a single narrative line — "<em>This Act contains 2 chapters, 3 scenes, 11 beats. 3 beats are running, 1 needs review.</em>" Inter 12px, italic for the numbers. Same info, warmer register. <strong>Worth trying in iter2.</strong></div></div>
+
+<div class="writer-reco"><span class="writer-reco-tag">D-2</span><div><strong>The Beat detail pane shows the cursor at the end of the last paragraph.</strong> What if I want to edit a sentence in the middle? The mock shows only end-of-doc caret. In a real editor the caret follows clicks. The wireframe should hint at click-to-edit by showing a brief hover state on a mid-doc word. Minor visual — not a real concern.</div></div>
+
+<div class="writer-reco"><span class="writer-reco-tag">D-3</span><div><strong>Same width for both pane shapes.</strong> Currently both are 480px. The non-leaf overview pane feels right at 480; the leaf prose pane might want to be wider (560-620px) so the prose has room to breathe. <strong>Two options: variable pane width per shape, or both stay 480 and we trust the writer to use Focus Mode for full immersion.</strong> I lean the latter — Focus Mode is the answer to "I want to disappear into the prose," not "make the right panel wider."</div></div>
+
+<div class="writer-reco"><span class="writer-reco-tag">D-4</span><div><strong>"Open in Focus Mode →" link on the prose block.</strong> That's the right escape hatch but it should probably be a keyboard shortcut too (⌘.). Showing keyboard shortcuts inline on hoverable affordances might be a separate consistency pass (one of the items on the original Phase 8 list — global keyboard shortcuts).</div></div>
+
+<div class="writer-reco"><span class="writer-reco-tag">D-5</span><div><strong>The Activity block scoped-to-this-subtree is a real win.</strong> When I click an Act and see "the last 3 things that happened anywhere under this Act," I get exactly the information I want without scope-creeping into other Acts. <strong>Worth ensuring scoping is consistent everywhere</strong> — a Chapter's Activity block shows ops in that Chapter only; a Book's shows the whole book; etc.</div></div>
+
+<div class="writer-reco"><span class="writer-reco-tag">D-6</span><div><strong>"+ Expand" as the primary action on non-leaf panes</strong> assumes the most common next action is "have the Director propose children." That's true at planning time. At polishing time the most common action is "refine summary." Counter-proposal: <strong>primary action adapts based on the node's state</strong> — if the children block has no children (un-expanded), primary is + Expand. If children exist but the summary is short, primary is Refine summary. If everything's filled in, primary is + Expand (a new sibling). Small heuristic, big UX win.</div></div>
+
+<div class="writer-reco"><span class="writer-reco-tag">D-7</span><div><strong>Notes tab.</strong> Both panes have a Notes tab but the content is invisible in the mock. In the implementation Notes is the author's private scratchpad (Inter 13px, sibling to Summary). Worth showing in iter2 — a peek at what Notes looks like, because it's the surface where the author talks to themselves between Director conversations.</div></div>
+
+</div>
+
+<div class="writer-h" style="margin-top:24px;">Honest gut feel</div>
+<p class="writer-p">This is the closest the detail pane has come to feeling like a craft tool instead of a structural editor. The non-leaf shape gives the writer enough state without forcing them back to the tree pane every time. The leaf shape — Summary + prose canvas + word meter + minimal chrome — is what the writing surface should always have been. <strong>D-1 (warmer aggregate block) and D-6 (state-aware primary action) are the two refinements I'd want to see in iter2.</strong> Beyond that, this lands.</p>
+
+</div>
+</div>
+
+<!-- ───────────────────────────────────────────────────────── -->
+<!-- 04 — Decisions                                            -->
+<!-- ───────────────────────────────────────────────────────── -->
+
+<div class="section" style="padding-top:60px;"><div class="slabel">04 — Decisions iter1</div></div>
+<div class="spec-section" style="padding-top:18px;">
+
+  <div class="spec-block">
+    <div class="spec-block-header">Locked in this iteration</div>
+    <div class="spec-block-body">
+      <div class="spec-row"><div class="spec-row-k">Two pane shapes</div><div class="spec-row-v">Non-leaf (Book / Act / Chapter / Scene) and Leaf (Beat). One template per shape; same chrome (header / tabs / actions) so they read as the same kind of object.</div></div>
+      <div class="spec-row"><div class="spec-row-k">Shared header</div><div class="spec-row-v">Bracketed label + title + meta-line. Bracket colour matches the layer tint (same as tree).</div></div>
+      <div class="spec-row"><div class="spec-row-k">Non-leaf tabs</div><div class="spec-row-v"><em>Overview</em> · Notes · Activity · Comments · History. Overview = default.</div></div>
+      <div class="spec-row"><div class="spec-row-k">Leaf tabs</div><div class="spec-row-v"><em>Content</em> · Notes · Activity · Comments · History. Content = default.</div></div>
+      <div class="spec-row"><div class="spec-row-k">Non-leaf body</div><div class="spec-row-v">Summary card · Author's note · Aggregate metrics · Children list · Recent activity (scoped to subtree).</div></div>
+      <div class="spec-row"><div class="spec-row-k">Leaf body</div><div class="spec-row-v">Summary card · Prose canvas (Lora 16px, caret animation) · Word-count meter docked at body bottom.</div></div>
+      <div class="spec-row"><div class="spec-row-k">Children list</div><div class="spec-row-v">Compact rows with bracketed label · name · mini progress bar · lifecycle pill. Click → detail pane updates to that child. "Open in tree →" link to return to the full tree pane.</div></div>
+      <div class="spec-row"><div class="spec-row-k">Action bar</div><div class="spec-row-v">Docked bottom of pane. Non-leaf: + Expand (primary) · Refine summary · Generate context · Lock. Leaf: Refine (primary) · Synthesise · Comment · Lock.</div></div>
+      <div class="spec-row"><div class="spec-row-k">Activity scoping</div><div class="spec-row-v">Recent activity in detail pane is scoped to the subtree of the current node. A Chapter's activity = ops on its scenes + beats only. A Book's = all ops in the book.</div></div>
+    </div>
+  </div>
+
+  <div class="spec-block">
+    <div class="spec-block-header">D-* iter1 open</div>
+    <div class="spec-block-body">
+      <div class="spec-row"><div class="spec-row-k">D-1 aggregate block</div><div class="spec-row-v">Five-cell mono-numeric vs single narrative line. <strong>Worth iter2 sketch.</strong></div></div>
+      <div class="spec-row"><div class="spec-row-k">D-2 mid-doc caret</div><div class="spec-row-v">Minor visual — caret follows the click. No design action needed beyond the existing editor behaviour.</div></div>
+      <div class="spec-row"><div class="spec-row-k">D-3 pane width per shape</div><div class="spec-row-v">Keep both at 480 — Focus Mode is the wider-prose escape. <strong>Recommend lock.</strong></div></div>
+      <div class="spec-row"><div class="spec-row-k">D-4 keyboard shortcuts</div><div class="spec-row-v">Defer to global shortcuts audit (Phase 8.1+ original list).</div></div>
+      <div class="spec-row"><div class="spec-row-k">D-5 activity scoping</div><div class="spec-row-v">Locked above — recent activity is subtree-scoped.</div></div>
+      <div class="spec-row"><div class="spec-row-k">D-6 state-aware primary action</div><div class="spec-row-v">Primary action adapts based on node state. Worth iter2 sketch.</div></div>
+      <div class="spec-row"><div class="spec-row-k">D-7 Notes tab content</div><div class="spec-row-v">Show in iter2 — Notes is a meaningful surface that deserves its own preview.</div></div>
+    </div>
+  </div>
+
+  <div class="spec-block">
+    <div class="spec-block-header">Carried forward · still pending</div>
+    <div class="spec-block-body">
+      <div class="spec-row"><div class="spec-row-k">Dashboard iter4</div><div class="spec-row-v">Top-of-page reorganisation; F-1 sample tour; F-4 "Get started" reframe; F-6 sidebar empty state; F-7 "Yours" tile + encryption line; F-8 vertical compression.</div></div>
+      <div class="spec-row"><div class="spec-row-k">T-8 iPad layout</div><div class="spec-row-v">Slide-over detail pane at 1024px — own wireframe.</div></div>
+      <div class="spec-row"><div class="spec-row-k">Director Mode</div><div class="spec-row-v">Conversational presentation, plan-tag stripping, @-reference picker — own wireframe.</div></div>
+      <div class="spec-row"><div class="spec-row-k">Focus Mode</div><div class="spec-row-v">Pure writing surface — own wireframe.</div></div>
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>

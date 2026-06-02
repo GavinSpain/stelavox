@@ -18,6 +18,7 @@
 // Edit returns the user to where they were.
 
 import { useEffect, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { NodeTree } from '@/components/tree/NodeTree'
 import { NodeDetailPanel } from '@/components/detail/NodeDetailPanel'
 import { DirectorPanel } from '@/components/director/DirectorPanel'
@@ -47,6 +48,24 @@ export function DocumentClient({
 }: Props) {
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
   const [refreshKey, setRefreshKey] = useState(0)
+
+  // Phase 8.01.D OQ-5 — honour `?selectedNode={nodeId}` query param.
+  // The Resume Writing hero on the dashboard (and future deep-link
+  // surfaces) navigate here with the target beat in the URL; selecting
+  // it on mount drops the author straight into the right node's detail
+  // panel. Graceful degradation: a missing or bad id is silently ignored
+  // and the default state takes over.
+  const searchParams = useSearchParams()
+  useEffect(() => {
+    const fromQuery = searchParams?.get('selectedNode')
+    if (fromQuery && fromQuery.length > 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setSelectedNodeId(fromQuery)
+    }
+    // Intentionally one-shot — only honour the param on mount; later
+    // tree clicks must not reset to the query value.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
   const { setContent, setMinWidthOverride } = useRightSlot()
   const { setProject } = useSidebarProject()
   const { mode, setEnabled, setMode } = useMode()
@@ -100,6 +119,7 @@ export function DocumentClient({
         refreshKey={refreshKey}
         onMutated={() => setRefreshKey((k) => k + 1)}
         onClose={() => setSelectedNodeId(null)}
+        onSelectNode={setSelectedNodeId}
       />,
     )
     return () => setContent(null)

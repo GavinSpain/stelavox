@@ -15,6 +15,7 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { UserMessage } from './UserMessage'
 import { DirectorMessage } from './DirectorMessage'
 import { ThinkingIndicator } from './ThinkingIndicator'
+import type { ToolCallEntry } from '@/lib/director/groupToolCalls'
 
 export interface ConversationMessage {
   id: string
@@ -22,6 +23,13 @@ export interface ConversationMessage {
   content: string
   created_at: string
   workflow_id: string | null
+  /**
+   * Phase 8.01.C T-6.1 — tool_calls JSONB from conversation_messages.
+   * When present, DirectorMessage renders ToolCallChips below the prose
+   * body. Optional for backward compat with messages that didn't capture
+   * tool_calls (pre-V1.x-A era).
+   */
+  tool_calls?: ToolCallEntry[]
 }
 
 interface ConversationThreadProps {
@@ -35,6 +43,20 @@ interface ConversationThreadProps {
    * panel can parse the content and return the appropriate card or null.
    */
   renderBriefSlot?: (messageId: string, content: string) => ReactNode
+  /**
+   * Phase 8.01.C T-6.2 — optional Approve handler for the inline
+   * workflow proposal card per message. When BOTH this and the message's
+   * workflow_proposal artefact are present, DirectorMessage mounts the
+   * InlineWorkflowProposalCard (an additional conversation-thread
+   * surface, lighter than detail-panel PlanCard). Pass undefined to
+   * disable inline rendering (Edit Mode V1 default — PlanCard remains
+   * the sole Approve surface).
+   */
+  onApproveWorkflow?: (messageId: string) => void
+  /** Phase 8.01.C T-6.4 — optional Modify handler for the inline card. */
+  onModifyWorkflow?: (messageId: string) => void
+  /** Phase 8.01.C — disable the inline Approve while approval is in flight. */
+  approvalInFlightMessageId?: string | null
 }
 
 const NEAR_BOTTOM_PX = 40
@@ -45,6 +67,9 @@ export function ConversationThread({
   streamingMessageId = null,
   renderWorkflowSlot,
   renderBriefSlot,
+  onApproveWorkflow,
+  onModifyWorkflow,
+  approvalInFlightMessageId = null,
 }: ConversationThreadProps) {
   const scrollerRef = useRef<HTMLDivElement>(null)
   const [autoFollow, setAutoFollow] = useState(true)
@@ -130,6 +155,14 @@ export function ConversationThread({
                 content={m.content}
                 createdAt={m.created_at}
                 isStreaming={m.id === streamingMessageId}
+                toolCalls={m.tool_calls}
+                onApproveWorkflow={
+                  onApproveWorkflow ? () => onApproveWorkflow(m.id) : undefined
+                }
+                onModifyWorkflow={
+                  onModifyWorkflow ? () => onModifyWorkflow(m.id) : undefined
+                }
+                approvalInFlight={approvalInFlightMessageId === m.id}
               >
                 {m.workflow_id && renderWorkflowSlot
                   ? renderWorkflowSlot(m.id, m.workflow_id)

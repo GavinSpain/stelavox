@@ -1,0 +1,808 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stelavox — Director Mode v1 iter1 (Phase 8.01)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600&family=Cormorant+Garamond:ital,wght@1,300;1,400&family=Inter:wght@200;300;400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Lora:ital,wght@0,400;1,400&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --ink:#0d1014; --deep:#131820; --surface:#1a2030; --hover:#1e2838; --selected:#1f2d45;
+  --border-s:#1e2535; --border-d:#253045; --border-str:#3a4a62;
+  --text-p:#ecf0f5; --text-s:#8aa0b8; --text-m:#6884a4; --text-dis:#2a3850;
+  --verd:#3d7858; --verd-h:#5aa87a; --verd-muted:#1a3028;
+  --verd-bright:#5aa87a;
+  --st-running-bright:#4d8fd6; --st-review-bright:#e09040;
+  --layer-book:#5aa87a; --layer-act:#7a8fb8; --layer-chapter:#8a99b3;
+  --layer-scene:#7a8a9e; --layer-beat:#6884a4; --layer-series:#7aa8e0;
+  --spec-bg:#0a0d12; --spec-pan:#111520; --callout:#e8b840;
+}
+html, body { background:var(--spec-bg); color:var(--text-p); font-family:'Inter',sans-serif; font-size:13px; line-height:1.5; }
+
+.doc-header { background:var(--spec-pan); border-bottom:1px solid var(--border-d); padding:24px 48px; display:flex; align-items:baseline; justify-content:space-between; }
+.wm-s{font-family:'Cinzel',serif;font-size:14px;font-weight:500;letter-spacing:.18em;color:var(--text-p);}
+.wm-v{font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:300;font-size:16px;letter-spacing:.08em;color:var(--text-p);opacity:.82;}
+.doc-meta{font-size:11px;font-weight:300;letter-spacing:.2em;text-transform:uppercase;color:var(--text-m);}
+.section{padding:40px 48px 0;}
+.slabel{font-size:9px;font-weight:400;letter-spacing:.45em;text-transform:uppercase;color:var(--text-m);margin-bottom:20px;padding-bottom:12px;border-bottom:1px solid var(--border-s);}
+.screen { width:1280px; height:820px; background:var(--ink); border:1px solid var(--border-d); border-radius:8px; overflow:hidden; display:flex; flex-direction:column; box-shadow:0 24px 80px rgba(0,0,0,.6); margin:0 auto; position:relative; }
+
+.wm { display:flex; flex-direction:column; align-items:flex-start; }
+.wm-text { display:flex; align-items:baseline; }
+.wm-stela { font-family:'Cinzel',serif; font-weight:500; letter-spacing:.18em; color:var(--text-p); }
+.wm-vox   { font-family:'Cormorant Garamond',serif; font-style:italic; font-weight:400; letter-spacing:.08em; color:var(--text-p); opacity:.88; }
+.wm-rule-wrap { position:relative; margin-top:4px; }
+.wm-rule { height:1px; background:linear-gradient(90deg, var(--verd-bright) 0%, rgba(90,168,122,0.55) 45%, transparent 85%); }
+.wm-lozenge { position:absolute; left:-3px; top:-4px; width:9px; height:9px; background:var(--verd-bright); transform:rotate(45deg); box-shadow:0 0 8px rgba(90,168,122,0.45); }
+.wm-sm .wm-stela { font-size:17px; } .wm-sm .wm-vox { font-size:19px; } .wm-sm .wm-rule { width:100px; }
+
+.app-hdr { height:52px; min-height:52px; background:var(--deep); border-bottom:1px solid var(--border-s); display:flex; align-items:center; padding:0 24px; gap:0; }
+.app-hdr-right { display:flex; align-items:center; gap:14px; margin-left:auto; }
+.cmd-chip { font-size:11px; font-weight:400; color:var(--text-s); border:1px solid var(--border-str); background:var(--surface); padding:4px 10px 4px 9px; border-radius:4px; cursor:pointer; display:flex; align-items:center; gap:7px; }
+.cmd-chip:hover { border-color:var(--verd-bright); color:var(--text-p); }
+.cmd-chip-kbd { font-family:ui-monospace,monospace; font-size:10px; color:var(--text-m); }
+.hdr-link { font-size:12px; font-weight:400; color:var(--text-s); cursor:pointer; }
+.hdr-link:hover { color:var(--text-p); }
+.uav { width:30px; height:30px; background:var(--surface); border:1px solid var(--border-str); border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:500; color:var(--text-p); cursor:pointer; }
+.mode-tabs { display:flex; align-items:center; gap:2px; background:var(--surface); border:1px solid var(--border-d); border-radius:5px; padding:2px; margin:0 18px; }
+.mode-tab { font-size:12px; font-weight:500; color:var(--text-s); padding:5px 14px; border-radius:3px; cursor:pointer; display:flex; align-items:center; gap:6px; }
+.mode-tab:hover { color:var(--text-p); }
+.mode-tab.active { background:var(--selected); color:var(--text-p); }
+.mode-tab .dir-attn { width:6px; height:6px; border-radius:50%; background:var(--st-running-bright); box-shadow:0 0 4px rgba(77,143,214,0.6); animation:pulse 2s ease-in-out infinite; }
+@keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.55; } }
+
+.app-body { flex:1; overflow:hidden; display:flex; }
+
+.app-sidebar { width:220px; min-width:220px; background:var(--deep); border-right:1px solid var(--border-s); padding:18px 0 14px; display:flex; flex-direction:column; gap:0; position:relative; }
+.app-sidebar::after { content:""; position:absolute; right:0; top:48px; bottom:48px; width:1px; background:linear-gradient(180deg, transparent 0%, rgba(90,168,122,0.55) 20%, rgba(90,168,122,0.55) 80%, transparent 100%); }
+.sb-section-label { font-size:9px; font-weight:600; letter-spacing:.38em; text-transform:uppercase; color:var(--text-m); padding:0 20px 8px; }
+.sb-item { display:flex; align-items:center; gap:10px; padding:7px 20px; font-size:13px; font-weight:400; color:var(--text-s); cursor:pointer; border-left:2px solid transparent; }
+.sb-item:hover { background:var(--hover); color:var(--text-p); }
+.sb-item.active { color:var(--text-p); background:var(--selected); border-left:2px solid var(--verd-bright); }
+.sb-item-icon { font-size:13px; opacity:.85; width:18px; display:flex; justify-content:center; }
+.sb-item-count { margin-left:auto; font-size:10px; font-weight:300; color:var(--text-m); font-variant-numeric:tabular-nums; }
+.sb-divider { height:1px; background:var(--border-s); margin:10px 16px; }
+.sb-foot { margin-top:auto; padding-top:8px; }
+.sb-foot .sb-item { font-size:12px; color:var(--text-m); }
+
+/* Tree pane — compressed when Director panel is open */
+.tree-pane { flex:1; min-width:0; display:flex; flex-direction:column; background:var(--ink); }
+.tree-toolbar { padding:14px 20px 12px; border-bottom:1px solid var(--border-s); display:flex; flex-direction:column; gap:6px; }
+.tree-title-row { display:flex; align-items:baseline; gap:14px; }
+.tree-doc-title { font-size:16px; font-weight:600; color:var(--text-p); }
+.stack-badge { font-family:'JetBrains Mono', ui-monospace, monospace; font-size:9.5px; font-weight:500; color:var(--verd-bright); padding:2px 7px; border:1px solid rgba(90,168,122,0.4); border-radius:3px; }
+.tree-meta { font-size:11px; color:var(--text-m); }
+.tree-scroll { flex:1; overflow-y:auto; padding:6px 0; }
+.tree-row { display:flex; align-items:center; gap:8px; height:28px; cursor:pointer; padding-right:14px; }
+.tree-row:hover { background:var(--hover); }
+.tree-row.mentioned { background:rgba(90,168,122,0.08); border-left:2px solid var(--verd-bright); padding-left:0; }
+.tree-row.mentioned::before { content:"@"; position:absolute; left:8px; color:var(--verd-bright); font-family:ui-monospace,monospace; font-size:11px; font-weight:700; }
+.in-0 { padding-left:16px; }
+.in-1 { padding-left:36px; }
+.in-2 { padding-left:58px; }
+.in-3 { padding-left:82px; }
+.in-4 { padding-left:108px; }
+.row-label { font-family:'JetBrains Mono',ui-monospace,monospace; font-size:10px; font-weight:500; flex-shrink:0; min-width:46px; }
+.row-label-book    { color:var(--layer-book); }
+.row-label-act     { color:var(--layer-act); }
+.row-label-chapter { color:var(--layer-chapter); }
+.row-label-scene   { color:var(--layer-scene); }
+.row-label-beat    { color:var(--layer-beat); }
+.row-name { font-size:12px; color:var(--text-s); flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.row-book .row-name { color:var(--text-p); font-weight:600; font-size:13px; }
+.row-act .row-name { color:var(--text-p); font-weight:500; font-size:12.5px; }
+.row-chapter .row-name { color:var(--text-p); font-weight:500; }
+.tree-row .chev { width:10px; font-size:9px; color:var(--text-m); opacity:.6; }
+
+/* Director panel */
+.director-pane { width:500px; min-width:420px; max-width:600px; background:var(--ink); border-left:1px solid var(--border-s); display:flex; flex-direction:column; }
+.dp-hdr { padding:14px 20px 12px; border-bottom:1px solid var(--border-s); display:flex; align-items:center; gap:12px; }
+.dp-mark {
+  width:32px; height:32px; border-radius:6px;
+  background:linear-gradient(135deg, var(--verd) 0%, var(--verd-bright) 100%);
+  display:flex; align-items:center; justify-content:center;
+  font-family:'Cinzel',serif; font-size:16px; font-weight:600; color:#0d1014;
+  letter-spacing:.04em;
+  box-shadow:0 0 14px rgba(90,168,122,0.25);
+}
+.dp-meta { flex:1; min-width:0; display:flex; flex-direction:column; gap:1px; }
+.dp-name { font-family:'Cinzel',serif; font-size:13px; font-weight:500; color:var(--text-p); letter-spacing:.05em; }
+.dp-status { font-size:10.5px; color:var(--text-m); display:flex; align-items:center; gap:6px; }
+.dp-status.working { color:var(--st-running-bright); }
+.dp-status-pip { width:6px; height:6px; border-radius:50%; background:var(--st-running-bright); box-shadow:0 0 5px rgba(77,143,214,0.55); animation:pulse 2s ease-in-out infinite; }
+.dp-actions { display:flex; align-items:center; gap:8px; }
+.dp-icon-btn { width:28px; height:28px; border-radius:5px; border:1px solid var(--border-d); background:transparent; cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:13px; color:var(--text-m); }
+.dp-icon-btn:hover { border-color:var(--text-s); color:var(--text-p); }
+.dp-stop {
+  font-size:11px; font-weight:500; color:#fff; padding:5px 12px;
+  background:var(--st-review-bright); border:1px solid var(--st-review-bright); border-radius:4px; cursor:pointer;
+}
+
+/* Conversation thread */
+.dp-thread { flex:1; overflow-y:auto; padding:18px 0 0; display:flex; flex-direction:column; gap:24px; }
+
+.msg { padding:0 22px; }
+.msg-meta { font-size:9.5px; font-weight:600; letter-spacing:.32em; text-transform:uppercase; color:var(--text-m); margin-bottom:6px; display:flex; align-items:center; gap:8px; }
+.msg-meta-time { font-weight:300; letter-spacing:.04em; text-transform:none; color:var(--text-m); font-size:10px; }
+
+/* User message */
+.msg-user .msg-meta { color:var(--text-s); }
+.msg-user-body {
+  font-family:'Inter',sans-serif; font-size:14px; font-weight:400;
+  color:var(--text-p); line-height:1.55;
+  background:var(--surface); border:1px solid var(--border-d); border-radius:6px;
+  padding:11px 14px;
+}
+.msg-user-body .mention {
+  font-family:'JetBrains Mono', ui-monospace, monospace; font-size:12.5px; font-weight:500;
+  color:var(--verd-bright); background:rgba(61,120,88,0.18); padding:0 5px;
+  border:1px solid rgba(90,168,122,0.35); border-radius:3px;
+  margin:0 1px;
+}
+
+/* Director message */
+.msg-dir .msg-meta { color:var(--verd-bright); }
+.msg-dir-body {
+  font-family:'Lora',serif; font-size:14.5px; font-weight:400;
+  color:var(--text-p); line-height:1.7;
+}
+.msg-dir-body p { margin-bottom:0.95em; }
+.msg-dir-body p:last-child { margin-bottom:0; }
+.msg-dir-body strong { color:var(--text-p); font-weight:600; font-family:'Inter',sans-serif; font-size:13.5px; }
+.msg-dir-body em { color:var(--text-s); }
+.msg-dir-body .mention {
+  font-family:'JetBrains Mono', ui-monospace, monospace; font-size:12px; font-weight:500;
+  color:var(--verd-bright); background:rgba(61,120,88,0.18); padding:0 5px;
+  border:1px solid rgba(90,168,122,0.35); border-radius:3px;
+}
+
+/* Collapsed "reasoning" block (replaces visible <plan> tags) */
+.reasoning {
+  display:inline-flex; align-items:center; gap:7px;
+  font-family:'Inter',sans-serif; font-size:11px; font-weight:500;
+  color:var(--text-m); background:var(--deep);
+  border:1px solid var(--border-d); border-radius:4px;
+  padding:5px 10px; margin-bottom:10px; cursor:pointer;
+  letter-spacing:.02em;
+}
+.reasoning:hover { color:var(--text-s); border-color:var(--text-m); }
+.reasoning-chev { font-size:9px; opacity:.7; }
+.reasoning-icon { color:var(--text-m); font-size:11px; }
+
+/* Tool call strip */
+.tool-strip {
+  display:inline-flex; flex-wrap:wrap; gap:6px;
+  margin:8px 0;
+}
+.tool-chip {
+  display:inline-flex; align-items:center; gap:6px;
+  font-family:'JetBrains Mono', ui-monospace, monospace; font-size:10.5px; font-weight:400;
+  color:var(--text-s); background:var(--surface);
+  border:1px solid var(--border-d); border-radius:3px;
+  padding:3px 8px;
+}
+.tool-chip-icon { color:var(--text-m); font-size:10px; }
+.tool-chip-target { color:var(--verd-bright); }
+.tool-chip-result { color:var(--text-m); font-style:italic; font-family:'Inter',sans-serif; font-size:10px; }
+
+/* Proposal card (brief / workflow / amendment) */
+.proposal-card {
+  background:var(--deep);
+  border:1px solid var(--verd-bright);
+  border-radius:6px;
+  padding:14px 16px;
+  margin:10px 0 6px;
+  display:flex; flex-direction:column; gap:8px;
+}
+.proposal-hdr { display:flex; align-items:center; gap:8px; }
+.proposal-tag {
+  font-family:'JetBrains Mono', ui-monospace, monospace; font-size:9.5px; font-weight:500;
+  color:var(--verd-bright); background:rgba(90,168,122,0.12);
+  border:1px solid rgba(90,168,122,0.45);
+  padding:2px 7px; border-radius:3px; letter-spacing:.04em;
+}
+.proposal-title { font-family:'Inter',sans-serif; font-size:13.5px; font-weight:500; color:var(--text-p); }
+.proposal-meta { font-size:11px; color:var(--text-m); margin-bottom:4px; }
+.proposal-stages { display:flex; flex-direction:column; gap:6px; padding-left:0; }
+.proposal-stage {
+  font-family:'Inter',sans-serif; font-size:12px; color:var(--text-s);
+  background:var(--surface); border:1px solid var(--border-s);
+  border-radius:4px; padding:8px 11px;
+  display:flex; align-items:center; gap:10px;
+}
+.proposal-stage-num {
+  font-family:'JetBrains Mono', ui-monospace, monospace; font-size:10px; color:var(--text-m);
+  min-width:18px;
+}
+.proposal-stage-text { flex:1; line-height:1.45; }
+.proposal-stage-text strong { color:var(--text-p); font-weight:500; }
+.proposal-stage-meta { font-size:10px; color:var(--text-m); }
+.proposal-actions { display:flex; gap:8px; padding-top:6px; }
+.proposal-approve {
+  font-size:12px; font-weight:600; color:#fff; padding:7px 16px;
+  background:var(--verd); border:none; border-radius:4px; cursor:pointer;
+  flex:1;
+}
+.proposal-approve:hover { background:var(--verd-bright); }
+.proposal-reject {
+  font-size:12px; font-weight:500; color:var(--text-s); padding:7px 14px;
+  background:transparent; border:1px solid var(--border-d); border-radius:4px; cursor:pointer;
+}
+.proposal-reject:hover { border-color:var(--text-s); color:var(--text-p); }
+
+/* Input area */
+.dp-input {
+  padding:14px 20px 16px;
+  border-top:1px solid var(--border-s);
+  background:linear-gradient(180deg, transparent 0%, rgba(19,24,32,0.8) 100%);
+}
+.dp-input-box {
+  background:var(--surface); border:1px solid var(--border-str); border-radius:8px;
+  padding:10px 12px 8px;
+  display:flex; flex-direction:column; gap:8px;
+}
+.dp-input-box:focus-within { border-color:var(--verd-bright); }
+.dp-input-textarea {
+  font-family:'Inter',sans-serif; font-size:14px; font-weight:400; line-height:1.5;
+  color:var(--text-p); background:transparent; border:none; outline:none;
+  resize:none; min-height:22px; max-height:200px; width:100%;
+}
+.dp-input-bottom { display:flex; align-items:center; gap:10px; }
+.dp-input-affordance {
+  font-size:11px; color:var(--text-m); cursor:pointer; display:flex; align-items:center; gap:4px;
+}
+.dp-input-affordance:hover { color:var(--text-s); }
+.dp-input-affordance .kbd {
+  font-family:ui-monospace,monospace; font-size:10px; color:var(--text-dis);
+  padding:1px 5px; background:var(--ink); border:1px solid var(--border-d); border-radius:3px;
+}
+.dp-input-spacer { flex:1; }
+.dp-input-send {
+  font-size:12px; font-weight:600; color:#fff; padding:7px 18px;
+  background:var(--verd); border:none; border-radius:5px; cursor:pointer;
+  display:flex; align-items:center; gap:6px;
+}
+.dp-input-send:hover { background:var(--verd-bright); }
+.dp-input-send:disabled { background:var(--border-d); color:var(--text-m); cursor:not-allowed; }
+.dp-input-send .kbd { font-family:ui-monospace,monospace; font-size:10px; color:rgba(255,255,255,0.7); }
+
+/* Mention picker (popup) */
+.mention-picker {
+  background:var(--deep); border:1px solid var(--border-str); border-radius:6px;
+  box-shadow:0 12px 32px rgba(0,0,0,0.6); padding:6px 0;
+  width:340px;
+  position:absolute; bottom:80px; left:24px; z-index:10;
+}
+.mention-picker-hdr {
+  font-size:9.5px; font-weight:600; letter-spacing:.32em; text-transform:uppercase;
+  color:var(--text-m); padding:6px 14px 8px; border-bottom:1px solid var(--border-s); margin-bottom:4px;
+  display:flex; align-items:center; justify-content:space-between;
+}
+.mention-picker-hdr-meta { font-family:ui-monospace,monospace; font-size:9px; color:var(--text-dis); letter-spacing:.04em; text-transform:none; font-weight:400; }
+.mention-row { padding:6px 14px; display:flex; align-items:center; gap:10px; font-size:12px; color:var(--text-s); cursor:pointer; }
+.mention-row:hover, .mention-row.highlight { background:var(--selected); color:var(--text-p); }
+.mention-row-label { font-family:'JetBrains Mono', ui-monospace, monospace; font-size:10.5px; font-weight:500; min-width:60px; flex-shrink:0; }
+.mention-row-label.act { color:var(--layer-act); }
+.mention-row-label.chapter { color:var(--layer-chapter); }
+.mention-row-label.scene { color:var(--layer-scene); }
+.mention-row-label.beat { color:var(--layer-beat); }
+.mention-row-label.book { color:var(--layer-book); }
+.mention-row-name { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.mention-row-hint { font-size:10px; color:var(--text-dis); font-family:ui-monospace,monospace; flex-shrink:0; }
+.mention-row.highlight .mention-row-hint { color:var(--text-m); }
+
+/* Section banners */
+.compare-label { font-size:10px; font-weight:600; letter-spacing:.36em; text-transform:uppercase; color:var(--verd-bright); margin-bottom:12px; padding-bottom:8px; border-bottom:1px solid rgba(90,168,122,0.3); max-width:1280px; margin-left:auto; margin-right:auto; }
+
+/* Callouts */
+.callout-set { position:relative; max-width:1280px; margin:0 auto; }
+.callout-pin { position:absolute; width:22px; height:22px; border-radius:50%; background:var(--callout); color:#1a1a1a; font-size:11px; font-weight:700; display:flex; align-items:center; justify-content:center; border:2px solid var(--ink); box-shadow:0 0 0 1px var(--callout); z-index:5; }
+.callout-list { background:var(--spec-pan); border:1px solid var(--border-s); border-radius:6px; padding:20px 24px; margin-top:32px; max-width:1280px; margin-left:auto; margin-right:auto; }
+.callout-list-title { font-size:11px; font-weight:600; letter-spacing:.25em; text-transform:uppercase; color:var(--text-m); margin-bottom:14px; }
+.callout-row { display:flex; gap:14px; margin-bottom:11px; align-items:flex-start; }
+.callout-row:last-child { margin-bottom:0; }
+.callout-num { width:22px; height:22px; border-radius:50%; background:var(--callout); color:#1a1a1a; font-size:11px; font-weight:700; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.callout-text { font-size:13px; font-weight:300; color:var(--text-s); line-height:1.55; }
+.callout-text strong { color:var(--text-p); font-weight:500; }
+.callout-text code { background:var(--ink); padding:1px 6px; border-radius:3px; font-family:ui-monospace,monospace; font-size:11px; color:var(--callout); border:1px solid var(--border-s); }
+
+.writer-block { background:linear-gradient(135deg, var(--spec-pan) 0%, #14181f 100%); border:1px solid var(--border-d); border-radius:8px; padding:28px 32px; margin-top:32px; max-width:1280px; margin-left:auto; margin-right:auto; }
+.writer-title { font-size:11px; font-weight:600; letter-spacing:.32em; text-transform:uppercase; color:var(--verd-bright); margin-bottom:18px; display:flex; align-items:center; gap:10px; }
+.writer-title::before { content:""; width:16px; height:1px; background:var(--verd-bright); }
+.writer-h { font-size:15px; font-weight:500; color:var(--text-p); margin-top:18px; margin-bottom:8px; }
+.writer-h:first-of-type { margin-top:0; }
+.writer-p { font-size:13px; font-weight:300; color:var(--text-s); line-height:1.7; margin-bottom:10px; }
+.writer-p em { color:var(--text-m); }
+.writer-p strong { color:var(--text-p); font-weight:500; }
+.writer-recos { display:flex; flex-direction:column; gap:8px; margin-top:14px; }
+.writer-reco { display:flex; gap:12px; align-items:flex-start; font-size:13px; color:var(--text-s); line-height:1.55; }
+.writer-reco-tag { background:var(--verd-muted); color:var(--verd-bright); font-size:10px; font-weight:600; letter-spacing:.1em; padding:3px 8px; border-radius:3px; white-space:nowrap; margin-top:2px; }
+.writer-reco strong { color:var(--text-p); font-weight:500; }
+
+.spec-section{padding:0 48px 80px;max-width:1280px;margin:0 auto;}
+.spec-block{background:var(--spec-pan);border:1px solid var(--border-s);border-radius:6px;margin-bottom:18px;overflow:hidden;}
+.spec-block-header{padding:14px 22px;background:var(--ink);border-bottom:1px solid var(--border-s);font-size:11px;font-weight:600;letter-spacing:.25em;text-transform:uppercase;color:var(--text-p);}
+.spec-block-body{padding:18px 22px;}
+.spec-row{display:grid;grid-template-columns:200px 1fr;gap:18px;padding:9px 0;border-bottom:1px solid var(--border-s);font-size:12px;align-items:start;}
+.spec-row:last-child{border-bottom:none;}
+.spec-row-k{color:var(--text-s);font-weight:500;font-size:11px;letter-spacing:.08em;text-transform:uppercase;padding-top:1px;}
+.spec-row-v{color:var(--text-p);font-weight:300;line-height:1.6;}
+.spec-row-v code{background:var(--ink);padding:1px 6px;border-radius:3px;font-family:ui-monospace,monospace;font-size:11px;color:var(--callout);border:1px solid var(--border-s);}
+.spec-row-v em { color:var(--text-m); font-style:italic; }
+</style>
+</head>
+<body>
+
+<div class="doc-header">
+  <div>
+    <div style="display:flex;align-items:baseline;"><span class="wm-s">Stela</span><span class="wm-v">vox</span></div>
+    <div style="margin-top:6px;font-size:11px;font-weight:300;letter-spacing:.2em;text-transform:uppercase;color:var(--text-m);">Director Mode v1 — iteration 1 — Phase 8.01 · conversational presentation</div>
+  </div>
+  <div class="doc-meta">2026-05-28 · plan tags hidden · tool calls as chips · @ picker</div>
+</div>
+
+<!-- ───────────────────────────────────────────────────────── -->
+<!-- 01 — Full Director Mode                                   -->
+<!-- ───────────────────────────────────────────────────────── -->
+
+<div class="section"><div class="slabel">01 — Director Mode · Shadow Protocol · live conversation</div></div>
+
+<div style="padding:32px 48px 0;">
+<div class="callout-set">
+<div class="screen">
+
+  <div class="app-hdr">
+    <a class="wm wm-sm" href="#" style="text-decoration:none;">
+      <div class="wm-text"><span class="wm-stela">Stela</span><span class="wm-vox">vox</span></div>
+      <div class="wm-rule-wrap"><div class="wm-rule"></div><div class="wm-lozenge"></div></div>
+    </a>
+    <div class="mode-tabs">
+      <div class="mode-tab">Edit</div>
+      <div class="mode-tab active">Director <span class="dir-attn"></span></div>
+      <div class="mode-tab">Focus</div>
+    </div>
+    <div class="app-hdr-right">
+      <div class="cmd-chip">Search <span class="cmd-chip-kbd">⌘K</span></div>
+      <div class="hdr-link">Settings</div>
+      <div class="uav">AS</div>
+    </div>
+  </div>
+
+  <div class="app-body">
+
+    <div class="app-sidebar">
+      <div class="sb-section-label">Workspace</div>
+      <div class="sb-item"><span class="sb-item-icon">⌂</span> Home</div>
+      <div class="sb-divider"></div>
+      <div class="sb-section-label">Shadow Protocol</div>
+      <div class="sb-item active"><span class="sb-item-icon">◈</span> Manuscript</div>
+      <div class="sb-item"><span class="sb-item-icon">⌬</span> Scheduler <span class="sb-item-count">3</span></div>
+      <div class="sb-divider"></div>
+      <div class="sb-section-label">Context library</div>
+      <div class="sb-item"><span class="sb-item-icon">☉</span> Characters <span class="sb-item-count">2</span></div>
+      <div class="sb-item"><span class="sb-item-icon">⌖</span> Locations <span class="sb-item-count">5</span></div>
+      <div class="sb-item"><span class="sb-item-icon">✶</span> Themes <span class="sb-item-count">2</span></div>
+      <div class="sb-foot">
+        <div class="sb-divider"></div>
+        <div class="sb-item"><span class="sb-item-icon">⚙</span> Settings</div>
+      </div>
+    </div>
+
+    <!-- Compressed tree pane — Director mode shows the tree as context -->
+    <div class="tree-pane" style="max-width:340px;">
+      <div class="tree-toolbar">
+        <div class="tree-title-row">
+          <div class="tree-doc-title">Shadow Protocol</div>
+          <span class="stack-badge">Novel</span>
+        </div>
+        <div class="tree-meta">38% · 114 nodes</div>
+      </div>
+      <div class="tree-scroll">
+        <div class="tree-row in-0">
+          <span class="chev">▾</span>
+          <span class="row-label row-label-book">[Book 1]</span>
+          <span class="row-name">Shadow Protocol</span>
+        </div>
+        <div class="tree-row in-1">
+          <span class="chev">▾</span>
+          <span class="row-label row-label-act">[Act 1]</span>
+          <span class="row-name">The Salvage</span>
+        </div>
+        <div class="tree-row in-2">
+          <span class="chev">▾</span>
+          <span class="row-label row-label-chapter">[Ch 1]</span>
+          <span class="row-name">Salvage</span>
+        </div>
+        <div class="tree-row in-3" style="position:relative;">
+          <span class="chev">▾</span>
+          <span class="row-label row-label-scene">[Sc 1]</span>
+          <span class="row-name">The Iron Ghost</span>
+        </div>
+        <div class="tree-row in-4">
+          <span class="row-label row-label-beat">[Bt 1]</span>
+          <span class="row-name">The Signal</span>
+        </div>
+        <div class="tree-row in-4 mentioned" style="position:relative;padding-left:108px;">
+          <span class="row-label row-label-beat">[Bt 2]</span>
+          <span class="row-name">Recognition</span>
+        </div>
+        <div class="tree-row in-4">
+          <span class="row-label row-label-beat">[Bt 3]</span>
+          <span class="row-name">The Breaking</span>
+        </div>
+        <div class="tree-row in-3">
+          <span class="chev">▸</span>
+          <span class="row-label row-label-scene">[Sc 2]</span>
+          <span class="row-name">The Beacon in the Dark</span>
+        </div>
+        <div class="tree-row in-2">
+          <span class="chev">▸</span>
+          <span class="row-label row-label-chapter">[Ch 2]</span>
+          <span class="row-name">The Wipe</span>
+        </div>
+        <div class="tree-row in-1">
+          <span class="chev">▸</span>
+          <span class="row-label row-label-act">[Act 2]</span>
+          <span class="row-name">The Bonding</span>
+        </div>
+        <div class="tree-row in-1">
+          <span class="chev">▸</span>
+          <span class="row-label row-label-act">[Act 3]</span>
+          <span class="row-name">The Echo</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Director panel -->
+    <div class="director-pane">
+      <div class="dp-hdr">
+        <div class="dp-mark">S</div>
+        <div class="dp-meta">
+          <div class="dp-name">The Director</div>
+          <div class="dp-status working"><span class="dp-status-pip"></span> Working · ~2 min remaining</div>
+        </div>
+        <div class="dp-actions">
+          <button class="dp-stop">Stop</button>
+          <button class="dp-icon-btn" title="Clear conversation">⌫</button>
+        </div>
+      </div>
+
+      <div class="dp-thread">
+
+        <!-- User message -->
+        <div class="msg msg-user">
+          <div class="msg-meta">You <span class="msg-meta-time">· 4 min ago</span></div>
+          <div class="msg-user-body">Could you check the pacing of <span class="mention">[Sc 1] The Iron Ghost</span>? I'm worried the second beat reads too slowly.</div>
+        </div>
+
+        <!-- Director response — plan tags hidden as collapsed reasoning chip -->
+        <div class="msg msg-dir">
+          <div class="msg-meta">The Director <span class="msg-meta-time">· 3 min ago</span></div>
+          <div class="msg-dir-body">
+            <div class="reasoning">
+              <span class="reasoning-icon">⚛</span>
+              <span>Reasoning · 6 lines</span>
+              <span class="reasoning-chev">▸</span>
+            </div>
+
+            <div class="tool-strip">
+              <div class="tool-chip"><span class="tool-chip-icon">⌕</span> read <span class="tool-chip-target">[Sc 1] The Iron Ghost</span></div>
+              <div class="tool-chip"><span class="tool-chip-icon">⌕</span> read prose · 3 beats</div>
+            </div>
+
+            <p>The pacing in <strong>[Sc 1] The Iron Ghost</strong> works in beats 1 and 3 but breaks in <strong>[Bt 2] Recognition</strong>. You're right.</p>
+
+            <p>The trouble is the middle paragraph — the one that begins <em>"He pulled up the source vector."</em> It's six sentences of analytic prose between two emotional moments (the screams returning, then the choice to plot the course). The reader has just felt something stir; the analysis cools the room before the choice lands.</p>
+
+            <p>Two options:</p>
+
+            <p><strong>Option A.</strong> Compress the analysis into a single sentence — keep the technical detail but make it feel like instinct, not calculation. <em>"The decay pattern said centuries. Maybe longer."</em></p>
+
+            <p><strong>Option B.</strong> Move the analytic paragraph into <strong>[Bt 1] The Signal</strong>, where it fits the curiosity arc. <strong>[Bt 2]</strong> then runs from screams → choice without interruption.</p>
+
+            <p>I'd recommend <strong>A</strong> — moving the paragraph would weaken <strong>[Bt 1]</strong>'s ending (it currently lands on the choice to log-and-continue). Want me to draft Option A?</p>
+          </div>
+        </div>
+
+        <!-- User followup -->
+        <div class="msg msg-user">
+          <div class="msg-meta">You <span class="msg-meta-time">· 2 min ago</span></div>
+          <div class="msg-user-body">Yes please draft option A. Make sure the analytic feel still hints at the deeper time scale.</div>
+        </div>
+
+        <!-- Director response with proposal -->
+        <div class="msg msg-dir">
+          <div class="msg-meta">The Director <span class="msg-meta-time">· just now</span></div>
+          <div class="msg-dir-body">
+            <p>Proposing a refine of <strong>[Bt 2] Recognition</strong> — compressed analytic paragraph, preserves the centuries-old hint, tightens the pacing into the choice.</p>
+
+            <div class="proposal-card">
+              <div class="proposal-hdr">
+                <span class="proposal-tag">Workflow proposal</span>
+                <span class="proposal-title">Tighten Recognition's middle</span>
+              </div>
+              <div class="proposal-meta">1 step · ~30 seconds · est. cost 1,400 credits</div>
+              <div class="proposal-stages">
+                <div class="proposal-stage">
+                  <span class="proposal-stage-num">1</span>
+                  <div class="proposal-stage-text">
+                    <strong>Refine</strong> <span class="mention" style="font-family:'JetBrains Mono',ui-monospace,monospace;font-size:11.5px;color:var(--verd-bright);background:rgba(61,120,88,0.18);padding:0 5px;border:1px solid rgba(90,168,122,0.35);border-radius:3px;margin:0 2px;">[Bt 2] Recognition</span>
+                    <div class="proposal-stage-meta" style="margin-top:4px;">Compress the analytic middle paragraph into 1-2 sentences. Preserve the "centuries old" hint. Land cleanly on the choice.</div>
+                  </div>
+                </div>
+              </div>
+              <div class="proposal-actions">
+                <button class="proposal-approve">Approve · Run</button>
+                <button class="proposal-reject">Reject</button>
+              </div>
+            </div>
+
+            <p>I'll await your accept on the result before moving to anything else in the scene.</p>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Input area -->
+      <div class="dp-input">
+        <div class="dp-input-box">
+          <textarea class="dp-input-textarea" placeholder="Ask the Director about your manuscript, or @ a node…">Could you also check whether the screams reference in </textarea>
+          <div class="dp-input-bottom">
+            <span class="dp-input-affordance">@<span class="kbd">@</span></span>
+            <span class="dp-input-affordance">attach</span>
+            <div class="dp-input-spacer"></div>
+            <button class="dp-input-send">Send <span class="kbd">↵</span></button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+  <div class="callout-pin" style="top:160px;left:840px;">1</div>
+  <div class="callout-pin" style="top:225px;left:840px;">2</div>
+  <div class="callout-pin" style="top:300px;left:840px;">3</div>
+  <div class="callout-pin" style="top:340px;left:840px;">4</div>
+  <div class="callout-pin" style="top:560px;left:840px;">5</div>
+  <div class="callout-pin" style="top:520px;left:380px;">6</div>
+  <div class="callout-pin" style="top:760px;left:840px;">7</div>
+</div>
+
+  <div class="callout-list">
+    <div class="callout-list-title">What makes this Director Mode feel different</div>
+    <div class="callout-row"><div class="callout-num">1</div><div class="callout-text"><strong>Header has presence.</strong> Stelavox "S" mark in a verdigris gradient at 32px — gives the Director an identity rather than just a "Director Panel" label. Status line tells you exactly what's happening (<em>"Working · ~2 min remaining"</em>). Stop button always visible when active.</div></div>
+    <div class="callout-row"><div class="callout-num">2</div><div class="callout-text"><strong>User message in Inter, surfaced as a card.</strong> Your messages have visual weight — they're clearly demarcated from the Director's replies. Bracketed-label mentions (<code>[Sc 1] The Iron Ghost</code>) render as monospace verdigris chips. Same syntax everywhere.</div></div>
+    <div class="callout-row"><div class="callout-num">3</div><div class="callout-text"><strong>"Reasoning · 6 lines" chip replaces visible <code>&lt;plan&gt;</code> tags.</strong> The Director's internal planning is hidden by default but you can click to expand. <em>You don't have to read the model's thinking-aloud unless you want to.</em> Conversation reads as conversation.</div></div>
+    <div class="callout-row"><div class="callout-num">4</div><div class="callout-text"><strong>Tool calls as compact chips.</strong> "<em>read [Sc 1] The Iron Ghost · read prose · 3 beats</em>" — shows what the Director looked at without dominating the message. Clickable to see results if you want. Same monospace family as labels everywhere.</div></div>
+    <div class="callout-row"><div class="callout-num">5</div><div class="callout-text"><strong>Director response body in Lora 14.5px.</strong> The Director is a writer talking to a writer; prose typography signals that. Bold names of beats/scenes/chapters break out structurally so they're scannable. The whole thing reads like a craft conversation, not a chat-with-an-LLM.</div></div>
+    <div class="callout-row"><div class="callout-num">6</div><div class="callout-text"><strong>Tree pane stays visible as context.</strong> Compressed to 340px to make room for the Director panel. Mentioned nodes get a verdigris left-border + <code>@</code> prefix marker in the tree — visual coupling between conversation and structure. <em>You always see where in the tree the conversation is anchored.</em></div></div>
+    <div class="callout-row"><div class="callout-num">7</div><div class="callout-text"><strong>Workflow proposal as a distinct card.</strong> Verdigris border (only place verdigris fills a border — it signals "actionable proposal"). Tag, title, meta line (steps · time · cost), per-step description with mention chips, big Approve / Reject buttons. <em>Approve · Run</em> sends it to the scheduler immediately. The proposal is clearly inline in the conversation thread, not a separate modal.</div></div>
+  </div>
+</div>
+
+<!-- ───────────────────────────────────────────────────────── -->
+<!-- 02 — Message-level zoom                                   -->
+<!-- ───────────────────────────────────────────────────────── -->
+
+<div class="section" style="padding-top:60px;"><div class="slabel">02 — Message-level zoom · the building blocks</div></div>
+
+<div style="padding:32px 48px 0; max-width:1280px; margin:0 auto;">
+<div style="display:grid; grid-template-columns:1fr 1fr; gap:32px;">
+
+  <div>
+    <div class="compare-label">Reasoning collapsed (default)</div>
+    <div style="background:var(--ink);border:1px solid var(--border-d);border-radius:6px;padding:22px;">
+      <div class="msg-dir">
+        <div class="msg-meta" style="color:var(--verd-bright);">The Director <span class="msg-meta-time">· 3 min ago</span></div>
+        <div class="msg-dir-body">
+          <div class="reasoning">
+            <span class="reasoning-icon">⚛</span>
+            <span>Reasoning · 6 lines</span>
+            <span class="reasoning-chev">▸</span>
+          </div>
+          <p>The pacing in <strong>[Sc 1] The Iron Ghost</strong> works in beats 1 and 3 but breaks in <strong>[Bt 2] Recognition</strong>. You're right.</p>
+          <p>The trouble is the middle paragraph…</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <div class="compare-label">Reasoning expanded · on click</div>
+    <div style="background:var(--ink);border:1px solid var(--border-d);border-radius:6px;padding:22px;">
+      <div class="msg-dir">
+        <div class="msg-meta" style="color:var(--verd-bright);">The Director <span class="msg-meta-time">· 3 min ago</span></div>
+        <div class="msg-dir-body">
+          <div style="background:var(--deep);border:1px solid var(--border-d);border-radius:5px;padding:11px 14px;margin-bottom:12px;font-family:'JetBrains Mono',ui-monospace,monospace;font-size:11px;color:var(--text-s);line-height:1.7;">
+            <div style="font-size:9.5px;font-weight:600;letter-spacing:.32em;text-transform:uppercase;color:var(--text-m);margin-bottom:8px;">Reasoning ▾</div>
+            <div style="font-weight:500;color:var(--verd-bright);">QUESTION TYPE</div>
+            <div>qualitative · scene-level pacing</div>
+            <div style="font-weight:500;color:var(--verd-bright);margin-top:8px;">READS</div>
+            <div>get_node([Sc 1])</div>
+            <div>get_subtree_content(root: [Sc 1], depth: 1)</div>
+            <div style="font-weight:500;color:var(--verd-bright);margin-top:8px;">CRITERIA</div>
+            <div>emotional → analytic → emotional rhythm; flag if analytic block is &gt; 4 sentences</div>
+          </div>
+          <p>The pacing in <strong>[Sc 1] The Iron Ghost</strong> works in beats 1 and 3 but breaks in <strong>[Bt 2] Recognition</strong>…</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div style="margin-top:28px; max-width:1280px; margin-left:auto; margin-right:auto;">
+  <div class="compare-label">Tool chip — hover state · shows the result inline</div>
+  <div style="background:var(--ink);border:1px solid var(--border-d);border-radius:6px;padding:22px;">
+    <div class="tool-strip">
+      <div class="tool-chip"><span class="tool-chip-icon">⌕</span> read <span class="tool-chip-target">[Sc 1] The Iron Ghost</span> <span class="tool-chip-result">· 2,180 words returned</span></div>
+      <div class="tool-chip" style="border-color:var(--text-m);color:var(--text-p);"><span class="tool-chip-icon">⌕</span> read prose · 3 beats <span class="tool-chip-result">· The Signal, Recognition, The Breaking</span></div>
+    </div>
+    <div style="font-size:11px; color:var(--text-m); margin-top:8px; font-style:italic;">On hover, the tool chip reveals what was returned. Click expands a full preview of the data — useful for debugging or curiosity, never required.</div>
+  </div>
+</div>
+
+</div>
+
+<!-- ───────────────────────────────────────────────────────── -->
+<!-- 03 — @ mention picker                                     -->
+<!-- ───────────────────────────────────────────────────────── -->
+
+<div class="section" style="padding-top:60px;"><div class="slabel">03 — @ mention picker · structured node references</div></div>
+
+<div style="padding:32px 48px 0; max-width:760px; margin:0 auto;">
+
+<div style="background:var(--ink); border:1px solid var(--border-d); border-radius:8px; padding:18px 22px; position:relative; min-height:300px;">
+
+  <div style="font-size:11px; color:var(--text-m); margin-bottom:14px;">Type <code style="font-family:ui-monospace,monospace;background:var(--surface);padding:2px 6px;border-radius:3px;color:var(--text-s);">@</code> in the input to bring up the picker. Filter as you type. Numbers come from <code style="font-family:ui-monospace,monospace;background:var(--surface);padding:2px 6px;border-radius:3px;color:var(--text-s);">nodes.order</code>; positional reference is unambiguous within the document.</div>
+
+  <div class="dp-input" style="border:1px solid var(--border-str);border-radius:6px;padding:14px 16px 12px;background:var(--surface);position:relative;">
+    <div class="dp-input-box" style="background:transparent;border:none;padding:0;">
+      <textarea class="dp-input-textarea" style="background:transparent;">Could you check pacing in @sc1</textarea>
+    </div>
+
+    <!-- Picker -->
+    <div class="mention-picker" style="position:absolute;left:0;bottom:64px;width:100%;">
+      <div class="mention-picker-hdr">
+        <span>Matching @sc1 · 3 candidates</span>
+        <span class="mention-picker-hdr-meta">↑↓ navigate · ↵ select · esc dismiss</span>
+      </div>
+      <div class="mention-row highlight">
+        <span class="mention-row-label scene">[Sc 1]</span>
+        <span class="mention-row-name">The Iron Ghost</span>
+        <span class="mention-row-hint">act1ch1sc1</span>
+      </div>
+      <div class="mention-row">
+        <span class="mention-row-label scene">[Sc 1]</span>
+        <span class="mention-row-name">Contact and Activation</span>
+        <span class="mention-row-hint">act2ch2sc1</span>
+      </div>
+      <div class="mention-row">
+        <span class="mention-row-label scene">[Sc 1]</span>
+        <span class="mention-row-name">The Wipe Opens</span>
+        <span class="mention-row-hint">act1ch2sc1</span>
+      </div>
+      <div style="padding:8px 14px; font-size:10.5px; color:var(--text-m); border-top:1px solid var(--border-s);">
+        Or type a positional path · <code style="font-family:ui-monospace,monospace;color:var(--callout);">@act1ch1sc1bt2</code> resolves directly
+      </div>
+    </div>
+
+    <div class="dp-input-bottom" style="margin-top:8px;">
+      <span class="dp-input-affordance">@<span class="kbd">@</span></span>
+      <span class="dp-input-affordance">attach</span>
+      <div class="dp-input-spacer"></div>
+      <button class="dp-input-send">Send <span class="kbd">↵</span></button>
+    </div>
+  </div>
+
+</div>
+
+<div style="margin-top:24px; font-size:12px; color:var(--text-m); line-height:1.7;">
+  <strong style="color:var(--text-p);">Two ways to mention a node.</strong> The picker (above) for fuzzy / disambiguating mentions — typing <code style="font-family:ui-monospace,monospace;background:var(--surface);padding:1px 6px;border-radius:2px;color:var(--text-s);">@sc1</code> shows all "Sc 1" candidates across the document and you pick. Or, when you know the exact path, type the positional reference directly: <code style="font-family:ui-monospace,monospace;background:var(--surface);padding:1px 6px;border-radius:2px;color:var(--callout);">@act1ch1sc1bt2</code> resolves to a single beat without disambiguation. Both produce the same chip in the message — only the entry path differs.
+</div>
+
+</div>
+
+<!-- ───────────────────────────────────────────────────────── -->
+<!-- 04 — Writer's eye                                         -->
+<!-- ───────────────────────────────────────────────────────── -->
+
+<div class="section" style="padding-top:60px;"><div class="slabel">04 — Writer's eye · the Director in a real exchange</div></div>
+
+<div style="padding:32px 48px 0;">
+<div class="writer-block">
+<div class="writer-title">The Director as collaborator, not chat-with-an-LLM</div>
+
+<p class="writer-p">Most AI tools I've used as a writer feel like they're showing off — long-winded responses, visible reasoning blocks, sycophantic preambles, code-block-ish output where prose would do. The bar for "feels like talking to a craft collaborator" is honestly quite low because almost no one clears it. This iteration is the first time I've thought <em>"oh — this is what the Director should feel like."</em></p>
+
+<div class="writer-h">What works in iter1</div>
+
+<p class="writer-p">The Lora 14.5px body text on the Director's responses is doing more emotional work than I expected. <strong>Prose-typography signals "this is a writer talking to a writer."</strong> Compare to standard chat-UI sans-serif at 14px — the same content reads completely differently. Visual register matters when the topic is craft.</p>
+
+<p class="writer-p">Bracketed mentions threaded through the prose make the structural references unambiguous without breaking the conversational tone. <em>"The pacing in [Sc 1] The Iron Ghost works in beats 1 and 3 but breaks in [Bt 2] Recognition"</em> — both completely natural English AND completely precise. Same vocabulary the writer uses in their head.</p>
+
+<p class="writer-p">The Reasoning chip is the single biggest UX win. <strong>The model can think aloud in <code>&lt;plan&gt;</code> tags all it wants — the writer never has to see it.</strong> One subtle pill in the corner; click if you're debugging, ignore otherwise. This is the right resolution to the "Director output is verbose XML" problem we surfaced earlier.</p>
+
+<p class="writer-p">The proposal card lands inline with the conversation — not as a separate modal, not as a sidebar, not as a "click here to see the proposal." The conversation produces the proposal as its natural next utterance, and the Approve/Reject buttons are right there. Frictionless. <strong>This is how I'd want to direct an assistant.</strong></p>
+
+<div class="writer-h">What I'd push or revise</div>
+
+<div class="writer-recos">
+
+<div class="writer-reco"><span class="writer-reco-tag">M-1</span><div><strong>The Director's mark / avatar.</strong> Currently an "S" in a verdigris gradient — I went with "S" for Stelavox but on reflection the Director isn't really Stelavox-the-tool — it's the agent the tool gives you access to. Worth considering: a single brand glyph (◈ from the project lozenge?), or an abstract mark like ◇, or even just the Wordmark "S" in Cinzel. <strong>The current choice is fine but worth A/B'ing.</strong></div></div>
+
+<div class="writer-reco"><span class="writer-reco-tag">M-2</span><div><strong>"You" and "The Director" as headers above each message.</strong> Standard chat-UI affordance but maybe overkill in a 2-party conversation. Alternative: drop the headers and rely on visual styling alone (user = surface card, Director = Lora-bodied open prose). <strong>Cleaner; less repetitive.</strong> Tradeoff: less scannable when reviewing old conversations. I lean keep-for-now, revisit when we have real conversation depth.</div></div>
+
+<div class="writer-reco"><span class="writer-reco-tag">M-3</span><div><strong>Time stamps as "4 min ago" / "3 min ago".</strong> Relative time is friendly but for an exchange that just happened it adds noise. Counter: hide the timestamp on the most recent message; show on older ones. Or show only on hover. <strong>Quiet by default.</strong></div></div>
+
+<div class="writer-reco"><span class="writer-reco-tag">M-4</span><div><strong>"Working · ~2 min remaining" estimate.</strong> If we can't be reasonably accurate the estimate becomes annoying. Better might be "Working on it · Stop" with no time estimate, or an honest "First step running · 3 steps total" progress. Estimates are a promise; we shouldn't make ones we can't keep.</div></div>
+
+<div class="writer-reco"><span class="writer-reco-tag">M-5</span><div><strong>Mentioned-node highlighting in the tree pane.</strong> Currently the mentioned beat ([Bt 2] Recognition) gets a verdigris left-border + @ prefix in the tree. Conceptually right — visual coupling between conversation and structure. But it might be visually noisy if the conversation references 10+ nodes. Limit: highlight only the most recently-mentioned 3 nodes; let earlier mentions fade.</div></div>
+
+<div class="writer-reco"><span class="writer-reco-tag">M-6</span><div><strong>Tree pane width.</strong> 340px compresses the tree but row text starts truncating with longer node names. Worth testing: should the Director panel become a slide-over on narrower screens (iPad), with the tree at full width when no Director is open and the panel sliding in over the top half of the tree? Defer to T-8 iPad wireframe.</div></div>
+
+<div class="writer-reco"><span class="writer-reco-tag">M-7</span><div><strong>"Reasoning · 6 lines" — should the lines count refer to the raw reasoning chars, or the conceptual steps?</strong> A 6-line reasoning block could be a brief plan or a dense analysis. Better label might be just "Reasoning ▸" without the line count — opens to show whatever's there. Counter: line count gives you a sense of "how much thinking did the Director do."</div></div>
+
+<div class="writer-reco"><span class="writer-reco-tag">M-8</span><div><strong>"Approve · Run" vs separate Approve and Run.</strong> Currently one button approves AND immediately dispatches. Some authors might want "Approve" (saves the workflow as planned) separately from "Run" (dispatches it). For V1 I think combined is fine — the friction of a two-step is not worth the safety of separating. Flag for V2.</div></div>
+
+</div>
+
+<div class="writer-h" style="margin-top:24px;">Honest gut feel</div>
+<p class="writer-p">This is the wireframe I've been most excited to draft. The Director Mode has been the bit that most differentiated Stelavox from generic AI writing tools, and the previous implementation buried the magic under XML tags and same-as-edit-mode chrome. Iter1 here lets the conversation be the conversation. The two real next steps are <strong>M-4</strong> (honest progress display) and the eventual <strong>iPad layout</strong> (M-6 → T-8 wireframe).</p>
+
+</div>
+</div>
+
+<!-- ───────────────────────────────────────────────────────── -->
+<!-- 05 — Decisions                                            -->
+<!-- ───────────────────────────────────────────────────────── -->
+
+<div class="section" style="padding-top:60px;"><div class="slabel">05 — Decisions iter1</div></div>
+<div class="spec-section" style="padding-top:18px;">
+
+  <div class="spec-block">
+    <div class="spec-block-header">Locked in this iteration</div>
+    <div class="spec-block-body">
+      <div class="spec-row"><div class="spec-row-k">Plan-tag handling</div><div class="spec-row-v"><code>&lt;plan&gt;</code> tags are NEVER rendered as-is. They become a "Reasoning · N lines" collapsed chip at the top of the Director's message. Click expands; default-closed.</div></div>
+      <div class="spec-row"><div class="spec-row-k">Director body typography</div><div class="spec-row-v">Lora 14.5px line-height 1.7. Prose-typography for the agent that produces prose. Bold (Inter 13.5px 600) for structural references; italic Lora for emphasis; mentions render as monospace verdigris chips inline.</div></div>
+      <div class="spec-row"><div class="spec-row-k">User message</div><div class="spec-row-v">Inter 14px on <code>--color-bg-surface</code> card with subtle border. Mentions same chip style.</div></div>
+      <div class="spec-row"><div class="spec-row-k">Tool calls</div><div class="spec-row-v">Compact monospace chips: <em>"read [Sc 1] The Iron Ghost"</em>. Below the message header. Hover reveals result; click expands.</div></div>
+      <div class="spec-row"><div class="spec-row-k">Proposal cards</div><div class="spec-row-v">Inline in conversation. Verdigris border (signals "actionable"). Tag + title + meta + steps + Approve/Reject. <em>"Approve · Run"</em> combined action.</div></div>
+      <div class="spec-row"><div class="spec-row-k">@ mention picker</div><div class="spec-row-v">Triggered by typing <code>@</code>. Filters as you type. Shows matching nodes with bracketed labels + positional path hint. Direct positional refs (<code>@act1ch1sc1bt2</code>) resolve without picker.</div></div>
+      <div class="spec-row"><div class="spec-row-k">Tree pane coupling</div><div class="spec-row-v">Tree stays visible (compressed to ~340px). Mentioned nodes get verdigris left-border + @ prefix marker in the tree. Visual coupling between conversation and structure.</div></div>
+      <div class="spec-row"><div class="spec-row-k">Header status</div><div class="spec-row-v">Director "S" mark + name + working-status line. Stop button always visible when active. Clear conversation in the icon row.</div></div>
+    </div>
+  </div>
+
+  <div class="spec-block">
+    <div class="spec-block-header">M-* iter1 open</div>
+    <div class="spec-block-body">
+      <div class="spec-row"><div class="spec-row-k">M-1 Director mark</div><div class="spec-row-v">"S" vs ◈ vs abstract glyph. Current "S" gradient — A/B in iter2.</div></div>
+      <div class="spec-row"><div class="spec-row-k">M-2 message headers</div><div class="spec-row-v">"You" / "The Director" — keep for now, revisit when conversation depth grows.</div></div>
+      <div class="spec-row"><div class="spec-row-k">M-3 timestamps</div><div class="spec-row-v">Hide on most recent message; show on hover or older messages. <strong>Recommend.</strong></div></div>
+      <div class="spec-row"><div class="spec-row-k">M-4 progress estimate</div><div class="spec-row-v">Drop "~2 min remaining" if we can't honour it. Alternative: "First step running · 3 steps total." <strong>Recommend honest version.</strong></div></div>
+      <div class="spec-row"><div class="spec-row-k">M-5 mentioned-node fade</div><div class="spec-row-v">Limit tree highlight to most recent 3 mentions; older fade.</div></div>
+      <div class="spec-row"><div class="spec-row-k">M-6 iPad layout</div><div class="spec-row-v">Defer to T-8 iPad wireframe. Director panel becomes slide-over.</div></div>
+      <div class="spec-row"><div class="spec-row-k">M-7 reasoning chip label</div><div class="spec-row-v">"Reasoning ▸" without line count vs "Reasoning · 6 lines". Tradeoff.</div></div>
+      <div class="spec-row"><div class="spec-row-k">M-8 Approve vs Approve+Run</div><div class="spec-row-v">Combined for V1; separate at V2 if friction emerges.</div></div>
+    </div>
+  </div>
+
+  <div class="spec-block">
+    <div class="spec-block-header">Still pending</div>
+    <div class="spec-block-body">
+      <div class="spec-row"><div class="spec-row-k">Focus Mode</div><div class="spec-row-v">Pure writing surface — next wireframe.</div></div>
+      <div class="spec-row"><div class="spec-row-k">T-8 iPad layout</div><div class="spec-row-v">Slide-over panes at 1024px. After Focus Mode.</div></div>
+      <div class="spec-row"><div class="spec-row-k">Dashboard iter4</div><div class="spec-row-v">Carry-forward fixes — close-out batch.</div></div>
+      <div class="spec-row"><div class="spec-row-k">Spec doc consolidation</div><div class="spec-row-v">After all wireframes converge — single batch update to Component Spec + TA + Brand Identity.</div></div>
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>

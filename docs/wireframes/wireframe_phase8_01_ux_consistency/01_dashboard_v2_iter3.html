@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stelavox — Dashboard v2 iter3 (Phase 8.01)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600&family=Cormorant+Garamond:ital,wght@1,300;1,400&family=Inter:wght@200;300;400;500;600;700&family=Lora:ital,wght@0,400;1,400&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --ink:#0d1014; --deep:#131820; --surface:#1a2030; --hover:#1e2838; --selected:#1f2d45;
+  --border-s:#1e2535; --border-d:#253045; --border-str:#3a4a62;
+  --text-p:#ecf0f5; --text-s:#8aa0b8; --text-m:#6884a4; --text-dis:#2a3850;
+  --verd:#3d7858; --verd-h:#5aa87a; --verd-muted:#1a3028;
+  --st-draft:#4a6080; --st-rev:#b87030; --st-app:#3d7858;
+  --st-running-bright:#4d8fd6;
+  --st-review-bright:#e09040;
+  --verd-bright:#5aa87a;
+  --spec-bg:#0a0d12; --spec-pan:#111520; --callout:#e8b840;
+}
+html, body { background:var(--spec-bg); color:var(--text-p); font-family:'Inter',sans-serif; font-size:13px; line-height:1.5; }
+
+.doc-header { background:var(--spec-pan); border-bottom:1px solid var(--border-d); padding:24px 48px; display:flex; align-items:baseline; justify-content:space-between; }
+.wm-s{font-family:'Cinzel',serif;font-size:14px;font-weight:500;letter-spacing:.18em;color:var(--text-p);}
+.wm-v{font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:300;font-size:16px;letter-spacing:.08em;color:var(--text-p);opacity:.82;}
+.doc-meta{font-size:11px;font-weight:300;letter-spacing:.2em;text-transform:uppercase;color:var(--text-m);}
+.section{padding:40px 48px 0;}
+.slabel{font-size:9px;font-weight:400;letter-spacing:.45em;text-transform:uppercase;color:var(--text-m);margin-bottom:20px;padding-bottom:12px;border-bottom:1px solid var(--border-s);}
+.screen { width:1280px; height:820px; background:var(--ink); border:1px solid var(--border-d); border-radius:8px; overflow:hidden; display:flex; flex-direction:column; box-shadow:0 24px 80px rgba(0,0,0,.6); margin:0 auto; }
+
+/* Wordmark */
+.wm { display:flex; flex-direction:column; align-items:flex-start; }
+.wm-text { display:flex; align-items:baseline; }
+.wm-stela { font-family:'Cinzel',serif; font-weight:500; letter-spacing:.18em; color:var(--text-p); }
+.wm-vox   { font-family:'Cormorant Garamond',serif; font-style:italic; font-weight:400; letter-spacing:.08em; color:var(--text-p); opacity:.88; }
+.wm-rule-wrap { position:relative; margin-top:4px; }
+.wm-rule { height:1px; background:linear-gradient(90deg, var(--verd-bright) 0%, rgba(90,168,122,0.55) 45%, transparent 85%); }
+.wm-lozenge { position:absolute; left:-3px; top:-4px; width:9px; height:9px; background:var(--verd-bright); transform:rotate(45deg); box-shadow:0 0 8px rgba(90,168,122,0.45); }
+.wm-sm .wm-stela { font-size:17px; } .wm-sm .wm-vox { font-size:19px; } .wm-sm .wm-rule { width:100px; }
+.wm-lg .wm-stela { font-size:42px; } .wm-lg .wm-vox { font-size:46px; } .wm-lg .wm-rule { width:240px; }
+
+/* Header */
+.app-hdr { height:52px; min-height:52px; background:var(--deep); border-bottom:1px solid var(--border-s); display:flex; align-items:center; padding:0 24px; gap:0; }
+.app-hdr-right { display:flex; align-items:center; gap:14px; margin-left:auto; }
+.cmd-chip { font-size:11px; font-weight:400; color:var(--text-s); border:1px solid var(--border-str); background:var(--surface); padding:4px 10px 4px 9px; border-radius:4px; cursor:pointer; display:flex; align-items:center; gap:7px; }
+.cmd-chip:hover { border-color:var(--verd-bright); color:var(--text-p); }
+.cmd-chip-kbd { font-family:ui-monospace,monospace; font-size:10px; color:var(--text-m); }
+.hdr-link { font-size:12px; font-weight:400; color:var(--text-s); cursor:pointer; }
+.hdr-link:hover { color:var(--text-p); }
+.uav { width:30px; height:30px; background:var(--surface); border:1px solid var(--border-str); border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:500; color:var(--text-p); cursor:pointer; }
+
+/* Body */
+.app-body { flex:1; overflow-y:auto; display:flex; }
+
+/* Sidebar */
+.app-sidebar { width:220px; min-width:220px; background:var(--deep); border-right:1px solid var(--border-s); padding:20px 0 16px; display:flex; flex-direction:column; gap:0; position:relative; }
+.app-sidebar::after { content:""; position:absolute; right:0; top:48px; bottom:48px; width:1px; background:linear-gradient(180deg, transparent 0%, rgba(90,168,122,0.55) 20%, rgba(90,168,122,0.55) 80%, transparent 100%); }
+.sb-section-label { font-size:9px; font-weight:600; letter-spacing:.38em; text-transform:uppercase; color:var(--text-m); padding:0 20px 8px; }
+.sb-item { display:flex; align-items:center; gap:10px; padding:8px 20px; font-size:13px; font-weight:400; color:var(--text-s); cursor:pointer; border-left:2px solid transparent; }
+.sb-item:hover { background:var(--hover); color:var(--text-p); }
+.sb-item.active { color:var(--text-p); background:var(--selected); border-left:2px solid var(--verd-bright); }
+.sb-item-icon { font-size:13px; opacity:.85; width:18px; display:flex; justify-content:center; }
+.sb-divider { height:1px; background:var(--border-s); margin:12px 16px; }
+.sb-empty-hint { padding:0 20px; font-size:11px; font-weight:300; color:var(--text-m); font-style:italic; line-height:1.6; }
+.sb-foot { margin-top:auto; padding-top:8px; }
+.sb-foot .sb-item { font-size:12px; color:var(--text-m); }
+
+/* Main */
+.app-main { flex:1; padding:36px 44px 48px; overflow-y:auto; }
+
+/* Greeting & welcome line — R3 + R7 */
+.greeting-block { margin-bottom:30px; }
+.greeting-echo { font-family:'Lora',serif; font-style:italic; font-size:18px; font-weight:400; color:var(--text-s); line-height:1.55; max-width:680px; padding-left:14px; border-left:2px solid var(--verd-bright); margin-bottom:14px; }
+.greeting-echo-meta { font-size:11px; font-weight:300; color:var(--text-m); margin-bottom:6px; letter-spacing:.04em; }
+.greeting { font-size:26px; font-weight:600; color:var(--text-p); letter-spacing:-0.01em; margin-bottom:6px; }
+.next-line { font-size:13px; font-weight:400; color:var(--text-s); display:flex; align-items:center; gap:8px; margin-bottom:4px; }
+.next-line .pip { width:7px; height:7px; border-radius:50%; }
+.next-line strong { color:var(--text-p); font-weight:500; }
+
+/* Writing stats band — R2 */
+.stats-band { display:flex; align-items:center; gap:0; background:var(--deep); border:1px solid var(--border-s); border-radius:6px; padding:14px 22px; margin-bottom:34px; font-family:'Cormorant Garamond',serif; font-style:italic; }
+.stat-cell { display:flex; flex-direction:column; gap:2px; padding-right:32px; border-right:1px solid var(--border-s); margin-right:32px; }
+.stat-cell:last-child { border-right:none; margin-right:0; padding-right:0; }
+.stat-num { font-size:26px; font-weight:400; color:var(--text-p); line-height:1; font-variant-numeric:tabular-nums; }
+.stat-num.zero { color:var(--text-m); }
+.stat-num.good { color:var(--verd-bright); }
+.stat-label { font-family:'Inter',sans-serif; font-style:normal; font-size:10px; font-weight:600; letter-spacing:.22em; text-transform:uppercase; color:var(--text-m); }
+
+.sec-hdr { display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
+.sec-hdr-title { font-size:11px; font-weight:600; letter-spacing:.28em; text-transform:uppercase; color:var(--text-s); }
+.sec-hdr-action { font-size:11px; font-weight:400; color:var(--text-s); cursor:pointer; border:1px solid var(--border-d); padding:5px 12px; border-radius:4px; background:var(--deep); display:flex; align-items:center; gap:6px; }
+.sec-hdr-action:hover { border-color:var(--verd-bright); color:var(--text-p); }
+.sec-hdr-action.primary { background:var(--verd); color:#fff; border-color:var(--verd); }
+.sec-hdr-action.primary:hover { background:var(--verd-bright); border-color:var(--verd-bright); }
+
+/* Solo doc card — R1 (collapsed grid → single rich card when count ≤1) */
+.solo-card { background:var(--surface); border:1px solid var(--border-d); border-radius:8px; padding:24px 28px; display:flex; gap:28px; margin-bottom:40px; cursor:pointer; transition:border-color 120ms; }
+.solo-card:hover { border-color:var(--verd-bright); }
+.solo-card-left { flex:1; display:flex; flex-direction:column; gap:14px; }
+.solo-card-right { width:260px; min-width:260px; padding-left:24px; border-left:1px solid var(--border-s); display:flex; flex-direction:column; gap:14px; }
+.solo-type { font-size:10px; font-weight:600; letter-spacing:.25em; text-transform:uppercase; color:var(--text-m); display:flex; align-items:center; gap:8px; }
+.doc-type-icon { width:24px; height:24px; border-radius:4px; background:var(--verd-muted); color:var(--verd-bright); display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:700; font-family:'Cinzel',serif; letter-spacing:0; }
+.solo-title { font-size:22px; font-weight:600; color:var(--text-p); letter-spacing:-0.005em; line-height:1.25; }
+.solo-recent { font-family:'Lora',serif; font-size:14px; font-weight:400; line-height:1.6; color:var(--text-s); font-style:italic; padding:12px 14px 12px 16px; background:var(--ink); border-left:2px solid var(--border-d); border-radius:0 4px 4px 0; }
+.solo-recent-label { font-family:'Inter',sans-serif; font-size:9px; font-weight:600; letter-spacing:.32em; text-transform:uppercase; color:var(--text-m); font-style:normal; margin-bottom:6px; }
+.solo-meta-row { display:flex; gap:18px; }
+.solo-meta { display:flex; flex-direction:column; gap:3px; }
+.solo-meta-k { font-size:9px; font-weight:600; letter-spacing:.28em; text-transform:uppercase; color:var(--text-m); }
+.solo-meta-v { font-size:13px; font-weight:500; color:var(--text-p); }
+.solo-progress { display:flex; align-items:center; gap:10px; }
+.solo-progress-bar { flex:1; height:6px; background:var(--border-s); border-radius:3px; overflow:hidden; }
+.solo-progress-fill { height:100%; background:linear-gradient(90deg, var(--verd) 0%, var(--verd-bright) 100%); border-radius:3px; }
+.solo-progress-text { font-size:11px; font-weight:500; color:var(--text-s); font-variant-numeric:tabular-nums; min-width:36px; text-align:right; }
+.solo-status { display:flex; align-items:center; gap:8px; }
+.status-pip { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+.status-pip-running { background:var(--st-running-bright); box-shadow:0 0 6px rgba(77,143,214,0.55); animation:pulse 2s ease-in-out infinite; }
+.status-pip-review { background:var(--st-review-bright); box-shadow:0 0 5px rgba(224,144,64,0.4); }
+.status-pip-complete { background:var(--verd-bright); }
+.status-pip-draft { background:var(--st-draft); }
+@keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.55; } }
+.status-text { font-size:11px; font-weight:400; color:var(--text-s); }
+.solo-continue { display:flex; align-items:center; justify-content:space-between; padding-top:10px; border-top:1px solid var(--border-s); margin-top:4px; }
+.solo-continue-link { font-size:13px; font-weight:500; color:var(--verd-bright); display:flex; align-items:center; gap:6px; cursor:pointer; }
+.solo-continue-link:hover { color:var(--text-p); }
+
+/* Projects list */
+.proj-list { display:flex; flex-direction:column; gap:6px; margin-bottom:28px; }
+.proj-item { background:var(--surface); border:1px solid var(--border-s); border-radius:5px; padding:14px 18px; display:flex; align-items:center; gap:14px; cursor:pointer; transition:border-color 120ms; }
+.proj-item:hover { border-color:var(--verd-bright); }
+.proj-icon-wrap { width:32px; height:32px; border-radius:5px; background:var(--verd-muted); display:flex; align-items:center; justify-content:center; color:var(--verd-bright); font-size:14px; }
+.proj-info { flex:1; }
+.proj-name { font-size:14px; font-weight:500; color:var(--text-p); }
+.proj-meta { font-size:11px; font-weight:300; color:var(--text-m); margin-top:2px; }
+.proj-meta strong { color:var(--text-s); font-weight:400; }
+.proj-actions { display:flex; align-items:center; gap:10px; }
+.proj-add-doc { font-size:11px; font-weight:400; color:var(--text-s); padding:5px 11px; border:1px solid var(--border-d); border-radius:4px; cursor:pointer; background:var(--deep); }
+.proj-add-doc:hover { border-color:var(--verd-bright); color:var(--text-p); }
+.proj-arrow { font-size:14px; color:var(--text-m); }
+
+/* Callouts */
+.callout-set { position:relative; max-width:1280px; margin:0 auto; }
+.callout-pin { position:absolute; width:22px; height:22px; border-radius:50%; background:var(--callout); color:#1a1a1a; font-size:11px; font-weight:700; display:flex; align-items:center; justify-content:center; border:2px solid var(--ink); box-shadow:0 0 0 1px var(--callout); z-index:5; }
+.callout-list { background:var(--spec-pan); border:1px solid var(--border-s); border-radius:6px; padding:20px 24px; margin-top:32px; }
+.callout-list-title { font-size:11px; font-weight:600; letter-spacing:.25em; text-transform:uppercase; color:var(--text-m); margin-bottom:14px; }
+.callout-row { display:flex; gap:14px; margin-bottom:11px; align-items:flex-start; }
+.callout-row:last-child { margin-bottom:0; }
+.callout-num { width:22px; height:22px; border-radius:50%; background:var(--callout); color:#1a1a1a; font-size:11px; font-weight:700; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.callout-text { font-size:13px; font-weight:300; color:var(--text-s); line-height:1.55; }
+.callout-text strong { color:var(--text-p); font-weight:500; }
+.callout-text code { background:var(--ink); padding:1px 6px; border-radius:3px; font-family:ui-monospace,monospace; font-size:11px; color:var(--callout); border:1px solid var(--border-s); }
+
+/* First-time hero — bigger, warmer */
+.firstrun-hero { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:60px 40px; gap:0; }
+.firstrun-wm-row { display:flex; flex-direction:column; align-items:center; gap:14px; margin-bottom:38px; }
+.firstrun-tagline { font-family:'Cormorant Garamond',serif; font-style:italic; font-weight:300; font-size:18px; color:var(--text-m); letter-spacing:.04em; max-width:540px; text-align:center; line-height:1.6; }
+.firstrun-welcome { max-width:560px; text-align:center; margin-bottom:32px; }
+.firstrun-welcome-headline { font-size:18px; font-weight:400; color:var(--text-p); margin-bottom:14px; line-height:1.55; }
+.firstrun-welcome-body { font-size:14px; font-weight:300; color:var(--text-s); line-height:1.7; }
+.firstrun-welcome-body strong { color:var(--text-p); font-weight:500; }
+.firstrun-cta-row { display:flex; align-items:center; gap:14px; margin-bottom:18px; }
+.firstrun-primary { background:var(--verd); color:#fff; font-size:14px; font-weight:500; padding:13px 32px; border-radius:5px; border:none; cursor:pointer; font-family:'Inter',sans-serif; box-shadow:0 6px 18px rgba(61,120,88,0.4); letter-spacing:.01em; }
+.firstrun-primary:hover { background:var(--verd-bright); }
+.firstrun-secondary { background:transparent; color:var(--text-s); font-size:14px; font-weight:400; padding:13px 24px; border-radius:5px; border:1px solid var(--border-str); cursor:pointer; font-family:'Inter',sans-serif; letter-spacing:.01em; }
+.firstrun-secondary:hover { border-color:var(--verd-bright); color:var(--text-p); }
+.firstrun-foot { font-size:11px; font-weight:300; color:var(--text-m); display:flex; align-items:center; gap:6px; }
+.firstrun-foot .kbd { background:var(--surface); border:1px solid var(--border-d); padding:2px 7px; border-radius:3px; font-size:10px; font-family:ui-monospace,monospace; }
+
+/* "What is Stelavox" tri-row */
+.intro-tris { display:flex; gap:20px; max-width:760px; margin-top:36px; padding:0 24px; }
+.intro-tri { flex:1; padding:16px 8px 0; border-top:1px solid var(--border-s); display:flex; flex-direction:column; gap:6px; }
+.intro-tri-glyph { font-family:'Cinzel',serif; font-size:14px; color:var(--verd-bright); letter-spacing:.18em; margin-bottom:4px; }
+.intro-tri-h { font-size:13px; font-weight:500; color:var(--text-p); }
+.intro-tri-p { font-size:12px; font-weight:300; color:var(--text-s); line-height:1.55; }
+
+/* Writer's-eye block */
+.writer-block { background:linear-gradient(135deg, var(--spec-pan) 0%, #14181f 100%); border:1px solid var(--border-d); border-radius:8px; padding:28px 32px; margin-top:32px; }
+.writer-title { font-size:11px; font-weight:600; letter-spacing:.32em; text-transform:uppercase; color:var(--verd-bright); margin-bottom:18px; display:flex; align-items:center; gap:10px; }
+.writer-title::before { content:""; width:16px; height:1px; background:var(--verd-bright); }
+.writer-h { font-size:15px; font-weight:500; color:var(--text-p); margin-top:18px; margin-bottom:8px; }
+.writer-h:first-of-type { margin-top:0; }
+.writer-p { font-size:13px; font-weight:300; color:var(--text-s); line-height:1.7; margin-bottom:10px; }
+.writer-p em { color:var(--text-m); }
+.writer-p strong { color:var(--text-p); font-weight:500; }
+.writer-recos { display:flex; flex-direction:column; gap:8px; margin-top:14px; }
+.writer-reco { display:flex; gap:12px; align-items:flex-start; font-size:13px; color:var(--text-s); line-height:1.55; }
+.writer-reco-tag { background:var(--verd-muted); color:var(--verd-bright); font-size:10px; font-weight:600; letter-spacing:.1em; padding:3px 8px; border-radius:3px; white-space:nowrap; margin-top:2px; }
+.writer-reco strong { color:var(--text-p); font-weight:500; }
+
+/* Decisions */
+.spec-section{padding:0 48px 80px;}
+.spec-block{background:var(--spec-pan);border:1px solid var(--border-s);border-radius:6px;margin-bottom:18px;overflow:hidden;}
+.spec-block-header{padding:14px 22px;background:var(--ink);border-bottom:1px solid var(--border-s);font-size:11px;font-weight:600;letter-spacing:.25em;text-transform:uppercase;color:var(--text-p);display:flex;justify-content:space-between;align-items:center;}
+.spec-block-body{padding:18px 22px;}
+.spec-row{display:grid;grid-template-columns:200px 1fr;gap:18px;padding:9px 0;border-bottom:1px solid var(--border-s);font-size:12px;align-items:start;}
+.spec-row:last-child{border-bottom:none;}
+.spec-row-k{color:var(--text-s);font-weight:500;font-size:11px;letter-spacing:.08em;text-transform:uppercase;padding-top:1px;}
+.spec-row-v{color:var(--text-p);font-weight:300;line-height:1.6;}
+.spec-row-v code{background:var(--ink);padding:1px 6px;border-radius:3px;font-family:ui-monospace,monospace;font-size:11px;color:var(--callout);border:1px solid var(--border-s);}
+.spec-row-v em { color:var(--text-m); font-style:italic; }
+</style>
+</head>
+<body>
+
+<div class="doc-header">
+  <div>
+    <div style="display:flex;align-items:baseline;"><span class="wm-s">Stela</span><span class="wm-v">vox</span></div>
+    <div style="margin-top:6px;font-size:11px;font-weight:300;letter-spacing:.2em;text-transform:uppercase;color:var(--text-m);">Dashboard v2 — iteration 3 — Phase 8.01</div>
+  </div>
+  <div class="doc-meta">R1–R7 baked in · first-time experience drafted</div>
+</div>
+
+<!-- ───────────────────────────────────────────────────────── -->
+<!-- 01 — POPULATED STATE (R1–R7 applied)                     -->
+<!-- ───────────────────────────────────────────────────────── -->
+
+<div class="section"><div class="slabel">01 — Populated dashboard · R1-R7 applied · iteration 3</div></div>
+
+<div style="padding:32px 48px 0;">
+<div class="callout-set">
+<div class="screen">
+
+  <div class="app-hdr">
+    <a class="wm wm-sm" href="#" style="text-decoration:none;">
+      <div class="wm-text"><span class="wm-stela">Stela</span><span class="wm-vox">vox</span></div>
+      <div class="wm-rule-wrap"><div class="wm-rule"></div><div class="wm-lozenge"></div></div>
+    </a>
+    <div class="app-hdr-right">
+      <div class="cmd-chip">Search <span class="cmd-chip-kbd">⌘K</span></div>
+      <div class="hdr-link">Settings</div>
+      <div class="uav">AS</div>
+    </div>
+  </div>
+
+  <div class="app-body">
+
+    <div class="app-sidebar">
+      <div class="sb-section-label">Workspace</div>
+      <div class="sb-item active"><span class="sb-item-icon">⌂</span> Home</div>
+      <div class="sb-item"><span class="sb-item-icon">⊟</span> All projects</div>
+      <div class="sb-item"><span class="sb-item-icon">◷</span> Recent</div>
+
+      <div class="sb-divider"></div>
+      <div class="sb-section-label">Projects</div>
+      <div class="sb-item"><span class="sb-item-icon">◆</span> Shadow Protocol</div>
+
+      <div class="sb-foot">
+        <div class="sb-divider"></div>
+        <div class="sb-item"><span class="sb-item-icon">⚙</span> Settings</div>
+        <div class="sb-item"><span class="sb-item-icon">?</span> Help</div>
+      </div>
+    </div>
+
+    <div class="app-main">
+
+      <!-- R3: last-paragraph echo replaces generic greeting (after first visit) -->
+      <div class="greeting-block">
+        <div class="greeting-echo-meta">— Where you left off, 12 min ago —</div>
+        <div class="greeting-echo">"The neural static hit first — a fragment of screaming, distorted through ice and helmet speakers. Marcus's voice, or what was left of it, cut through the white noise."</div>
+
+        <!-- R7: "What's next for me" single line -->
+        <div class="next-line"><span class="pip" style="background:var(--st-running-bright);box-shadow:0 0 4px rgba(77,143,214,0.55);"></span> <strong>The Director is working</strong> on the Act 2 hook · <strong>nothing waiting for your review</strong> right now</div>
+      </div>
+
+      <!-- R2: Writing stats band -->
+      <div class="stats-band">
+        <div class="stat-cell"><div class="stat-num zero">0</div><div class="stat-label">Today</div></div>
+        <div class="stat-cell"><div class="stat-num">1,247</div><div class="stat-label">Yesterday</div></div>
+        <div class="stat-cell"><div class="stat-num">8,432</div><div class="stat-label">7-day total</div></div>
+        <div class="stat-cell"><div class="stat-num good">12</div><div class="stat-label">Day streak</div></div>
+      </div>
+
+      <!-- R1: Solo doc card — single rich card replaces grid when count ≤1 -->
+      <div class="sec-hdr">
+        <div class="sec-hdr-title">Current document</div>
+        <!-- R5: no "All documents →" action when there's only one -->
+      </div>
+
+      <div class="solo-card">
+        <div class="solo-card-left">
+          <div class="solo-type"><span class="doc-type-icon">N</span> Novel — Act 1 of 3</div>
+          <div class="solo-title">Shadow Protocol</div>
+
+          <div class="solo-recent">
+            <div class="solo-recent-label">— Last completed beat: The Signal —</div>
+            "He should log it as noise and continue the burn toward the outer dark. Instead, he plotted the intercept course."
+          </div>
+
+          <div class="solo-meta-row">
+            <div class="solo-meta">
+              <div class="solo-meta-k">Last edit</div>
+              <div class="solo-meta-v">12 min ago</div>
+            </div>
+            <div class="solo-meta">
+              <div class="solo-meta-k">In progress</div>
+              <div class="solo-meta-v">3 beats</div>
+            </div>
+            <div class="solo-meta">
+              <div class="solo-meta-k">Total nodes</div>
+              <div class="solo-meta-v">114</div>
+            </div>
+          </div>
+
+          <div class="solo-continue">
+            <div class="status-text" style="color:var(--text-m);">Created 2026-05-12 · last opened 12 minutes ago</div>
+            <div class="solo-continue-link">Continue writing →</div>
+          </div>
+        </div>
+
+        <div class="solo-card-right">
+          <div class="solo-meta">
+            <div class="solo-meta-k">Completion</div>
+            <div style="margin-top:6px;">
+              <div class="solo-progress">
+                <div class="solo-progress-bar"><div class="solo-progress-fill" style="width:38%;"></div></div>
+                <div class="solo-progress-text">38%</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="solo-meta" style="margin-top:6px;">
+            <div class="solo-meta-k">Director</div>
+            <div class="solo-status" style="margin-top:6px;">
+              <div class="status-pip status-pip-running"></div>
+              <div class="status-text" style="font-size:12px;color:var(--text-p);">Working</div>
+            </div>
+            <div class="status-text" style="margin-top:4px;line-height:1.5;">Synthesising prose for 3 Act-2 beats. Started 4 min ago.</div>
+          </div>
+
+          <div class="solo-meta" style="margin-top:6px;">
+            <div class="solo-meta-k">Awaiting your review</div>
+            <div class="solo-status" style="margin-top:6px;">
+              <div class="status-pip status-pip-complete"></div>
+              <div class="status-text" style="font-size:12px;color:var(--text-p);">Nothing right now</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Projects (only 1 — R5 keeps section header lean) -->
+      <div class="sec-hdr">
+        <div class="sec-hdr-title">Projects</div>
+        <div class="sec-hdr-action primary">+ New project</div>
+      </div>
+      <div class="proj-list">
+        <div class="proj-item">
+          <div class="proj-icon-wrap">◆</div>
+          <div class="proj-info">
+            <div class="proj-name">Shadow Protocol</div>
+            <div class="proj-meta">Novel · <strong>1 document</strong> · last active 12 min ago</div>
+          </div>
+          <div class="proj-actions">
+            <div class="proj-add-doc">+ Document</div>
+            <div class="proj-arrow">→</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+  <div class="callout-pin" style="top:78px;  left:340px;">1</div>
+  <div class="callout-pin" style="top:160px; left:340px;">2</div>
+  <div class="callout-pin" style="top:215px; left:340px;">3</div>
+  <div class="callout-pin" style="top:380px; left:340px;">4</div>
+  <div class="callout-pin" style="top:380px; left:780px;">5</div>
+</div>
+
+  <div class="callout-list">
+    <div class="callout-list-title">Iteration 3 — R1–R7 applied</div>
+    <div class="callout-row"><div class="callout-num">1</div><div class="callout-text"><strong>R-3 last-paragraph echo.</strong> After first-visit-of-the-day the generic greeting is replaced with the last sentence the author wrote — rendered in Lora italic 18px with a verdigris left rule. "<em>Where you left off, 12 min ago —</em>" feels like the journal returning to itself. On first visit (no prior writing today) we fall back to the warm greeting. <em>Per-session toggle: only on the first dashboard visit each day, not every refresh.</em></div></div>
+    <div class="callout-row"><div class="callout-num">2</div><div class="callout-text"><strong>R-7 "what's next for me" line.</strong> One sentence directly under the echo. Answers the question every writer asks on returning: <em>"do I have to do anything, or can I just write?"</em> Pulsing dot when the Director is working, otherwise calm.</div></div>
+    <div class="callout-row"><div class="callout-num">3</div><div class="callout-text"><strong>R-2 writing-stats band.</strong> Today / Yesterday / 7-day / Streak. Cormorant Garamond italic for the numbers — feels like a writer's log, not analytics. Streak number turns verdigris-bright once a streak is going. Today shows muted grey until the author writes a single word, then it lights up.</div></div>
+    <div class="callout-row"><div class="callout-num">4</div><div class="callout-text"><strong>R-1 solo-doc collapsed view.</strong> Single rich card replaces the 2-up grid when document count ≤1. Left side: the last completed beat's closing line in Lora italic (more weight than the 1-line status pip), real metadata. Right side: completion, Director status, and "Awaiting review" answered in plain English. <strong>Page no longer reads as empty space.</strong></div></div>
+    <div class="callout-row"><div class="callout-num">5</div><div class="callout-text"><strong>R-5 lean section actions.</strong> "All documents →" hidden when count is small enough to fit (we removed it from above the solo card; only "+ New project" remains as section CTA). At ≥3 docs we'd reintroduce it.</div></div>
+  </div>
+</div>
+
+<!-- ───────────────────────────────────────────────────────── -->
+<!-- 02 — FIRST-TIME EXPERIENCE                                -->
+<!-- ───────────────────────────────────────────────────────── -->
+
+<div class="section" style="padding-top:60px;"><div class="slabel">02 — First-time / zero-project · the 10 seconds that matter most</div></div>
+
+<div style="padding:32px 48px 0;">
+<div class="screen">
+
+  <div class="app-hdr">
+    <a class="wm wm-sm" href="#" style="text-decoration:none;">
+      <div class="wm-text"><span class="wm-stela">Stela</span><span class="wm-vox">vox</span></div>
+      <div class="wm-rule-wrap"><div class="wm-rule"></div><div class="wm-lozenge"></div></div>
+    </a>
+    <div class="app-hdr-right">
+      <div class="cmd-chip">Search <span class="cmd-chip-kbd">⌘K</span></div>
+      <div class="hdr-link">Settings</div>
+      <div class="uav">AS</div>
+    </div>
+  </div>
+
+  <div class="app-body">
+
+    <!-- Sidebar visible with empty hints — so the author sees the structure they'll fill -->
+    <div class="app-sidebar">
+      <div class="sb-section-label">Workspace</div>
+      <div class="sb-item active"><span class="sb-item-icon">⌂</span> Home</div>
+      <div class="sb-item" style="opacity:.5;cursor:default;"><span class="sb-item-icon">⊟</span> All projects</div>
+      <div class="sb-item" style="opacity:.5;cursor:default;"><span class="sb-item-icon">◷</span> Recent</div>
+
+      <div class="sb-divider"></div>
+      <div class="sb-section-label">Projects</div>
+      <div class="sb-empty-hint">Your projects will appear here.</div>
+
+      <div class="sb-foot">
+        <div class="sb-divider"></div>
+        <div class="sb-item"><span class="sb-item-icon">⚙</span> Settings</div>
+        <div class="sb-item"><span class="sb-item-icon">?</span> Help</div>
+      </div>
+    </div>
+
+    <div class="firstrun-hero">
+      <div class="firstrun-wm-row">
+        <div class="wm wm-lg" style="align-items:center;">
+          <div class="wm-text"><span class="wm-stela">Stela</span><span class="wm-vox">vox</span></div>
+          <div class="wm-rule-wrap" style="margin-top:8px;"><div class="wm-rule"></div><div class="wm-lozenge" style="left:-5px;top:-6px;width:13px;height:13px;"></div></div>
+        </div>
+        <div class="firstrun-tagline">The author's thought should arrive on the page undistorted.</div>
+      </div>
+
+      <div class="firstrun-welcome">
+        <div class="firstrun-welcome-headline">Welcome.</div>
+        <div class="firstrun-welcome-body">
+          Stelavox is a writing environment for <strong>long-form work</strong> — novels, theses, board papers. Build your work as a <strong>structured tree</strong>. Direct an <strong>AI Director</strong> to expand, refine and revise. Disappear into <strong>Focus Mode</strong> when you want only the page.
+        </div>
+      </div>
+
+      <div class="firstrun-cta-row">
+        <button class="firstrun-primary">+ Create your first project</button>
+        <button class="firstrun-secondary">Tour with a sample novel</button>
+      </div>
+
+      <div class="firstrun-foot">
+        or press <span class="kbd">⌘K</span> to search · <a class="hdr-link" style="text-decoration:underline;color:var(--text-m);">Read the introduction</a>
+      </div>
+
+      <!-- Three-line philosophy strip -->
+      <div class="intro-tris">
+        <div class="intro-tri">
+          <div class="intro-tri-glyph">I.</div>
+          <div class="intro-tri-h">Structured</div>
+          <div class="intro-tri-p">Build your work as a tree of nodes — books, acts, chapters, scenes, beats — that you can rearrange, expand, refine.</div>
+        </div>
+        <div class="intro-tri">
+          <div class="intro-tri-glyph">II.</div>
+          <div class="intro-tri-h">Directed</div>
+          <div class="intro-tri-p">Talk to an AI Director that proposes plans, expands structure, synthesises prose. Every change is yours to accept.</div>
+        </div>
+        <div class="intro-tri">
+          <div class="intro-tri-glyph">III.</div>
+          <div class="intro-tri-h">Quiet</div>
+          <div class="intro-tri-p">Focus Mode removes everything but the page. The prose surface is sacred — no toolbars, no chrome, just words.</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+</div>
+
+<!-- ───────────────────────────────────────────────────────── -->
+<!-- 03 — WRITER'S EYE on first-time                           -->
+<!-- ───────────────────────────────────────────────────────── -->
+
+<div class="section" style="padding-top:60px;"><div class="slabel">03 — Writer's eye · the first 10 seconds</div></div>
+
+<div style="padding:32px 48px 0;">
+<div class="writer-block">
+<div class="writer-title">A novelist just clicked "Sign in" for the first time</div>
+
+<p class="writer-p">They've heard about Stelavox from a writer-friend or a podcast or a blog post. They had to create an account, verify an email, log in. Now they're here. They're skeptical — every AI writing tool to date has been some flavour of "generate slop" or "rewrite your sentences with a confident chirp." They're trying to see whether this is different. <em>What does the page tell them in 10 seconds?</em></p>
+
+<div class="writer-h">What this version says</div>
+
+<p class="writer-p">The Wordmark + tagline says <strong>"this is a craft tool, not a productivity tool"</strong>. The italic Cormorant tagline lands. The three-line philosophy strip at the bottom says <strong>"structured / directed / quiet"</strong> — three words that distinguish this from a chat-with-your-novel app. The two CTAs respect the writer's choice: <em>"I'll commit to my own work"</em> or <em>"let me see what this does first."</em></p>
+
+<p class="writer-p">The sidebar is still present but hinted-empty — the writer can see the shape of the space they'll fill, which is more honest than hiding the chrome and pretending nothing exists yet.</p>
+
+<div class="writer-h">What I'd want to push further or revise</div>
+
+<div class="writer-recos">
+
+<div class="writer-reco"><span class="writer-reco-tag">F-1</span><div><strong>"Tour with a sample novel" is the unknown variable.</strong> The wireframe shows the button but the actual tour experience hasn't been designed. The right shape is probably: clicking this <em>copies</em> Shadow Protocol (or a subset) into the user's account as a real project they can edit, with a small banner saying "<em>This is a sample. Feel free to delete, modify, or use it to learn.</em>" That's better than a guided walkthrough because writers learn by doing, not by reading callouts. <strong>Open question: is "Shadow Protocol" the right sample, or do we author a deliberately smaller one (single chapter, ~10 beats) called "The Lighthouse" or similar?</strong></div></div>
+
+<div class="writer-reco"><span class="writer-reco-tag">F-2</span><div><strong>The welcome copy might be too long.</strong> Four sentences with three pieces of jargon (tree, Director, Focus Mode) before the writer has done anything. Consider a tighter version: "<em>A writing environment built around structure, AI assistance, and quiet focus.</em>" One line, no jargon. The three-line strip below already names the concepts. Less text, more breathing room.</div></div>
+
+<div class="writer-reco"><span class="writer-reco-tag">F-3</span><div><strong>The "Read the introduction" link is undefined.</strong> Either we have introduction content (Phase 12 — User documentation) or we don't. If we don't have it by V1 launch, the link shouldn't appear. <strong>Recommend dropping it for now; replace with "or see how it works" linking to a 60-second video later if/when we make one.</strong></div></div>
+
+<div class="writer-reco"><span class="writer-reco-tag">F-4</span><div><strong>"+ Create your first project" is the right CTA but the next click is undesigned.</strong> Probably a modal asking for project name + document type (Novel / Thesis / Paper / Custom) + first-document name. Currently undesigned — flag for the project-creation modal wireframe (8.01 secondary, or own wireframe).</div></div>
+
+<div class="writer-reco"><span class="writer-reco-tag">F-5</span><div><strong>Two CTAs side-by-side is the right pattern for V1.</strong> Avoid stacking three or four — the moment you offer four paths the writer feels they have to choose correctly. Two paths = "real work" or "look around." That's the right amount of choice on first-run.</div></div>
+
+<div class="writer-reco"><span class="writer-reco-tag">F-6</span><div><strong>The empty sidebar hint "Your projects will appear here" could be more inviting.</strong> Try "<em>You'll see your projects here.</em>" — direct second-person address, like Stelavox is talking to the writer. Or even: "<em>Your novel is going to live here.</em>" Slightly bolder. Worth a sub-iteration.</div></div>
+
+<div class="writer-reco"><span class="writer-reco-tag">F-7</span><div><strong>No mention of "your work is yours."</strong> A writer signing up has implicit anxiety about AI tools and their work. A single line, somewhere quiet, that says "<em>your prose is yours. We don't train on your work.</em>" would carry a lot of weight. Could live in the foot row or as a fourth tile in the philosophy strip. <strong>Recommend addition.</strong></div></div>
+
+<div class="writer-reco"><span class="writer-reco-tag">F-8</span><div><strong>The page is large; ~820px tall.</strong> Below the fold (which on a laptop is around 700–750px) currently sits the three-line philosophy strip. Some users won't scroll. Either compress the hero vertically so the strip is in-view at standard laptop heights, or accept that the strip is "for those who scroll a little." I'd compress.</div></div>
+
+</div>
+
+<div class="writer-h" style="margin-top:24px;">Honest gut feel</div>
+<p class="writer-p">The first-time page is meaningfully better than what would have been there (i.e., a generic auth-flow landing or a confusing dashboard with one "+ New" button). The Wordmark + tagline + three philosophy lines do real work in 10 seconds. The two-path CTA respects the writer's caution. The single line I'd most want to add is <strong>F-7 — "your work is yours"</strong> — because it answers an unstated question that's true for every writer trying an AI tool. Beyond that, F-1 (sample tour) is the most consequential UX choice we haven't fully resolved: is it a real-data copy, or a guided overlay, or both?</p>
+
+</div>
+</div>
+
+<!-- ───────────────────────────────────────────────────────── -->
+<!-- 04 — DECISIONS                                            -->
+<!-- ───────────────────────────────────────────────────────── -->
+
+<div class="section" style="padding-top:60px;"><div class="slabel">04 — Decisions iter3</div></div>
+<div class="spec-section" style="padding-top:18px;">
+
+  <div class="spec-block">
+    <div class="spec-block-header">R1–R7 baked in</div>
+    <div class="spec-block-body">
+      <div class="spec-row"><div class="spec-row-k">R-1 solo doc card</div><div class="spec-row-v">Single rich card when doc count ≤1: last-completed-beat closing line in Lora italic + 3 metadata cells + completion / Director / awaiting-review on the right panel. Switches to 2-up grid at ≥2 docs.</div></div>
+      <div class="spec-row"><div class="spec-row-k">R-2 stats band</div><div class="spec-row-v">Today / Yesterday / 7-day / Streak. Cormorant italic numbers. Streak turns <code>--verd-bright</code> when active. Today is muted until first word of the day.</div></div>
+      <div class="spec-row"><div class="spec-row-k">R-3 last-paragraph echo</div><div class="spec-row-v">Replaces generic greeting on first dashboard visit each day. Lora italic 18px with a 2px verdigris left rule. Falls back to "Good [time], [name]" on days with no prior writing.</div></div>
+      <div class="spec-row"><div class="spec-row-k">R-5 lean actions</div><div class="spec-row-v">Section-header secondary actions ("All documents →" etc.) hidden when count fits visible area. Reintroduced at higher counts.</div></div>
+      <div class="spec-row"><div class="spec-row-k">R-7 next-line</div><div class="spec-row-v">Single quiet sentence directly under the greeting block answering "do I have to do anything?". Pulsing pip when Director active; calm when idle.</div></div>
+    </div>
+  </div>
+
+  <div class="spec-block">
+    <div class="spec-block-header">First-time experience</div>
+    <div class="spec-block-body">
+      <div class="spec-row"><div class="spec-row-k">Layout</div><div class="spec-row-v">Sidebar present with empty hints. Main: large wordmark + tagline + welcome paragraph + two CTAs + three-line philosophy strip + foot row.</div></div>
+      <div class="spec-row"><div class="spec-row-k">Primary CTA</div><div class="spec-row-v">"+ Create your first project" — verdigris button with shadow. Opens project-creation modal (designed separately).</div></div>
+      <div class="spec-row"><div class="spec-row-k">Secondary CTA</div><div class="spec-row-v">"Tour with a sample novel" — ghost button. <em>F-1 open: copies sample data into user's account, OR guided walkthrough overlay, OR both. Recommend the former.</em></div></div>
+      <div class="spec-row"><div class="spec-row-k">Philosophy strip</div><div class="spec-row-v">Three tiles: Structured / Directed / Quiet. Roman-numeral glyphs in Cinzel verdigris. One-sentence body in Inter 300.</div></div>
+      <div class="spec-row"><div class="spec-row-k">Foot</div><div class="spec-row-v">Cmd+K hint · "Read the introduction" (F-3 open: drop until intro content exists).</div></div>
+    </div>
+  </div>
+
+  <div class="spec-block">
+    <div class="spec-block-header">F-* open questions for iter4</div>
+    <div class="spec-block-body">
+      <div class="spec-row"><div class="spec-row-k">F-1 tour shape</div><div class="spec-row-v"><strong>Real sample data (copy) vs guided walkthrough overlay vs both.</strong> My recommendation: real sample data, with a "this is a sample" banner. Also: should the sample be Shadow Protocol (full, ~114 nodes) or a deliberately small purpose-built sample (~10 nodes, one chapter)?</div></div>
+      <div class="spec-row"><div class="spec-row-k">F-2 welcome copy</div><div class="spec-row-v">Current: 4 sentences with 3 pieces of jargon. Tighter alternative: 1 sentence, defer concepts to the philosophy strip. Try in iter4?</div></div>
+      <div class="spec-row"><div class="spec-row-k">F-3 introduction link</div><div class="spec-row-v">Drop until intro content exists (Phase 12).</div></div>
+      <div class="spec-row"><div class="spec-row-k">F-4 project creation modal</div><div class="spec-row-v">Own wireframe — project name + document type + first-document name. Track as 8.01-b.</div></div>
+      <div class="spec-row"><div class="spec-row-k">F-7 "your work is yours"</div><div class="spec-row-v"><strong>Strongly recommend adding.</strong> Single quiet line. Either in the foot row or as a "IV. Yours." fourth tile in the philosophy strip. Answers the unstated AI-anxiety question.</div></div>
+      <div class="spec-row"><div class="spec-row-k">F-8 vertical compression</div><div class="spec-row-v">Compress hero so the philosophy strip is in-view at 720px viewport height (laptop). Trim wordmark margin-bottom, tighten welcome paragraph.</div></div>
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>

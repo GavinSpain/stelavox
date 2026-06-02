@@ -2,19 +2,31 @@
 
 // Spec: stelavox_component_specification_v2_7.md §7.9 (DirectorInput @ mention)
 //       stelavox_phase5b_build_checklist_v1_0.md §3.16 T-16.2
+//       stelavox_phase8_01_C_build_checklist_v1_0.md T-7 (positional path).
 //
 // Searchable popover that opens beneath the cursor on @ keypress in
 // DirectorInput. Lists current document's structural + context nodes.
 // Filter by case-insensitive substring match against node name.
 // Keyboard nav: ↑/↓ to move, Enter to select, Esc to close.
+//
+// Phase 8.01.C T-7: typing a positional path like `@act1ch1sc1bt2` resolves
+// against the document's flat node list and surfaces the matched node at
+// the top of the picker. Falls back to (and supplements) name search.
 
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { parsePositionalPath } from '@/lib/director/parsePositionalPath'
+import { resolvePositionalPath } from '@/lib/director/resolvePositionalPath'
 
 export interface NodePickerItem {
   id: string
   name: string
   node_type: string
   node_category: 'structural' | 'context'
+  // Phase 8.01.C T-7.3 — surfaced from the API for positional-path
+  // resolution. Optional so any other caller using NodePickerItem can
+  // omit them.
+  parent_id?: string | null
+  order?: number
 }
 
 interface NodePickerProps {
@@ -89,10 +101,27 @@ export function NodePicker({
 
   const matches = useMemo(() => {
     const q = query.trim().toLowerCase()
-    const filtered = q
-      ? allNodes.filter((n) => n.name.toLowerCase().includes(q))
-      : allNodes
-    return filtered.slice(0, MAX_RESULTS)
+    if (!q) return allNodes.slice(0, MAX_RESULTS)
+    // Phase 8.01.C T-7.4 — try positional match first; surface it at the
+    // top of the list, then append name matches that aren't the same node.
+    const parsed = parsePositionalPath(q)
+    const resolved = parsed
+      ? resolvePositionalPath(
+          parsed,
+          allNodes.map((n) => ({
+            id: n.id,
+            parent_id: n.parent_id ?? null,
+            order: n.order ?? 0,
+            node_type: n.node_type,
+            node_category: n.node_category,
+          })),
+        )
+      : null
+    const resolvedItem = resolved ? allNodes.find((n) => n.id === resolved.id) ?? null : null
+    const nameMatches = allNodes.filter(
+      (n) => n.name.toLowerCase().includes(q) && (!resolvedItem || n.id !== resolvedItem.id),
+    )
+    return (resolvedItem ? [resolvedItem, ...nameMatches] : nameMatches).slice(0, MAX_RESULTS)
   }, [allNodes, query])
 
   // Reset highlight when results change.

@@ -1,5 +1,5 @@
 # Stelavox — Brand Identity
-## Version 2.0
+## Version 2.2
 
 ---
 
@@ -165,7 +165,9 @@ The icon never uses the full wordmark in an icon-sized space. The S alone is the
 
 ### 3.7 What the Wordmark Is Never
 
-The wordmark is never distorted, stretched, or redrawn. It is never placed on a busy background without sufficient contrast. The Cinzel component is never replaced with a different typeface. The lozenge is never changed to a different shape. The rule never appears without the lozenge. The lozenge never appears without the rule.
+The wordmark is never distorted, stretched, or redrawn. It is never placed on a busy background without sufficient contrast. The Cinzel component is never replaced with a different typeface. **The Cormorant Garamond italic component is never replaced with a different typeface, never set upright (the italic is the brand), and never set in another weight.** The lozenge is never changed to a different shape — it is always a square rotated 45 degrees, never a primitive diamond glyph, never a circle, never a rule terminator. The rule never appears without the lozenge. The lozenge never appears without the rule.
+
+**Implementation note.** The lozenge is rendered as a `width:N; height:N; transform: rotate(45deg)` square, not as a diamond character. This is what produces the equal-sided 45°-rotated form and accepts the soft 8px verdigris glow (`box-shadow: 0 0 8px rgba(90,168,122,0.45)`) consistently. Any implementation that approximates the lozenge with a Unicode character, a CSS triangle pair, or an unrotated square is a regression. (Recorded as a lesson at the Phase 8.01 wireframe lock.)
 
 ---
 
@@ -340,15 +342,17 @@ Verdigris is the patina of aged bronze — it is not applied to metal, it *accru
 
 ### 6.1 Three Typefaces, Three Roles, Absolute Discipline
 
-The Stelavox type system uses exactly three typefaces. Each has exactly one role. There are no exceptions.
+The Stelavox product UI uses exactly three typefaces. Each has exactly one role. There are no exceptions. A fourth typeface — Cormorant Garamond italic — exists in the brand system, reserved exclusively for the *vox* component of the wordmark (see §3.2). It never appears in the product UI.
 
-**Cinzel** — the wordmark only. Not in the product UI. Not in marketing copy. Not in headings. The Cinzel face exists in Stelavox only as the brand mark — its presence always and only means "this is the brand." Using it elsewhere would dilute that signal into decoration.
+**Cinzel** — the wordmark only. Not in the product UI. Not in marketing copy. Not in headings. The Cinzel face exists in Stelavox only as the brand mark — its presence always and only means "this is the brand." Using it elsewhere would dilute that signal into decoration. *(Inviolable #3.)*
+
+**Cormorant Garamond italic** — the *vox* component of the wordmark only. Not in the product UI. Not in marketing copy. Not in headings. Its presence is the second half of the brand mark — the breathing voice carried by the stone. Using it elsewhere would dilute the brand signal in exactly the same way as using Cinzel elsewhere. *(Inviolable #6 — added at Phase 8.01 wireframe lock after the iter4 wordmark regression demonstrated the protection was missing.)*
 
 **Inter** — the structural interface. Every label, navigation item, button, modal, comment, metadata field, tree node name, panel heading, sidebar item, dropdown option, and error message. Everything the author uses to manage and navigate the structure of their work.
 
 **Lora** — the prose surface and editorial long-form text. Every prose field in a leaf node, every Focus Mode surface, and the philosophy copy on the web page. Nothing else.
 
-This is not minimalism for its own sake. These three typefaces serve three genuinely different purposes — brand mark, structural navigation, and literary prose — and each was chosen to be optimal for its purpose. Using them only for their purpose is how the system remains coherent across hundreds of components and thousands of UI states.
+This is not minimalism for its own sake. These typefaces serve genuinely different purposes — brand mark (Cinzel + Cormorant Garamond italic in their wordmark roles), structural navigation (Inter), and literary prose (Lora) — and each was chosen to be optimal for its purpose. Using them only for their purpose is how the system remains coherent across hundreds of components and thousands of UI states.
 
 ### 6.2 Inter — The Structural UI Typeface
 
@@ -751,7 +755,7 @@ The command palette (⌘K) is the power-user's emergency exit — it can reach a
 
 ## 12. The Inviolables
 
-These are five rules that cannot be overridden by any design decision, feature request, or future revision. Each is named, defined, and explained. Any proposed exception requires a major version bump to this document and explicit revision of the relevant Inviolable.
+These are six rules that cannot be overridden by any design decision, feature request, or future revision. Each is named, defined, and explained. Any proposed exception requires a major version bump to this document and explicit revision of the relevant Inviolable.
 
 ### Inviolable 1 — The prose surface is the lowest-noise surface
 
@@ -773,9 +777,17 @@ Inter is the structural typeface. Lora is the prose typeface. There is no overla
 
 The prose editor produces running text. It is not a structured-document editor. It has no formatting toolbar, no heading dropdown, no style picker, no insert menu visible at rest. Formatting is reached through keyboard shortcuts, the selection-triggered inline tooltip (Bold · Italic · Link only), and the three-dot menu in the panel header for prose-level settings. Structure is managed in the Summary field above and in the node tree — never in the prose editor itself. (See §7.7.)
 
+### Inviolable 6 — Cormorant Garamond italic appears only in the wordmark
+
+Cormorant Garamond italic is the *vox* typeface. It appears only in the *vox* component of the wordmark. It never appears in the product UI, never in marketing copy, never as a heading typeface, never in body text, never in any context where its presence would be decorative rather than identifying. Its presence — like Cinzel's — always and only means "this is the brand." The two brand typefaces together form the mark; using either elsewhere dilutes the signal. (See §3.2, §6.1.)
+
+This Inviolable was added at the Phase 8.01 wireframe lock after the Dashboard iter4 first pass collapsed the mark to a single Cinzel "Stelavox" — a silent regression against §3.2 that was caught only by visual review. The protection of Inviolable #3 (Cinzel-only-in-wordmark) was not symmetric across the second brand typeface; Inviolable #6 closes that gap.
+
 ---
 
 ## 13. Changelog
+
+**v2.2 — 2026-05-31** Phase 8.01 wireframe-lock consolidation. **New Inviolable #6 — Cormorant Garamond italic appears only in the wordmark.** The protection of Inviolable #3 (Cinzel-only) was not symmetric across the second brand typeface; Phase 8.01 Dashboard iter4 caught the asymmetry the hard way by silently collapsing the mark to a single Cinzel "Stelavox" against §3.2. §12 lead bumps "five rules" → "six rules"; new Inviolable text added at the end of §12 with full rationale and a back-pointer to the iter4 regression. §6.1 reframed: the product UI still uses exactly three typefaces (Inter / Lora plus Cinzel via the wordmark mount); Cormorant Garamond italic is the fourth typeface in the brand system, reserved for the *vox* component. §3.7 "What the Wordmark Is Never" extended: Cormorant Garamond italic added to the never-replace list alongside Cinzel; new implementation note locks the lozenge as a `transform: rotate(45deg)` square with the 8px verdigris glow `box-shadow: 0 0 8px rgba(90,168,122,0.45)` (approximating with a Unicode character / CSS triangle / unrotated square is now an explicit regression). Verdigris-use count remains nine (the two brand uses #1 lozenge + #2 rule are unchanged in count and behaviour). The v2.1 a11y / muted-token change (2026-05-10) lands in the same internal version stamp; the v2.0 header had stayed at "Version 2.0" through the v2.1 changelog entry — this v2.2 bump moves the top stamp to v2.2 absorbing both. Brand philosophy, the nine verdigris uses (§5), Cinzel / Inter / Lora boundaries, and the colour system are otherwise unchanged.
 
 **v2.1 — 2026-05-10** Step 4 a11y sweep (Phase 5d round-3 hardening) flagged `--color-text-muted` as failing WCAG AA at every visible-text use site (~3.0:1 dark, ~2.7:1 light — well below the 4.5:1 normal-text threshold). UI Design Spec v1.0 §3.10 had already disclosed muted as "AA large text only — use at 14px+ only," but the actual codebase used muted at 11–13px regular throughout the sidebar, agent surfaces, and word-count footer. Per the V1 launch standard ("no further deferrals") the contract was tightened, not the use sites: muted is now WCAG-AA-compliant at all sizes. Dark `#4a6080` → `#6884a4` (~5.2:1 on bg-base / bg-surface). Light `#9a9080` → `#6e6856` (~4.7:1). `--color-text-disabled` is unchanged in value but its scope narrowed in the table notes — disabled-controls only, never visible text. Five Inviolables, the nine verdigris uses, and Cinzel/Inter/Lora boundaries all unchanged.
 

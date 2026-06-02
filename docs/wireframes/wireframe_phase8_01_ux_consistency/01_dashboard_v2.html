@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stelavox — Dashboard v2 (Phase 8.01)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500&family=Cormorant+Garamond:ital,wght@1,300&family=Inter:wght@200;300;400;500;600;700&family=Lora:ital,wght@0,400&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  /* Brand tokens — current values from styles/tokens.css */
+  --ink:#0d1014; --deep:#131820; --surface:#1a2030; --hover:#1e2838; --selected:#1f2d45;
+  --border-s:#1e2535; --border-d:#253045; --border-str:#3a4a62;
+  --text-p:#ecf0f5; --text-s:#8aa0b8; --text-m:#6884a4; --text-dis:#2a3850;
+  --verd:#3d7858; --verd-h:#5aa87a; --verd-muted:#1a3028;
+  --st-draft:#4a6080; --st-rev:#b87030; --st-app:#3d7858; --st-lock:#6a3888;
+  --info:#3a6090; --warning:#b87030; --error:#b03c3c;
+  --agent-running:#2e5a90;
+
+  /* Phase 8.01 proposed: punchier "attention/motion" tones for indicators */
+  --st-running-bright:#4d8fd6;       /* +saturation on agent-running for visibility at small sizes */
+  --st-review-bright:#e09040;        /* +saturation on review-amber */
+  --verd-bright:#5aa87a;             /* For brand chrome accents — same as --verd-h */
+
+  /* Spec-sheet chrome */
+  --spec-bg:#0a0d12; --spec-pan:#111520; --callout:#e8b840;
+}
+html, body { background:var(--spec-bg); color:var(--text-p); font-family:'Inter',sans-serif; font-size:13px; line-height:1.5; }
+
+/* Doc framing */
+.doc-header { background:var(--spec-pan); border-bottom:1px solid var(--border-d); padding:24px 48px; display:flex; align-items:baseline; justify-content:space-between; }
+.wm-s{font-family:'Cinzel',serif;font-size:14px;font-weight:500;letter-spacing:.18em;color:var(--text-p);}
+.wm-v{font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:300;font-size:16px;letter-spacing:.08em;color:var(--text-p);opacity:.82;}
+.doc-meta{font-size:11px;font-weight:300;letter-spacing:.2em;text-transform:uppercase;color:var(--text-m);}
+.section{padding:40px 48px 0;}
+.slabel{font-size:9px;font-weight:400;letter-spacing:.45em;text-transform:uppercase;color:var(--text-m);margin-bottom:20px;padding-bottom:12px;border-bottom:1px solid var(--border-s);}
+
+/* App-frame screen shell */
+.screen { width:1280px; height:820px; background:var(--ink); border:1px solid var(--border-d); border-radius:8px; overflow:hidden; display:flex; flex-direction:column; box-shadow:0 24px 80px rgba(0,0,0,.6); margin:0 auto; }
+
+/* ── Wordmark component (NEW) ── */
+/* Implementation per Component Spec §3.1 + Brand Identity §6.4.
+   Variants: --size-sm (header 48px), --size-md (compact), --size-lg (empty state) */
+.wm { display:flex; flex-direction:column; align-items:flex-start; }
+.wm-text { display:flex; align-items:baseline; }
+.wm-stela { font-family:'Cinzel',serif; font-weight:500; letter-spacing:.18em; color:var(--text-p); }
+.wm-vox   { font-family:'Cormorant Garamond',serif; font-style:italic; font-weight:300; letter-spacing:.08em; color:var(--text-p); opacity:.82; }
+.wm-rule-wrap { position:relative; margin-top:3px; }
+.wm-rule { height:1px; background:linear-gradient(90deg,var(--verd-bright) 0%, rgba(90,168,122,0.4) 40%, transparent 80%); }
+.wm-lozenge { position:absolute; left:-2px; top:-3px; width:7px; height:7px; background:var(--verd-bright); transform:rotate(45deg); box-shadow:0 0 6px rgba(90,168,122,0.35); }
+.wm-sm .wm-stela { font-size:14px; }
+.wm-sm .wm-vox   { font-size:16px; }
+.wm-sm .wm-rule  { width:80px; }
+.wm-lg .wm-stela { font-size:32px; }
+.wm-lg .wm-vox   { font-size:36px; }
+.wm-lg .wm-rule  { width:200px; }
+
+/* ── App header (48px) ── */
+.app-hdr { height:48px; min-height:48px; background:var(--deep); border-bottom:1px solid var(--border-s); display:flex; align-items:center; padding:0 24px; gap:0; }
+.app-hdr-right { display:flex; align-items:center; gap:14px; margin-left:auto; }
+.cmd-chip { font-size:11px; font-weight:400; color:var(--text-s); border:1px solid var(--border-str); background:var(--surface); padding:3px 9px 3px 8px; border-radius:4px; cursor:pointer; display:flex; align-items:center; gap:6px; }
+.cmd-chip:hover { border-color:var(--verd-bright); color:var(--text-p); }
+.cmd-chip-kbd { font-family:ui-monospace,monospace; font-size:10px; color:var(--text-m); }
+.hdr-link { font-size:12px; font-weight:400; color:var(--text-s); cursor:pointer; }
+.hdr-link:hover { color:var(--text-p); }
+.uav { width:28px; height:28px; background:var(--surface); border:1px solid var(--border-str); border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:500; color:var(--text-p); cursor:pointer; }
+
+/* ── App body ── */
+.app-body { flex:1; overflow-y:auto; display:flex; }
+
+/* ── Sidebar (220px) ── */
+.app-sidebar { width:220px; min-width:220px; background:var(--deep); border-right:1px solid var(--border-s); padding:20px 0 16px; display:flex; flex-direction:column; gap:0; position:relative; }
+/* Vertical verdigris hairline on the right edge of sidebar — brand presence */
+.app-sidebar::after { content:""; position:absolute; right:0; top:60px; bottom:60px; width:1px; background:linear-gradient(180deg, transparent 0%, rgba(90,168,122,0.35) 30%, rgba(90,168,122,0.35) 70%, transparent 100%); }
+.sb-section-label { font-size:9px; font-weight:600; letter-spacing:.38em; text-transform:uppercase; color:var(--text-m); padding:0 20px 8px; }
+.sb-item { display:flex; align-items:center; gap:10px; padding:8px 20px; font-size:13px; font-weight:400; color:var(--text-s); cursor:pointer; border-left:2px solid transparent; }
+.sb-item:hover { background:var(--hover); color:var(--text-p); }
+.sb-item.active { color:var(--text-p); background:var(--selected); border-left:2px solid var(--verd-bright); }
+.sb-item-icon { font-size:13px; opacity:.85; width:18px; display:flex; justify-content:center; }
+.sb-divider { height:1px; background:var(--border-s); margin:12px 16px; }
+.sb-foot { margin-top:auto; padding-top:8px; }
+.sb-foot .sb-item { font-size:12px; color:var(--text-m); }
+
+/* ── Main content ── */
+.app-main { flex:1; padding:32px 40px 48px; overflow-y:auto; }
+.greeting-row { display:flex; align-items:baseline; gap:14px; margin-bottom:4px; }
+.greeting { font-size:24px; font-weight:600; color:var(--text-p); letter-spacing:-0.01em; }
+.greeting-sub { font-size:13px; font-weight:300; color:var(--text-m); margin-bottom:32px; }
+
+/* Section header */
+.sec-hdr { display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
+.sec-hdr-title { font-size:11px; font-weight:600; letter-spacing:.28em; text-transform:uppercase; color:var(--text-s); }
+.sec-hdr-action { font-size:11px; font-weight:400; color:var(--text-s); cursor:pointer; border:1px solid var(--border-d); padding:4px 11px; border-radius:4px; background:var(--deep); }
+.sec-hdr-action:hover { border-color:var(--verd-bright); color:var(--text-p); }
+
+/* ── Recent documents grid (NEW) ── */
+.docs-grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:14px; margin-bottom:40px; }
+.doc-card { background:var(--surface); border:1px solid var(--border-d); border-radius:6px; padding:18px 18px 16px; display:flex; flex-direction:column; gap:9px; cursor:pointer; transition:border-color 120ms, transform 120ms; }
+.doc-card:hover { border-color:var(--verd-bright); transform:translateY(-1px); }
+.doc-card-type { font-size:10px; font-weight:600; letter-spacing:.25em; text-transform:uppercase; color:var(--text-m); display:flex; align-items:center; gap:8px; }
+.doc-type-icon { width:20px; height:20px; border-radius:4px; background:var(--verd-muted); color:var(--verd-bright); display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; font-family:'Cinzel',serif; letter-spacing:0; }
+.doc-card-title { font-size:15px; font-weight:500; color:var(--text-p); line-height:1.3; }
+.doc-card-meta-row { display:flex; align-items:center; gap:12px; }
+.doc-meta-item { font-size:11px; font-weight:300; color:var(--text-m); display:flex; align-items:center; gap:5px; }
+.doc-card-progress-row { display:flex; align-items:center; gap:8px; margin-top:auto; }
+.doc-card-progress { height:5px; background:var(--border-s); border-radius:3px; overflow:hidden; flex:1; }
+.doc-card-progress-fill { height:100%; background:linear-gradient(90deg, var(--verd) 0%, var(--verd-bright) 100%); border-radius:3px; }
+.doc-card-progress-text { font-size:10px; font-weight:500; color:var(--text-s); white-space:nowrap; font-variant-numeric:tabular-nums; }
+.doc-card-status { display:flex; align-items:center; gap:8px; }
+.status-pip { width:8px; height:8px; border-radius:50%; }  /* +1px over old 7px */
+.status-pip-running { background:var(--st-running-bright); box-shadow:0 0 6px rgba(77,143,214,0.55); animation:pulse-running 2s ease-in-out infinite; }
+@keyframes pulse-running { 0%,100% { opacity:1; } 50% { opacity:0.55; } }
+.status-text { font-size:11px; font-weight:400; color:var(--text-s); }
+
+/* New document card */
+.doc-card-new { background:transparent; border:1px dashed var(--border-d); border-radius:6px; padding:18px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px; cursor:pointer; min-height:160px; transition:border-color 120ms, background 120ms; }
+.doc-card-new:hover { border-color:var(--verd-bright); background:rgba(61,120,88,0.04); }
+.doc-card-new-icon { font-size:28px; opacity:.35; color:var(--text-s); line-height:1; }
+.doc-card-new-label { font-size:12px; font-weight:500; color:var(--text-s); }
+
+/* ── All projects list ── */
+.proj-list { display:flex; flex-direction:column; gap:6px; margin-bottom:28px; }
+.proj-item { background:var(--surface); border:1px solid var(--border-s); border-radius:5px; padding:13px 16px; display:flex; align-items:center; gap:14px; cursor:pointer; transition:border-color 120ms; }
+.proj-item:hover { border-color:var(--verd-bright); }
+.proj-icon-wrap { width:30px; height:30px; border-radius:5px; background:var(--verd-muted); display:flex; align-items:center; justify-content:center; color:var(--verd-bright); font-size:14px; }
+.proj-info { flex:1; }
+.proj-name { font-size:14px; font-weight:500; color:var(--text-p); }
+.proj-meta { font-size:11px; font-weight:300; color:var(--text-m); margin-top:2px; }
+.proj-meta strong { color:var(--text-s); font-weight:400; }
+.proj-doc-count { font-size:11px; font-weight:400; color:var(--text-s); white-space:nowrap; }
+.proj-arrow { font-size:12px; color:var(--text-m); margin-left:6px; }
+
+/* Sandbox / hidden section disclosure */
+.sandbox-section { margin-top:24px; }
+.sandbox-toggle { font-size:11px; font-weight:400; color:var(--text-m); cursor:pointer; padding:6px 0; display:flex; align-items:center; gap:8px; user-select:none; }
+.sandbox-toggle:hover { color:var(--text-s); }
+.sandbox-chevron { display:inline-block; transition:transform 120ms; }
+.sandbox-list { display:flex; flex-direction:column; gap:3px; margin-top:6px; padding-left:16px; border-left:1px solid var(--border-s); }
+.sandbox-item { font-size:11px; color:var(--text-m); font-family:ui-monospace,monospace; padding:3px 0; cursor:pointer; }
+.sandbox-item:hover { color:var(--text-s); }
+
+/* ── Callout annotations ── */
+.callout-set { position:relative; max-width:1280px; margin:0 auto; }
+.callout-pin { position:absolute; width:22px; height:22px; border-radius:50%; background:var(--callout); color:#1a1a1a; font-size:11px; font-weight:700; display:flex; align-items:center; justify-content:center; border:2px solid var(--ink); box-shadow:0 0 0 1px var(--callout); z-index:5; }
+.callout-list { background:var(--spec-pan); border:1px solid var(--border-s); border-radius:6px; padding:20px 24px; margin-top:32px; }
+.callout-list-title { font-size:11px; font-weight:600; letter-spacing:.25em; text-transform:uppercase; color:var(--text-m); margin-bottom:12px; }
+.callout-row { display:flex; gap:14px; margin-bottom:10px; align-items:flex-start; }
+.callout-row:last-child { margin-bottom:0; }
+.callout-num { width:22px; height:22px; border-radius:50%; background:var(--callout); color:#1a1a1a; font-size:11px; font-weight:700; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.callout-text { font-size:13px; font-weight:300; color:var(--text-s); line-height:1.55; }
+.callout-text strong { color:var(--text-p); font-weight:500; }
+
+/* ── Decisions block ── */
+.spec-section{padding:0 48px 80px;}
+.spec-block{background:var(--spec-pan);border:1px solid var(--border-s);border-radius:6px;margin-bottom:18px;overflow:hidden;}
+.spec-block-header{padding:14px 22px;background:var(--ink);border-bottom:1px solid var(--border-s);font-size:11px;font-weight:600;letter-spacing:.25em;text-transform:uppercase;color:var(--text-p);display:flex;justify-content:space-between;align-items:center;}
+.spec-block-body{padding:18px 22px;}
+.spec-row{display:grid;grid-template-columns:200px 1fr;gap:18px;padding:9px 0;border-bottom:1px solid var(--border-s);font-size:12px;align-items:start;}
+.spec-row:last-child{border-bottom:none;}
+.spec-row-k{color:var(--text-s);font-weight:500;font-size:11px;letter-spacing:.08em;text-transform:uppercase;padding-top:1px;}
+.spec-row-v{color:var(--text-p);font-weight:300;line-height:1.6;}
+.spec-row-v code{background:var(--ink);padding:1px 6px;border-radius:3px;font-family:ui-monospace,monospace;font-size:11px;color:var(--callout);border:1px solid var(--border-s);}
+.spec-row-v em { color:var(--text-m); font-style:italic; }
+</style>
+</head>
+<body>
+
+<div class="doc-header">
+  <div>
+    <div style="display:flex;align-items:baseline;"><span class="wm-s">Stela</span><span class="wm-v">vox</span></div>
+    <div style="margin-top:6px;font-size:11px;font-weight:300;letter-spacing:.2em;text-transform:uppercase;color:var(--text-m);">Dashboard v2 — Phase 8.01 UX Consistency Pass</div>
+  </div>
+  <div class="doc-meta">2026-05-28 · iteration 1 · brand chrome restored</div>
+</div>
+
+<!-- ───────────────────────────────────────────────────────── -->
+<!-- POPULATED STATE — proposed v2 with annotations           -->
+<!-- ───────────────────────────────────────────────────────── -->
+
+<div class="section"><div class="slabel">01 — Dashboard / Populated · 1280×820 · proposed v2</div></div>
+
+<div style="padding:32px 48px 0;">
+<div class="callout-set">
+<div class="screen">
+
+  <!-- App header -->
+  <div class="app-hdr">
+    <!-- ① Wordmark (NEW component): "Stela" + "vox" + verdigris lozenge + gradient rule.
+         Visible brand presence — the missing piece that made the chrome read as generic. -->
+    <a class="wm wm-sm" href="#" style="text-decoration:none;">
+      <div class="wm-text"><span class="wm-stela">Stela</span><span class="wm-vox">vox</span></div>
+      <div class="wm-rule-wrap"><div class="wm-rule"></div><div class="wm-lozenge"></div></div>
+    </a>
+    <div class="app-hdr-right">
+      <div class="cmd-chip">Search <span class="cmd-chip-kbd">⌘K</span></div>
+      <div class="hdr-link">Settings</div>
+      <div class="uav">AS</div>
+    </div>
+  </div>
+
+  <div class="app-body">
+
+    <!-- ② Sidebar — verdigris hairline on right edge (subtle but always present) -->
+    <div class="app-sidebar">
+      <div class="sb-section-label">Workspace</div>
+      <div class="sb-item active"><span class="sb-item-icon">⌂</span> Home</div>
+      <div class="sb-item"><span class="sb-item-icon">⊟</span> All projects</div>
+      <div class="sb-item"><span class="sb-item-icon">◷</span> Recent</div>
+
+      <div class="sb-divider"></div>
+      <div class="sb-section-label">Projects</div>
+      <div class="sb-item"><span class="sb-item-icon">◆</span> Shadow Protocol</div>
+      <div class="sb-item"><span class="sb-item-icon">◆</span> The Threshold</div>
+
+      <div class="sb-foot">
+        <div class="sb-divider"></div>
+        <div class="sb-item"><span class="sb-item-icon">⚙</span> Settings</div>
+        <div class="sb-item"><span class="sb-item-icon">?</span> Help</div>
+      </div>
+    </div>
+
+    <!-- Main -->
+    <div class="app-main">
+      <div class="greeting-row">
+        <div class="greeting">Good afternoon, Author.</div>
+      </div>
+      <div class="greeting-sub">2 projects · 1 document · 1 brief active</div>
+
+      <!-- ③ Recent Documents — NEW grid of doc cards.
+           Replaces the current "flat list of projects, mostly test fixtures, in raw text" with
+           a glanceable card surface that shows recent state at a glance. -->
+      <div class="sec-hdr">
+        <div class="sec-hdr-title">Recent Documents</div>
+        <div class="sec-hdr-action">All documents →</div>
+      </div>
+      <div class="docs-grid">
+
+        <!-- Card 1 — active, agent running -->
+        <div class="doc-card">
+          <div class="doc-card-type"><span class="doc-type-icon">N</span> Novel</div>
+          <div class="doc-card-title">Shadow Protocol</div>
+          <div class="doc-card-meta-row">
+            <div class="doc-meta-item">Act 1 of 3</div>
+            <div class="doc-meta-item">last edit 12 min ago</div>
+          </div>
+          <div class="doc-card-progress-row">
+            <div class="doc-card-progress"><div class="doc-card-progress-fill" style="width:38%;"></div></div>
+            <div class="doc-card-progress-text">38%</div>
+          </div>
+          <!-- ④ Punchier status pip — 8px (was 7px), saturation increased on
+               "running/review" tones, pulsing animation on agent_running.
+               Reads at a glance even peripherally. -->
+          <div class="doc-card-status">
+            <div class="status-pip status-pip-running"></div>
+            <span class="status-text">Director: working on Act 2 hook</span>
+          </div>
+        </div>
+
+        <!-- Card 2 — needs review -->
+        <div class="doc-card">
+          <div class="doc-card-type"><span class="doc-type-icon">N</span> Novel</div>
+          <div class="doc-card-title">The Threshold</div>
+          <div class="doc-card-meta-row">
+            <div class="doc-meta-item">Draft</div>
+            <div class="doc-meta-item">last edit yesterday</div>
+          </div>
+          <div class="doc-card-progress-row">
+            <div class="doc-card-progress"><div class="doc-card-progress-fill" style="width:64%;"></div></div>
+            <div class="doc-card-progress-text">64%</div>
+          </div>
+          <div class="doc-card-status">
+            <div class="status-pip" style="background:var(--st-review-bright);box-shadow:0 0 4px rgba(224,144,64,0.5);"></div>
+            <span class="status-text">3 nodes awaiting accept</span>
+          </div>
+        </div>
+
+        <!-- ⑤ New document card — verdigris hover. Always present so the next thing is one click away. -->
+        <div class="doc-card-new">
+          <div class="doc-card-new-icon">+</div>
+          <div class="doc-card-new-label">New document</div>
+        </div>
+      </div>
+
+      <!-- All projects -->
+      <div class="sec-hdr">
+        <div class="sec-hdr-title">Projects</div>
+        <div class="sec-hdr-action">+ New project</div>
+      </div>
+      <div class="proj-list">
+        <div class="proj-item">
+          <div class="proj-icon-wrap">◆</div>
+          <div class="proj-info">
+            <div class="proj-name">Shadow Protocol</div>
+            <div class="proj-meta">Novel · <strong>1 document</strong> · last active 12 min ago</div>
+          </div>
+          <div class="proj-doc-count">1 doc</div>
+          <div class="proj-arrow">→</div>
+        </div>
+        <div class="proj-item">
+          <div class="proj-icon-wrap">◆</div>
+          <div class="proj-info">
+            <div class="proj-name">The Threshold</div>
+            <div class="proj-meta">Novel · <strong>1 document</strong> · last active yesterday</div>
+          </div>
+          <div class="proj-doc-count">1 doc</div>
+          <div class="proj-arrow">→</div>
+        </div>
+      </div>
+
+      <!-- ⑥ Sandbox / Test fixtures — collapsed by default.
+           The 60+ `exec-pw-*` projects from Playwright runs no longer dominate
+           the dashboard. They're still accessible (we shouldn't hide test data
+           from the author) but they're folded out of the way. -->
+      <div class="sandbox-section">
+        <div class="sandbox-toggle">
+          <span class="sandbox-chevron">▶</span>
+          Show 62 test / sandbox projects
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+  <!-- Callout pins overlayed on the screen above (approx coords) -->
+  <div class="callout-pin" style="top:60px;  left:62px;">1</div>
+  <div class="callout-pin" style="top:144px; left:265px;">2</div>
+  <div class="callout-pin" style="top:230px; left:340px;">3</div>
+  <div class="callout-pin" style="top:455px; left:455px;">4</div>
+  <div class="callout-pin" style="top:430px; left:870px;">5</div>
+  <div class="callout-pin" style="top:760px; left:340px;">6</div>
+</div>
+
+  <!-- Callout legend -->
+  <div class="callout-list">
+    <div class="callout-list-title">Annotations</div>
+    <div class="callout-row"><div class="callout-num">1</div><div class="callout-text"><strong>Wordmark restored.</strong> "Stela" in Cinzel + "vox" in Cormorant Garamond italic, with a thin verdigris hairline rule and the rotated-square lozenge per Brand Identity §6.4. Currently the header just says "Stelavox" in plain Inter — no logo, no rule, no verdigris. This is the single biggest change to the chrome's "feel." Implementing the missing <code>components/brand/Wordmark.tsx</code> is the actual code change behind this.</div></div>
+    <div class="callout-row"><div class="callout-num">2</div><div class="callout-text"><strong>Sidebar verdigris hairline.</strong> A thin vertical verdigris gradient on the sidebar's right edge — always visible, never loud. Anchors the brand identity in the chrome without competing with content. Candidate <em>new verdigris use</em> (Inviolable #2 currently locks at nine — this would propose use #10).</div></div>
+    <div class="callout-row"><div class="callout-num">3</div><div class="callout-text"><strong>Recent Documents grid.</strong> Replaces the current "flat list of projects, mostly test fixtures" with a 3-column doc-card grid. Each card shows type, title, project context, last-edit timestamp, progress bar with verdigris fill, and a status line. The most-recent 2–3 documents land here; full list lives in "All documents."</div></div>
+    <div class="callout-row"><div class="callout-num">4</div><div class="callout-text"><strong>Punchier status pips.</strong> 8px diameter (was 7px), brighter agent-running blue (<code>#4d8fd6</code> vs <code>#2e5a90</code>), brighter review-amber (<code>#e09040</code> vs <code>#b87030</code>), with a subtle outer glow + pulsing animation on the "running" state. Visible peripherally without being intrusive — this is the "match Claude's dot legibility" calibration.</div></div>
+    <div class="callout-row"><div class="callout-num">5</div><div class="callout-text"><strong>"New document" card.</strong> Always visible, dashed-border, verdigris-on-hover. The next thing the author might want to do is one click away from first-load, regardless of whether they have one document or twenty.</div></div>
+    <div class="callout-row"><div class="callout-num">6</div><div class="callout-text"><strong>Sandbox / test fixtures, folded.</strong> The 60+ <code>exec-pw-*</code> projects from Playwright runs are still accessible but hidden by default behind a disclosure. The author's dashboard surface is no longer dominated by test detritus on first load.</div></div>
+  </div>
+</div>
+
+<!-- ───────────────────────────────────────────────────────── -->
+<!-- EMPTY STATE — new user, first run                         -->
+<!-- ───────────────────────────────────────────────────────── -->
+
+<div class="section" style="padding-top:60px;"><div class="slabel">02 — Dashboard / Empty · new user · 1280×500</div></div>
+
+<div style="padding:32px 48px 0;">
+<div class="screen" style="height:500px;">
+  <div class="app-hdr">
+    <a class="wm wm-sm" href="#" style="text-decoration:none;">
+      <div class="wm-text"><span class="wm-stela">Stela</span><span class="wm-vox">vox</span></div>
+      <div class="wm-rule-wrap"><div class="wm-rule"></div><div class="wm-lozenge"></div></div>
+    </a>
+    <div class="app-hdr-right">
+      <div class="uav">AS</div>
+    </div>
+  </div>
+
+  <div class="app-body">
+    <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:28px;padding:60px;">
+      <!-- Wordmark large, centred -->
+      <div class="wm wm-lg" style="align-items:center;">
+        <div class="wm-text"><span class="wm-stela">Stela</span><span class="wm-vox">vox</span></div>
+        <div class="wm-rule-wrap" style="margin-top:6px;"><div class="wm-rule"></div><div class="wm-lozenge" style="left:-3px;top:-4px;width:10px;height:10px;"></div></div>
+      </div>
+      <div style="font-size:13px;font-weight:300;color:var(--text-m);font-style:italic;font-family:'Cormorant Garamond',serif;letter-spacing:.04em;">The author's thought should arrive on the page undistorted.</div>
+
+      <div style="text-align:center;max-width:420px;margin-top:8px;">
+        <div style="font-size:17px;font-weight:400;color:var(--text-p);margin-bottom:8px;">Begin with a project.</div>
+        <div style="font-size:13px;font-weight:300;color:var(--text-s);line-height:1.7;">A project holds one or more documents — a novel, a thesis, a set of board papers. Create your first project to begin.</div>
+      </div>
+
+      <button style="background:var(--verd);color:white;font-size:13px;font-weight:500;padding:11px 32px;border-radius:5px;border:none;cursor:pointer;font-family:'Inter',sans-serif;box-shadow:0 4px 14px rgba(61,120,88,0.35);">Create your first project</button>
+
+      <div style="font-size:11px;font-weight:300;color:var(--text-m);">or press <span style="background:var(--surface);border:1px solid var(--border-d);padding:2px 7px;border-radius:3px;font-size:10px;font-family:ui-monospace,monospace;">⌘K</span> to search</div>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- ───────────────────────────────────────────────────────── -->
+<!-- DECISIONS / OPEN QUESTIONS                                -->
+<!-- ───────────────────────────────────────────────────────── -->
+
+<div class="section" style="padding-top:60px;"><div class="slabel">03 — Decisions surfaced by this draft</div></div>
+<div class="spec-section" style="padding-top:18px;">
+
+  <div class="spec-block">
+    <div class="spec-block-header">Brand chrome <span style="font-size:10px;font-weight:300;letter-spacing:.1em;color:var(--verd-bright);">5 decisions</span></div>
+    <div class="spec-block-body">
+      <div class="spec-row"><div class="spec-row-k">Wordmark</div><div class="spec-row-v">NEW component at <code>components/brand/Wordmark.tsx</code>. Three size variants: <code>sm</code> (header 48px), <code>md</code> (compact), <code>lg</code> (empty state). Verdigris lozenge + gradient rule per Brand Identity §6.4. The text "Stelavox" in the current header is a deferred Phase 2 placeholder — implementing the spec'd component is the change.</div></div>
+      <div class="spec-row"><div class="spec-row-k">Verdigris use list</div><div class="spec-row-v"><strong>Proposed additions to Inviolable #2:</strong> (#10) wordmark lozenge + rule (already in spec, just unrealised); (#11) sidebar right-edge hairline; (#12) "running" status pip + glow. The current nine are kept verbatim. This brings the count to twelve. <em>Open: too aggressive? Or right? Hold on judgement until we see more wireframes — the count interacts with chrome you haven't seen yet.</em></div></div>
+      <div class="spec-row"><div class="spec-row-k">Inviolable #1 scope</div><div class="spec-row-v">Scoped to ProseEditor + FocusMode only. Dashboard, edit-mode chrome, panels, modals, settings, admin — these can carry brand presence. The prose canvas itself remains lowest-noise.</div></div>
+      <div class="spec-row"><div class="spec-row-k">Status pip palette</div><div class="spec-row-v">Bump saturation on the "attention/motion" tones: <code>--st-running-bright #4d8fd6</code> (was <code>#2e5a90</code>), <code>--st-review-bright #e09040</code> (was <code>#b87030</code>). Pip size 7px → 8px. Add subtle outer glow on active states + pulsing animation on agent-running. Approved/complete stays at current verdigris (settled states should not seek attention).</div></div>
+      <div class="spec-row"><div class="spec-row-k">Cmd+K chip</div><div class="spec-row-v">Visible affordance in the header right-side. Hint to power users; doesn't compete with the wordmark. Verdigris-on-hover. (Command palette implementation is 8.1 — this is just the chip.)</div></div>
+    </div>
+  </div>
+
+  <div class="spec-block">
+    <div class="spec-block-header">Dashboard structure <span style="font-size:10px;font-weight:300;letter-spacing:.1em;color:var(--verd-bright);">4 decisions</span></div>
+    <div class="spec-block-body">
+      <div class="spec-row"><div class="spec-row-k">Greeting</div><div class="spec-row-v">"Good [time], [name]." in Inter 600 24px. Sub-line: "<em>N projects · M documents · K briefs active</em>". The current dashboard has no warmth at first load — this is the cheapest, highest-impact change.</div></div>
+      <div class="spec-row"><div class="spec-row-k">Recent Documents grid</div><div class="spec-row-v">3-column grid, max 4 cards including a "New document" placeholder. Each card: type label, title, project + last-active, progress bar with verdigris fill + percent label, status pip + sentence. Hover: verdigris border + 1px translate-up.</div></div>
+      <div class="spec-row"><div class="spec-row-k">Projects list</div><div class="spec-row-v">Below the Recent Documents grid. Per-row: project icon (verdigris-on-verdigris-muted square), name, meta line, doc count, chevron. Verdigris-on-hover border. Only "real" projects appear here.</div></div>
+      <div class="spec-row"><div class="spec-row-k">Test fixtures</div><div class="spec-row-v">Projects matching <code>^exec-pw-.*</code> or other test patterns are folded behind a "Show N test / sandbox projects" disclosure. Still accessible, no longer dominant. Pattern list is configurable via <code>platform_config</code> (suggested key <code>dashboard.sandbox_project_patterns</code>).</div></div>
+    </div>
+  </div>
+
+  <div class="spec-block">
+    <div class="spec-block-header">Empty state <span style="font-size:10px;font-weight:300;letter-spacing:.1em;color:var(--verd-bright);">3 decisions</span></div>
+    <div class="spec-block-body">
+      <div class="spec-row"><div class="spec-row-k">Wordmark large, centred</div><div class="spec-row-v">Same Wordmark component at <code>lg</code> variant. Verdigris elements are now visible at a size where they read as a logo, not a decoration.</div></div>
+      <div class="spec-row"><div class="spec-row-k">Tagline</div><div class="spec-row-v">"<em>The author's thought should arrive on the page undistorted.</em>" Cormorant Garamond italic. This is the project's stated philosophy — the empty state is the right place for it.</div></div>
+      <div class="spec-row"><div class="spec-row-k">CTA</div><div class="spec-row-v">"Create your first project" — verdigris button with a slight verdigris-tinted shadow (gives the button presence without being garish). This is verdigris use #7 (affirmative-action) — within the existing family.</div></div>
+    </div>
+  </div>
+
+  <div class="spec-block">
+    <div class="spec-block-header">Open questions <span style="font-size:10px;font-weight:300;letter-spacing:.1em;color:var(--callout);">your call</span></div>
+    <div class="spec-block-body">
+      <div class="spec-row"><div class="spec-row-k">Q-1 — Wordmark variant</div><div class="spec-row-v">Cinzel + Cormorant Garamond pairing is per the existing spec. Want me to explore an alternative (e.g., both in Cinzel; or wordmark as a glyph-only logomark instead of typeset text)? Current draft holds to the spec.</div></div>
+      <div class="spec-row"><div class="spec-row-k">Q-2 — Sidebar hairline opacity</div><div class="spec-row-v">Current draft: gradient (transparent → 35% → transparent), top-to-bottom inset. Subtle but visible. Try louder (50%) or quieter (25%)? Or different position (left edge of main panel instead)?</div></div>
+      <div class="spec-row"><div class="spec-row-k">Q-3 — Status pip glow</div><div class="spec-row-v">Currently only the "running" pip carries a glow + pulse. Should "review needs attention" also glow (statically)? Or keep glow exclusive to motion-active states?</div></div>
+      <div class="spec-row"><div class="spec-row-k">Q-4 — Project icon</div><div class="spec-row-v">Current draft uses ◆ (diamond glyph) in a verdigris-muted square. Alternatives: project-type icon (book/paper/board), first letter of project name, abstract per-project colour seed. Diamond is "Stelavox-branded neutral" — neither warm nor cold.</div></div>
+      <div class="spec-row"><div class="spec-row-k">Q-5 — Settings link prominence</div><div class="spec-row-v">Per your direction, Export lives in Settings (gDrive setup, schedule, etc.). Should the header Settings link become a button-like affordance, or stay as plain text? Plain text in current draft.</div></div>
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>
