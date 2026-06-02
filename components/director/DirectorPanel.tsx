@@ -180,6 +180,11 @@ export function DirectorPanel({
       content: m.content,
       created_at: m.created_at,
       workflow_id: m.workflow_id,
+      // Phase 8.01.C T-6.1 — surface tool_calls so DirectorMessage can
+      // render the chip strip. Pre-V1.x-A messages may not have this
+      // column populated; the DirectorMessage component handles undefined
+      // by rendering nothing.
+      tool_calls: extractToolCallEntries(m.tool_calls),
     }))
     if (streaming && streaming.text.length > 0) {
       mapped.push({
@@ -192,6 +197,25 @@ export function DirectorPanel({
     }
     return mapped
   }, [messages, streaming])
+
+  // Phase 8.01.C T-6.1 — narrow the conversation_messages.tool_calls JSONB
+  // to the ToolCallEntry shape the chip component expects. Defensive: any
+  // entry missing name or arguments is skipped.
+  function extractToolCallEntries(
+    raw: unknown,
+  ): { name: string; arguments: Record<string, unknown> }[] | undefined {
+    if (!Array.isArray(raw)) return undefined
+    const out: { name: string; arguments: Record<string, unknown> }[] = []
+    for (const entry of raw) {
+      if (entry && typeof entry === 'object') {
+        const e = entry as Record<string, unknown>
+        const name = typeof e.name === 'string' ? e.name : null
+        const args = e.arguments && typeof e.arguments === 'object' ? (e.arguments as Record<string, unknown>) : {}
+        if (name) out.push({ name, arguments: args })
+      }
+    }
+    return out.length > 0 ? out : undefined
+  }
 
   const renderWorkflowSlot = useCallback(
     (_messageId: string, workflowId: string) => {

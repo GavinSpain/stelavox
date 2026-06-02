@@ -42,6 +42,8 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react'
 import { Header } from './Header'
 import { Sidebar } from './Sidebar'
+import { TreeSlideOver } from './TreeSlideOver'
+import { useViewportBreakpoint } from '@/lib/hooks/useViewportBreakpoint'
 import { PanelResizer } from './PanelResizer'
 import { ModeProvider } from './ModeContext'
 import { AppShellStatusIndicator } from './AppShellStatusIndicator'
@@ -129,6 +131,12 @@ export function AppShell({ userEmail, children }: AppShellProps) {
 }
 
 function AppShellInner({ userEmail, children }: AppShellProps) {
+  // Phase 8.01.F T-5 — viewport awareness. Desktop + tablet-landscape
+  // keep the current 3-pane flex layout (R-1 safety: no DOM tree change
+  // at the most common breakpoints). Only tablet-portrait collapses the
+  // left Sidebar into a slide-over.
+  const breakpoint = useViewportBreakpoint()
+  const isTabletPortrait = breakpoint === 'tablet-portrait'
   const [sidebarWidth, setSidebarWidth] = useState(SIDEBAR_DEFAULT)
   const [detailWidth,  setDetailWidth]  = useState(DETAIL_DEFAULT)
   const [rightSlotContent, setRightSlotContent] = useState<ReactNode | null>(null)
@@ -227,17 +235,25 @@ function AppShellInner({ userEmail, children }: AppShellProps) {
       </div>
 
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-        <div data-shell="sidebar" style={{ display: 'flex' }}>
-          <Sidebar width={sidebarWidth} />
-        </div>
+        {/* Phase 8.01.F T-5 — At tablet-portrait, the left Sidebar and its
+            resizer are hidden; the Sidebar lives in a slide-over instead,
+            triggered by the TreeSummonButton in Header. Desktop +
+            tablet-landscape keep the existing pinned layout exactly. */}
+        {!isTabletPortrait && (
+          <>
+            <div data-shell="sidebar" style={{ display: 'flex' }}>
+              <Sidebar width={sidebarWidth} />
+            </div>
 
-        <PanelResizer
-          position="sidebar-tree"
-          value={sidebarWidth}
-          onChange={updateSidebar}
-          min={SIDEBAR_MIN}
-          max={SIDEBAR_MAX}
-        />
+            <PanelResizer
+              position="sidebar-tree"
+              value={sidebarWidth}
+              onChange={updateSidebar}
+              min={SIDEBAR_MIN}
+              max={SIDEBAR_MAX}
+            />
+          </>
+        )}
 
         <main
           data-shell="tree"
@@ -289,6 +305,13 @@ function AppShellInner({ userEmail, children }: AppShellProps) {
       {/* Phase 7 — bottom-right export progress chips. Multi-export stack
           per wireframe §05; subscribes to active export_jobs via Realtime. */}
       <ExportProgressStack />
+      {/* Phase 8.01.F T-6 — Tree slide-over. Only renders contents when
+          open (the internal SlideOver gates on the store's open state).
+          Mounted at all viewports so the TreeSummonButton can toggle
+          without remounting cost; the SlideOver itself returns null on
+          desktop / tablet-landscape because the summon button is hidden
+          there and the open state stays false. */}
+      {isTabletPortrait && <TreeSlideOver sidebarWidth={sidebarWidth} />}
       </div>
     </RightSlotContext.Provider>
     </SidebarProjectContext.Provider>

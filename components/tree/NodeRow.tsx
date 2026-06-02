@@ -32,7 +32,8 @@
 // Inviolable #2: `--color-accent` appears in this file at exactly one
 // location (the active-state left border). No other usage permitted.
 
-import { createContext, useContext, useState } from 'react'
+import { createContext, useContext, useRef, useState } from 'react'
+import { useLongPress } from '@/lib/touch/useLongPress'
 import type { NodeRendererProps } from 'react-arborist'
 import { NodeStatusBadge } from './NodeStatusBadge'
 import { NodeLifecycleBadge, lifecycleFromJobStatus } from './NodeLifecycleBadge'
@@ -40,6 +41,7 @@ import { NodeLockIndicator } from './NodeLockIndicator'
 import { LayerLabel, type LayerKind } from './LayerLabel'
 import { useActiveJobForNode, useNodeHasRunningJob } from '@/lib/hooks/useAgentJobsRealtime'
 import { useAiChangedFlag, markNodeAsViewed } from '@/lib/hooks/useAiChangedFlag'
+import { useIsNodeMentioned } from '@/lib/stores/mentioned-nodes'
 
 // V1 layer-stack canonical structural types — the abbreviation map in
 // LayerLabel covers exactly these. Anything not in this set falls through
@@ -111,6 +113,12 @@ export function NodeRow({ node, style, dragHandle }: NodeRendererProps<ArboristN
   const active  = node.isSelected
   const focused = node.isFocused
   const locked  = data.locked
+  // Phase 8.01.C T-8 — mentioned-node highlight. Reuses Inviolable #2
+  // use #9 (active-node left border) via the same verdigris token; this
+  // is a second function under the existing use, NO new use category.
+  // Active state takes precedence over mentioned (active node always wins
+  // the bg + bold + border treatment).
+  const isMentioned = useIsNodeMentioned(data.id)
 
   // Background priority: active > hover > default. Focused state
   // overlays a 1px inset border, doesn't change bg.
@@ -123,14 +131,44 @@ export function NodeRow({ node, style, dragHandle }: NodeRendererProps<ArboristN
   const textColour = active ? 'var(--color-text-primary)' : 'var(--color-text-secondary)'
   const fontWeight = active ? 500 : 400
 
+  // Phase 8.01.F T-9 — touch long-press → row More menu.
+  // The 800ms context-menu timer opens the same menu the desktop "More"
+  // (⋯) button opens. The 350ms drag timer is wired but react-arborist's
+  // drag mechanism is mouse-based; touch-initiated drag falls back to
+  // long-press → context-menu → use the existing menu actions. Real
+  // touch-drag is a Phase 8.x polish item.
+  const didLongPressRef = useRef(false)
+  const rowElRef = useRef<HTMLDivElement | null>(null)
+  const longPressHandlers = useLongPress({
+    onContextMenu: () => {
+      didLongPressRef.current = true
+      const el = rowElRef.current
+      if (el && actions.onMore) {
+        actions.onMore(data.id, el)
+      }
+    },
+  })
+
   // Note: react-arborist's outer wrapper already supplies
   // role="treeitem" / aria-expanded / aria-level / aria-selected.
   // We only attach aria-label here to avoid duplicate ARIA.
   return (
     <div
-      ref={dragHandle}
+      ref={(el) => {
+        // Capture both refs — react-arborist's drag handle + our own for
+        // anchoring the context menu on touch long-press.
+        if (typeof dragHandle === 'function') dragHandle(el)
+        else if (dragHandle) (dragHandle as { current: HTMLDivElement | null }).current = el
+        rowElRef.current = el
+      }}
       aria-label={`${data.name ?? '(untitled)'}, ${data.status}`}
       onClick={() => {
+        // Phase 8.01.F T-9: ignore the synthetic click that fires after
+        // a long-press → context-menu sequence.
+        if (didLongPressRef.current) {
+          didLongPressRef.current = false
+          return
+        }
         // V1.x-D.2: any interaction with the row counts as a view —
         // clears the AI-changed dot (read-receipt model). Behaviour
         // unchanged for internal vs leaf node selection.
@@ -143,6 +181,10 @@ export function NodeRow({ node, style, dragHandle }: NodeRendererProps<ArboristN
       }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
+      onPointerDown={longPressHandlers.onPointerDown}
+      onPointerMove={longPressHandlers.onPointerMove}
+      onPointerUp={longPressHandlers.onPointerUp}
+      onPointerCancel={longPressHandlers.onPointerCancel}
       style={{
         ...style,
         // Phase 8.01.A T-5: 44px universal (was "36px desktop, 44px tablet").
@@ -159,7 +201,13 @@ export function NodeRow({ node, style, dragHandle }: NodeRendererProps<ArboristN
         cursor: 'pointer',
         // Active state: 2px verdigris left border (reservation #9).
         // Use box-shadow inset so it doesn't shift the row content.
+        // Phase 8.01.C T-8 — mentioned-node also paints the verdigris
+        // left border (same verdigris use #9; second function under the
+        // existing use category; no Inviolable broadening). Active wins
+        // when both are true (visual priority).
         boxShadow: active
+          ? 'inset 2px 0 0 var(--color-accent)'
+          : isMentioned
           ? 'inset 2px 0 0 var(--color-accent)'
           : focused
           ? 'inset 0 0 0 1px var(--color-border-strong)'
@@ -201,7 +249,11 @@ export function NodeRow({ node, style, dragHandle }: NodeRendererProps<ArboristN
         />
       )}
 
-      {/* Name — flex 1, truncate */}
+      {/* Name — flex 1, truncate. Phase 8.01.C T-8: `@` prefix when this
+          node is referenced by an active mention in DirectorInput.
+          The prefix uses --color-accent (verdigris use #9 — same use as
+          the active-node left border and the mentioned-node left border;
+          informational reuse, no new use category). */}
       <span
         style={{
           flex: 1,
@@ -211,6 +263,20 @@ export function NodeRow({ node, style, dragHandle }: NodeRendererProps<ArboristN
           textOverflow: 'ellipsis',
         }}
       >
+        {isMentioned && (
+          <span
+            aria-hidden="true"
+            data-testid="node-row-mention-prefix"
+            style={{
+              color: 'var(--color-accent)',
+              marginRight: 4,
+              fontFamily: 'var(--font-inter), Inter, sans-serif',
+              fontSize: 11,
+            }}
+          >
+            @
+          </span>
+        )}
         {data.name ?? '(untitled)'}
       </span>
 

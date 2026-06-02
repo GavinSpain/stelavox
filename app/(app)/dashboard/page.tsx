@@ -1,64 +1,110 @@
-import Link from 'next/link'
+// Phase 8.01.D T-10 — Dashboard page rewrite.
+//
+// Server component fetches all the data the populated + first-time
+// dashboard shapes need, then hands off to DashboardClient which owns
+// the SampleNovelImportModal state.
+
 import { createClient } from '@/lib/supabase/server'
-import NewProjectDialog from '@/components/projects/NewProjectDialog'
-import ProjectMenu from '@/components/projects/ProjectMenu'
+import { getResumeWritingTarget } from '@/lib/dashboard/resumeWriting'
+import { getProjectAggregates } from '@/lib/dashboard/projectAggregates'
+import { getQuickStartCompletion } from '@/lib/dashboard/quickStartCompletion'
+import type { SidebarCounts } from '@/components/dashboard/DashboardSidebar'
+import { DashboardClient } from './DashboardClient'
 
 export default async function DashboardPage() {
   const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) {
+    // The (app) layout already gates this, but defend.
+    return null
+  }
+  const { data: membership } = await supabase
+    .from('organisation_members')
+    .select('organisation_id')
+    .eq('user_id', user.id)
+    .limit(1)
+    .maybeSingle<{ organisation_id: string }>()
+  if (!membership) {
+    // Defensive — H-03 trigger should have created the org. Render the
+    // first-time path empty rather than crashing.
+    return (
+      <DashboardClient
+        shape="first-time"
+        resumeTarget={null}
+        aggregates={[]}
+        sidebarCounts={{ allProjects: 0, recent: 0, characters: 0, locations: 0, themes: 0 }}
+        quickStart={{
+          signedIn: true,
+          hasProject: false,
+          hasBeatWithProse: false,
+          hasTriedDirector: false,
+          hasCompletedExport: false,
+        }}
+      />
+    )
+  }
+  const orgId = membership.organisation_id
 
-  const { data: projects } = await supabase
-    .from('projects')
-    .select('id, name, description, default_document_type, created_at')
-    .order('created_at', { ascending: false })
+  const [aggregates, resumeTarget, quickStart, contextCounts, recentCount] = await Promise.all([
+    getProjectAggregates(supabase, orgId),
+    getResumeWritingTarget(supabase, orgId),
+    getQuickStartCompletion(supabase, orgId),
+    getContextCounts(supabase, orgId),
+    getRecentProjectCount(supabase, orgId),
+  ])
 
+  const sidebarCounts: SidebarCounts = {
+    allProjects: aggregates.length,
+    recent: recentCount,
+    ...contextCounts,
+  }
+
+  const shape: 'populated' | 'first-time' = aggregates.length === 0 ? 'first-time' : 'populated'
   return (
-    <div style={{ maxWidth: '800px', margin: '0 auto' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--space-6)' }}>
-        <h1 style={{ fontSize: 'var(--text-2xl)', color: 'var(--color-text-primary)', fontWeight: 500 }}>
-          Projects
-        </h1>
-        <NewProjectDialog />
-      </div>
-
-      {!projects?.length ? (
-        <div style={{ textAlign: 'center', padding: 'var(--space-8) 0' }}>
-          <p style={{ fontSize: 'var(--text-base)', color: 'var(--color-text-secondary)' }}>
-            No projects yet. Create one to get started.
-          </p>
-        </div>
-      ) : (
-        <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
-          {projects.map(project => (
-            <li
-              key={project.id}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                padding: 'var(--space-3) var(--space-4)',
-                background: 'var(--color-bg-surface)',
-                border: '1px solid var(--color-border-subtle)',
-                borderRadius: '6px',
-              }}
-            >
-              <Link
-                href={`/projects/${project.id}`}
-                style={{ textDecoration: 'none', flex: 1 }}
-              >
-                <span style={{ fontSize: 'var(--text-base)', color: 'var(--color-text-primary)', fontWeight: 500 }}>
-                  {project.name}
-                </span>
-                {project.description && (
-                  <span style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-secondary)', display: 'block', marginTop: 'var(--space-1)' }}>
-                    {project.description}
-                  </span>
-                )}
-              </Link>
-              <ProjectMenu projectId={project.id} projectName={project.name} />
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
+    <DashboardClient
+      shape={shape}
+      resumeTarget={resumeTarget}
+      aggregates={aggregates}
+      sidebarCounts={sidebarCounts}
+      quickStart={quickStart}
+    />
   )
+}
+
+async function getContextCounts(supabase: Awaited<ReturnType<typeof createClient>>, orgId: string) {
+  const [chars, locs, themes] = await Promise.all([
+    supabase
+      .from('nodes')
+      .select('id', { count: 'exact', head: true })
+      .eq('organisation_id', orgId)
+      .eq('node_category', 'context')
+      .eq('node_type', 'character'),
+    supabase
+      .from('nodes')
+      .select('id', { count: 'exact', head: true })
+      .eq('organisation_id', orgId)
+      .eq('node_category', 'context')
+      .eq('node_type', 'location'),
+    supabase
+      .from('nodes')
+      .select('id', { count: 'exact', head: true })
+      .eq('organisation_id', orgId)
+      .eq('node_category', 'context')
+      .eq('node_type', 'theme'),
+  ])
+  return {
+    characters: chars.count ?? 0,
+    locations: locs.count ?? 0,
+    themes: themes.count ?? 0,
+  }
+}
+
+async function getRecentProjectCount(supabase: Awaited<ReturnType<typeof createClient>>, orgId: string): Promise<number> {
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+  const { count } = await supabase
+    .from('projects')
+    .select('id', { count: 'exact', head: true })
+    .eq('organisation_id', orgId)
+    .gte('updated_at', sevenDaysAgo)
+  return count ?? 0
 }

@@ -48,14 +48,33 @@ export interface MessageProposals {
   cleanedContent: string
   /** Parsed workflow_proposal payload (V1.x-A legacy XML path) or null. */
   workflowProposal: WorkflowProposalParsed | null
+  /**
+   * Phase 8.01.C T-1 — raw plan-block body. Joined with `\n\n` when a
+   * single message contains multiple `<plan>` tags. Null when no plan
+   * tag is present. DirectorMessage renders this as a collapsed
+   * "Reasoning · N lines" chip per Component Spec v2.21 §18.5.
+   */
+  planText: string | null
 }
 
 export function parseMessageProposals(content: string): MessageProposals {
   let cleaned = content
   let workflowProposal: WorkflowProposalParsed | null = null
+  const planBodies: string[] = []
 
   // Strip every suppressed tag from rendered content.
   for (const tag of SUPPRESSED_TAGS) {
+    // Plan tag can appear multiple times in one message; loop until
+    // extraction returns null. Other tags are still single-extract.
+    if (tag === 'plan') {
+      let extracted = extractBlock(cleaned, tag)
+      while (extracted) {
+        cleaned = extracted.cleaned
+        if (extracted.body) planBodies.push(extracted.body)
+        extracted = extractBlock(cleaned, tag)
+      }
+      continue
+    }
     const extracted = extractBlock(cleaned, tag)
     if (extracted) {
       cleaned = extracted.cleaned
@@ -71,7 +90,8 @@ export function parseMessageProposals(content: string): MessageProposals {
     }
   }
 
-  return { cleanedContent: cleaned.trim(), workflowProposal }
+  const planText = planBodies.length > 0 ? planBodies.join('\n\n').trim() : null
+  return { cleanedContent: cleaned.trim(), workflowProposal, planText }
 }
 
 function extractBlock(

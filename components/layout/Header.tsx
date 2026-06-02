@@ -18,6 +18,7 @@ import Link from 'next/link'
 import SignOutButton from '@/components/auth/SignOutButton'
 import { ModeTabBar } from './ModeTabBar'
 import { Wordmark } from '@/components/brand/Wordmark'
+import { TreeSummonButton } from './TreeSummonButton'
 
 interface HeaderProps {
   userEmail: string
@@ -37,6 +38,9 @@ export function Header({ userEmail }: HeaderProps) {
         zIndex: 10,
       }}
     >
+      {/* Phase 8.01.F T-3 — Tree summon button (☰), visible only at
+         tablet-portrait. Self-hides at desktop / tablet-landscape. */}
+      <TreeSummonButton />
       {/* Wordmark links to /dashboard — global home affordance. Fixes
          the dead-end on /settings/* (no other way back to the project
          list without the browser back button). Phase 8.01.A T-3:
