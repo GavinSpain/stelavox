@@ -28,9 +28,21 @@ interface ChildRow {
   word_count_target: number | null
 }
 
+/** Pseudo-shape of the all-document-nodes query the helper now does
+ *  for the descendant rollup. */
+interface DescendantRow {
+  id: string
+  parent_id: string | null
+  word_count_actual: number | null
+}
+
 function mockSupabase(opts: {
   children: ChildRow[]
   layerStacks: Array<{ document_id: string; layers: unknown }>
+  /** All structural rows in the document (parent + children +
+   *  grandchildren + …) used to compute aggregate actuals. Optional;
+   *  empty when the test doesn't exercise the rollup. */
+  allDocNodes?: DescendantRow[]
 }) {
   const selectCalls: Array<{ table: string; cols: string }> = []
   const tablesQueried = new Set<string>()
@@ -40,7 +52,9 @@ function mockSupabase(opts: {
     return {
       from(table: string) {
         tablesQueried.add(table)
-        if (table === 'nodes') return nodesChain(opts.children, selectCalls, eqCalls)
+        if (table === 'nodes') {
+          return nodesChain(opts.children, opts.allDocNodes ?? [], selectCalls, eqCalls)
+        }
         if (table === 'layer_stacks') return layerStackChain(opts.layerStacks, eqCalls)
         throw new Error(`unexpected table: ${table}`)
       },
@@ -49,11 +63,19 @@ function mockSupabase(opts: {
   return { client: client(), selectCalls, tablesQueried, eqCalls }
 }
 
+/** The helper queries `nodes` twice:
+ *   1. Immediate children — `.eq('parent_id', parent).eq('node_category', ...)`
+ *   2. All-document rollup — `.eq('document_id', doc).eq('node_category', ...)`
+ * We branch on whether the chain saw `parent_id` (immediate) or
+ * `document_id` (rollup) before resolving. */
 function nodesChain(
-  rows: ChildRow[],
+  children: ChildRow[],
+  allDocNodes: DescendantRow[],
   selectCalls: Array<{ table: string; cols: string }>,
   eqCalls: Array<{ table: string; col: string; val: unknown }>,
 ) {
+  let sawParentId = false
+  let sawDocumentId = false
   const chain = {
     select(cols: string) {
       selectCalls.push({ table: 'nodes', cols })
@@ -61,15 +83,16 @@ function nodesChain(
     },
     eq(col: string, val: unknown) {
       eqCalls.push({ table: 'nodes', col, val })
+      if (col === 'parent_id') sawParentId = true
+      if (col === 'document_id') sawDocumentId = true
       return chain
     },
     order() { return chain },
-    returns() {
-      // chain still needs to be thenable
-      return chain
-    },
-    then(resolve: (v: { data: ChildRow[]; error: null }) => void) {
-      resolve({ data: rows, error: null })
+    returns() { return chain },
+    then(resolve: (v: { data: ChildRow[] | DescendantRow[]; error: null }) => void) {
+      if (sawParentId) resolve({ data: children, error: null })
+      else if (sawDocumentId) resolve({ data: allDocNodes, error: null })
+      else resolve({ data: children, error: null })
     },
   }
   return chain
@@ -177,13 +200,23 @@ describe('getStructuralOverview — H-15 data-path regression guards', () => {
   })
 
   it('T-5 totals + draftedPct computed across all children regardless of leaf-ness', async () => {
+    // Round-3 follow-up: non-leaf children contribute their AGGREGATED
+    // descendant actual (50 here, via c1's lone leaf-descendant), not
+    // the literal 0 carried on the c1 row. Totals + draftedPct still
+    // include every child.
     const { client } = mockSupabase({
       children: [
         child({ id: 'b1', layer: 4, actual: 250, target: 500 }),
         child({ id: 'b2', layer: 4, actual: 100, target: 500 }),
-        child({ id: 'c1', layer: 3, actual: 50, target: 0 }), // intermediate; counts in totals
+        child({ id: 'c1', layer: 3, actual: 0,   target: 0 }), // non-leaf — rolls up below
       ],
       layerStacks: [{ document_id: 'doc-1', layers: LEAF_LAYERS_5 }],
+      allDocNodes: [
+        { id: 'b1', parent_id: 'parent-1', word_count_actual: 250 },
+        { id: 'b2', parent_id: 'parent-1', word_count_actual: 100 },
+        { id: 'c1', parent_id: 'parent-1', word_count_actual: 0 },
+        { id: 'c1-leaf', parent_id: 'c1', word_count_actual: 50 },
+      ],
     })
     const out = await getStructuralOverview(client as never, 'parent-1')
     expect(out.totalWordsActual).toBe(400)
@@ -198,5 +231,81 @@ describe('getStructuralOverview — H-15 data-path regression guards', () => {
     })
     const out = await getStructuralOverview(client as never, 'parent-1')
     expect(out.children[0].isLeaf).toBe(false)
+  })
+
+  // Round-3 follow-up — non-leaf children now show the sum of their
+  // descendant leaves' actuals rather than the literal 0 stored on
+  // non-leaf rows.
+
+  it('T-7 non-leaf child gets aggregated actual from its descendant leaves', async () => {
+    // Parent is a Chapter; its child is a Scene with three leaf Beats
+    // below. The Scene's literal word_count_actual is 0; aggregated
+    // should be 250 + 400 + 100 = 750.
+    const { client } = mockSupabase({
+      children: [child({ id: 'scene-1', layer: 3, actual: 0 })],
+      layerStacks: [{ document_id: 'doc-1', layers: LEAF_LAYERS_5 }],
+      allDocNodes: [
+        { id: 'scene-1', parent_id: 'chapter-1', word_count_actual: 0 },
+        { id: 'beat-1', parent_id: 'scene-1', word_count_actual: 250 },
+        { id: 'beat-2', parent_id: 'scene-1', word_count_actual: 400 },
+        { id: 'beat-3', parent_id: 'scene-1', word_count_actual: 100 },
+      ],
+    })
+    const out = await getStructuralOverview(client as never, 'chapter-1')
+    expect(out.children).toHaveLength(1)
+    expect(out.children[0].wordCountActual).toBe(750)
+  })
+
+  it('T-8 leaf child keeps its literal actual (no double-counting)', async () => {
+    const { client } = mockSupabase({
+      children: [child({ id: 'beat-1', layer: 4, actual: 300 })],
+      layerStacks: [{ document_id: 'doc-1', layers: LEAF_LAYERS_5 }],
+      allDocNodes: [
+        { id: 'beat-1', parent_id: 'scene-1', word_count_actual: 300 },
+      ],
+    })
+    const out = await getStructuralOverview(client as never, 'scene-1')
+    expect(out.children[0].wordCountActual).toBe(300)
+    // totalWordsActual sums the children's effective actuals.
+    expect(out.totalWordsActual).toBe(300)
+  })
+
+  it('T-9 mixed: leaf siblings + non-leaf siblings each get their own rollup', async () => {
+    const { client } = mockSupabase({
+      children: [
+        child({ id: 'beat-direct', layer: 4, actual: 500 }),       // direct leaf
+        child({ id: 'scene-sub',   layer: 3, actual: 0 }),         // non-leaf
+      ],
+      layerStacks: [{ document_id: 'doc-1', layers: LEAF_LAYERS_5 }],
+      allDocNodes: [
+        { id: 'beat-direct', parent_id: 'chapter-1', word_count_actual: 500 },
+        { id: 'scene-sub',   parent_id: 'chapter-1', word_count_actual: 0 },
+        { id: 'beat-a',      parent_id: 'scene-sub', word_count_actual: 200 },
+        { id: 'beat-b',      parent_id: 'scene-sub', word_count_actual: 350 },
+      ],
+    })
+    const out = await getStructuralOverview(client as never, 'chapter-1')
+    const byId = Object.fromEntries(out.children.map((c) => [c.id, c.wordCountActual]))
+    expect(byId['beat-direct']).toBe(500)
+    expect(byId['scene-sub']).toBe(550)
+    expect(out.totalWordsActual).toBe(1050)
+  })
+
+  it('T-10 deep nesting — rollup propagates through multiple levels', async () => {
+    const { client } = mockSupabase({
+      children: [child({ id: 'act-1', layer: 1, actual: 0 })],
+      layerStacks: [{ document_id: 'doc-1', layers: LEAF_LAYERS_5 }],
+      allDocNodes: [
+        { id: 'act-1',     parent_id: 'book-1',   word_count_actual: 0 },
+        { id: 'ch-1',      parent_id: 'act-1',    word_count_actual: 0 },
+        { id: 'sc-1',      parent_id: 'ch-1',     word_count_actual: 0 },
+        { id: 'beat-a',    parent_id: 'sc-1',     word_count_actual: 100 },
+        { id: 'beat-b',    parent_id: 'sc-1',     word_count_actual: 200 },
+        { id: 'sc-2',      parent_id: 'ch-1',     word_count_actual: 0 },
+        { id: 'beat-c',    parent_id: 'sc-2',     word_count_actual: 300 },
+      ],
+    })
+    const out = await getStructuralOverview(client as never, 'book-1')
+    expect(out.children[0].wordCountActual).toBe(600)
   })
 })
