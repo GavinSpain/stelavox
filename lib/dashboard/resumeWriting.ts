@@ -16,6 +16,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { getAncestorChain } from '@/lib/nodes/getAncestorChain'
 import type { FocusBreadcrumbSegment } from '@/components/focus/FocusBreadcrumb'
 import { extractPlainText } from '@/lib/llm/tiptap-text'
+import { getMaxLayerIndexByDocument } from '@/lib/data/nodes'
 
 export interface ResumeWritingTarget {
   documentId: string
@@ -44,6 +45,8 @@ interface LeafRow {
   updated_at: string
   document_id: string
   project_id: string
+  /** Used with the document's layer_stack to derive leaf-ness per H-15. */
+  layer_index: number | null
 }
 
 interface DocumentRow {
@@ -61,26 +64,41 @@ export async function getResumeWritingTarget(
   supabase: SupabaseClient,
   orgId: string,
 ): Promise<ResumeWritingTarget | null> {
-  // Find the most recently updated leaf node with non-empty prose. We
-  // can't filter on `prose IS NOT NULL AND prose <> '{}'` directly via
-  // the Supabase JS API for JSONB, so we filter is_leaf + has prose at
-  // the SQL level and post-filter empty-prose rows in TS.
+  // H-15: leaf-ness is derived from the document's layer_stack
+  // (layer_index === max), NOT stored as a column on the row. We pull a
+  // wider candidate window of structural rows with non-null prose
+  // ordered by updated_at, resolve max layer-index per document in one
+  // round-trip, then pick the first row whose layer_index matches its
+  // document's max AND whose prose extracts to non-empty text.
+  //
+  // Window size: 50 candidates is generous enough that any author with a
+  // populated novel will surface their most-recent leaf even if the
+  // top of the list happens to include non-leaf structural rows that
+  // ended up with prose values (rare — prose typically lives on leaves
+  // because synthesise targets leaves; expand on non-leaves doesn't
+  // write prose at all). If 50 is exhausted we return null gracefully.
   const { data: leafRows, error: leafErr } = await supabase
     .from('nodes')
-    .select('id, name, node_type, "order", prose, updated_at, document_id, project_id')
+    .select('id, name, node_type, "order", prose, updated_at, document_id, project_id, layer_index')
     .eq('organisation_id', orgId)
     .eq('node_category', 'structural')
-    .eq('is_leaf', true)
     .not('prose', 'is', null)
     .order('updated_at', { ascending: false })
-    .limit(20)
+    .limit(50)
     .returns<LeafRow[]>()
   if (leafErr || !leafRows || leafRows.length === 0) return null
 
-  // Pick the first leaf with non-empty prose text.
+  const docIds = Array.from(new Set(leafRows.map((r) => r.document_id)))
+  const maxByDoc = await getMaxLayerIndexByDocument(supabase, docIds)
+
+  // Pick the first row that (a) is a leaf in its document, (b) has
+  // non-empty prose text.
   let chosen: LeafRow | null = null
   let chosenExcerpt = ''
   for (const row of leafRows) {
+    const max = maxByDoc.get(row.document_id)
+    if (max === undefined) continue
+    if (row.layer_index !== max) continue
     const text = extractPlainText(row.prose as Parameters<typeof extractPlainText>[0]).trim()
     if (text.length === 0) continue
     chosen = row

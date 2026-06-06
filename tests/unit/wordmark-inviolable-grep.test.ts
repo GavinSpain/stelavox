@@ -27,6 +27,12 @@ import { join, relative } from 'node:path'
 const ROOT = join(__dirname, '..', '..')
 const COMPONENTS_DIR = join(ROOT, 'components')
 const BRAND_DIR = join(COMPONENTS_DIR, 'brand')
+// Phase 8.01 v2.4 — Director mark + label is an admitted Cinzel use
+// site (Inviolable #3 refinement: brand-mark family extension for the
+// Director persona). The grep guard allows components/director/DirectorMark.tsx
+// to reference Cinzel; everywhere else outside components/brand/ remains
+// forbidden.
+const DIRECTOR_MARK_FILE = join(COMPONENTS_DIR, 'director', 'DirectorMark.tsx')
 
 function walk(dir: string, files: string[] = []): string[] {
   for (const entry of readdirSync(dir)) {
@@ -51,11 +57,12 @@ function rel(file: string): string {
   return relative(ROOT, file).replace(/\\/g, '/')
 }
 
-describe('Inviolable #3 — Cinzel appears only in the wordmark', () => {
-  it('no Cinzel reference outside components/brand/', () => {
+describe('Inviolable #3 — Cinzel appears only in the brand mark + Director mark', () => {
+  it('no Cinzel reference outside components/brand/ and components/director/DirectorMark.tsx', () => {
     const offenders: string[] = []
     for (const file of ALL_COMPONENT_FILES) {
       if (isInBrandDir(file)) continue
+      if (file === DIRECTOR_MARK_FILE) continue
       const text = readFileSync(file, 'utf-8')
       if (/[Cc]inzel/.test(text)) {
         offenders.push(rel(file))
@@ -63,9 +70,9 @@ describe('Inviolable #3 — Cinzel appears only in the wordmark', () => {
     }
     if (offenders.length > 0) {
       throw new Error(
-        `Inviolable #3 violation — Cinzel referenced outside components/brand/:\n  ` +
+        `Inviolable #3 violation — Cinzel referenced outside components/brand/ or components/director/DirectorMark.tsx:\n  ` +
           offenders.join('\n  ') +
-          `\nFix: remove the reference, or — if it is a Wordmark variant — move it into components/brand/.`,
+          `\nFix: remove the reference, or — if it is a brand-mark variant — move it into components/brand/ or the sanctioned DirectorMark file (Brand Identity v2.4).`,
       )
     }
     expect(offenders).toEqual([])

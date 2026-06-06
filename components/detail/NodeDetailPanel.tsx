@@ -24,6 +24,8 @@
 import { useEffect, useState } from 'react'
 import { TabStrip } from './TabStrip'
 import { NodeStatusBadge } from '@/components/tree/NodeStatusBadge'
+import { LayerLabel, type LayerKind } from '@/components/tree/LayerLabel'
+import { useActiveJobForNode } from '@/lib/hooks/useAgentJobsRealtime'
 import { SummaryEditor } from './SummaryEditor'
 import { ProseEditor } from './ProseEditor'
 import { StructureOverview } from './StructureOverview'
@@ -99,6 +101,11 @@ interface NodeDetailPanelProps {
 // Phase 6 D7 reduced the status enum from 4 values to 2.
 // 'in_review' and 'locked' were vestigial; the DB CHECK rejects them.
 const STATUS_VALUES = ['draft', 'approved'] as const
+
+// Phase 8.01 round 3 — V1 layer-stack canonical structural types.
+const STRUCTURAL_LAYER_KINDS: ReadonlySet<string> = new Set<LayerKind>([
+  'series', 'book', 'act', 'chapter', 'scene', 'beat',
+])
 
 // Order per Component Spec §5.1 + Build Checklist T-5.2:
 // Content, Agent, Comments, History (versions), Jobs, Context.
@@ -302,7 +309,25 @@ export function NodeDetailPanel({ nodeId, refreshKey, onMutated, onClose, onSele
           }}
           onSelectAncestor={(ancestorId) => onSelectNode?.(ancestorId)}
         />
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-3)' }}>
+        {/* Phase 8.01 wireframe-alignment round 3 — title row matches
+            wireframe 04_detail_panes_v1_iter1 .dp-title-row: bracketed
+            monospace layer chip + 18px/600 title. */}
+        <div
+          data-testid="detail-title-row"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 10,
+            justifyContent: 'space-between',
+          }}
+        >
+          {node.node_category === 'structural' && STRUCTURAL_LAYER_KINDS.has(node.node_type) && (
+            <LayerLabel
+              layer={node.node_type as LayerKind}
+              position={node.order}
+              style={{ flexShrink: 0 }}
+            />
+          )}
           {editing ? (
             <input
               autoFocus
@@ -315,13 +340,14 @@ export function NodeDetailPanel({ nodeId, refreshKey, onMutated, onClose, onSele
               aria-label="Rename node"
               style={{
                 flex: 1,
-                fontSize: '14px',
+                fontSize: 18,
                 fontWeight: 600,
                 background: 'var(--color-bg-base)',
                 color: 'var(--color-text-primary)',
                 border: '1px solid var(--color-border-default)',
-                borderRadius: '4px',
+                borderRadius: 4,
                 padding: '4px 8px',
+                letterSpacing: '-0.005em',
               }}
             />
           ) : (
@@ -330,7 +356,7 @@ export function NodeDetailPanel({ nodeId, refreshKey, onMutated, onClose, onSele
               onClick={() => setEditing(true)}
               style={{
                 flex: 1,
-                fontSize: '14px',
+                fontSize: 18,
                 fontWeight: 600,
                 color: 'var(--color-text-primary)',
                 margin: 0,
@@ -338,6 +364,7 @@ export function NodeDetailPanel({ nodeId, refreshKey, onMutated, onClose, onSele
                 whiteSpace: 'nowrap',
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
+                letterSpacing: '-0.005em',
               }}
             >
               {node.name ?? '(untitled)'}
@@ -385,41 +412,15 @@ export function NodeDetailPanel({ nodeId, refreshKey, onMutated, onClose, onSele
           )}
         </div>
 
-        {/* Type + status pill */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginTop: 'var(--space-2)' }}>
-          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-            {node.node_type}
-          </span>
-          <span style={{ color: 'var(--color-text-muted)' }}>·</span>
-          <label
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 'var(--space-1)',
-              fontSize: 'var(--text-xs)',
-              color: 'var(--color-text-muted)',
-            }}
-          >
-            <NodeStatusBadge status={node.status} />
-            <select
-              data-testid="status-select"
-              aria-label="Status"
-              value={node.status}
-              onChange={(e) => changeStatus(e.target.value)}
-              style={{
-                background: 'transparent',
-                border: 'none',
-                color: 'var(--color-text-secondary)',
-                fontSize: 'var(--text-xs)',
-                cursor: 'pointer',
-              }}
-            >
-              {STATUS_VALUES.map(s => (
-                <option key={s} value={s}>{s.replace('_', ' ')}</option>
-              ))}
-            </select>
-          </label>
-        </div>
+        {/* Phase 8.01 wireframe-alignment round 3 — meta row matches
+            wireframe .dp-meta: animated status pip + node-type label
+            in monospace + status pill. */}
+        <DetailMetaRow
+          nodeId={node.id}
+          nodeType={node.node_type}
+          status={node.status}
+          onStatusChange={changeStatus}
+        />
       </div>
 
       <TabStrip tabs={TABS} activeId={activeTab} onChange={setActiveTab} />
@@ -600,6 +601,126 @@ export function NodeDetailPanel({ nodeId, refreshKey, onMutated, onClose, onSele
         }}
       />
     )}
+    </>
+  )
+}
+
+// ────────────────────────────────────────────────────────────────────
+// Phase 8.01 wireframe-alignment round 3 — Detail meta row + status pip.
+
+function DetailMetaRow({
+  nodeId,
+  nodeType,
+  status,
+  onStatusChange,
+}: {
+  nodeId: string
+  nodeType: string
+  status: string
+  onStatusChange: (s: string) => void
+}) {
+  return (
+    <div
+      data-testid="detail-meta-row"
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 12,
+        marginTop: 8,
+        fontSize: 11.5,
+        color: 'var(--color-text-muted)',
+        flexWrap: 'wrap',
+      }}
+    >
+      <DetailStatusPip nodeId={nodeId} status={status} />
+      <span
+        style={{
+          fontFamily: 'ui-monospace, "JetBrains Mono", SFMono-Regular, Menlo, monospace',
+          fontSize: 10.5,
+          letterSpacing: '0.04em',
+          color: 'var(--color-text-secondary)',
+          textTransform: 'uppercase',
+        }}
+      >
+        {nodeType}
+      </span>
+      <span aria-hidden style={{ color: 'var(--color-text-disabled)' }}>·</span>
+      <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+        <NodeStatusBadge status={status} />
+        <select
+          data-testid="status-select"
+          aria-label="Status"
+          value={status}
+          onChange={(e) => onStatusChange(e.target.value)}
+          style={{
+            background: 'transparent',
+            border: 'none',
+            color: 'var(--color-text-secondary)',
+            fontSize: 11.5,
+            cursor: 'pointer',
+          }}
+        >
+          {STATUS_VALUES.map((s) => (
+            <option key={s} value={s}>{s.replace('_', ' ')}</option>
+          ))}
+        </select>
+      </label>
+    </div>
+  )
+}
+
+/** Animated status pip per wireframe 04_detail_panes_v1_iter1 .status-pip:
+ *  running blue + pulse + glow, review amber + glow, complete verdigris. */
+function DetailStatusPip({ nodeId, status }: { nodeId: string; status: string }) {
+  const job = useActiveJobForNode(nodeId)
+  const jobStatus = job?.status
+  const variant: 'running' | 'review' | 'complete' | 'idle' =
+    jobStatus === 'running' || jobStatus === 'pending'
+      ? 'running'
+      : jobStatus === 'completed'
+      ? 'review'
+      : status === 'approved'
+      ? 'complete'
+      : 'idle'
+
+  const styles: Record<typeof variant, React.CSSProperties> = {
+    running: {
+      background: 'var(--color-info)',
+      boxShadow: '0 0 5px rgba(77,143,214,0.55)',
+      animation: 'detail-pip-pulse 2s ease-in-out infinite',
+    },
+    review: {
+      background: 'var(--color-status-review)',
+      boxShadow: '0 0 4px rgba(224,144,64,0.4)',
+    },
+    complete: {
+      background: 'var(--color-accent-hover)',
+    },
+    idle: {
+      background: 'var(--color-border-strong)',
+    },
+  }
+
+  return (
+    <>
+      <style>{`
+        @keyframes detail-pip-pulse {
+          0%, 100% { opacity: 1; }
+          50%      { opacity: 0.55; }
+        }
+      `}</style>
+      <span
+        data-testid="detail-status-pip"
+        data-variant={variant}
+        aria-label={`status: ${variant}`}
+        style={{
+          width: 7,
+          height: 7,
+          borderRadius: '50%',
+          flexShrink: 0,
+          ...styles[variant],
+        }}
+      />
     </>
   )
 }

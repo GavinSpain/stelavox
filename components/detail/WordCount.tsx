@@ -74,15 +74,30 @@ export function WordCount({ editor, target }: WordCountProps) {
       ? 'var(--color-text-secondary)'
       : 'var(--color-text-muted)'
 
+  // Phase 8.01 wireframe-alignment round 2 — verdigris-gradient
+  // progress bar above the number row when a target is set.
+  // Round-3 follow-up: no amber over-target colour. Going over target
+  // is often the author's intent; the orange read as "something's
+  // wrong" when nothing was. Bar stays verdigris-gradient throughout.
+  const pct = target !== null && target > 0
+    ? Math.min(100, Math.round((words / target) * 100))
+    : 0
+  const fmt = new Intl.NumberFormat('en-US')
+
   let display: React.ReactNode
   if (target === null) {
-    display = <span style={{ color: 'var(--color-text-muted)' }}>{words} words</span>
+    display = <span style={{ color: 'var(--color-text-muted)' }}>{fmt.format(words)} words</span>
   } else {
     display = (
-      <>
-        <span style={{ color: countColour }}>{words}</span>
-        <span style={{ color: 'var(--color-text-muted)' }}> / {target}</span>
-      </>
+      <span
+        style={{
+          fontFamily: 'ui-monospace, "JetBrains Mono", SFMono-Regular, Menlo, monospace',
+          fontVariantNumeric: 'tabular-nums',
+        }}
+      >
+        <span style={{ color: countColour, fontWeight: 500 }}>{fmt.format(words)}</span>
+        <span style={{ color: 'var(--color-text-muted)' }}> / {fmt.format(target)}</span>
+      </span>
     )
   }
 
@@ -93,8 +108,10 @@ export function WordCount({ editor, target }: WordCountProps) {
       onMouseLeave={() => setHovered(false)}
       style={{
         display: 'flex',
-        justifyContent: 'flex-end',
-        paddingTop: '4px',
+        flexDirection: 'column',
+        alignItems: 'stretch',
+        gap: 6,
+        paddingTop: 6,
         opacity,
         transition: `opacity var(--duration-wordcount, 800ms) var(--easing-prose, ease-out)`,
         fontSize: 'var(--text-xs)',
@@ -105,7 +122,40 @@ export function WordCount({ editor, target }: WordCountProps) {
         userSelect: 'none',
       }}
     >
-      {display}
+      {target !== null && target > 0 && (
+        <div
+          data-testid="word-count-bar"
+          aria-hidden
+          style={{
+            width: '100%',
+            height: 5,
+            background: 'var(--color-border-subtle)',
+            borderRadius: 3,
+            overflow: 'hidden',
+          }}
+        >
+          <div
+            style={{
+              width: `${pct}%`,
+              height: '100%',
+              background:
+                'linear-gradient(90deg, var(--color-accent) 0%, var(--color-accent-hover) 100%)',
+              borderRadius: 3,
+              transition: 'width var(--duration-wordcount, 800ms) var(--easing-prose, ease-out)',
+            }}
+          />
+        </div>
+      )}
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'flex-end',
+          alignItems: 'center',
+          gap: 6,
+        }}
+      >
+        {display}
+      </div>
     </div>
   )
 }

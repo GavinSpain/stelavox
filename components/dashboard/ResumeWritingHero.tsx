@@ -71,17 +71,20 @@ export function ResumeWritingHero({ target }: ResumeWritingHeroProps) {
           </span>
         ))}
       </div>
+      {/* Phase 8.01 wireframe-alignment round 3 — label set in caps
+          mono per wireframe `.hero-current .last-beat-label`. */}
       <div
+        data-testid="resume-writing-last-beat-label"
         style={{
           fontFamily: 'ui-monospace, "JetBrains Mono", SFMono-Regular, Menlo, monospace',
           fontSize: 10,
           color: 'var(--color-text-muted)',
-          letterSpacing: '0.04em',
+          letterSpacing: '0.06em',
+          textTransform: 'uppercase',
           marginBottom: 6,
         }}
       >
-        // Last beat you worked on
-        {target.nodeName ? ` — "${target.nodeName}"` : ''}
+        LAST BEAT{target.nodeName ? ` · ${target.nodeName}` : ''}
       </div>
       <div
         data-testid="resume-writing-prose"

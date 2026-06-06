@@ -33,6 +33,7 @@ import { BriefProposalCard } from './BriefProposalCard'
 import { BriefCancellationProposalCard } from './BriefCancellationProposalCard'
 import { CapabilityLimitCard } from './CapabilityLimitCard'
 import { ProjectProfileAmendmentCard } from './ProjectProfileAmendmentCard'
+import { DirectorMark, DirectorLabel } from './DirectorMark'
 import { ConversationClearButton } from './ConversationClearButton'
 import { StopButton } from './StopButton'
 import { streamDirectorMessage } from '@/lib/director/streamMessage'
@@ -434,21 +435,16 @@ function DirectorHeader({
         background: 'var(--color-bg-surface)',
       }}
     >
-      <h2
-        style={{
-          margin: 0,
-          fontFamily: 'var(--font-inter), Inter, sans-serif',
-          fontWeight: 600,
-          fontSize: 13,
-          color: 'var(--color-text-primary)',
-          display: 'inline-flex',
-          alignItems: 'center',
-          gap: 6,
-        }}
-      >
-        <span aria-hidden="true" style={{ color: 'var(--color-accent)' }}>◆</span>
-        The Director
-      </h2>
+      {/* Phase 8.01 wireframe-alignment round 2 — Director-persona
+          brand mark + label per wireframe
+          05_director_mode_v1_iter1.html .dp-mark + .dp-name. The mark
+          + label live in components/director/DirectorMark.tsx which is
+          the sanctioned brand-mark site for the agent persona
+          (Inviolable #3 v2.4 refinement; see Brand Identity §12). */}
+      <DirectorBrandHeading />
+      {/* Working-state indicator — small status line under the mark,
+          showing "working…" + pulsing pip when a turn is in flight. */}
+      <DirectorWorkingIndicator active={!!activeTurnId} />
 
       <span
         title={documentName}
@@ -522,5 +518,56 @@ function DirectorHeader({
         ) : null}
       </div>
     </header>
+  )
+}
+
+// ────────────────────────────────────────────────────────────────────
+// Phase 8.01 v2.4 — Director brand heading + working-state indicator.
+
+function DirectorBrandHeading() {
+  return (
+    <div
+      data-testid="director-brand-heading"
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 10,
+        flexShrink: 0,
+      }}
+    >
+      <DirectorMark />
+      <DirectorLabel />
+    </div>
+  )
+}
+
+function DirectorWorkingIndicator({ active }: { active: boolean }) {
+  if (!active) return null
+  return (
+    <span
+      data-testid="director-working-indicator"
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 6,
+        fontFamily: 'var(--font-inter), Inter, sans-serif',
+        fontSize: 10.5,
+        color: 'var(--color-info)',
+        marginLeft: 4,
+      }}
+    >
+      <span
+        aria-hidden
+        className="agent-activity-pulse"
+        style={{
+          width: 6,
+          height: 6,
+          borderRadius: '50%',
+          background: 'var(--color-info)',
+          boxShadow: '0 0 5px rgba(77,143,214,0.55)',
+        }}
+      />
+      working…
+    </span>
   )
 }

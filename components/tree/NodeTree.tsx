@@ -25,7 +25,14 @@ import { useCallback, useEffect, useState } from 'react'
 import { Tree } from 'react-arborist'
 import type { MoveHandler } from 'react-arborist'
 import { NodeRow, NodeActionsProvider, type ArboristNode, type NodeData } from './NodeRow'
-import { LayerDivider } from './LayerDivider'
+// Legacy LayerDivider was used as an inline horizontal legend at the
+// top of the tree pane. Phase 8.01 round-3 replaces that with the
+// wireframe-spec'd compact TreeLayerHeader strip. The wireframe also
+// drew indent guide-lines, but the author found them distracting in
+// the live build — the bracketed `[Book]`/`[Act]` row labels already
+// carry the same signal, and the guides were doubling up. Removed in
+// round-3 follow-up.
+import { TreeLayerHeader } from './TreeLayerHeader'
 import { NodeMoreMenu } from './NodeMoreMenu'
 import { ToastProvider, useToast } from '@/components/feedback/Toast'
 import { useNodesRealtime } from '@/lib/hooks/useNodesRealtime'
@@ -83,16 +90,33 @@ function NodeTreeInner({ documentId, documentType, onSelect, refreshKey }: NodeT
   const toast = useToast()
   const [data, setData]   = useState<ArboristNode[] | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [refreshTick, setRefreshTick] = useState(0)
+  // Phase 8.01 round-3 follow-up — split the single refreshTick into
+  // dataTick (refetch trigger) and remountTick (Tree-key trigger). Most
+  // realtime events are UPDATEs (autosaves, agent-accept word-count
+  // rolls, status changes) that only need new data — no remount, so the
+  // user's scroll position survives. Only INSERT/DELETE bumps
+  // remountTick, preserving SU-J13-1 (newly-inserted children become
+  // visible because openByDefault re-applies on remount).
+  const [dataTick, setDataTick]       = useState(0)
+  const [remountTick, setRemountTick] = useState(0)
   const [moreMenu, setMoreMenu] = useState<{ nodeId: string; anchor: HTMLElement; isRoot: boolean; parentNodeId: string | null } | null>(null)
 
   // Phase 5 (SU-31 proper fix): subscribe to realtime nodes-table changes for
-  // this document. Any INSERT/UPDATE/DELETE triggers a refetch (debounced 200ms
-  // so a multi-row Accept transaction = one refetch). This replaces the
-  // pattern of every mutation site calling bumpRefresh() — the tree now
-  // self-syncs from the source of truth.
-  const triggerRefetch = useCallback(() => setRefreshTick((t) => t + 1), [])
+  // this document. The hook fans events out into 'structural'
+  // (INSERT/DELETE) vs 'data' (UPDATE) — see lib/hooks/useNodesRealtime.
+  const triggerRefetch = useCallback((kind: 'structural' | 'data') => {
+    setDataTick((t) => t + 1)
+    if (kind === 'structural') setRemountTick((t) => t + 1)
+  }, [])
   useNodesRealtime(documentId, triggerRefetch)
+
+  // Local mutations (Add Child, Move, NodeDetailPanel onMutated) call this
+  // — they're known structural by construction, so they bump both ticks
+  // immediately rather than waiting for the realtime echo (~50-200ms).
+  const bumpStructural = useCallback(() => {
+    setDataTick((t) => t + 1)
+    setRemountTick((t) => t + 1)
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -114,7 +138,7 @@ function NodeTreeInner({ documentId, documentType, onSelect, refreshKey }: NodeT
         setError('fetch_failed')
       })
     return () => { cancelled = true }
-  }, [documentId, refreshTick, refreshKey])
+  }, [documentId, dataTick, refreshKey])
 
   function findInTree(nodes: ArboristNode[], id: string): ArboristNode | null {
     for (const n of nodes) {
@@ -173,7 +197,7 @@ function NodeTreeInner({ documentId, documentType, onSelect, refreshKey }: NodeT
         name: defaultName,
       }),
     })
-    if (r.ok) setRefreshTick(t => t + 1)
+    if (r.ok) bumpStructural()
     else toast.show(`Could not add ${childType}.`, 'error')
   }
 
@@ -214,7 +238,7 @@ function NodeTreeInner({ documentId, documentType, onSelect, refreshKey }: NodeT
 
     if (r.ok) {
       // Refresh from server to pick up canonical order/depth values.
-      setRefreshTick(t => t + 1)
+      bumpStructural()
       return
     }
 
@@ -276,20 +300,19 @@ function NodeTreeInner({ documentId, documentType, onSelect, refreshKey }: NodeT
       <div
         style={{
           background: 'var(--color-bg-base)',
-          padding: '8px 0',
           height: '100%',
           overflow: 'auto',
+          position: 'relative',
         }}
       >
-        {layerLabels && (
-          <div style={{ display: 'flex', flexWrap: 'wrap', padding: '0 8px' }}>
-            {layerLabels.map((label, i) => (
-              <div key={label} style={{ flex: '0 0 auto', minWidth: '80px', borderTop: i === 0 ? 'none' : undefined }}>
-                <LayerDivider label={label} />
-              </div>
-            ))}
-          </div>
-        )}
+        {/* Phase 8.01 wireframe-alignment round 3 — Tree layer column
+            header replaces the legacy LayerDivider strip. The
+            wireframe-spec'd compact tinted strip orients the reader
+            in the layered hierarchy. The bracketed row labels carry
+            the rest of the signal — the wireframe's vertical indent
+            guides were dropped because they were doubling up with
+            the per-row [Book]/[Act] labels. */}
+        {layerLabels && <TreeLayerHeader />}
         {/*
           SU-J13-1 (Mars-drive 2026-05-09): react-arborist tracks
           per-node open state internally and only consults
@@ -303,7 +326,7 @@ function NodeTreeInner({ documentId, documentType, onSelect, refreshKey }: NodeT
           children.
          */}
         <Tree<ArboristNode>
-          key={`${refreshKey ?? 0}-${refreshTick}`}
+          key={`${refreshKey ?? 0}-${remountTick}`}
           data={data}
           // Phase 8.01.A T-5: 44px universal (was 36) per Component Spec
           // v2.21 §4.2 wireframe lock. react-arborist requires the height
@@ -355,7 +378,7 @@ function NodeTreeInner({ documentId, documentType, onSelect, refreshKey }: NodeT
           isRoot={moreMenu.isRoot}
           parentNodeId={moreMenu.parentNodeId}
           onClose={() => setMoreMenu(null)}
-          onMutated={() => setRefreshTick(t => t + 1)}
+          onMutated={() => bumpStructural()}
         />
       )}
     </NodeActionsProvider>
@@ -459,7 +482,7 @@ function applyMoveOptimistic(
 // Build a parent → children tree from the flat (depth-first ordered)
 // array returned by GET /api/documents/[id]/nodes. The route already
 // applies a depth-first sort, so siblings are encountered in order.
-function buildTree(rows: NodeData[]): ArboristNode[] {
+export function buildTree(rows: NodeData[]): ArboristNode[] {
   const byParent = new Map<string | null, NodeData[]>()
   for (const r of rows) {
     const arr = byParent.get(r.parent_id) ?? []
@@ -468,13 +491,29 @@ function buildTree(rows: NodeData[]): ArboristNode[] {
   }
   for (const arr of byParent.values()) arr.sort((a, b) => a.order - b.order)
 
+  // Phase 8.01 round-3 follow-up — aggregate word_count_actual up the
+  // tree so non-leaf rows display the sum of their descendant leaves'
+  // actuals instead of the literal 0 the DB carries for non-leaves.
+  // The recursion produces aggregated children FIRST, so the parent's
+  // reduce sums already-aggregated child values — propagation is
+  // automatic at every level. Targets are NOT aggregated: they're
+  // authored independently at each level (and may legitimately differ
+  // from the sum of children — the author may target an Act at 12k
+  // even if its scenes' targets sum to 14k).
   function build(parentId: string | null): ArboristNode[] {
     return (byParent.get(parentId) ?? []).map(row => {
       const children = build(row.id)
+      const aggregateActual = children.length === 0
+        ? (row.word_count_actual ?? 0)
+        : children.reduce((sum, c) => sum + (c.data.word_count_actual ?? 0), 0)
+      const aggregatedRow: NodeData =
+        children.length === 0 || aggregateActual === (row.word_count_actual ?? 0)
+          ? row
+          : { ...row, word_count_actual: aggregateActual }
       return {
         id:   row.id,
         name: row.name ?? '(untitled)',
-        data: row,
+        data: aggregatedRow,
         // react-arborist treats `children: []` as "has children, all
         // loaded (zero of them)" — which renders a chevron for an
         // empty branch. Leaves must omit the field (or pass undefined)

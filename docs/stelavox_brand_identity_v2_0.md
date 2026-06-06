@@ -1,5 +1,5 @@
 # Stelavox — Brand Identity
-## Version 2.2
+## Version 2.5
 
 ---
 
@@ -290,7 +290,7 @@ The one constant across both modes: the prose editor surface background is **alw
 
 ## 5. Sanctioned Uses of the Verdigris Accent
 
-**Verdigris** (`#3d7858` in dark mode, `#254a38` in light) is the single accent colour in Stelavox. It appears in **exactly nine places** and nowhere else. This list is exhaustive — additions require a major version bump to this document.
+**Verdigris** (`#3d7858` in dark mode, `#254a38` in light) is the single accent colour in Stelavox. It appears in **exactly twelve places** and nowhere else. This list is exhaustive — additions require a major version bump to this document.
 
 ### 5.1 The Complete List
 
@@ -305,10 +305,13 @@ The one constant across both modes: the prose editor surface background is **alw
 | 7 | The Accept button background in the Agent Tab | Completion |
 | 8 | The primary plan selection button on the trial expiry screen | Completion |
 | 9 | The active node left border in the tree (2px vertical line) | Location |
+| 10 | The ordinal tile on document rows in the Project page Documents tab (36×36, `--color-accent-muted` background + `--color-accent-hover` digit) | Catalog |
+| 11 | The document-type identifier chip — both the small stack tag next to document-row titles and the larger stack badge next to the project title in the page header (`--color-accent-hover` border + text) | Catalog |
+| 12 | The primary navigation "Open" link in the document-row hover-actions strip on the Project page Documents tab (`--color-accent-hover` text) | Catalog |
 
 ### 5.2 Category Definitions
 
-The nine uses fall into four categories. Each category defines what verdigris means in that context:
+The twelve uses fall into five categories. Each category defines what verdigris means in that context:
 
 **Brand (uses 1, 2)** — The permanent inscription itself. The mark of the product as a thing.
 
@@ -317,6 +320,8 @@ The nine uses fall into four categories. Each category defines what verdigris me
 **Completion (uses 4, 5, 6, 7, 8)** — The mark has been made and endures. Each of these is a moment where something has been brought to a finished state: an agent operation done, a node approved, a target reached, a result accepted into manuscript, a subscription committed.
 
 **Location (use 9)** — Where the chisel is currently positioned. The author's working location in the document.
+
+**Catalog (uses 10, 11, 12)** — The visible structure of the author's workspace and the affordance to enter it. Where Location marks where the author is right now, Catalog marks what they have built — the discrete documents that constitute the project, the types of those documents, and the single navigation affordance that takes the author from the catalog view into the work itself. The ordinal tile and the document-type chip identify a catalogued item; the "Open" affordance is the verb that turns a catalog item into the writing surface. This category is the only one in which verdigris appears on a hover state, and it does so by exception (see §5.4).
 
 ### 5.3 The Test for Any Proposed Tenth Use
 
@@ -330,7 +335,9 @@ If a proposed use cannot pass all three tests, it does not get the accent. It us
 
 ### 5.4 What Verdigris Does Not Appear On
 
-Explicitly: general navigation items, hover states, focus rings, information states, dropdown indicators, breadcrumbs, tab underlines, panel headings, links in body text, secondary buttons, settings or billing buttons (other than use #8), upgrade prompts elsewhere in the app, the trial banner "View plans" link, or any other UI chrome.
+Explicitly: general navigation items, generic hover states, focus rings, information states, dropdown indicators, breadcrumbs, tab underlines, panel headings, links in body text, secondary buttons, settings or billing buttons (other than use #8), upgrade prompts elsewhere in the app, the trial banner "View plans" link, or any other UI chrome.
+
+The sole hover-state exception is use #12 (the "Open" affordance on a document row in the Project page Documents tab). It is admitted because the Documents tab is the Catalog view — entering a document is the singular primary action against that surface, and the Catalog category (see §5.2) treats the verb-into-the-work as its own use. No other hover-state verdigris is admitted without an Inviolable amendment.
 
 ### 5.5 The Philosophical Basis
 
@@ -344,7 +351,7 @@ Verdigris is the patina of aged bronze — it is not applied to metal, it *accru
 
 The Stelavox product UI uses exactly three typefaces. Each has exactly one role. There are no exceptions. A fourth typeface — Cormorant Garamond italic — exists in the brand system, reserved exclusively for the *vox* component of the wordmark (see §3.2). It never appears in the product UI.
 
-**Cinzel** — the wordmark only. Not in the product UI. Not in marketing copy. Not in headings. The Cinzel face exists in Stelavox only as the brand mark — its presence always and only means "this is the brand." Using it elsewhere would dilute that signal into decoration. *(Inviolable #3.)*
+**Cinzel** — the brand mark and its sanctioned co-brand variants: the wordmark, the S of the app icon, and the Director-persona mark + label in the DirectorPanel header (v2.4). Not in the product UI body. Not in marketing copy. Not in headings. The Cinzel face exists in Stelavox only as brand identity — its presence always and only means "this is brand identity (Stelavox or one of its named personas)." Using it elsewhere would dilute that signal into decoration. *(Inviolable #3.)*
 
 **Cormorant Garamond italic** — the *vox* component of the wordmark only. Not in the product UI. Not in marketing copy. Not in headings. Its presence is the second half of the brand mark — the breathing voice carried by the stone. Using it elsewhere would dilute the brand signal in exactly the same way as using Cinzel elsewhere. *(Inviolable #6 — added at Phase 8.01 wireframe lock after the iter4 wordmark regression demonstrated the protection was missing.)*
 
@@ -360,7 +367,7 @@ This is not minimalism for its own sake. These typefaces serve genuinely differe
 
 **Why it was chosen:** Inter was designed to address a specific problem — how to make text maximally legible at small sizes on screen. Its defining features are a tall x-height, open apertures (wide openings in letters like c, e, a, s — which help distinguish similar letterforms at small sizes), and ink traps (small notches at letterform junctions that prevent ink/pixel fill at small sizes). It is used as the default typeface by Linear, GitHub, Figma, Mozilla, and hundreds of other professional software products.
 
-**Specific uses:** UI chrome (navigation, breadcrumbs, mode switchers); node names and short descriptions in the tree; panel tab labels (Content, Agent, Comments, History, Context); all button and control labels; form fields and inputs; comment text (human and agent); status labels and metadata; all system messages and notifications; all Director conversation text (the Director speaks in Inter, not prose).
+**Specific uses:** UI chrome (navigation, breadcrumbs, mode switchers); node names and short descriptions in the tree; panel tab labels (Content, Agent, Comments, History, Context); all button and control labels; form fields and inputs; comment text (human and agent); status labels and metadata; all system messages and notifications; **all Director conversation text — both the user's instructions and the agent's reply bodies** (the Director speaks in Inter, like the sidebar and the headers; the prose typeface is reserved for the writing surface itself).
 
 **Type scale for Inter:**
 
@@ -387,6 +394,8 @@ This is not minimalism for its own sake. These typefaces serve genuinely differe
 **Why it was chosen:** Lora was designed with two explicit goals: to work as a literary prose typeface, and to be optimised for screen rendering. These two goals are rarely achieved simultaneously. Most screen-optimised serifs (Georgia, Merriweather) feel functional rather than literary. Most literary serifs (Garamond, Minion) were designed for print and do not render well on screen at smaller sizes. Lora occupies the intersection: it has the warmth and calligraphic quality of a book typeface and the x-height, letter spacing, and hinting of a screen typeface.
 
 **The signal function of Lora:** When an author sees Lora, they are inside the work. When they see Inter, they are managing the work. This transition is one of the most important UX signals in the entire system. It is invisible — no notification, no label change, no announcement. The typeface simply changes. The experienced author learns to read this signal without thinking about it.
+
+**Specific uses:** the prose editor body in leaf nodes (Edit Mode + Focus Mode); the prose excerpt on the Dashboard Resume-Writing hero. **Nothing else.** The v2.4 attempt to extend Lora into the Director's reply bodies is walked back in v2.5 — the change blurred the reading register (the Director thread read as prose-being-written rather than as direction-being-given) and confused the boundary the Inviolable is designed to protect.
 
 **Prose editor typography specifications:**
 
@@ -761,17 +770,23 @@ These are six rules that cannot be overridden by any design decision, feature re
 
 The prose surface is always the lowest-noise surface in the application. It never competes with chrome. In Focus Mode it is entirely alone with only the cursor, breadcrumb, word count, and exit hint visible. Any proposal to add an element to the prose surface — formatting toolbar, suggestions panel, sidebar widget, AI suggestion overlay, anything — fails this Inviolable and is rejected.
 
-### Inviolable 2 — Verdigris appears in exactly nine places
+### Inviolable 2 — Verdigris appears in exactly twelve places
 
-The verdigris accent (`#3d7858` dark, `#254a38` light) appears in the nine sanctioned uses listed in §5.1 and nowhere else. Each of the nine uses belongs to one of four categories: brand, inscription in progress, completion, or current location. Any proposed tenth use must pass the three-test gate in §5.3. If it does not pass all three tests, the element uses a grey or text token instead.
+The verdigris accent (`#3d7858` dark, `#254a38` light) appears in the twelve sanctioned uses listed in §5.1 and nowhere else. Each of the twelve uses belongs to one of five categories: brand, inscription in progress, completion, current location, or catalog. Any proposed thirteenth use must pass the three-test gate in §5.3. If it does not pass all three tests, the element uses a grey or text token instead.
 
-### Inviolable 3 — Cinzel appears only in the wordmark
+Phase 8.01 wireframe-lock alignment (v2.3, 2026-06-03) added uses #10 – #12 (the Catalog category) at the Project page Documents-tab rebuild after the live page read visibly "bland" against `03_project_page_v1_iter1.html`. The amendment is the spec catching up to a wireframe lock that had already been authored with verdigris in those positions; it is not a relaxation of the inviolable. The three-test gate (§5.3) still applies to any further proposal.
 
-Cinzel is the inscription typeface. It appears only in the wordmark (and the S of the app icon, which is the wordmark in icon form). It never appears in the product UI, never in marketing copy, never as a heading typeface, never in error messages, never in any context where its presence would be decorative rather than identifying. Its presence always and only means "this is the brand."
+### Inviolable 3 — Cinzel appears only in the brand mark and its sanctioned co-brand variants
+
+Cinzel is the inscription typeface. It appears only in the wordmark, the S of the app icon (which is the wordmark in icon form), and **the Director-persona brand mark** (a 32×32 verdigris-gradient rounded square containing a Cinzel glyph, plus the adjacent "Director" label set in Cinzel 13px 500, in the DirectorPanel header). It never appears in the product UI body, never in marketing copy, never as a heading typeface, never in error messages, never in any context where its presence would be decorative rather than identifying. Its presence always and only means "this is brand identity."
+
+**v2.4 refinement (2026-06-03):** the Director Mode wireframe `05_director_mode_v1_iter1.html` authored the Director panel header with a 32×32 brand mark + Cinzel "Director" label — explicitly modelled on the wordmark pattern but for the agent's persona. The Director is a Stelavox-branded agent, not a generic AI surface, and the spec catches up to that. **Specific admitted use sites:** (a) the gradient mark glyph (Cinzel 16px 600 inside the rounded square; the glyph itself is the Director's "S" — same letter as the app icon, asserting Director is brand-of-brand); (b) the "Director" label text immediately right of the mark (Cinzel 13px 500). **NOT admitted:** Cinzel in user-message authoring chrome, in scheduler labels, in admin surfaces, in workflow proposal cards, in any tool-call chip, or in any heading anywhere in the product body. The signal "this is brand identity" remains absolute.
 
 ### Inviolable 4 — The typeface boundary is absolute
 
-Inter is the structural typeface. Lora is the prose typeface. There is no overlap. No Inter text appears in the prose editor. No Lora text appears in the structural panels. The serif-to-sans transition is the signal that the author has crossed from managing the work to being inside it. This signal must remain absolute — every exception weakens the signal across the entire product. (See §6.4.)
+Inter is the structural typeface. Lora is the prose typeface. There is no overlap. No Inter text appears in the prose surface. No Lora text appears in any structural chrome — including the Director conversation thread. The serif-to-sans transition is the signal that the author has crossed from managing the work to being inside it. This signal must remain absolute — every exception weakens the signal across the entire product. (See §6.4.)
+
+**v2.4–v2.5 history (2026-06-03):** the boundary was briefly restated in v2.4 as **speech-vs-chrome** to admit Lora in the agent's reply bodies (the "Director speaks the work being shaped" framing). Live-build review found the change blurred the reading register: the Director thread read too close to a prose-editor surface, and the author reported it as confusing — the Director's voice should read as system-level direction, not as in-progress prose. v2.5 reverts the speech-vs-chrome framing and restores the original panel-vs-panel rule: prose only appears in the prose surface. Director chrome and Director body both stay in Inter; the only Lora sites are the prose editor itself and the Dashboard Resume-Writing prose excerpt. The Inviolable's original wording is the locked truth: this signal must remain absolute.
 
 ### Inviolable 5 — The prose editor has no visible toolbar
 
@@ -786,6 +801,16 @@ This Inviolable was added at the Phase 8.01 wireframe lock after the Dashboard i
 ---
 
 ## 13. Changelog
+
+**v2.5 — 2026-06-03** Phase 8.01 wireframe-alignment round 3 follow-up — **partial walk-back of the v2.4 Inviolable #4 refinement.** The v2.4 amendment admitted Lora in the Director's reply bodies on the rationale that "the agent's response is the work being shaped." The amendment was implemented and reviewed live; the author reported the change confused the reading register — the Director thread read too close to a prose-editor surface, and the agent's voice should read as system-level direction, not as in-progress prose. **The Lora portion of the v2.4 amendment is reverted.** Inter is restored as the typeface for both halves of the Director conversation thread. The original Inviolable #4 wording — "no Lora text appears in the structural panels" — is the locked truth. §6.2 Inter "Specific uses" returns Director conversation text to its list with the rationale; §6.3 Lora "Specific uses" narrows back to the prose editor body + Resume-Writing prose excerpt; §12 Inviolable #4 is restated in its original absolute form with a brief v2.4–v2.5 history paragraph documenting the attempt and its reason for reversal. **The v2.4 Inviolable #3 refinement (Cinzel admitted in the Director-persona brand mark + Cinzel "Director" label) is UNCHANGED in v2.5** — that refinement was about brand identity (the agent persona as a brand mark variant) and survives unaltered. Component changes: `DirectorMessage` body switches from Lora 14.5px / 1.7 to Inter 13px / 1.6 / text-primary. Author rationale: *"I dont really like the font being used by the director. I find it too similar to the font used for Prose and its confusing. I think it worked better when it looks more system like."* No other typography changes. Inviolables 1, 2, 3, 5, 6 unchanged.
+
+**v2.4 — 2026-06-03** Phase 8.01 wireframe-alignment round 2 — Inviolable #3 + #4 refinements to admit Cinzel and Lora in the Director panel under the brand-mark / work-being-shaped framings respectively.
+
+**Inviolable #3 refinement** — Cinzel was previously locked to the wordmark + app icon only. The Director Mode wireframe `05_director_mode_v1_iter1.html` authored the Director panel header with a 32×32 verdigris-gradient mark containing a Cinzel glyph plus the adjacent "Director" label in Cinzel 13px 500. The mark is a deliberate brand-mark variant for the agent persona — "the wordmark of the Director" — modelled directly on the app icon's S-in-a-square pattern. The spec catches up to the wireframe. Specific admitted use sites: (a) the gradient mark glyph; (b) the "Director" label text immediately right of the mark. Cinzel still does NOT appear in any product body, any heading, any non-Director chrome.
+
+**Inviolable #4 refinement** —  The author walked the seven 8.01 wireframes and reported the live implementation looked structurally less alive than the drawings; the Director-message Lora was one of ten high-impact divergences identified in the review. Director Mode wireframe `05_director_mode_v1_iter1.html` had been authored with the agent's reply text bodies in Lora 14.5px / 1.7 line-height — a deliberate aesthetic statement that the agent's response is the work being shaped, set in the same register as the prose it describes. The previous Inviolable #4 wording ("No Lora text appears in the structural panels") would have forbidden it. **The boundary is restated, not relaxed.** The old framing was "structural panel = Inter / prose editor = Lora"; the new framing is **speech-vs-chrome**: Lora applies wherever the *content of the work* surfaces (prose editor body, Resume-Writing prose excerpt, agent reply bodies); Inter applies wherever the *direction of the work* surfaces (panel chrome, headers, buttons, breadcrumbs, user messages, status, labels). Director panel header, the user's own messages, tool-call chips, workflow proposal cards, action buttons — all stay Inter. **Only the agent's reply text body crosses into Lora.** §6.2 Inter "Specific uses" updated to mark Director conversation chrome as Inter while explicitly noting the agent-body exception; §6.3 Lora gets a new "Specific uses" subsection naming the three Lora sites; §12 Inviolable #4 gets the speech-vs-chrome refinement text. **Inviolables 1, 2, 3, 5, 6 unchanged. No new typefaces, no new tokens.** Brand philosophy, the twelve verdigris uses (§5), the wordmark/Cinzel/Cormorant boundaries, the colour system, motion language, and §6.4 serif-to-sans signal-function description are unchanged. The refinement makes the existing signal more precise: it fires where the speech becomes the work, not where the panel boundary begins. Author rationale verbatim: *"I want it to replicate the wireframes."*
+
+**v2.3 — 2026-06-03** Phase 8.01 wireframe-alignment for the Project page Documents tab. Live `/projects/[projectId]` against `03_project_page_v1_iter1.html` read visibly less vibrant than the wireframe; diagnosis traced to three new verdigris-using surfaces that the wireframe had been authored around but the live page had silently substituted neutrals for, because the original Phase 8.01.E ship avoided Inviolable #2 expansion. **Inviolable #2 use count moves from 9 → 12.** §5.1 catalog gains three entries (#10 document-row ordinal tile, #11 document-type identifier chip covering both the small stack-tag and the larger stack-badge variants, #12 the "Open" primary navigation hover-action on document rows). §5.2 gains a new category, **Catalog (uses 10, 11, 12)** — the visible structure of the author's workspace plus the verb to enter it. §5.4 retains the no-generic-hover-state rule but admits use #12 as a sole hover exception, justified by the Catalog category's "verb-into-the-work" framing. §12 Inviolable 2 text replaces "exactly nine places / four categories" with "exactly twelve places / five categories"; the three-test gate in §5.3 is unchanged and continues to apply to any further proposal. **No new tokens needed** — `--color-accent`, `--color-accent-hover`, `--color-accent-muted` were already in the system and are simply gaining sanctioned sites of use. `styles/tokens.css` comment on `--color-accent` updates from "9 uses only" → "12 uses only" in the same change. **Inviolables 1, 3, 4, 5, 6 unchanged.** Brand philosophy, Cinzel / Cormorant Garamond italic boundaries, typography rules, motion language, and the colour-system structure are unchanged.
 
 **v2.2 — 2026-05-31** Phase 8.01 wireframe-lock consolidation. **New Inviolable #6 — Cormorant Garamond italic appears only in the wordmark.** The protection of Inviolable #3 (Cinzel-only) was not symmetric across the second brand typeface; Phase 8.01 Dashboard iter4 caught the asymmetry the hard way by silently collapsing the mark to a single Cinzel "Stelavox" against §3.2. §12 lead bumps "five rules" → "six rules"; new Inviolable text added at the end of §12 with full rationale and a back-pointer to the iter4 regression. §6.1 reframed: the product UI still uses exactly three typefaces (Inter / Lora plus Cinzel via the wordmark mount); Cormorant Garamond italic is the fourth typeface in the brand system, reserved for the *vox* component. §3.7 "What the Wordmark Is Never" extended: Cormorant Garamond italic added to the never-replace list alongside Cinzel; new implementation note locks the lozenge as a `transform: rotate(45deg)` square with the 8px verdigris glow `box-shadow: 0 0 8px rgba(90,168,122,0.45)` (approximating with a Unicode character / CSS triangle / unrotated square is now an explicit regression). Verdigris-use count remains nine (the two brand uses #1 lozenge + #2 rule are unchanged in count and behaviour). The v2.1 a11y / muted-token change (2026-05-10) lands in the same internal version stamp; the v2.0 header had stayed at "Version 2.0" through the v2.1 changelog entry — this v2.2 bump moves the top stamp to v2.2 absorbing both. Brand philosophy, the nine verdigris uses (§5), Cinzel / Inter / Lora boundaries, and the colour system are otherwise unchanged.
 

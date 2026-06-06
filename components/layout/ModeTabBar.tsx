@@ -35,14 +35,24 @@ export function ModeTabBar() {
   // affordance. Hide entirely when no document client is mounted.
   if (!enabled) return null
 
+  // Phase 8.01 wireframe-alignment round 2: pill grouper per
+  // 02_edit_mode_v2_iter3.html .mode-tabs — --color-bg-surface bg, 1px
+  // --color-border-default border, 5px radius, 2px internal padding.
+  // Active tab gets --color-bg-selected (not --color-bg-surface — the
+  // grouper IS bg-surface so the active state needs a different tonal
+  // step).
   return (
     <div
       role="tablist"
+      data-testid="mode-tab-bar"
       style={{
         display: 'inline-flex',
-        background: 'var(--color-bg-base)',
-        padding: 4,
-        borderRadius: 6,
+        alignItems: 'center',
+        gap: 2,
+        background: 'var(--color-bg-surface)',
+        border: '1px solid var(--color-border-default)',
+        padding: 2,
+        borderRadius: 5,
       }}
     >
       {TABS.map((tab) => {
@@ -65,16 +75,19 @@ export function ModeTabBar() {
             style={{
               fontFamily: 'var(--font-inter), Inter, sans-serif',
               border: 'none',
-              background: active ? 'var(--color-bg-surface)' : 'transparent',
+              background: active ? 'var(--color-bg-selected)' : 'transparent',
               color: active
                 ? 'var(--color-text-primary)'
                 : 'var(--color-text-muted)',
-              fontWeight: active ? 500 : 400,
+              fontWeight: 500,
               fontSize: 12,
-              padding: '4px 14px',
-              borderRadius: 4,
+              padding: '5px 14px',
+              borderRadius: 3,
               cursor: disabled ? 'not-allowed' : 'pointer',
               opacity: disabled && !tab.selectable ? 0.5 : 1,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
               transition:
                 'background var(--duration-fast) var(--easing-smooth), ' +
                 'color var(--duration-fast) var(--easing-smooth)',
@@ -87,11 +100,11 @@ export function ModeTabBar() {
                 aria-label="Director has pending attention"
                 style={{
                   display: 'inline-block',
-                  marginLeft: 6,
                   width: 6,
                   height: 6,
                   borderRadius: 999,
-                  background: 'rgba(208, 153, 50, 0.95)',  // attention-amber, not verdigris
+                  background: 'var(--color-info)',  // wireframe uses running-bright blue
+                  boxShadow: '0 0 4px rgba(77,143,214,0.6)',
                   verticalAlign: 'middle',
                 }}
               />

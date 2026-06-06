@@ -89,16 +89,22 @@ export function StopButton({ turnId, onStopped, compact = false }: StopButtonPro
 
   return (
     <>
+      {/* Phase 8.01 wireframe-alignment round 3 — Stop is amber, not
+          red, per wireframe 05_director_mode_v1_iter1 .dp-stop. The
+          semantic is "stop, don't destroy" — the agent's work is
+          preserved when stopped, just paused. Red would imply
+          destruction. */}
       <button
         type="button"
         data-testid="director-turn-stop-button"
         onClick={() => setOpen(true)}
         title="Stop the Director"
         style={{
-          background: 'transparent',
-          border: '1px solid var(--color-border-subtle)',
-          color: 'var(--color-text-secondary)',
-          padding: compact ? '3px 8px' : '4px 10px',
+          background: 'var(--color-status-review)',
+          border: '1px solid var(--color-status-review)',
+          color: '#0d1014',
+          fontWeight: 500,
+          padding: compact ? '3px 10px' : '5px 12px',
           fontSize: compact ? 10 : 11,
           fontFamily: 'var(--font-inter), Inter, sans-serif',
           borderRadius: 4,

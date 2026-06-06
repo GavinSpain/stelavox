@@ -7,6 +7,8 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 
+import { getMaxLayerIndexByDocument } from '@/lib/data/nodes'
+
 export interface QuickStartCompletion {
   signedIn: boolean
   hasProject: boolean
@@ -51,7 +53,17 @@ export async function getQuickStartCompletion(
   supabase: SupabaseClient,
   orgId: string,
 ): Promise<QuickStartCompletion> {
-  const [projects, beats, turns, exports] = await Promise.all([
+  // H-15: leaf-ness is derived from the document's layer_stack
+  // (layer_index === max), not a column on the row. For the
+  // `hasBeatWithProse` check we pull a small candidate window of
+  // structural rows with non-null prose, then check in TS whether any
+  // qualifies as a leaf for its document. 20 candidates is plenty —
+  // prose is overwhelmingly written to leaves (synthesise targets
+  // leaves; expand on non-leaves doesn't write prose at all). If a
+  // user somehow has 20+ non-leaf nodes with prose ahead of any leaf,
+  // hasBeatWithProse will momentarily read false; the check is
+  // re-evaluated every time the dashboard mounts.
+  const [projects, candidates, turns, exports] = await Promise.all([
     supabase
       .from('projects')
       .select('id', { count: 'exact', head: true })
@@ -59,11 +71,11 @@ export async function getQuickStartCompletion(
       .limit(1),
     supabase
       .from('nodes')
-      .select('id', { count: 'exact', head: true })
+      .select('document_id, layer_index')
       .eq('organisation_id', orgId)
-      .eq('is_leaf', true)
+      .eq('node_category', 'structural')
       .not('prose', 'is', null)
-      .limit(1),
+      .limit(20),
     supabase
       .from('director_turns')
       .select('id', { count: 'exact', head: true })
@@ -76,10 +88,28 @@ export async function getQuickStartCompletion(
       .eq('queue_status', 'completed')
       .limit(1),
   ])
+
+  let hasBeatWithProse = false
+  if (candidates.data && candidates.data.length > 0) {
+    const candidateRows = candidates.data as Array<{
+      document_id: string
+      layer_index: number | null
+    }>
+    const docIds = Array.from(new Set(candidateRows.map((r) => r.document_id)))
+    const maxByDoc = await getMaxLayerIndexByDocument(supabase, docIds)
+    for (const row of candidateRows) {
+      const max = maxByDoc.get(row.document_id)
+      if (max !== undefined && row.layer_index === max) {
+        hasBeatWithProse = true
+        break
+      }
+    }
+  }
+
   return {
     signedIn: true, // by definition of reaching this code path
     hasProject: (projects.count ?? 0) > 0,
-    hasBeatWithProse: (beats.count ?? 0) > 0,
+    hasBeatWithProse,
     hasTriedDirector: (turns.count ?? 0) > 0,
     hasCompletedExport: (exports.count ?? 0) > 0,
   }
