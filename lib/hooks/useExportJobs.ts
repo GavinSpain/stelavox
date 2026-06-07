@@ -84,39 +84,54 @@ export function useActiveExports(): ExportJob[] {
 
     void fetchInitial()
 
-    const channel = supabase.channel('export_jobs:active').on(
-      'postgres_changes',
-      { event: '*', schema: 'public', table: 'export_jobs' },
-      (payload) => {
-        if (!mounted) return
-        const newRow = payload.new as ExportJob | undefined
-        const oldRow = payload.old as ExportJob | undefined
-        const id = newRow?.id ?? oldRow?.id
-        if (!id) return
+    // 2026-06-07 — wait for the auth session to load BEFORE subscribing.
+    // See useExportHistory below for the full rationale. Same race: the
+    // `@supabase/ssr` browser client loads the JWT from cookies async;
+    // if we subscribe synchronously the channel registers as 'anon' and
+    // RLS silently drops every event with no recovery.
+    let channel: ReturnType<typeof supabase.channel> | null = null
 
-        setJobs(prev => {
-          // Remove the row from prev
-          const filtered = prev.filter(j => j.id !== id)
-          // Re-insert if active
-          if (newRow && ACTIVE_STATUSES.has(newRow.status)) {
-            return [newRow, ...filtered]
-          }
-          // Keep terminal exports for 10s so the UI can render the
-          // success/failure state before they disappear — we leverage
-          // a small grace by NOT removing immediately. Instead, set a
-          // timer in the component (ExportProgressStack) to dismiss
-          // after the user acts or after a TTL.
-          if (newRow && TERMINAL_STATUSES.has(newRow.status)) {
-            return [newRow, ...filtered]
-          }
-          return filtered
-        })
-      },
-    ).subscribe()
+    void (async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (session?.access_token) {
+        supabase.realtime.setAuth(session.access_token)
+      }
+      if (!mounted) return
+
+      channel = supabase.channel('export_jobs:active').on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'export_jobs' },
+        (payload) => {
+          if (!mounted) return
+          const newRow = payload.new as ExportJob | undefined
+          const oldRow = payload.old as ExportJob | undefined
+          const id = newRow?.id ?? oldRow?.id
+          if (!id) return
+
+          setJobs(prev => {
+            // Remove the row from prev
+            const filtered = prev.filter(j => j.id !== id)
+            // Re-insert if active
+            if (newRow && ACTIVE_STATUSES.has(newRow.status)) {
+              return [newRow, ...filtered]
+            }
+            // Keep terminal exports for 10s so the UI can render the
+            // success/failure state before they disappear — we leverage
+            // a small grace by NOT removing immediately. Instead, set a
+            // timer in the component (ExportProgressStack) to dismiss
+            // after the user acts or after a TTL.
+            if (newRow && TERMINAL_STATUSES.has(newRow.status)) {
+              return [newRow, ...filtered]
+            }
+            return filtered
+          })
+        },
+      ).subscribe()
+    })()
 
     return () => {
       mounted = false
-      void supabase.removeChannel(channel)
+      if (channel) void supabase.removeChannel(channel)
     }
   }, [])
 
@@ -143,19 +158,31 @@ export function useExportProgress(exportJobId: string | null): ExportJob | null 
 
     void fetchInitial()
 
-    const channel = supabase.channel(`export_jobs:${exportJobId}`).on(
-      'postgres_changes',
-      { event: 'UPDATE', schema: 'public', table: 'export_jobs', filter: `id=eq.${exportJobId}` },
-      (payload) => {
-        if (!mounted) return
-        const newRow = payload.new as ExportJob | undefined
-        if (newRow) setJob(newRow)
-      },
-    ).subscribe()
+    // 2026-06-07 — wait for the auth session to load BEFORE subscribing.
+    // Same anon-race fix as useActiveExports / useExportHistory.
+    let channel: ReturnType<typeof supabase.channel> | null = null
+
+    void (async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (session?.access_token) {
+        supabase.realtime.setAuth(session.access_token)
+      }
+      if (!mounted) return
+
+      channel = supabase.channel(`export_jobs:${exportJobId}`).on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'export_jobs', filter: `id=eq.${exportJobId}` },
+        (payload) => {
+          if (!mounted) return
+          const newRow = payload.new as ExportJob | undefined
+          if (newRow) setJob(newRow)
+        },
+      ).subscribe()
+    })()
 
     return () => {
       mounted = false
-      void supabase.removeChannel(channel)
+      if (channel) void supabase.removeChannel(channel)
     }
   }, [exportJobId])
 
@@ -230,45 +257,32 @@ export function useExportHistory(documentId: string | null): ExportJob[] {
       if (!mountedRef.current) return
 
       channel = supabase.channel(`export_jobs:doc:${documentId}`).on(
-      'postgres_changes',
-      { event: '*', schema: 'public', table: 'export_jobs', filter: `document_id=eq.${documentId}` },
-      (payload) => {
-        // 2026-06-07 DIAGNOSTIC — log every event the channel receives.
-        // Distinguishes "events arrive but the hook drops them" from
-        // "events don't arrive at all". Demote / remove once the
-        // Realtime path is confirmed end-to-end.
-        // eslint-disable-next-line no-console
-        console.info(
-          `[useExportHistory] event for ${documentId}:`,
-          payload.eventType,
-          (payload.new as { id?: string; status?: string } | undefined)?.id,
-          (payload.new as { id?: string; status?: string } | undefined)?.status,
-        )
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'export_jobs', filter: `document_id=eq.${documentId}` },
+        (payload) => {
+          if (!mountedRef.current) return
+          const newRow = payload.new as ExportJob | undefined
+          const oldRow = payload.old as ExportJob | undefined
+          const id = newRow?.id ?? oldRow?.id
+          if (!id) return
 
-        if (!mountedRef.current) return
-        const newRow = payload.new as ExportJob | undefined
-        const oldRow = payload.old as ExportJob | undefined
-        const id = newRow?.id ?? oldRow?.id
-        if (!id) return
-
-        setJobs(prev => {
-          if (payload.eventType === 'DELETE') return prev.filter(j => j.id !== id)
-          const filtered = prev.filter(j => j.id !== id)
-          if (newRow) return [newRow, ...filtered].slice(0, 50)
-          return filtered
-        })
-      },
-    ).subscribe((status) => {
-      // 2026-06-07 — surface channel status so a silent Realtime failure
-      // (CHANNEL_ERROR / TIMED_OUT / CLOSED) shows up in console. We log
-      // SUBSCRIBED too so we can tell whether the subscription ever
-      // succeeded on a given environment.
-      // Using console.info (not .debug) so the line is visible in Chrome
-      // DevTools without Verbose level enabled — once Realtime health
-      // is confirmed on this stack, drop this back to .debug or remove.
-      // eslint-disable-next-line no-console
-      console.info(`[useExportHistory] channel ${documentId} status:`, status)
-    })
+          setJobs(prev => {
+            if (payload.eventType === 'DELETE') return prev.filter(j => j.id !== id)
+            const filtered = prev.filter(j => j.id !== id)
+            if (newRow) return [newRow, ...filtered].slice(0, 50)
+            return filtered
+          })
+        },
+      ).subscribe((status) => {
+        // Surface a non-SUBSCRIBED status so a silent Realtime failure
+        // (CHANNEL_ERROR / TIMED_OUT / CLOSED) is visible to diagnose. We
+        // intentionally do NOT log SUBSCRIBED — that's the happy path
+        // and would just be noise in production console output.
+        if (status !== 'SUBSCRIBED') {
+          // eslint-disable-next-line no-console
+          console.warn(`[useExportHistory] channel ${documentId} status:`, status)
+        }
+      })
     })()
 
     // 2026-06-07 — modal-dispatched event refresh. When ExportModal
