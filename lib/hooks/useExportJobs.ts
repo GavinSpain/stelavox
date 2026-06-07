@@ -15,7 +15,7 @@
  * on unmount per H-05.
  */
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 
 export interface ExportJob {
@@ -171,24 +171,38 @@ export function useExportProgress(exportJobId: string | null): ExportJob | null 
  */
 export const EXPORT_STARTED_EVENT = 'stelavox:export-started'
 
+/** Statuses that should keep the in-flight poller alive. */
+const IN_FLIGHT_FOR_POLL = new Set<ExportJob['status']>([
+  'queued', 'pending', 'planning', 'rendering', 'assembling',
+  'uploading', 'cancellation_requested',
+])
+
+/** Poll cadence while any export is in-flight (ms). */
+const POLL_INTERVAL_MS = 2000
+
 export function useExportHistory(documentId: string | null): ExportJob[] {
   const [jobs, setJobs] = useState<ExportJob[]>([])
+
+  // Refs let the polling effect and event listeners call the latest
+  // fetcher without re-subscribing on every state change.
+  const mountedRef = useRef(true)
+
+  const fetchInitial = useCallback(async () => {
+    if (!documentId) return
+    const supabase = createClient()
+    const { data } = await supabase
+      .from('export_jobs')
+      .select('*')
+      .eq('document_id', documentId)
+      .order('created_at', { ascending: false })
+      .limit(50)
+    if (mountedRef.current && data) setJobs(data as unknown as ExportJob[])
+  }, [documentId])
 
   useEffect(() => {
     if (!documentId) return
     const supabase = createClient()
-    let mounted = true
-
-    async function fetchInitial() {
-      if (!documentId) return
-      const { data } = await supabase
-        .from('export_jobs')
-        .select('*')
-        .eq('document_id', documentId)
-        .order('created_at', { ascending: false })
-        .limit(50)
-      if (mounted && data) setJobs(data as unknown as ExportJob[])
-    }
+    mountedRef.current = true
 
     void fetchInitial()
 
@@ -196,7 +210,7 @@ export function useExportHistory(documentId: string | null): ExportJob[] {
       'postgres_changes',
       { event: '*', schema: 'public', table: 'export_jobs', filter: `document_id=eq.${documentId}` },
       (payload) => {
-        if (!mounted) return
+        if (!mountedRef.current) return
         const newRow = payload.new as ExportJob | undefined
         const oldRow = payload.old as ExportJob | undefined
         const id = newRow?.id ?? oldRow?.id
@@ -211,13 +225,11 @@ export function useExportHistory(documentId: string | null): ExportJob[] {
       },
     ).subscribe((status) => {
       // 2026-06-07 — surface channel status so a silent Realtime failure
-      // (CHANNEL_ERROR / TIMED_OUT / CLOSED) shows up in console. The
-      // hook still works without Realtime thanks to the event + focus
-      // refetch paths below.
-      if (status !== 'SUBSCRIBED') {
-        // eslint-disable-next-line no-console
-        console.debug(`[useExportHistory] channel status for ${documentId}:`, status)
-      }
+      // (CHANNEL_ERROR / TIMED_OUT / CLOSED) shows up in console. We log
+      // SUBSCRIBED too so we can tell whether the subscription ever
+      // succeeded on a given environment.
+      // eslint-disable-next-line no-console
+      console.debug(`[useExportHistory] channel ${documentId} status:`, status)
     })
 
     // 2026-06-07 — modal-dispatched event refresh. When ExportModal
@@ -231,9 +243,7 @@ export function useExportHistory(documentId: string | null): ExportJob[] {
     window.addEventListener(EXPORT_STARTED_EVENT, onExportStarted)
 
     // 2026-06-07 — tab-focus + visibility refetch. Covers the common
-    // case of triggering an export, tabbing away, and coming back. The
-    // refetch is cheap (one query, 50-row cap) and fills any gap a
-    // missed Realtime event would have left.
+    // case of triggering an export, tabbing away, and coming back.
     function onFocus() { void fetchInitial() }
     function onVisibilityChange() {
       if (document.visibilityState === 'visible') void fetchInitial()
@@ -242,13 +252,27 @@ export function useExportHistory(documentId: string | null): ExportJob[] {
     document.addEventListener('visibilitychange', onVisibilityChange)
 
     return () => {
-      mounted = false
+      mountedRef.current = false
       void supabase.removeChannel(channel)
       window.removeEventListener(EXPORT_STARTED_EVENT, onExportStarted)
       window.removeEventListener('focus', onFocus)
       document.removeEventListener('visibilitychange', onVisibilityChange)
     }
-  }, [documentId])
+  }, [documentId, fetchInitial])
+
+  // 2026-06-07 — short-interval polling while any export is in-flight.
+  // On environments where Realtime postgres_changes UPDATE events drop
+  // silently (observed locally during V1 testing), this is the
+  // mechanism that drives queued → planning → rendering → completed
+  // transitions live in the panel. The interval stops the moment the
+  // panel has no in-flight rows — so on an idle history view there is
+  // zero background traffic.
+  const hasInFlight = jobs.some(j => IN_FLIGHT_FOR_POLL.has(j.status))
+  useEffect(() => {
+    if (!hasInFlight || !documentId) return
+    const id = setInterval(() => { void fetchInitial() }, POLL_INTERVAL_MS)
+    return () => clearInterval(id)
+  }, [hasInFlight, documentId, fetchInitial])
 
   return jobs
 }
