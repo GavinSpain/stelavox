@@ -48,6 +48,7 @@ import { useViewportBreakpoint } from '@/lib/hooks/useViewportBreakpoint'
 import { PanelResizer } from './PanelResizer'
 import { ModeProvider } from './ModeContext'
 import { AppShellStatusIndicator } from './AppShellStatusIndicator'
+import { KeyboardShortcutsProvider } from '@/components/help/KeyboardShortcutsProvider'
 import { createClient } from '@/lib/supabase/client'
 import { useAgentJobsRealtime } from '@/lib/hooks/useAgentJobsRealtime'
 
@@ -324,6 +325,12 @@ function AppShellInner({ userEmail, children }: AppShellProps) {
       {/* V1.x-B.1.1 — persistent bottom-right status indicator. Fixed-position;
           non-blocking; visible from every screen (CS v2.10 §17.1). */}
       <AppShellStatusIndicator />
+      {/* Phase 8.4 — global keyboard shortcuts. Listens for `?` (opens
+          help overlay) and ⌘K (dispatches command-palette open event
+          for Phase 8.1 to catch). Both skip when focus is inside a
+          text-entry surface. Mounting at AppShell level means every
+          authenticated route gets the shortcuts. */}
+      <KeyboardShortcutsProvider />
       {/* 2026-06-07 — ExportProgressStack removed. Exports live at the
           Project page → Export tab as the single entry point for both
           creation and review; the bottom-right chip stack was a duplicate
