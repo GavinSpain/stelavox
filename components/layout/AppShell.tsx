@@ -314,9 +314,30 @@ function AppShellInner({ userEmail, children }: AppShellProps) {
               }}
             >
               {rightSlotContent ?? (
-                <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <span style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-muted)' }}>
-                    Node detail
+                /* Phase 8.2 — rare empty state. On a document page the
+                   tree auto-selects on first load, so this surface is
+                   almost never visible. It still acts as a safety net
+                   for transitional moments (route change in progress,
+                   selected node deletion before the next selection
+                   resolves). Copy is concise on purpose. */
+                <div
+                  data-testid="right-slot-empty"
+                  style={{
+                    flex: 1,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 8,
+                    padding: 24,
+                    textAlign: 'center',
+                  }}
+                >
+                  <span style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-secondary)' }}>
+                    Select a node from the tree to see its details.
+                  </span>
+                  <span style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>
+                    Press <kbd style={kbdInlineHint}>?</kbd> for keyboard shortcuts.
                   </span>
                 </div>
               )}
@@ -352,4 +373,15 @@ function AppShellInner({ userEmail, children }: AppShellProps) {
     </RightSlotContext.Provider>
     </SidebarProjectContext.Provider>
   )
+}
+
+const kbdInlineHint: React.CSSProperties = {
+  fontFamily: 'ui-monospace, "JetBrains Mono", SFMono-Regular, Menlo, monospace',
+  fontSize: 10,
+  color: 'var(--color-text-secondary)',
+  background: 'var(--color-bg-surface)',
+  border: '1px solid var(--color-border-subtle)',
+  borderRadius: 2,
+  padding: '1px 5px',
+  margin: '0 2px',
 }

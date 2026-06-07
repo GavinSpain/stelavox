@@ -60,20 +60,24 @@ test.describe('Detail panel', () => {
     await adminClient().from('projects').delete().eq('id', projectId)
   })
 
-  test('Selecting a row opens the detail panel; placeholder cleared', async ({ page }) => {
+  test('Detail panel auto-selects on load; clicking another row switches selection', async ({ page }) => {
+    // Phase 8.2 behaviour change — the tree now auto-selects the
+    // first leaf (or the root if no leaves) on initial load, so the
+    // right slot is populated without any click. The previous test
+    // asserted the "Node detail" placeholder was visible before any
+    // interaction; that placeholder is now a rare fallback for
+    // transitional moments and isn't reached on the happy path.
     await page.goto(`${BASE}/projects/${projectId}/documents/${docId}`)
     await page.waitForLoadState('networkidle')
 
-    // Right slot starts as the muted "Node detail" placeholder.
-    const placeholder = page.getByText('Node detail').first()
-    await expect(placeholder).toBeVisible()
-
-    // Click the act row to select it.
-    await page.getByLabel('Original Act Name, draft').click()
-
-    // Detail panel populates: heading + tab strip should appear.
+    // Auto-selection: detail panel is populated immediately.
     await expect(page.getByTestId('node-name-heading')).toBeVisible({ timeout: 4000 })
     await expect(page.getByRole('tab', { name: 'Content' })).toBeVisible()
+
+    // Click the act row to switch selection to it. Heading and tab
+    // strip stay visible (selection swap, not panel mount).
+    await page.getByLabel('Original Act Name, draft').click()
+    await expect(page.getByTestId('node-name-heading')).toBeVisible()
     await page.screenshot({ path: 'test-results/tree_detail_panel_open.png' })
   })
 

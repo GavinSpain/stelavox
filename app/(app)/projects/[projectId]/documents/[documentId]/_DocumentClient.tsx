@@ -123,7 +123,10 @@ export function DocumentClient({
         nodeId={selectedNodeId}
         refreshKey={refreshKey}
         onMutated={() => setRefreshKey((k) => k + 1)}
-        onClose={() => setSelectedNodeId(null)}
+        // Phase 8.2 — no onClose. The detail panel is the author's
+        // workspace; closing it just leaves an empty right slot with
+        // no path back. Selection only changes by clicking another
+        // tree row.
         onSelectNode={setSelectedNodeId}
       />,
     )
@@ -158,6 +161,7 @@ export function DocumentClient({
           documentId={documentId}
           documentType={documentType}
           onSelect={setSelectedNodeId}
+          selectedId={selectedNodeId}
           refreshKey={refreshKey}
         />
       </div>

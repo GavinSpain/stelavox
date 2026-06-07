@@ -21,7 +21,7 @@
 // 600px height. T-4.x can swap to a measured parent height (or
 // react-virtualized-auto-sizer) once the surrounding layout settles.
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Tree } from 'react-arborist'
 import type { MoveHandler } from 'react-arborist'
 import { NodeRow, NodeActionsProvider, type ArboristNode, type NodeData } from './NodeRow'
@@ -46,6 +46,13 @@ interface NodeTreeProps {
   // External refresh trigger — when this prop changes, the tree refetches.
   // Used by NodeDetailPanel mutations to keep the tree in sync.
   refreshKey?: number
+  // Phase 8.2 — current selection from the parent. The tree uses this
+  // to decide whether to auto-select a default on first data load:
+  // if `selectedId` is null after the initial fetch resolves, the
+  // tree fires onSelect with the first leaf (or root, if no leaves
+  // exist yet). This eliminates the "Node detail" empty state in
+  // the common case of opening a document.
+  selectedId?: string | null
 }
 
 // Phase 2 stub: hardcoded layer labels for V1 templates. Spec calls
@@ -86,8 +93,12 @@ export function NodeTree(props: NodeTreeProps) {
   )
 }
 
-function NodeTreeInner({ documentId, documentType, onSelect, refreshKey }: NodeTreeProps) {
+function NodeTreeInner({ documentId, documentType, onSelect, refreshKey, selectedId }: NodeTreeProps) {
   const toast = useToast()
+  // Phase 8.2 — track whether we've auto-selected for the current
+  // documentId yet. Resets when the documentId changes so navigating
+  // to a different document re-auto-selects there.
+  const autoSelectedForDoc = useRef<string | null>(null)
   const [data, setData]   = useState<ArboristNode[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   // Phase 8.01 round-3 follow-up — split the single refreshTick into
@@ -131,7 +142,22 @@ function NodeTreeInner({ documentId, documentType, onSelect, refreshKey }: NodeT
           return
         }
         setError(null)
-        setData(buildTree(Array.isArray(body?.nodes) ? body.nodes : []))
+        const tree = buildTree(Array.isArray(body?.nodes) ? body.nodes : [])
+        setData(tree)
+        // Phase 8.2 — auto-select a sensible default on first load
+        // for this documentId. Skips if the parent already has a
+        // selection (e.g., from a ?selectedNode= deep link, or
+        // because the user already clicked something).
+        if (
+          onSelect &&
+          autoSelectedForDoc.current !== documentId &&
+          selectedId == null &&
+          tree.length > 0
+        ) {
+          autoSelectedForDoc.current = documentId
+          const defaultId = pickDefaultSelection(tree)
+          if (defaultId) onSelect(defaultId)
+        }
       })
       .catch(() => {
         if (cancelled) return
@@ -387,6 +413,37 @@ function NodeTreeInner({ documentId, documentType, onSelect, refreshKey }: NodeT
 
 function cap(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1)
+}
+
+/**
+ * Phase 8.2 — pick the default selection on a fresh document load.
+ *
+ * Strategy:
+ *   1. First leaf in canonical (depth-first) order — puts the cursor
+ *      where the author will actually write
+ *   2. Failing that, the first/root node — gives the author the
+ *      structure overview with the "+ add child" affordance
+ *   3. Failing that, null — caller falls back to the empty-state hint
+ *
+ * "Leaf" follows H-15: server-derived `is_leaf` on the node payload.
+ * We never infer leaf-ness from child-count client-side.
+ */
+function pickDefaultSelection(tree: ArboristNode[]): string | null {
+  const firstLeaf = findFirstLeaf(tree)
+  if (firstLeaf) return firstLeaf
+  if (tree.length > 0) return tree[0].id
+  return null
+}
+
+function findFirstLeaf(nodes: ArboristNode[]): string | null {
+  for (const n of nodes) {
+    if (n.data.is_leaf) return n.id
+    if (n.children && n.children.length > 0) {
+      const childLeaf = findFirstLeaf(n.children)
+      if (childLeaf) return childLeaf
+    }
+  }
+  return null
 }
 
 // Loading skeleton — chevron + indent placeholder rows. No spinners
