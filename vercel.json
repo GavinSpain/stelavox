@@ -35,6 +35,10 @@
     {
       "path": "/api/cron/director-recovery",
       "schedule": "0 0 * * *"
+    },
+    {
+      "path": "/api/cron/purge-expired-exports",
+      "schedule": "30 3 * * *"
     }
   ]
 }

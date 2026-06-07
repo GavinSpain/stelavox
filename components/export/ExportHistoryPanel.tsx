@@ -51,6 +51,39 @@ const IN_FLIGHT_STATUSES = new Set<ExportJob['status']>([
   'uploading', 'cancellation_requested',
 ])
 
+/** Failed-retention window for the "removed in N hours" indicator on
+ *  failed/cancelled rows. Mirrors the platform_config default of 24h
+ *  (export.failed_retention_hours, set in M-211). Pure presentation —
+ *  the actual purge is server-side. If an admin tunes the config key
+ *  to a non-default this indicator will be slightly off, but the
+ *  display tolerance for "you have around a day" is high enough that
+ *  it's not worth the extra fetch.
+ */
+const FAILED_RETENTION_HOURS_DISPLAY = 24
+
+/** Render a relative-time string for how long until a row+file are
+ *  purged. `expiresAt` is either signed_url_expires_at (completed
+ *  rows) or created_at + retention window (failed/cancelled rows).
+ *  Returns null when already expired (caller will already render
+ *  "URL expired" / handle the terminal state separately).
+ */
+function removedInLabel(expiresAtIso: string, nowMs: number): string | null {
+  const expiresMs = new Date(expiresAtIso).getTime()
+  if (!Number.isFinite(expiresMs)) return null
+  const remainingMs = expiresMs - nowMs
+  if (remainingMs <= 0) return null
+  const hours = Math.floor(remainingMs / 3_600_000)
+  if (hours < 1) {
+    const minutes = Math.max(1, Math.floor(remainingMs / 60_000))
+    return `removed in ${minutes} min`
+  }
+  if (hours < 24) {
+    return `removed in ${hours} hour${hours === 1 ? '' : 's'}`
+  }
+  const days = Math.floor(hours / 24)
+  return `removed in ${days} day${days === 1 ? '' : 's'}`
+}
+
 /** User-facing label for each non-terminal status. */
 function inFlightLabel(status: ExportJob['status']): string {
   switch (status) {
@@ -129,6 +162,19 @@ export function ExportHistoryPanel({ documentId, documentName }: ExportHistoryPa
         const isCompleted = job.status === 'completed' && !expired
         const isInFlight = IN_FLIGHT_STATUSES.has(job.status)
         const canCancel = isInFlight && job.status !== 'cancellation_requested'
+        // "removed in N days" indicator. Completed rows expire at
+        // signed_url_expires_at (7-day default). Failed/cancelled rows
+        // expire at created_at + FAILED_RETENTION_HOURS_DISPLAY (24h
+        // default). The purge route deletes both file and row when the
+        // window elapses (M-211 + /api/cron/purge-expired-exports).
+        let removedLabel: string | null = null
+        if (isCompleted && job.signed_url_expires_at) {
+          removedLabel = removedInLabel(job.signed_url_expires_at, now)
+        } else if (isFailed || isCancelled) {
+          const expiresMs = new Date(job.created_at).getTime() +
+            FAILED_RETENTION_HOURS_DISPLAY * 3_600_000
+          removedLabel = removedInLabel(new Date(expiresMs).toISOString(), now)
+        }
         // Chapter progress when the runner has reported it. total_chapters
         // lives on the row itself; current_chapter lives in progress JSONB.
         const cur = job.progress.current_chapter
@@ -205,6 +251,14 @@ export function ExportHistoryPanel({ documentId, documentName }: ExportHistoryPa
                   <span style={{ marginLeft: 6, fontStyle: 'italic' }}>{job.progress.chapter_name}</span>
                 )}
                 {isCompleted && job.signed_url_expires_at && ' · download available'}
+                {removedLabel && (
+                  <span
+                    data-testid="export-removed-in"
+                    style={{ marginLeft: 6, color: 'var(--color-text-muted)' }}
+                  >
+                    · {removedLabel}
+                  </span>
+                )}
                 {expired && job.status === 'completed' && (
                   <span style={{ fontStyle: 'italic', marginLeft: 6 }}>URL expired</span>
                 )}
