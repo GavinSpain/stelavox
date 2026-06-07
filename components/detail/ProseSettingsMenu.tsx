@@ -129,12 +129,21 @@ export function ProseSettingsMenu({
             open || hover ? 'var(--color-border-default)' : 'var(--color-border-subtle)'
           }`,
           borderRadius: 4,
-          fontSize: 14,
-          color: open || hover ? 'var(--color-text-secondary)' : 'var(--color-text-muted)',
+          fontSize: 17,
+          // Phase 8.8 follow-up — bumped from muted → secondary closed,
+          // secondary → primary hover/open. The original muted shade
+          // read as disabled in Edit Mode chrome; this lift keeps it
+          // clearly clickable without competing with the focus button.
+          color: open || hover
+            ? 'var(--color-text-primary)'
+            : 'var(--color-text-secondary)',
+          fontWeight: 600,
+          letterSpacing: '0.04em',
           cursor: 'pointer',
           opacity: buttonOpacity,
           transition: 'opacity 200ms var(--easing-default, ease-out), color var(--duration-fast, 120ms), border-color var(--duration-fast, 120ms)',
           fontFamily: 'var(--font-inter), Inter, sans-serif',
+          lineHeight: 1,
         }}
       >
         ⋯

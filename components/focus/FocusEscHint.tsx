@@ -2,6 +2,7 @@
 
 // Spec: stelavox_component_specification_v2_10.md v2.21 §6.3.
 //       stelavox_phase8_01_B_build_checklist_v1_0.md T-4.
+//       Phase 8.8 amendment 2026-06-07 — see "discoverability fix" below.
 //
 // Phase 8.01.B T-4:
 //   - Position moves from bottom-right to bottom-left (WordCount per §5.7
@@ -9,14 +10,22 @@
 //   - Touch variant renders a 44×44 "← Edit" pill with persistent 0.4
 //     opacity (tap is the only Focus Mode exit on touch — the affordance
 //     can't fade out of existence) and an onClick that calls onExit.
-//   - Desktop variant unchanged from v2.20: "Esc to exit" Inter 10px,
-//     fades out after 5s, never returns (kbd users don't need a reminder
-//     mid-write).
 //
-// 🔒 Desktop "returns: NEVER. No hover behaviour after fade." holds. The
-//    touch pill is the OPPOSITE — it must persist because tap is the only
-//    exit. These are different surfaces serving different input models;
-//    the §6.3 spec extends to cover both per the Phase 8.01 wireframe lock.
+// Phase 8.8 discoverability fix (2026-06-07):
+//   - Desktop variant previously read "fades to 0 after 5s, never
+//     returns." Real-user feedback showed first-time users hit Focus
+//     Mode, missed the 5-second window, and could not find their way
+//     out. The hint now mirrors WordCount's opacity machine — it
+//     fades out while the author is typing and re-appears when the
+//     editor is idle. Same trigger as WordCount (§5.7): isTyping
+//     latches on keydown and clears 300ms later; recentlyTyped
+//     clears another 3000ms after that. While either is true the hint
+//     hides; otherwise it sits at 0.3 opacity.
+//   - The "kbd users don't need a reminder mid-write" spec rationale
+//     still holds — the hint disappears WHILE WRITING. It just doesn't
+//     stay gone forever.
+//
+// 🔒 Touch variant unchanged — tap is still the only exit on touch.
 
 import { useEffect, useState } from 'react'
 
@@ -25,32 +34,81 @@ interface FocusEscHintProps {
   onExit?: () => void
 }
 
+/** Find the ProseMirror DOM element inside the Focus Mode editor. The
+ *  editor sits inside the FocusMode portal; we query at document level
+ *  rather than threading the editor ref through props. */
+function findProseEl(): HTMLElement | null {
+  if (typeof document === 'undefined') return null
+  return document.querySelector(
+    '[data-editor="prose"][data-mode="focus"] .ProseMirror',
+  ) as HTMLElement | null
+}
+
 export function FocusEscHint({ onExit }: FocusEscHintProps = {}) {
-  const [opacity, setOpacity] = useState(0.3)
   const [isTouchPrimary, setIsTouchPrimary] = useState(false)
+  // Phase 8.8 — mirror WordCount's opacity state machine.
+  const [isTyping, setIsTyping] = useState(false)
+  const [recentlyTyped, setRecentlyTyped] = useState(false)
 
   // Detect coarse pointer (iPad / touch) on mount. SSR-safe default false
   // so first render is the desktop branch; hydration upgrades if needed.
-  // Single mount-time setState — does NOT cascade renders.
   useEffect(() => {
     if (typeof window === 'undefined' || !window.matchMedia) return
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsTouchPrimary(window.matchMedia('(pointer: coarse)').matches)
   }, [])
 
-  // Desktop only: fade after 5s. Touch keeps the pill visible permanently.
-  // The setState here is keyed on isTouchPrimary (a stable post-hydration
-  // value), not on render output — no cascade risk.
+  // Desktop only: listen to keydown on the prose editor's DOM, same
+  // pattern as WordCount (§5.7). 300ms typing window, 3s recently-typed
+  // window. While either is true the hint hides; otherwise it shows.
+  // Touch variant skips this — its opacity is locked at 0.4.
   useEffect(() => {
-    if (isTouchPrimary) {
-      // Touch: lock opacity at 0.4 permanently; tap is the only exit.
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setOpacity(0.4)
-      return
+    if (isTouchPrimary) return
+
+    let typingTimer: ReturnType<typeof setTimeout> | null = null
+    let idleTimer: ReturnType<typeof setTimeout> | null = null
+    let proseEl: HTMLElement | null = null
+    let mountRetry: ReturnType<typeof setTimeout> | null = null
+
+    function onKeydown() {
+      setIsTyping(true)
+      setRecentlyTyped(true)
+      if (typingTimer) clearTimeout(typingTimer)
+      if (idleTimer) clearTimeout(idleTimer)
+      typingTimer = setTimeout(() => {
+        setIsTyping(false)
+        idleTimer = setTimeout(() => setRecentlyTyped(false), 3000)
+      }, 300)
     }
-    const timer = setTimeout(() => setOpacity(0), 5000)
-    return () => clearTimeout(timer)
+
+    function attach() {
+      proseEl = findProseEl()
+      if (!proseEl) {
+        // Editor isn't in the DOM yet — retry shortly. The FocusMode
+        // overlay portal mounts the editor on a subsequent commit; one
+        // short retry covers the race.
+        mountRetry = setTimeout(attach, 80)
+        return
+      }
+      proseEl.addEventListener('keydown', onKeydown)
+    }
+    attach()
+
+    return () => {
+      if (mountRetry) clearTimeout(mountRetry)
+      if (typingTimer) clearTimeout(typingTimer)
+      if (idleTimer) clearTimeout(idleTimer)
+      if (proseEl) proseEl.removeEventListener('keydown', onKeydown)
+    }
   }, [isTouchPrimary])
+
+  // Desktop opacity per the WordCount-mirrored state machine. Touch
+  // opacity is its own constant.
+  const opacity = isTouchPrimary
+    ? 0.4
+    : isTyping || recentlyTyped
+      ? 0
+      : 0.3
 
   if (isTouchPrimary) {
     // Touch variant: 44×44 tap pill with "← Edit" copy.
