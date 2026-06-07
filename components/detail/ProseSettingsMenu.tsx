@@ -58,10 +58,12 @@ export function ProseSettingsMenu({
   const captionId = useId()
   const settings = useProseSettings(defaults)
 
-  // Compute alignment. Default per variant: edit → left (drop below
-  // trigger); focus → right (drop below + align to button's right edge
-  // so the menu doesn't spill outside the corner).
-  const effectiveAlign = align ?? (variant === 'focus' ? 'right' : 'left')
+  // Compute alignment. Both variants default to right-aligned so the
+  // dropdown's right edge tracks the button's right edge and the menu
+  // extends leftward — keeps it inside the parent in Edit Mode (where
+  // the ⋯ sits at the right of the chrome row) and inside the viewport
+  // in Focus Mode (where the ⋯ sits in the top-right corner).
+  const effectiveAlign = align ?? 'right'
 
   // Outside-click + Escape handlers.
   useEffect(() => {
