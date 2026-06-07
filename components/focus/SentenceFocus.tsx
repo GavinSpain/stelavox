@@ -1,35 +1,36 @@
 'use client'
 
-// Spec: stelavox_component_specification_v2_5.md §6.5
+// Spec: stelavox_component_specification_v2_10.md v2.21 §6.5
 //
-// ⚠️  PHASE 3 SHIPS A STUB — FULL IMPLEMENTATION DEFERRED TO PHASE 8 ⚠️
+// Phase 8.9 — full implementation (the Phase 3 stub becomes complete):
 //
-// Per TA v1.7 §11 (Phase 8 row), Component Spec v2.5 §6.5 deferred banner,
-// Phase 3 Test Plan v1.2 §10.1, and Build Checklist v1.2 SU-13:
+//   • Toggle host — Phase 8.8 ProseSettingsMenu writes the
+//     `stelavox_sentence_focus_enabled` localStorage key via
+//     useProseSettings. ProseEditor reads the same hook and either
+//     mounts the SentenceFocus component (this file) and registers
+//     the ProseMirror plugin, or doesn't.
+//   • Sentence segmentation — Intl.Segmenter (locale default,
+//     granularity: 'sentence') in lib/editor/sentence-focus-plugin.ts,
+//     called per paragraph on every document or selection change.
+//   • Span wrapping — implemented as ProseMirror inline decorations.
+//     The plugin produces a [data-sentence] attribute on each
+//     sentence span; this file installs the CSS that consumes it.
+//   • Active / adjacent marking — the plugin sets [data-active="true"]
+//     on the sentence containing the cursor, and [data-adjacent="true"]
+//     on the immediate previous and next sentences (by global index).
+//   • Selection restore — the selectionchange listener below toggles
+//     [data-selecting="true"] on the focus root while the user has a
+//     non-collapsed selection, restoring all text to 1.0 opacity.
 //
-// What this file ships in Phase 3:
-//   • The opacity CSS rules targeting [data-sentence-focus] / [data-sentence]
-//     elements (no-op until those elements exist).
-//   • A selectionchange listener that toggles a `data-selecting` attribute
-//     on the focus root (also no-op for the same reason).
+// Deferred to Phase 8.11: prefers-reduced-motion collapse for the
+// 200ms transition.
 //
-// What's NOT shipped in Phase 3 (all Phase 8):
-//   • The toggle host — a three-dot menu in the prose editor panel header.
-//     Without it, `enabled` stays at the default `false` from
-//     localStorage.stelavox_sentence_focus_enabled, so this component is
-//     dormant in production use.
-//   • The Intl.Segmenter-based sentence segmentation walk over Tiptap's
-//     prose JSON.
-//   • Wrapping each sentence in a <span data-sentence> element that
-//     survives Tiptap's transactions.
-//   • Active-sentence marking on cursor moves (data-active / data-adjacent).
-//   • prefers-reduced-motion collapse for the 200ms transition.
-//
-// Tests TC-U-14 / TC-M-04 / TC-M-06 are correspondingly deferred to Phase 8.
-//
-// 🔒 The behaviour contract below is unchanged — it is what Phase 8 must
-// deliver. Locked values: 1.0 active / 0.85 adjacent / 0.55 minimum. The
-// 0.55 minimum is the floor below which text reads as disabled or deleted.
+// 🔒 Behaviour contract — locked opacity values:
+//   • Active sentence  → 1.00
+//   • Adjacent (±1)    → 0.85
+//   • All other text   → 0.55  (floor — below this, text reads
+//                                 "disabled" rather than "backgrounded")
+//   • During selection → all return to 1.00 until deselect
 
 import { useEffect } from 'react'
 
@@ -51,6 +52,12 @@ function ensureStyle(enabled: boolean) {
     el.id = STYLE_ID
     document.head.appendChild(el)
   }
+  // Phase 8.11 — the @media block collapses the 200ms opacity
+  // transition when the OS-level reduced-motion preference is set.
+  // Opacity values themselves are unchanged; only the transition
+  // animation disappears. Same approach the existing globals.css uses
+  // for cursor blink and elsewhere — pure-CSS, no React hook needed
+  // for the styles themselves.
   el.textContent = `
     [data-sentence-focus] [data-sentence] {
       opacity: 0.55;
@@ -59,6 +66,9 @@ function ensureStyle(enabled: boolean) {
     [data-sentence-focus] [data-sentence][data-adjacent="true"] { opacity: 0.85; }
     [data-sentence-focus] [data-sentence][data-active="true"]   { opacity: 1.0; }
     [data-sentence-focus][data-selecting="true"] [data-sentence]  { opacity: 1.0; }
+    @media (prefers-reduced-motion: reduce) {
+      [data-sentence-focus] [data-sentence] { transition: none; }
+    }
   `
 }
 
@@ -68,18 +78,18 @@ export function SentenceFocus({ enabled }: SentenceFocusProps) {
     if (!enabled) return
 
     function onSelectionChange() {
-      const editor = document.querySelector<HTMLElement>('[data-editor="prose"][data-mode="focus"] .tiptap')
-      if (!editor) return
+      // 8.9 broadening — Edit Mode + Focus Mode both qualify now.
+      // We query all `[data-sentence-focus]` ancestors that contain
+      // the current selection and flip their data-selecting attribute.
+      // (Practically there's one ProseEditor visible at a time, but
+      // querying all is robust to layouts that surface more than one.)
       const sel = window.getSelection()
       const isSelecting = sel !== null && sel.rangeCount > 0 && !sel.isCollapsed
-      const root = editor.closest('[data-sentence-focus]') as HTMLElement | null
-      if (root) {
+      const roots = document.querySelectorAll<HTMLElement>('[data-sentence-focus]')
+      for (const root of roots) {
         if (isSelecting) root.dataset.selecting = 'true'
         else delete root.dataset.selecting
       }
-      // Active-sentence marking is computed lazily in the wrapping component
-      // (this hook just renders the styles + selection class). Phase 3 keeps
-      // sentence segmentation in the wrapper to avoid coupling.
     }
 
     document.addEventListener('selectionchange', onSelectionChange)

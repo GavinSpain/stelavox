@@ -32,6 +32,7 @@ import { StructureOverview } from './StructureOverview'
 import { DetailPaneCrumb } from './DetailPaneCrumb'
 import { NotesEditor } from './NotesEditor'
 import { FocusModeButton } from './FocusModeButton'
+import { ProseSettingsMenu } from './ProseSettingsMenu'
 import { ConflictBanner } from './ConflictBanner'
 import { HistoryTab } from './HistoryTab'
 import { MetadataForm } from './MetadataForm'
@@ -494,7 +495,14 @@ export function NodeDetailPanel({ nodeId, refreshKey, onMutated, onClose, onSele
                     >
                       Prose
                     </label>
-                    <FocusModeButton onClick={() => setFocusMode(true)} />
+                    {/* Phase 8.8 — ProseSettingsMenu sits beside the
+                        FocusModeButton in the same chrome row. Edit-Mode
+                        defaults: both toggles off (Component Spec §6.4 /
+                        §6.5). */}
+                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                      <FocusModeButton onClick={() => setFocusMode(true)} />
+                      <ProseSettingsMenu variant="edit" />
+                    </div>
                   </div>
                   <ProseEditor
                     mode="edit"

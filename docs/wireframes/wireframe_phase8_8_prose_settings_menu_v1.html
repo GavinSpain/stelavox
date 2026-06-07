@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Stelavox — Prose Settings Menu Wireframe & Specification v1.0 (Phase 8.8)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500&family=Cormorant+Garamond:ital,wght@1,300&family=Inter:wght@200;300;400;500;600;700&family=Lora:wght@400&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --ink:#0d1014; --deep:#131820; --surface:#1a2030; --hover:#1e2838; --selected:#1f2d45;
+  --border-s:#1e2535; --border-d:#253045; --border-str:#3a4a62;
+  --text-p:#ecf0f5; --text-s:#8aa0b8; --text-m:#4a6080; --text-dis:#2a3850;
+  --verd:#3d7858; --verd-h:#5aa87a; --verd-m:#1a3028;
+  --info:#3a6090;
+  --spec-bg:#0a0d12; --spec-pan:#111520; --callout:#e8b840;
+}
+
+body { background: var(--spec-bg); color: var(--text-p); font-family: 'Inter', sans-serif; font-size: 13px; line-height: 1.5; }
+.doc-header { background: var(--spec-pan); border-bottom: 1px solid var(--border-d); padding: 24px 48px; display:flex; align-items:baseline; justify-content:space-between; }
+.wm-s { font-family:'Cinzel',serif; font-size:14px; font-weight:500; letter-spacing:.18em; }
+.wm-v { font-family:'Cormorant Garamond',serif; font-style:italic; font-weight:300; font-size:16px; letter-spacing:.08em; opacity:.82; }
+.doc-meta { font-size:11px; font-weight:300; letter-spacing:.2em; text-transform:uppercase; color:var(--text-m); }
+
+.section { padding: 40px 48px 0; }
+.slabel { font-size:9px; font-weight:400; letter-spacing:.45em; text-transform:uppercase; color:var(--text-m); margin-bottom:20px; padding-bottom:12px; border-bottom:1px solid var(--border-s); }
+
+.cn { display:inline-flex; align-items:center; justify-content:center; width:18px; height:18px; background:var(--callout); color:#0a0800; border-radius:50%; font-size:10px; font-weight:700; flex-shrink:0; position:absolute; z-index:20; }
+
+.stage-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; align-items: start; padding-bottom: 40px; }
+.stage-frame { background: var(--ink); border: 1px solid var(--border-s); border-radius: 8px; padding: 20px; position: relative; }
+.stage-title { font-size: 10px; font-weight: 500; letter-spacing: .22em; text-transform: uppercase; color: var(--text-s); margin-bottom: 14px; }
+
+/* App-shell stub */
+.shell { background: var(--ink); border: 1px solid var(--border-s); border-radius: 6px; overflow: hidden; }
+.shell-header { background: var(--ink); border-bottom: 1px solid var(--border-s); padding: 8px 14px; display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.shell-wm { font-family:'Cinzel',serif; font-size:10px; letter-spacing:.16em; color: var(--text-p); }
+.shell-wm em { font-family:'Cormorant Garamond',serif; font-style:italic; font-weight:300; font-size:11px; letter-spacing:.06em; opacity:.82; }
+
+.tabs { display:flex; gap:0; background: var(--surface); border: 1px solid var(--border-s); border-radius: 5px; padding: 2px; }
+.tabs .tab { padding: 4px 12px; font-size:11px; color: var(--text-s); border-radius: 3px; cursor: pointer; }
+.tabs .tab.active { background: var(--selected); color: var(--text-p); }
+.tabs .tab.dead { color: var(--text-dis); cursor: not-allowed; position: relative; }
+.tabs .tab.dead::after {
+  content: ''; position: absolute; left: 6px; right: 6px; top: 50%;
+  border-top: 1px solid var(--text-dis);
+}
+
+.detail-pane { background: var(--ink); padding: 14px; }
+.tab-strip { display:flex; gap: 14px; padding-bottom: 8px; border-bottom: 1px solid var(--border-s); font-size:11px; color: var(--text-m); }
+.tab-strip .tab-item { padding: 0 2px 6px; }
+.tab-strip .tab-item.active { color: var(--text-p); border-bottom: 1px solid var(--text-s); margin-bottom: -8px; }
+
+.summary-block { font-family: 'Inter', sans-serif; font-size: 13px; color: var(--text-s); padding: 10px 0; border-bottom: 1px solid var(--border-s); margin-bottom: 10px; line-height: 1.5; }
+.summary-block .placeholder { font-style: italic; color: var(--text-dis); }
+
+/* The control row — focus button + the new settings menu */
+.ctrl-row { display:flex; gap: 8px; align-items: center; padding: 6px 0 10px; }
+.focus-btn { display:inline-flex; align-items:center; gap: 4px; padding: 5px 10px; background: transparent; border: 1px solid var(--border-s); border-radius: 4px; font-size: 11px; color: var(--text-m); }
+.focus-btn .kbd { opacity:0.5; }
+.settings-btn { width: 26px; height: 26px; display:inline-flex; align-items:center; justify-content:center; background: transparent; border: 1px solid var(--border-s); border-radius: 4px; font-size: 14px; color: var(--text-m); cursor: pointer; }
+.settings-btn:hover { color: var(--text-s); border-color: var(--border-d); }
+
+/* Prose canvas stub */
+.prose-canvas { font-family: 'Lora', serif; font-size: 16px; line-height: 1.85; color: var(--text-p); padding: 6px 0; min-height: 60px; }
+
+/* Settings dropdown */
+.settings-dropdown {
+  position: absolute;
+  background: var(--deep);
+  border: 1px solid var(--border-d);
+  border-radius: 4px;
+  box-shadow: 0 6px 24px rgba(0,0,0,0.45);
+  padding: 6px;
+  min-width: 232px;
+  z-index: 30;
+}
+.dd-row { display:flex; align-items:center; justify-content:space-between; padding: 8px 10px; border-radius: 3px; cursor: pointer; }
+.dd-row:hover { background: var(--hover); }
+.dd-label { font-size: 12.5px; color: var(--text-p); }
+.dd-hint { font-size: 10.5px; color: var(--text-m); margin-top: 2px; }
+.dd-sep { height: 1px; background: var(--border-s); margin: 4px 6px; }
+
+/* Toggle visual — NOT verdigris. Neutral. */
+.toggle {
+  position: relative; width: 28px; height: 16px;
+  background: var(--surface); border: 1px solid var(--border-d);
+  border-radius: 9px; flex-shrink: 0;
+}
+.toggle::after {
+  content: ''; position: absolute; top: 2px; left: 2px;
+  width: 10px; height: 10px; border-radius: 50%;
+  background: var(--text-m); transition: all .15s;
+}
+.toggle.on { background: var(--info); border-color: var(--info); }
+.toggle.on::after { left: 14px; background: var(--text-p); }
+
+/* Focus Mode overlay sim */
+.focus-stage { background: var(--ink); border: 1px solid var(--border-s); border-radius: 8px; padding: 0; height: 380px; position: relative; overflow: hidden; }
+.focus-prose {
+  font-family: 'Lora', serif;
+  font-size: 18px;
+  line-height: 1.85;
+  color: var(--text-p);
+  max-width: 480px;
+  margin: 60px auto 0;
+  padding: 0 24px;
+}
+.focus-prose p { margin-bottom: 1.25em; }
+.focus-prose p.faded { opacity: 0.55; }
+.focus-corner { position: absolute; top: 12px; right: 12px; }
+.focus-esc { position: absolute; bottom: 12px; left: 12px; font-size: 10px; color: var(--text-dis); letter-spacing: .12em; opacity: 0.35; }
+
+.notes-grid { display:grid; grid-template-columns: 60px 1fr; gap: 12px 16px; padding: 24px 48px 60px; align-items: start; }
+.note-num { display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; background: var(--callout); color:#0a0800; border-radius:50%; font-size:11px; font-weight:700; }
+.note-text { font-size: 12.5px; color: var(--text-s); line-height: 1.55; padding-top: 1px; }
+.note-text strong { color: var(--text-p); font-weight: 500; }
+.note-text code { font-family: 'JetBrains Mono', ui-monospace, monospace; background: var(--spec-pan); padding: 1px 5px; border-radius: 3px; font-size: 11px; color: var(--text-p); }
+</style>
+</head>
+<body>
+
+<div class="doc-header">
+  <div>
+    <div><span class="wm-s">STELA</span><span class="wm-v">vox</span></div>
+    <div class="doc-meta" style="margin-top:6px">Prose Settings Menu · Phase 8.8 · v1.0</div>
+  </div>
+  <div class="doc-meta">2026-06-07</div>
+</div>
+
+<!-- ─── DECISIONS UP FRONT ─────────────────────────────────────────────── -->
+
+<div class="section">
+  <div class="slabel">Decisions Locked</div>
+  <div style="display:grid; grid-template-columns:repeat(2,1fr); gap:12px 32px; padding-bottom:24px; font-size:12.5px; color:var(--text-s);">
+    <div><strong style="color:var(--text-p)">D1 — Two mounts.</strong> Edit Mode (NodeDetailPanel) + Focus Mode (overlay).</div>
+    <div><strong style="color:var(--text-p)">D2 — One source of truth.</strong> Shared <code>useProseSettings()</code> hook + localStorage; both mounts read/write the same keys.</div>
+    <div><strong style="color:var(--text-p)">D3 — No verdigris.</strong> Toggle "on" uses <code>--color-info</code> blue. These are personal preferences, not affirmative-action triggers (Inviolable #2 unaffected).</div>
+    <div><strong style="color:var(--text-p)">D4 — Dead tab dropped.</strong> "Focus" tab in ModeTabBar is removed; the Edit/Director pair stays. Focus is entered from the leaf detail panel button.</div>
+    <div><strong style="color:var(--text-p)">D5 — Edit Mode visibility.</strong> Menu mounted next to the existing FocusModeButton, leaf-only (same gate as ProseEditor).</div>
+    <div><strong style="color:var(--text-p)">D6 — Focus Mode visibility.</strong> Menu lives in top-right corner of the overlay; fades to 0.35 like FocusBreadcrumb; hover/focus restores to 1.0.</div>
+  </div>
+</div>
+
+<!-- ─── STAGE 1: EDIT MODE PLACEMENT + DEAD TAB DROP ─────────────────── -->
+
+<div class="section">
+  <div class="slabel">Stage 1 — Edit Mode placement + ModeTabBar cleanup</div>
+  <div class="stage-grid">
+
+    <!-- BEFORE -->
+    <div class="stage-frame">
+      <div class="stage-title">Before — today's state</div>
+      <div class="shell">
+        <div class="shell-header">
+          <div class="shell-wm">STELA<em>vox</em></div>
+          <div class="tabs">
+            <span class="tab active">Edit</span>
+            <span class="tab">Director</span>
+            <span class="tab dead">Focus</span><span class="cn" style="top:-8px; right:-8px;">1</span>
+          </div>
+          <div style="font-size:10px; color:var(--text-m);">user@stelavox</div>
+        </div>
+        <div class="detail-pane">
+          <div class="tab-strip">
+            <span class="tab-item active">Content</span>
+            <span class="tab-item">Agent</span>
+            <span class="tab-item">Comments</span>
+            <span class="tab-item">History</span>
+          </div>
+          <div class="summary-block"><span class="placeholder">Summary…</span></div>
+          <div class="ctrl-row">
+            <span class="focus-btn">⊞ Focus Mode <span class="kbd">⌘↵</span></span><span class="cn" style="position:relative;top:auto;right:auto;">2</span>
+          </div>
+          <div class="prose-canvas">He pressed transmit. The countdown was not negotiable.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- AFTER -->
+    <div class="stage-frame">
+      <div class="stage-title">After — Phase 8.8</div>
+      <div class="shell">
+        <div class="shell-header">
+          <div class="shell-wm">STELA<em>vox</em></div>
+          <div class="tabs">
+            <span class="tab active">Edit</span>
+            <span class="tab">Director</span>
+          </div><span class="cn" style="position:relative;top:auto;right:auto;">3</span>
+          <div style="font-size:10px; color:var(--text-m);">user@stelavox</div>
+        </div>
+        <div class="detail-pane">
+          <div class="tab-strip">
+            <span class="tab-item active">Content</span>
+            <span class="tab-item">Agent</span>
+            <span class="tab-item">Comments</span>
+            <span class="tab-item">History</span>
+          </div>
+          <div class="summary-block"><span class="placeholder">Summary…</span></div>
+          <div class="ctrl-row" style="position:relative;">
+            <span class="focus-btn">⊞ Focus Mode <span class="kbd">⌘↵</span></span>
+            <button class="settings-btn">⋯</button><span class="cn" style="position:relative;top:auto;right:auto;">4</span>
+            <!-- the dropdown — anchored to the settings button -->
+            <div class="settings-dropdown" style="top:30px; left:130px;">
+              <div class="dd-row">
+                <div>
+                  <div class="dd-label">Sentence Focus</div>
+                  <div class="dd-hint">Dim text outside the current sentence</div>
+                </div>
+                <span class="toggle"></span>
+              </div>
+              <div class="dd-sep"></div>
+              <div class="dd-row">
+                <div>
+                  <div class="dd-label">Typewriter</div>
+                  <div class="dd-hint">Keep the active line near vertical centre</div>
+                </div>
+                <span class="toggle on"></span>
+              </div>
+            </div>
+          </div>
+          <div class="prose-canvas" style="margin-top:120px;">He pressed transmit. The countdown was not negotiable.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ─── STAGE 2: FOCUS MODE PLACEMENT ─────────────────────────────────── -->
+
+<div class="section">
+  <div class="slabel">Stage 2 — Focus Mode placement (the same dropdown, fading chrome)</div>
+  <div class="stage-grid">
+
+    <!-- Focus closed -->
+    <div class="stage-frame">
+      <div class="stage-title">Focus Mode — menu closed (idle)</div>
+      <div class="focus-stage">
+        <span class="focus-corner">
+          <button class="settings-btn" style="opacity:0.35;">⋯</button><span class="cn" style="position:absolute;top:-8px;right:-8px;">5</span>
+        </span>
+        <div class="focus-prose">
+          <p>He pressed transmit. The countdown was not negotiable.</p>
+          <p>Forty-five hours remained.</p>
+          <p>The device pulsed. Once. Twice.</p>
+        </div>
+        <span class="focus-esc">ESC TO EXIT</span>
+      </div>
+    </div>
+
+    <!-- Focus open -->
+    <div class="stage-frame">
+      <div class="stage-title">Focus Mode — menu open</div>
+      <div class="focus-stage">
+        <span class="focus-corner" style="z-index:30;">
+          <button class="settings-btn" style="opacity:1.0;">⋯</button>
+          <div class="settings-dropdown" style="top:34px; right:0;">
+            <div class="dd-row">
+              <div>
+                <div class="dd-label">Sentence Focus</div>
+                <div class="dd-hint">Dim text outside the current sentence</div>
+              </div>
+              <span class="toggle on"></span><span class="cn" style="position:absolute;top:-8px;right:-8px;">6</span>
+            </div>
+            <div class="dd-sep"></div>
+            <div class="dd-row">
+              <div>
+                <div class="dd-label">Typewriter</div>
+                <div class="dd-hint">Keep the active line near vertical centre</div>
+              </div>
+              <span class="toggle on"></span>
+            </div>
+          </div>
+        </span>
+        <div class="focus-prose">
+          <p class="faded">He pressed transmit. The countdown was not negotiable.</p>
+          <p>Forty-five hours remained.</p>
+          <p class="faded">The device pulsed. Once. Twice.</p>
+        </div>
+        <span class="focus-esc" style="opacity:0.7;">ESC TO EXIT</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ─── CALLOUTS ─────────────────────────────────────────────────────── -->
+
+<div class="notes-grid">
+  <span class="note-num">1</span>
+  <div class="note-text"><strong>Dead tab.</strong> Today the "Focus" entry in the ModeTabBar is hardcoded <code>selectable: false</code> and the click handler explicitly returns. It looks like a tab but does nothing. <strong>Removed in 8.8</strong> — the Edit/Director pair is enough. Focus Mode is a leaf-context overlay, not a route-level mode; the entry point is the working FocusModeButton in the detail panel.</div>
+
+  <span class="note-num">2</span>
+  <div class="note-text"><strong>FocusModeButton (the working one).</strong> Untouched. ⌘↵ shortcut preserved. Same placement, same visual, same behaviour.</div>
+
+  <span class="note-num">3</span>
+  <div class="note-text"><strong>Slimmed ModeTabBar.</strong> Two tabs: Edit + Director. <code>TABS</code> array drops the focus entry; <code>tab.id === 'focus'</code> guard becomes unnecessary. <code>AppMode</code> type union already excludes 'focus' — only the TABS constant needs to change.</div>
+
+  <span class="note-num">4</span>
+  <div class="note-text"><strong>⋯ settings button.</strong> Identical visual shell to the FocusModeButton (transparent bg, 1px subtle border, 4px radius, hover deepens border and text). 26×26 square, centred ⋯ glyph at 14px. <code>aria-label="Prose settings"</code>. Opens dropdown on click; closes on outside click / Escape / second click.</div>
+
+  <span class="note-num">5</span>
+  <div class="note-text"><strong>Focus Mode mount — corner, faded.</strong> Top-right of the overlay, 12px inset. Opacity behaviour mirrors FocusBreadcrumb's revised treatment: 0.35 steady / 1.0 on hover or focus (Component Spec v2.21 §6.2 calibration). Avoids competing with the prose surface; reachable when wanted.</div>
+
+  <span class="note-num">6</span>
+  <div class="note-text"><strong>Toggle visual — NOT verdigris.</strong> Off state: <code>--color-surface</code> track + <code>--color-text-muted</code> thumb. On state: <code>--color-info</code> track + <code>--color-text-primary</code> thumb. These are personal-preference toggles, not affirmative-action triggers — Inviolable #2 verdigris count stays at 12 (no use #13 added).</div>
+</div>
+
+<!-- ─── INVIOLABLE AUDIT ─────────────────────────────────────────────── -->
+
+<div class="section">
+  <div class="slabel">Inviolable Audit</div>
+  <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:12px 24px; padding-bottom:40px; font-size:12px; color:var(--text-s);">
+    <div><strong style="color:var(--text-p)">#1 Prose surface is lowest noise.</strong> Edit Mode menu sits in the existing FocusModeButton row, doesn't touch the prose canvas background. Focus Mode menu sits in chrome (corner), prose canvas unchanged. ✓</div>
+    <div><strong style="color:var(--text-p)">#2 Verdigris in twelve sites only.</strong> No verdigris in the new menu. Toggles use <code>--color-info</code>. No use #13 introduced. ✓</div>
+    <div><strong style="color:var(--text-p)">#3 Cinzel only in wordmark.</strong> Menu and dropdown use Inter throughout. ✓</div>
+    <div><strong style="color:var(--text-p)">#4 Typeface boundary panel-vs-panel.</strong> Menu is chrome, uses Inter. ProseEditor stays Lora. ✓</div>
+    <div><strong style="color:var(--text-p)">#5 No persistent toolbar in prose.</strong> The ⋯ is a settings menu, not a formatting toolbar — no text formatting controls inside. ✓</div>
+    <div><strong style="color:var(--text-p)">#6 Cormorant Garamond italic only in wordmark.</strong> Not used here. ✓</div>
+  </div>
+</div>
+
+<!-- ─── OPEN QUESTIONS ──────────────────────────────────────────────── -->
+
+<div class="section">
+  <div class="slabel">Open Questions for sign-off</div>
+  <div style="display:grid; grid-template-columns:1fr; gap:14px; padding-bottom:80px; font-size:12.5px; color:var(--text-s);">
+    <div><strong style="color:var(--text-p)">OQ-1.</strong> Should the dropdown's "Typewriter" row be hidden (vs. greyed-out-and-locked) in Focus Mode? Today Typewriter is always-on in Focus Mode. Recommended: <strong>show the toggle as enabled-and-on</strong>; toggling it off in Focus Mode genuinely disables typewriter scrolling. Mirrors expectation that the menu's state is the truth.</div>
+    <div><strong style="color:var(--text-p)">OQ-2.</strong> Should the dropdown carry an "Edit Mode default" hint on Typewriter? Per Component Spec §6.4: Edit Mode default is Off; Focus Mode default is On. Recommended: <strong>no hint</strong> — the toggle state IS the answer; documentation belongs in user help (Phase 12).</div>
+    <div><strong style="color:var(--text-p)">OQ-3.</strong> Sample-novel onboarding: should the menu surface a one-time tooltip the first time the user enters a leaf in Edit Mode? Recommended: <strong>no</strong> for 8.8 — onboarding belongs to Phase 8.3. 8.8 ships the surface; discovery is a separate concern.</div>
+  </div>
+</div>
+
+</body>
+</html>
