@@ -6,6 +6,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import type { Editor } from '@tiptap/react'
+import { usePrefersReducedMotion } from '@/lib/hooks/usePrefersReducedMotion'
 
 interface WordCountProps {
   editor: Editor
@@ -25,6 +26,9 @@ export function WordCount({ editor, target }: WordCountProps) {
   const [hovered, setHovered] = useState(false)
   const typingTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const idleTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Phase 8.11 — collapse the 800ms fade for users who've requested
+  // reduced motion at the OS level.
+  const reducedMotion = usePrefersReducedMotion()
 
   useEffect(() => {
     function onUpdate() {
@@ -113,7 +117,9 @@ export function WordCount({ editor, target }: WordCountProps) {
         gap: 6,
         paddingTop: 6,
         opacity,
-        transition: `opacity var(--duration-wordcount, 800ms) var(--easing-prose, ease-out)`,
+        transition: reducedMotion
+          ? 'none'
+          : `opacity var(--duration-wordcount, 800ms) var(--easing-prose, ease-out)`,
         fontSize: 'var(--text-xs)',
         fontFamily: 'var(--font-inter), Inter, sans-serif',
         fontWeight: 300,
@@ -141,7 +147,9 @@ export function WordCount({ editor, target }: WordCountProps) {
               background:
                 'linear-gradient(90deg, var(--color-accent) 0%, var(--color-accent-hover) 100%)',
               borderRadius: 3,
-              transition: 'width var(--duration-wordcount, 800ms) var(--easing-prose, ease-out)',
+              transition: reducedMotion
+                ? 'none'
+                : 'width var(--duration-wordcount, 800ms) var(--easing-prose, ease-out)',
             }}
           />
         </div>

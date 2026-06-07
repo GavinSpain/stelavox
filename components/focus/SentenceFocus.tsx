@@ -52,6 +52,12 @@ function ensureStyle(enabled: boolean) {
     el.id = STYLE_ID
     document.head.appendChild(el)
   }
+  // Phase 8.11 — the @media block collapses the 200ms opacity
+  // transition when the OS-level reduced-motion preference is set.
+  // Opacity values themselves are unchanged; only the transition
+  // animation disappears. Same approach the existing globals.css uses
+  // for cursor blink and elsewhere — pure-CSS, no React hook needed
+  // for the styles themselves.
   el.textContent = `
     [data-sentence-focus] [data-sentence] {
       opacity: 0.55;
@@ -60,6 +66,9 @@ function ensureStyle(enabled: boolean) {
     [data-sentence-focus] [data-sentence][data-adjacent="true"] { opacity: 0.85; }
     [data-sentence-focus] [data-sentence][data-active="true"]   { opacity: 1.0; }
     [data-sentence-focus][data-selecting="true"] [data-sentence]  { opacity: 1.0; }
+    @media (prefers-reduced-motion: reduce) {
+      [data-sentence-focus] [data-sentence] { transition: none; }
+    }
   `
 }
 
