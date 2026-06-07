@@ -228,8 +228,11 @@ export function useExportHistory(documentId: string | null): ExportJob[] {
       // (CHANNEL_ERROR / TIMED_OUT / CLOSED) shows up in console. We log
       // SUBSCRIBED too so we can tell whether the subscription ever
       // succeeded on a given environment.
+      // Using console.info (not .debug) so the line is visible in Chrome
+      // DevTools without Verbose level enabled — once Realtime health
+      // is confirmed on this stack, drop this back to .debug or remove.
       // eslint-disable-next-line no-console
-      console.debug(`[useExportHistory] channel ${documentId} status:`, status)
+      console.info(`[useExportHistory] channel ${documentId} status:`, status)
     })
 
     // 2026-06-07 — modal-dispatched event refresh. When ExportModal
