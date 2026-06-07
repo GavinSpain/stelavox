@@ -18,9 +18,7 @@ import { createPortal } from 'react-dom'
 import { ProseEditor } from '@/components/detail/ProseEditor'
 import { FocusBreadcrumb, type FocusBreadcrumbSegment } from './FocusBreadcrumb'
 import { FocusEscHint } from './FocusEscHint'
-import { TypewriterContainer } from './TypewriterContainer'
 import { ProseSettingsMenu } from '@/components/detail/ProseSettingsMenu'
-import { useProseSettings } from '@/lib/hooks/useProseSettings'
 import { useEditorStore } from '@/lib/stores/editor-store'
 import { createClient } from '@/lib/supabase/client'
 import { getAncestorChain } from '@/lib/nodes/getAncestorChain'
@@ -148,12 +146,9 @@ export function FocusMode({ node, onExit }: FocusModeProps) {
   // as the last segment with its leaf name available for hover-reveal).
   const [ancestors, setAncestors] = useState<FocusBreadcrumbSegment[]>([])
   const [proseFading, setProseFading] = useState(false)
-  // Phase 8.8 — shared toggles via useProseSettings. Focus Mode
-  // defaults Typewriter ON (§6.4). Sentence Focus (§6.5) is consumed
-  // inside ProseEditor itself (Phase 8.9) — FocusMode doesn't need
-  // to read it here.
-  const { typewriter: typewriterEnabled } =
-    useProseSettings({ defaultTypewriter: true })
+  // Phase 8.10 — both reading-aid toggles are consumed inside
+  // ProseEditor itself. FocusMode just mounts ProseEditor with
+  // mode="focus" and the per-mode defaults flow from there.
   const enteringRef = useRef(true)
   // Phase 8.01.B T-5 — swipe-tracking refs. Stored on a ref (not state)
   // so updating start coords doesn't trigger a re-render.
@@ -437,15 +432,16 @@ export function FocusMode({ node, onExit }: FocusModeProps) {
           transition: 'opacity 150ms var(--easing-prose, cubic-bezier(0.16, 1, 0.3, 1))',
         }}
       >
-        <TypewriterContainer enabled={typewriterEnabled}>
-          <ProseEditor
+        {/* Phase 8.10 — TypewriterContainer wrap moved into ProseEditor
+            itself so Edit Mode + Focus Mode share one source of truth
+            for the toggle. FocusMode just mounts ProseEditor here. */}
+        <ProseEditor
             mode="focus"
             value={prose}
             onChange={(v) => setField('prose', v)}
             readOnly={!!lockedReason}
             wordTarget={activeNode.word_count_target}
           />
-        </TypewriterContainer>
       </div>
 
       {/* Phase 8.9 — SentenceFocus is now mounted inside ProseEditor

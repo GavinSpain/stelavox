@@ -17,6 +17,7 @@ import {
 } from '@/lib/editor/sentence-focus-plugin'
 import { useProseSettings } from '@/lib/hooks/useProseSettings'
 import { SentenceFocus } from '@/components/focus/SentenceFocus'
+import { TypewriterContainer } from '@/components/focus/TypewriterContainer'
 import { SelectionTooltip } from './SelectionTooltip'
 import { WordCount } from './WordCount'
 
@@ -30,11 +31,14 @@ interface ProseEditorProps {
 
 export function ProseEditor({ value, onChange, mode, readOnly = false, wordTarget }: ProseEditorProps) {
   const detachTyping = useRef<(() => void) | null>(null)
-  // Phase 8.9 — read Sentence Focus from the shared prose-settings
-  // hook. ProseEditor owns the plugin lifecycle (Q1 of the wireframe
-  // open questions); the toggle is the same shared boolean as the
-  // ProseSettingsMenu writes.
-  const { sentenceFocus } = useProseSettings()
+  // Phase 8.9 + 8.10 — both reading-aid toggles flow through ProseEditor.
+  // Defaults differ per mode for Typewriter (on in Focus Mode, off in
+  // Edit Mode per Component Spec §6.4). Sentence Focus default is off
+  // in both modes (§6.5). The hook returns the user's saved choice when
+  // present; defaults only apply on first use of a fresh browser.
+  const { sentenceFocus, typewriter } = useProseSettings({
+    defaultTypewriter: mode === 'focus',
+  })
 
   const editor = useEditor({
     extensions: proseExtensions as Parameters<typeof useEditor>[0]['extensions'],
@@ -114,7 +118,14 @@ export function ProseEditor({ value, onChange, mode, readOnly = false, wordTarge
     >
       {/* No persistent toolbar — Inviolable #5 */}
       {editor && <SelectionTooltip editor={editor} />}
-      <EditorContent editor={editor} />
+      {/* Phase 8.10 — TypewriterContainer wraps the editor content when
+          the toggle is on, in either mode. It listens to selectionchange
+          and scrolls its parent scrollable so the cursor's visual line
+          stays near 42% of viewport height. Off → renders children
+          directly so no listener attaches. */}
+      <TypewriterContainer enabled={typewriter}>
+        <EditorContent editor={editor} />
+      </TypewriterContainer>
       {editor && (
         <WordCount
           editor={editor}
