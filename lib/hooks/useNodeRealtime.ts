@@ -14,6 +14,7 @@
 
 import { useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { ensureRealtimeAuth } from '@/lib/supabase/realtime-auth'
 
 const REFETCH_DEBOUNCE_MS = 200
 
@@ -30,29 +31,37 @@ export function useNodeRealtime(
     if (!nodeId) return
     const supabase = createClient()
     let debounceTimer: ReturnType<typeof setTimeout> | null = null
+    let channel: ReturnType<typeof supabase.channel> | null = null
+    let mounted = true
 
     const triggerRefetch = () => {
       if (debounceTimer) clearTimeout(debounceTimer)
       debounceTimer = setTimeout(() => onChangeRef.current(), REFETCH_DEBOUNCE_MS)
     }
 
-    const channel = supabase
-      .channel(`node:${nodeId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'nodes',
-          filter: `id=eq.${nodeId}`,
-        },
-        triggerRefetch,
-      )
-      .subscribe()
+    // Wait for auth before subscribing — see lib/supabase/realtime-auth.ts.
+    void (async () => {
+      await ensureRealtimeAuth(supabase)
+      if (!mounted) return
+      channel = supabase
+        .channel(`node:${nodeId}`)
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'nodes',
+            filter: `id=eq.${nodeId}`,
+          },
+          triggerRefetch,
+        )
+        .subscribe()
+    })()
 
     return () => {
+      mounted = false
       if (debounceTimer) clearTimeout(debounceTimer)
-      void supabase.removeChannel(channel)
+      if (channel) void supabase.removeChannel(channel)
     }
   }, [nodeId])
 }

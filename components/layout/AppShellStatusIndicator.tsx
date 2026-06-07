@@ -25,6 +25,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { ensureRealtimeAuth } from '@/lib/supabase/realtime-auth'
 import { StatusIndicatorPopover } from './StatusIndicatorPopover'
 
 type CostMeterPayload =
@@ -137,13 +138,21 @@ export function AppShellStatusIndicator() {
   // Realtime — agent_jobs + briefs change → refresh counts.
   useEffect(() => {
     const supabase = createClient()
-    const channel = supabase
-      .channel('app-shell-status')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'agent_jobs' }, () => void refresh())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'briefs' }, () => void refresh())
-      .subscribe()
+    let channel: ReturnType<typeof supabase.channel> | null = null
+    let mounted = true
+    // Wait for auth before subscribing — see lib/supabase/realtime-auth.ts.
+    void (async () => {
+      await ensureRealtimeAuth(supabase)
+      if (!mounted) return
+      channel = supabase
+        .channel('app-shell-status')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'agent_jobs' }, () => void refresh())
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'briefs' }, () => void refresh())
+        .subscribe()
+    })()
     return () => {
-      void supabase.removeChannel(channel)
+      mounted = false
+      if (channel) void supabase.removeChannel(channel)
     }
   }, [refresh])
 

@@ -17,6 +17,7 @@ import { useEffect, useState } from 'react'
 import { useMode, type AppMode } from './ModeContext'
 import { useSidebarProject } from './AppShell'
 import { createClient } from '@/lib/supabase/client'
+import { ensureRealtimeAuth } from '@/lib/supabase/realtime-auth'
 
 const TABS: ReadonlyArray<{ id: AppMode | 'focus'; label: string; selectable: boolean }> = [
   { id: 'edit',     label: 'Edit',     selectable: true  },
@@ -147,15 +148,21 @@ function useDirectorPendingForDocument(documentId: string | null): boolean {
     void refresh()
 
     const supabase = createClient()
-    const channel = supabase
-      .channel(`director-tab:${documentId}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'conversation_messages' }, () => void refresh())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'briefs', filter: `document_id=eq.${documentId}` }, () => void refresh())
-      .subscribe()
+    let channel: ReturnType<typeof supabase.channel> | null = null
+    // Wait for auth before subscribing — see lib/supabase/realtime-auth.ts.
+    void (async () => {
+      await ensureRealtimeAuth(supabase)
+      if (cancelled) return
+      channel = supabase
+        .channel(`director-tab:${documentId}`)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'conversation_messages' }, () => void refresh())
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'briefs', filter: `document_id=eq.${documentId}` }, () => void refresh())
+        .subscribe()
+    })()
 
     return () => {
       cancelled = true
-      void supabase.removeChannel(channel)
+      if (channel) void supabase.removeChannel(channel)
     }
   }, [documentId])
 

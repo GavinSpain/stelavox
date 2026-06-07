@@ -24,6 +24,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { ensureRealtimeAuth } from '@/lib/supabase/realtime-auth'
 import type { BriefQueueState } from '@/lib/brief/types'
 
 interface SchedulerPanelProps {
@@ -103,14 +104,22 @@ export function SchedulerPanel({ projectId, documentId, documentName }: Schedule
   // for B.1.1; finer-grained patches are a polish item for later.
   useEffect(() => {
     const supabase = createClient()
-    const channel = supabase
-      .channel(`scheduler:${documentId}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'briefs', filter: `document_id=eq.${documentId}` }, () => void refresh())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'brief_stages' }, () => void refresh())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'agent_jobs', filter: `document_id=eq.${documentId}` }, () => void refresh())
-      .subscribe()
+    let channel: ReturnType<typeof supabase.channel> | null = null
+    let mounted = true
+    // Wait for auth before subscribing — see lib/supabase/realtime-auth.ts.
+    void (async () => {
+      await ensureRealtimeAuth(supabase)
+      if (!mounted) return
+      channel = supabase
+        .channel(`scheduler:${documentId}`)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'briefs', filter: `document_id=eq.${documentId}` }, () => void refresh())
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'brief_stages' }, () => void refresh())
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'agent_jobs', filter: `document_id=eq.${documentId}` }, () => void refresh())
+        .subscribe()
+    })()
     return () => {
-      void supabase.removeChannel(channel)
+      mounted = false
+      if (channel) void supabase.removeChannel(channel)
     }
   }, [documentId, refresh])
 

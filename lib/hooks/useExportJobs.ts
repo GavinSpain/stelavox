@@ -17,6 +17,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { ensureRealtimeAuth } from '@/lib/supabase/realtime-auth'
 
 export interface ExportJob {
   id: string
@@ -84,18 +85,11 @@ export function useActiveExports(): ExportJob[] {
 
     void fetchInitial()
 
-    // 2026-06-07 — wait for the auth session to load BEFORE subscribing.
-    // See useExportHistory below for the full rationale. Same race: the
-    // `@supabase/ssr` browser client loads the JWT from cookies async;
-    // if we subscribe synchronously the channel registers as 'anon' and
-    // RLS silently drops every event with no recovery.
+    // Wait for auth before subscribing — see lib/supabase/realtime-auth.ts.
     let channel: ReturnType<typeof supabase.channel> | null = null
 
     void (async () => {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (session?.access_token) {
-        supabase.realtime.setAuth(session.access_token)
-      }
+      await ensureRealtimeAuth(supabase)
       if (!mounted) return
 
       channel = supabase.channel('export_jobs:active').on(
@@ -158,15 +152,11 @@ export function useExportProgress(exportJobId: string | null): ExportJob | null 
 
     void fetchInitial()
 
-    // 2026-06-07 — wait for the auth session to load BEFORE subscribing.
-    // Same anon-race fix as useActiveExports / useExportHistory.
+    // Wait for auth before subscribing — see lib/supabase/realtime-auth.ts.
     let channel: ReturnType<typeof supabase.channel> | null = null
 
     void (async () => {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (session?.access_token) {
-        supabase.realtime.setAuth(session.access_token)
-      }
+      await ensureRealtimeAuth(supabase)
       if (!mounted) return
 
       channel = supabase.channel(`export_jobs:${exportJobId}`).on(
@@ -233,27 +223,11 @@ export function useExportHistory(documentId: string | null): ExportJob[] {
 
     void fetchInitial()
 
-    // 2026-06-07 — wait for the auth session to load BEFORE subscribing.
-    // `@supabase/ssr`'s browser client reads the JWT from cookies
-    // asynchronously; if we open the channel before that has happened,
-    // Realtime registers the subscription with role='anon' and silently
-    // drops every event the RLS policy would only authorise for the
-    // logged-in user. The auth-state-change listener does NOT
-    // retroactively re-authenticate existing channels, so once anon,
-    // always anon. Calling getSession() resolves cleanly when auth has
-    // loaded, then we subscribe with the JWT in place — registration
-    // lands as role='authenticated' and the RLS policy passes.
+    // Wait for auth before subscribing — see lib/supabase/realtime-auth.ts.
     let channel: ReturnType<typeof supabase.channel> | null = null
 
     void (async () => {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (session?.access_token) {
-        // Make sure the Realtime socket has the current JWT before the
-        // subscribe handshake. Belt-and-braces: createBrowserClient's
-        // auth listener should also call this on token change, but
-        // we set it explicitly here to remove any timing dependency.
-        supabase.realtime.setAuth(session.access_token)
-      }
+      await ensureRealtimeAuth(supabase)
       if (!mountedRef.current) return
 
       channel = supabase.channel(`export_jobs:doc:${documentId}`).on(

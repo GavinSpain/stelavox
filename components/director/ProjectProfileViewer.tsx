@@ -13,6 +13,7 @@ import { useEffect, useState } from 'react'
 
 import type { ProjectProfilePayload } from '@/lib/profile/types'
 import { createClient } from '@/lib/supabase/client'
+import { ensureRealtimeAuth } from '@/lib/supabase/realtime-auth'
 
 interface ProjectProfileViewerProps {
   profileId: string
@@ -52,12 +53,22 @@ export function ProjectProfileViewer({ profileId, initialState }: ProjectProfile
       const res = await fetch(`/api/profile/${profileId}`)
       if (res.ok) setState((await res.json()) as ProjectProfilePayload)
     }
-    const channel = supabase
-      .channel(`profile:${profileId}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'project_profiles', filter: `id=eq.${profileId}` }, () => void refetch())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'profile_amendments', filter: `profile_id=eq.${profileId}` }, () => void refetch())
-      .subscribe()
-    return () => { void supabase.removeChannel(channel) }
+    let channel: ReturnType<typeof supabase.channel> | null = null
+    let mounted = true
+    // Wait for auth before subscribing — see lib/supabase/realtime-auth.ts.
+    void (async () => {
+      await ensureRealtimeAuth(supabase)
+      if (!mounted) return
+      channel = supabase
+        .channel(`profile:${profileId}`)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'project_profiles', filter: `id=eq.${profileId}` }, () => void refetch())
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'profile_amendments', filter: `profile_id=eq.${profileId}` }, () => void refetch())
+        .subscribe()
+    })()
+    return () => {
+      mounted = false
+      if (channel) void supabase.removeChannel(channel)
+    }
   }, [profileId])
 
   if (loading) {

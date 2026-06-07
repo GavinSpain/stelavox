@@ -27,6 +27,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { ensureRealtimeAuth } from '@/lib/supabase/realtime-auth'
 
 export interface ConversationDto {
   id: string
@@ -204,21 +205,29 @@ export function useDirectorConversation(
   useEffect(() => {
     if (!documentId) return
     const supabase = createClient()
-    const channel = supabase
-      .channel(`director-workflows:${documentId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'workflows',
-          filter: `document_id=eq.${documentId}`,
-        },
-        () => debouncedRefresh(),
-      )
-      .subscribe()
+    let channel: ReturnType<typeof supabase.channel> | null = null
+    let mounted = true
+    // Wait for auth before subscribing — see lib/supabase/realtime-auth.ts.
+    void (async () => {
+      await ensureRealtimeAuth(supabase)
+      if (!mounted) return
+      channel = supabase
+        .channel(`director-workflows:${documentId}`)
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'workflows',
+            filter: `document_id=eq.${documentId}`,
+          },
+          () => debouncedRefresh(),
+        )
+        .subscribe()
+    })()
     return () => {
-      void supabase.removeChannel(channel)
+      mounted = false
+      if (channel) void supabase.removeChannel(channel)
     }
   }, [documentId, debouncedRefresh])
 
@@ -230,21 +239,29 @@ export function useDirectorConversation(
     if (!currentWorkflow?.id) return
     const supabase = createClient()
     const wfId = currentWorkflow.id
-    const channel = supabase
-      .channel(`director-workflow-steps:${wfId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'workflow_steps',
-          filter: `workflow_id=eq.${wfId}`,
-        },
-        () => debouncedRefresh(),
-      )
-      .subscribe()
+    let channel: ReturnType<typeof supabase.channel> | null = null
+    let mounted = true
+    // Wait for auth before subscribing — see lib/supabase/realtime-auth.ts.
+    void (async () => {
+      await ensureRealtimeAuth(supabase)
+      if (!mounted) return
+      channel = supabase
+        .channel(`director-workflow-steps:${wfId}`)
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'workflow_steps',
+            filter: `workflow_id=eq.${wfId}`,
+          },
+          () => debouncedRefresh(),
+        )
+        .subscribe()
+    })()
     return () => {
-      void supabase.removeChannel(channel)
+      mounted = false
+      if (channel) void supabase.removeChannel(channel)
     }
   }, [currentWorkflow?.id, debouncedRefresh])
 
