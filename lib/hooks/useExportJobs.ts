@@ -66,12 +66,19 @@ export function useActiveExports(): ExportJob[] {
     async function fetchInitial() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user || !mounted) return
-      // Active exports for any document the user can see (RLS handles scope)
+      // 2026-06-07 fix — also load terminal exports from the last 6
+      // hours so a page reload doesn't lose the Download button for an
+      // export that just completed. The chip persists with its
+      // completed/failed state; the user can still Dismiss it once
+      // they've downloaded. Without this, the initial fetch only saw
+      // in-flight exports and finished jobs vanished on reload.
+      const cutoff = new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString()
       const { data } = await supabase
         .from('export_jobs')
         .select('*')
-        .in('status', Array.from(ACTIVE_STATUSES))
+        .or(`status.in.(${Array.from(ACTIVE_STATUSES).join(',')}),created_at.gte.${cutoff}`)
         .order('created_at', { ascending: false })
+        .limit(20)
       if (mounted && data) setJobs(data as unknown as ExportJob[])
     }
 

@@ -8,6 +8,7 @@
 // is a V1.x / V2 candidate, not 8.01.E scope.
 
 import { DocumentExportButton } from '@/components/export/DocumentExportButton'
+import { ExportHistoryPanel } from '@/components/export/ExportHistoryPanel'
 import type { ProjectDocumentRow } from '@/app/(app)/projects/[projectId]/_ProjectPageClient'
 
 interface ProjectExportTabProps {
@@ -104,6 +105,37 @@ export function ProjectExportTab({ projectId, documents }: ProjectExportTabProps
             </li>
           ))}
         </ul>
+      )}
+      {/* 2026-06-07 fix — past exports per document. Previously the
+          ExportHistoryPanel component existed but was mounted nowhere,
+          so the user could trigger an export, see the chip briefly,
+          and never find the file again. */}
+      {documents.length > 0 && (
+        <div style={{ marginTop: 32 }}>
+          <h3
+            data-testid="export-history-heading"
+            style={{
+              fontFamily: 'var(--font-inter), Inter, sans-serif',
+              fontWeight: 500,
+              fontSize: 13,
+              color: 'var(--color-text-secondary)',
+              textTransform: 'uppercase',
+              letterSpacing: '0.06em',
+              margin: '0 0 12px',
+            }}
+          >
+            Recent exports
+          </h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+            {documents.map((doc) => (
+              <ExportHistoryPanel
+                key={doc.id}
+                documentId={doc.id}
+                documentName={doc.name}
+              />
+            ))}
+          </div>
+        </div>
       )}
     </div>
   )
