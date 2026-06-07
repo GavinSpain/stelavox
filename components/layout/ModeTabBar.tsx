@@ -19,10 +19,14 @@ import { useSidebarProject } from './AppShell'
 import { createClient } from '@/lib/supabase/client'
 import { ensureRealtimeAuth } from '@/lib/supabase/realtime-auth'
 
-const TABS: ReadonlyArray<{ id: AppMode | 'focus'; label: string; selectable: boolean }> = [
-  { id: 'edit',     label: 'Edit',     selectable: true  },
-  { id: 'director', label: 'Director', selectable: true  },
-  { id: 'focus',    label: 'Focus',    selectable: false },
+// Phase 8.8 — the dead "Focus" tab was removed. Focus Mode is a
+// leaf-context overlay, not a route-level mode; entry stays at the
+// working FocusModeButton inside NodeDetailPanel. The tab here had
+// been hardcoded `selectable: false` with a no-op click handler — a
+// dead affordance that looked clickable and wasn't.
+const TABS: ReadonlyArray<{ id: AppMode; label: string; selectable: boolean }> = [
+  { id: 'edit',     label: 'Edit',     selectable: true },
+  { id: 'director', label: 'Director', selectable: true },
 ]
 
 export function ModeTabBar() {
@@ -70,7 +74,6 @@ export function ModeTabBar() {
             tabIndex={active ? 0 : -1}
             onClick={() => {
               if (disabled) return
-              if (tab.id === 'focus') return
               setMode(tab.id)
             }}
             style={{

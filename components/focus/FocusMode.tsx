@@ -20,6 +20,8 @@ import { FocusBreadcrumb, type FocusBreadcrumbSegment } from './FocusBreadcrumb'
 import { FocusEscHint } from './FocusEscHint'
 import { TypewriterContainer } from './TypewriterContainer'
 import { SentenceFocus } from './SentenceFocus'
+import { ProseSettingsMenu } from '@/components/detail/ProseSettingsMenu'
+import { useProseSettings } from '@/lib/hooks/useProseSettings'
 import { useEditorStore } from '@/lib/stores/editor-store'
 import { createClient } from '@/lib/supabase/client'
 import { getAncestorChain } from '@/lib/nodes/getAncestorChain'
@@ -129,8 +131,10 @@ interface SiblingRow {
   is_leaf?: boolean
 }
 
-const TYPEWRITER_KEY = 'stelavox_typewriter_enabled'
-const SENTENCE_KEY   = 'stelavox_sentence_focus_enabled'
+// Storage keys for the two prose-aid toggles live in
+// lib/hooks/useProseSettings.ts (Phase 8.8). Both Edit Mode and Focus
+// Mode read/write via that shared hook so a change in one surface
+// immediately reflects in the other.
 
 export function FocusMode({ node, onExit }: FocusModeProps) {
   const [activeNode, setActiveNode] = useState<FocusModeNode>(node)
@@ -145,9 +149,11 @@ export function FocusMode({ node, onExit }: FocusModeProps) {
   // as the last segment with its leaf name available for hover-reveal).
   const [ancestors, setAncestors] = useState<FocusBreadcrumbSegment[]>([])
   const [proseFading, setProseFading] = useState(false)
-  // Default ON in Focus Mode for typewriter; OFF for sentence focus (§6.4 / §6.5).
-  const [typewriterEnabled, setTypewriterEnabled] = useState(true)
-  const [sentenceFocusEnabled, setSentenceFocusEnabled] = useState(false)
+  // Phase 8.8 — shared toggles via useProseSettings (localStorage +
+  // cross-tab + cross-mount sync). Focus Mode default for Typewriter
+  // is ON (§6.4); Sentence Focus is OFF (§6.5).
+  const { sentenceFocus: sentenceFocusEnabled, typewriter: typewriterEnabled } =
+    useProseSettings({ defaultTypewriter: true, defaultSentenceFocus: false })
   const enteringRef = useRef(true)
   // Phase 8.01.B T-5 — swipe-tracking refs. Stored on a ref (not state)
   // so updating start coords doesn't trigger a re-render.
@@ -158,20 +164,6 @@ export function FocusMode({ node, onExit }: FocusModeProps) {
   const lockedReason = useEditorStore(s => s.lockedReason)
   const flushPending = useEditorStore(s => s.flushPending)
   const loadNode = useEditorStore(s => s.loadNode)
-
-  // Persisted toggles — hydrate from localStorage on mount (SSR-safe pattern).
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-    const t = window.localStorage.getItem(TYPEWRITER_KEY)
-    if (t !== null) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setTypewriterEnabled(t === 'true')
-    }
-    const s = window.localStorage.getItem(SENTENCE_KEY)
-    if (s !== null) {
-      setSentenceFocusEnabled(s === 'true')
-    }
-  }, [])
 
   // Mount: set body class for AppShell transitions (T-6.2).
   // Unmount: remove class so AppShell slides back. Exact-mirror exit.
@@ -458,6 +450,23 @@ export function FocusMode({ node, onExit }: FocusModeProps) {
       </div>
 
       <SentenceFocus enabled={sentenceFocusEnabled} />
+
+      {/* Phase 8.8 — ProseSettingsMenu in top-right corner. Fades like
+          FocusBreadcrumb (0.35 idle / 1.0 hover/focus/open) per the
+          wireframe. Defaults match Focus Mode behaviour. */}
+      <div
+        style={{
+          position: 'absolute',
+          top: 12,
+          right: 12,
+          zIndex: 10,
+        }}
+      >
+        <ProseSettingsMenu
+          variant="focus"
+          defaults={{ defaultTypewriter: true, defaultSentenceFocus: false }}
+        />
+      </div>
 
       <FocusEscHint onExit={onExit} />
     </div>,
