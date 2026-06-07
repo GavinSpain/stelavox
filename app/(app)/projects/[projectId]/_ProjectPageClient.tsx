@@ -18,9 +18,10 @@ import { type ReactNode } from 'react'
 
 import { ProjectDocumentsTab } from '@/components/project/ProjectDocumentsTab'
 import { ProjectExportTab } from '@/components/project/ProjectExportTab'
+import { ProjectSettingsTab } from '@/components/project/ProjectSettingsTab'
 
-export type ProjectTabId = 'documents' | 'export'
-const VALID_TABS: ReadonlySet<string> = new Set<ProjectTabId>(['documents', 'export'])
+export type ProjectTabId = 'documents' | 'export' | 'settings'
+const VALID_TABS: ReadonlySet<string> = new Set<ProjectTabId>(['documents', 'export', 'settings'])
 
 export interface ProjectDocumentRow {
   id: string
@@ -92,8 +93,15 @@ export function ProjectPageClient({
       >
         {tab === 'documents' ? (
           <ProjectDocumentsTab projectId={projectId} documents={documents} />
-        ) : (
+        ) : tab === 'export' ? (
           <ProjectExportTab projectId={projectId} documents={documents} />
+        ) : (
+          <ProjectSettingsTab
+            projectId={projectId}
+            projectName={projectName}
+            projectDescription={projectDescription}
+            projectDocumentType={projectDocumentType}
+          />
         )}
       </div>
     </div>
@@ -279,6 +287,9 @@ function TabBar({ tab, onSelect, documentCount }: TabBarProps) {
       </TabBtn>
       <TabBtn id="export" current={tab} onSelect={onSelect}>
         Export
+      </TabBtn>
+      <TabBtn id="settings" current={tab} onSelect={onSelect}>
+        Settings
       </TabBtn>
     </nav>
   )
