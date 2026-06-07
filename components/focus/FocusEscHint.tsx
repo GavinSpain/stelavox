@@ -104,11 +104,18 @@ export function FocusEscHint({ onExit }: FocusEscHintProps = {}) {
 
   // Desktop opacity per the WordCount-mirrored state machine. Touch
   // opacity is its own constant.
+  //
+  // Phase 8.8 follow-up — bumped from 0.3 to 1.0 when visible. At 0.3
+  // on top of --color-text-muted the hint failed any reasonable
+  // readability check (same WCAG concern that drove WordCount's
+  // 0.4 → 1.0 idle bump in the a11y sweep). The text colour stays
+  // muted so the hint doesn't compete with the prose surface; full
+  // opacity makes it legible at the corner of vision.
   const opacity = isTouchPrimary
     ? 0.4
     : isTyping || recentlyTyped
       ? 0
-      : 0.3
+      : 1
 
   if (isTouchPrimary) {
     // Touch variant: 44×44 tap pill with "← Edit" copy.
