@@ -22,7 +22,6 @@ import { useSearchParams } from 'next/navigation'
 import { NodeTree } from '@/components/tree/NodeTree'
 import { NodeDetailPanel } from '@/components/detail/NodeDetailPanel'
 import { DirectorPanel } from '@/components/director/DirectorPanel'
-import { DocumentExportButton } from '@/components/export/DocumentExportButton'
 import { DocumentTitleStrip } from '@/components/tree/DocumentTitleStrip'
 import { FilterChipsRow } from '@/components/tree/FilterChipsRow'
 import { useRightSlot, useSidebarProject } from '@/components/layout/AppShell'
@@ -143,19 +142,15 @@ export function DocumentClient({
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      {/* 2026-06-07 — Export trigger removed from the document page.
+          Exports are now created and reviewed from the Project page →
+          Export tab, the single canonical entry point. */}
       <DocumentTitleStrip
         projectId={projectId}
         projectName={projectName ?? null}
         documentName={documentName}
         documentType={documentType}
         documentUpdatedAt={documentUpdatedAt ?? null}
-        rightSlot={
-          <DocumentExportButton
-            documentId={documentId}
-            documentName={documentName}
-            projectId={projectId}
-          />
-        }
       />
       <FilterChipsRow />
       <div style={{ flex: 1, minHeight: 0 }}>

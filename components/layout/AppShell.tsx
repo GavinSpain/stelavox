@@ -48,7 +48,6 @@ import { useViewportBreakpoint } from '@/lib/hooks/useViewportBreakpoint'
 import { PanelResizer } from './PanelResizer'
 import { ModeProvider } from './ModeContext'
 import { AppShellStatusIndicator } from './AppShellStatusIndicator'
-import { ExportProgressStack } from '@/components/export/ExportProgressStack'
 import { createClient } from '@/lib/supabase/client'
 import { useAgentJobsRealtime } from '@/lib/hooks/useAgentJobsRealtime'
 
@@ -325,9 +324,10 @@ function AppShellInner({ userEmail, children }: AppShellProps) {
       {/* V1.x-B.1.1 — persistent bottom-right status indicator. Fixed-position;
           non-blocking; visible from every screen (CS v2.10 §17.1). */}
       <AppShellStatusIndicator />
-      {/* Phase 7 — bottom-right export progress chips. Multi-export stack
-          per wireframe §05; subscribes to active export_jobs via Realtime. */}
-      <ExportProgressStack />
+      {/* 2026-06-07 — ExportProgressStack removed. Exports live at the
+          Project page → Export tab as the single entry point for both
+          creation and review; the bottom-right chip stack was a duplicate
+          surface. */}
       {/* Phase 8.01.F T-6 — Tree slide-over. Only renders contents when
           open (the internal SlideOver gates on the store's open state).
           Mounted at all viewports so the TreeSummonButton can toggle
