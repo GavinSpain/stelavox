@@ -19,7 +19,6 @@ import { ProseEditor } from '@/components/detail/ProseEditor'
 import { FocusBreadcrumb, type FocusBreadcrumbSegment } from './FocusBreadcrumb'
 import { FocusEscHint } from './FocusEscHint'
 import { TypewriterContainer } from './TypewriterContainer'
-import { SentenceFocus } from './SentenceFocus'
 import { ProseSettingsMenu } from '@/components/detail/ProseSettingsMenu'
 import { useProseSettings } from '@/lib/hooks/useProseSettings'
 import { useEditorStore } from '@/lib/stores/editor-store'
@@ -149,11 +148,12 @@ export function FocusMode({ node, onExit }: FocusModeProps) {
   // as the last segment with its leaf name available for hover-reveal).
   const [ancestors, setAncestors] = useState<FocusBreadcrumbSegment[]>([])
   const [proseFading, setProseFading] = useState(false)
-  // Phase 8.8 — shared toggles via useProseSettings (localStorage +
-  // cross-tab + cross-mount sync). Focus Mode default for Typewriter
-  // is ON (§6.4); Sentence Focus is OFF (§6.5).
-  const { sentenceFocus: sentenceFocusEnabled, typewriter: typewriterEnabled } =
-    useProseSettings({ defaultTypewriter: true, defaultSentenceFocus: false })
+  // Phase 8.8 — shared toggles via useProseSettings. Focus Mode
+  // defaults Typewriter ON (§6.4). Sentence Focus (§6.5) is consumed
+  // inside ProseEditor itself (Phase 8.9) — FocusMode doesn't need
+  // to read it here.
+  const { typewriter: typewriterEnabled } =
+    useProseSettings({ defaultTypewriter: true })
   const enteringRef = useRef(true)
   // Phase 8.01.B T-5 — swipe-tracking refs. Stored on a ref (not state)
   // so updating start coords doesn't trigger a re-render.
@@ -416,7 +416,6 @@ export function FocusMode({ node, onExit }: FocusModeProps) {
     <div
       data-testid="focus-mode"
       data-focus-mode="active"
-      data-sentence-focus={sentenceFocusEnabled ? '' : undefined}
       onPointerDown={onSwipeDown}
       onPointerUp={onSwipeUp}
       style={{
@@ -449,7 +448,9 @@ export function FocusMode({ node, onExit }: FocusModeProps) {
         </TypewriterContainer>
       </div>
 
-      <SentenceFocus enabled={sentenceFocusEnabled} />
+      {/* Phase 8.9 — SentenceFocus is now mounted inside ProseEditor
+          itself (covers Edit Mode + Focus Mode with one source of
+          truth). Removed from here to avoid duplicate mounts. */}
 
       {/* Phase 8.8 — ProseSettingsMenu in top-right corner. Fades like
           FocusBreadcrumb (0.35 idle / 1.0 hover/focus/open) per the

@@ -11,6 +11,12 @@ import { useEffect, useRef } from 'react'
 import { proseExtensions } from '@/lib/editor/extensions'
 import { fromStorage, toStorage } from '@/lib/editor/serialise'
 import { attachTypingDetector } from '@/lib/editor/typing-state'
+import {
+  sentenceFocusPlugin,
+  sentenceFocusPluginKey,
+} from '@/lib/editor/sentence-focus-plugin'
+import { useProseSettings } from '@/lib/hooks/useProseSettings'
+import { SentenceFocus } from '@/components/focus/SentenceFocus'
 import { SelectionTooltip } from './SelectionTooltip'
 import { WordCount } from './WordCount'
 
@@ -24,6 +30,11 @@ interface ProseEditorProps {
 
 export function ProseEditor({ value, onChange, mode, readOnly = false, wordTarget }: ProseEditorProps) {
   const detachTyping = useRef<(() => void) | null>(null)
+  // Phase 8.9 — read Sentence Focus from the shared prose-settings
+  // hook. ProseEditor owns the plugin lifecycle (Q1 of the wireframe
+  // open questions); the toggle is the same shared boolean as the
+  // ProseSettingsMenu writes.
+  const { sentenceFocus } = useProseSettings()
 
   const editor = useEditor({
     extensions: proseExtensions as Parameters<typeof useEditor>[0]['extensions'],
@@ -64,12 +75,33 @@ export function ProseEditor({ value, onChange, mode, readOnly = false, wordTarge
     editor.setEditable(!readOnly)
   }, [readOnly, editor])
 
+  // Phase 8.9 — register / unregister the Sentence Focus plugin as the
+  // toggle flips. The plugin's PluginKey lets us look it up to remove
+  // cleanly. `editor.registerPlugin()` is a Tiptap convenience over
+  // ProseMirror's `state.reconfigure({ plugins: [...] })`.
+  useEffect(() => {
+    if (!editor || editor.isDestroyed) return
+    if (sentenceFocus) {
+      editor.registerPlugin(sentenceFocusPlugin())
+      return () => {
+        if (editor.isDestroyed) return
+        editor.unregisterPlugin(sentenceFocusPluginKey)
+      }
+    }
+    return undefined
+  }, [editor, sentenceFocus])
+
   const isFocus = mode === 'focus'
 
   return (
     <div
       data-editor="prose"
       data-mode={mode}
+      // Phase 8.9 — `data-sentence-focus` is the ancestor selector the
+      // SentenceFocus CSS rules key off (see components/focus/SentenceFocus.tsx).
+      // Present whenever the toggle is on, in either mode; the plugin
+      // wraps each sentence in [data-sentence] inside this container.
+      data-sentence-focus={sentenceFocus ? '' : undefined}
       style={{
         position: 'relative',
         width: '100%',
@@ -89,6 +121,10 @@ export function ProseEditor({ value, onChange, mode, readOnly = false, wordTarge
           target={wordTarget ?? null}
         />
       )}
+      {/* Phase 8.9 — SentenceFocus installs the global CSS + selection
+          handler. The plugin (registered above) does the per-paragraph
+          span wrapping; this component owns the styling side. */}
+      <SentenceFocus enabled={sentenceFocus} />
     </div>
   )
 }
