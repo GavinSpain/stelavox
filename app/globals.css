@@ -254,7 +254,17 @@
   caret-color: var(--color-accent);
 }
 
-[data-editor="prose"] .tiptap:not(.is-typing) {
+/* Phase 8.01 round-3 follow-up — gate the blink animation on :focus.
+   The animation alternates `caret-color` between verdigris and
+   transparent; on focused editors this drives the visible caret blink.
+   On UNFOCUSED editors, Chrome may paint a synthetic ghost caret at
+   the editor's last-known selection position (notably after the editor
+   loses focus from a row-click switch on a different tree node). The
+   animation would then drive that ghost caret to blink — surfacing as
+   a phantom verdigris cursor in the detail pane after selecting a new
+   node + scrolling the tree. Gating on :focus eliminates that source.
+   The spec rule ("caret blinks while focused") is unchanged. */
+[data-editor="prose"] .tiptap:focus:not(.is-typing) {
   animation: stelavox-blink 1s step-end infinite;
 }
 

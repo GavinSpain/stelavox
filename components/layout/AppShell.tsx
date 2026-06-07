@@ -40,6 +40,7 @@
 // resolved later by lifting collapse state up to AppShell.
 
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react'
+import { usePathname } from 'next/navigation'
 import { Header } from './Header'
 import { Sidebar } from './Sidebar'
 import { TreeSlideOver } from './TreeSlideOver'
@@ -47,7 +48,6 @@ import { useViewportBreakpoint } from '@/lib/hooks/useViewportBreakpoint'
 import { PanelResizer } from './PanelResizer'
 import { ModeProvider } from './ModeContext'
 import { AppShellStatusIndicator } from './AppShellStatusIndicator'
-import { ExportProgressStack } from '@/components/export/ExportProgressStack'
 import { createClient } from '@/lib/supabase/client'
 import { useAgentJobsRealtime } from '@/lib/hooks/useAgentJobsRealtime'
 
@@ -137,6 +137,14 @@ function AppShellInner({ userEmail, children }: AppShellProps) {
   // left Sidebar into a slide-over.
   const breakpoint = useViewportBreakpoint()
   const isTabletPortrait = breakpoint === 'tablet-portrait'
+
+  // Phase 8.01.D wireframe-review fix: the Dashboard owns its own left
+  // chrome (DashboardSidebar: LIBRARY / CONTEXT / SYSTEM / LEARN) and
+  // a full-width canvas — it has no right detail-panel surface. Hide
+  // the AppShell project Sidebar AND the detail panel only at
+  // `/dashboard`. All other routes keep the three-panel shell exactly.
+  const pathname = usePathname()
+  const isDashboardRoute = pathname === '/dashboard'
   const [sidebarWidth, setSidebarWidth] = useState(SIDEBAR_DEFAULT)
   const [detailWidth,  setDetailWidth]  = useState(DETAIL_DEFAULT)
   const [rightSlotContent, setRightSlotContent] = useState<ReactNode | null>(null)
@@ -238,8 +246,14 @@ function AppShellInner({ userEmail, children }: AppShellProps) {
         {/* Phase 8.01.F T-5 — At tablet-portrait, the left Sidebar and its
             resizer are hidden; the Sidebar lives in a slide-over instead,
             triggered by the TreeSummonButton in Header. Desktop +
-            tablet-landscape keep the existing pinned layout exactly. */}
-        {!isTabletPortrait && (
+            tablet-landscape keep the existing pinned layout exactly.
+
+            Phase 8.01.D wireframe-review — At `/dashboard`, the AppShell
+            project Sidebar is suppressed too: the Dashboard owns its own
+            left chrome (LIBRARY / CONTEXT / SYSTEM / LEARN) with a
+            different section shape, and stacking two sidebars eats >440px
+            of canvas. All other routes keep the existing layout. */}
+        {!isTabletPortrait && !isDashboardRoute && (
           <>
             <div data-shell="sidebar" style={{ display: 'flex' }}>
               <Sidebar width={sidebarWidth} />
@@ -267,44 +281,53 @@ function AppShellInner({ userEmail, children }: AppShellProps) {
           {children}
         </main>
 
-        <PanelResizer
-          position="tree-detail"
-          value={effectiveDetailWidth}
-          onChange={updateDetail}
-          min={effectiveMin}
-          max={DETAIL_MAX}
-        />
+        {/* Phase 8.01.D wireframe-review — The dashboard has no right
+            detail-panel surface; suppress the resizer + panel at
+            `/dashboard` so the dashboard canvas spans the full width.
+            All other routes preserve the right detail-panel exactly. */}
+        {!isDashboardRoute && (
+          <>
+            <PanelResizer
+              position="tree-detail"
+              value={effectiveDetailWidth}
+              onChange={updateDetail}
+              min={effectiveMin}
+              max={DETAIL_MAX}
+            />
 
-        <div
-          data-shell="detail"
-          aria-label="Detail panel"
-          style={{
-            width: `${effectiveDetailWidth}px`,
-            flexShrink: 0,
-            background: rightSlotContent
-              ? 'var(--color-bg-surface)'
-              : 'var(--color-bg-base)',
-            borderLeft: '1px solid var(--color-border-subtle)',
-            overflow: 'hidden',
-            display: 'flex',
-            flexDirection: 'column',
-          }}
-        >
-          {rightSlotContent ?? (
-            <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <span style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-muted)' }}>
-                Node detail
-              </span>
+            <div
+              data-shell="detail"
+              aria-label="Detail panel"
+              style={{
+                width: `${effectiveDetailWidth}px`,
+                flexShrink: 0,
+                background: rightSlotContent
+                  ? 'var(--color-bg-surface)'
+                  : 'var(--color-bg-base)',
+                borderLeft: '1px solid var(--color-border-subtle)',
+                overflow: 'hidden',
+                display: 'flex',
+                flexDirection: 'column',
+              }}
+            >
+              {rightSlotContent ?? (
+                <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <span style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-muted)' }}>
+                    Node detail
+                  </span>
+                </div>
+              )}
             </div>
-          )}
-        </div>
+          </>
+        )}
       </div>
       {/* V1.x-B.1.1 — persistent bottom-right status indicator. Fixed-position;
           non-blocking; visible from every screen (CS v2.10 §17.1). */}
       <AppShellStatusIndicator />
-      {/* Phase 7 — bottom-right export progress chips. Multi-export stack
-          per wireframe §05; subscribes to active export_jobs via Realtime. */}
-      <ExportProgressStack />
+      {/* 2026-06-07 — ExportProgressStack removed. Exports live at the
+          Project page → Export tab as the single entry point for both
+          creation and review; the bottom-right chip stack was a duplicate
+          surface. */}
       {/* Phase 8.01.F T-6 — Tree slide-over. Only renders contents when
           open (the internal SlideOver gates on the store's open state).
           Mounted at all viewports so the TreeSummonButton can toggle

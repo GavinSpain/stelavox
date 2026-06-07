@@ -2,28 +2,59 @@
  * Phase 7.C — Outline (Markdown) renderer.
  *
  * Renders a structural summary of the document as Markdown per D10/D11.
- * Heading depth mirrors structural depth (Book = #, Act = ##,
- * Chapter = ###, Scene = ####, Beat = #####).
+ *
+ * 2026-06-07 update — line prefix changed from Markdown headings
+ * (`###`) to the universal bracketed-monospace layer label format used
+ * everywhere else in the app: `[Series]`, `[Book N]`, `[Act N]`,
+ * `[Ch N]`, `[Sc N]`, `[Bt N]`. The bracket label is the structural
+ * marker; hierarchy is conveyed by abbreviation + position numbering,
+ * not by indentation or heading depth. Document title remains the only
+ * `#`-heading at the top of the file.
  *
  * Configurable per OutlineProfileConfig:
  *   - max_depth: null (unlimited) | number (depth cap)
  *   - include_word_count_target: appends "[target: N words]"
- *   - include_status: prefixes "[✓]" for approved, "[ ]" for draft
+ *   - include_status: inserts "[✓]" for approved, "[ ]" for draft
  *
  * Always excluded: prose, notes, context links, comments, metadata,
  * agent_instruction.
- * Empty-summary nodes: heading only, no blockquote.
+ * Empty-summary nodes: label only, no blockquote.
  * Empty-name AND empty-summary: skip entirely.
  *
  * Outline uses its own tree walk (not the ContentBlock[] from the
  * shared tree-walker.ts) because it surfaces structural metadata
- * (depth, status, word_count_target) that ContentBlock doesn't carry,
- * and it renders ALL layers as headings — different from DOCX/EPUB
- * which collapse non-Chapter layers per D11.
+ * (status, word_count_target) that ContentBlock doesn't carry, and it
+ * renders ALL layers — different from DOCX/EPUB which collapse non-
+ * Chapter layers per D11.
  */
 
 import type { ContentBlock, OutlineProfileConfig } from './types'
 import { createServiceRoleClient } from '@/lib/supabase/service'
+
+/**
+ * Layer abbreviation map — server-side copy of components/tree/LayerLabel.tsx
+ * LAYER_ABBR. Kept in sync manually until Phase 14 extracts the layer
+ * vocabulary into a shared module (`layer_stacks.layers[i].abbreviation`).
+ * Inlined here to avoid importing a `'use client'` module from server code.
+ */
+const LAYER_ABBR: Record<string, string> = {
+  series:  'Series',
+  book:    'Book',
+  act:     'Act',
+  chapter: 'Ch',
+  scene:   'Sc',
+  beat:    'Bt',
+}
+
+/** Build the bracketed structural label for one node, e.g. `[Ch 1]`.
+ *  Series omits the position (one series per document by convention).
+ *  Returns null for unknown node_types so the caller can fall back. */
+function buildLayerLabel(nodeType: string, position: number): string | null {
+  const abbr = LAYER_ABBR[nodeType]
+  if (!abbr) return null
+  if (nodeType === 'series') return `[${abbr}]`
+  return `[${abbr} ${position}]`
+}
 
 interface WalkContext {
   blocks: ContentBlock[]
@@ -134,12 +165,11 @@ export async function renderOutline(
     // Skip the root (document title already rendered)
     if (node.parent_id === null) continue
 
-    // Outline heading depth = node.depth + 1 (document title is H1; first
-    // structural layer below root is H2, etc.). max_depth caps from
-    // the document's first structural layer.
-    const headingLevel = (node.depth ?? 0) + 1
-
-    if (maxDepth !== null && headingLevel > maxDepth + 1) continue
+    // max_depth is measured from the document's first structural layer.
+    // node.depth is 1-based for the first structural layer under the
+    // root, so `depth > maxDepth` is the cap.
+    const depth = node.depth ?? 0
+    if (maxDepth !== null && depth > maxDepth) continue
 
     const name = (node.name ?? '').trim()
     const summaryText = extractText(node.summary).trim()
@@ -147,8 +177,11 @@ export async function renderOutline(
     // Skip nodes with no name AND no summary
     if (!name && !summaryText) continue
 
-    const hashes = '#'.repeat(Math.min(headingLevel, 6))
-    let headingLine = `${hashes} `
+    // 2026-06-07 — bracket label replaces the former `###` heading prefix.
+    // Hierarchy is carried by the abbreviation + position number, not
+    // indentation. Document title stays the only `#` heading.
+    const label = buildLayerLabel(node.node_type, node.order)
+    let headingLine = label ? `${label} ` : ''
 
     if (includeStatus) {
       headingLine += node.status === 'approved' ? '[✓] ' : '[ ] '

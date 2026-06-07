@@ -25,6 +25,7 @@
 import { useCallback, useEffect, useState } from 'react'
 
 import { createClient } from '@/lib/supabase/client'
+import { ensureRealtimeAuth } from '@/lib/supabase/realtime-auth'
 
 interface CurrentPeriodPayload {
   plan: string
@@ -118,16 +119,24 @@ export function CostMeterFull({ orgId }: { orgId: string }) {
   // Realtime: refresh on organisations row changes for this org.
   useEffect(() => {
     const supabase = createClient()
-    const channel = supabase
-      .channel(`cost-meter-${orgId}`)
-      .on(
-        'postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'organisations', filter: `id=eq.${orgId}` },
-        () => void refresh(),
-      )
-      .subscribe()
+    let channel: ReturnType<typeof supabase.channel> | null = null
+    let mounted = true
+    // Wait for auth before subscribing — see lib/supabase/realtime-auth.ts.
+    void (async () => {
+      await ensureRealtimeAuth(supabase)
+      if (!mounted) return
+      channel = supabase
+        .channel(`cost-meter-${orgId}`)
+        .on(
+          'postgres_changes',
+          { event: 'UPDATE', schema: 'public', table: 'organisations', filter: `id=eq.${orgId}` },
+          () => void refresh(),
+        )
+        .subscribe()
+    })()
     return () => {
-      void supabase.removeChannel(channel)
+      mounted = false
+      if (channel) void supabase.removeChannel(channel)
     }
   }, [orgId, refresh])
 

@@ -26,6 +26,11 @@ interface NodeStatusBadgeProps {
 
 export function NodeStatusBadge({ status }: NodeStatusBadgeProps) {
   const colour = STATUS_COLOURS[status] ?? 'var(--color-status-draft)'
+  // Phase 8.01 wireframe-alignment round 3 — approved status gets a
+  // subtle verdigris glow per wireframe 04_detail_panes_v1_iter1
+  // .status-pip-complete. Quiet shine = "this is done." Draft has no
+  // glow.
+  const glow = status === 'approved' ? '0 0 5px rgba(90,168,122,0.45)' : 'none'
   return (
     <span
       data-testid="node-status-badge"
@@ -37,6 +42,7 @@ export function NodeStatusBadge({ status }: NodeStatusBadgeProps) {
         height: '8px',
         borderRadius: '50%',
         background: colour,
+        boxShadow: glow,
         flexShrink: 0,
       }}
     />

@@ -19,14 +19,20 @@ export default async function ProjectPage({ params }: Props) {
 
   const { data: project } = await supabase
     .from('projects')
-    .select('id, name, description')
+    .select('id, name, description, default_document_type, updated_at')
     .eq('id', projectId)
-    .maybeSingle<{ id: string; name: string; description: string | null }>()
+    .maybeSingle<{
+      id: string
+      name: string
+      description: string | null
+      default_document_type: string | null
+      updated_at: string | null
+    }>()
   if (!project) notFound()
 
   const { data: documents } = await supabase
     .from('documents')
-    .select('id, name, description, document_type, status, created_at')
+    .select('id, name, description, document_type, status, created_at, updated_at')
     .eq('project_id', projectId)
     .eq('status', 'active')
     .order('created_at', { ascending: false })
@@ -39,6 +45,8 @@ export default async function ProjectPage({ params }: Props) {
         projectId={projectId}
         projectName={project.name}
         projectDescription={project.description}
+        projectDocumentType={project.default_document_type}
+        projectUpdatedAt={project.updated_at}
         documents={documents ?? []}
       />
     </>

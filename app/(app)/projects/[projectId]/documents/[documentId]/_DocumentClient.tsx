@@ -22,7 +22,8 @@ import { useSearchParams } from 'next/navigation'
 import { NodeTree } from '@/components/tree/NodeTree'
 import { NodeDetailPanel } from '@/components/detail/NodeDetailPanel'
 import { DirectorPanel } from '@/components/director/DirectorPanel'
-import { DocumentExportButton } from '@/components/export/DocumentExportButton'
+import { DocumentTitleStrip } from '@/components/tree/DocumentTitleStrip'
+import { FilterChipsRow } from '@/components/tree/FilterChipsRow'
 import { useRightSlot, useSidebarProject } from '@/components/layout/AppShell'
 import { useMode } from '@/components/layout/ModeContext'
 
@@ -31,6 +32,9 @@ interface Props {
   documentId: string
   documentName: string
   documentType: 'novel' | 'short_story' | 'series'
+  /** ISO timestamp from documents.updated_at — drives the title-strip
+   *  meta-line "last edit X ago". Optional for backwards-compat. */
+  documentUpdatedAt?: string | null
   profileId?: string | null
   /** Optional — surfaced in the Sidebar PROJECT slot. */
   projectName?: string | null
@@ -43,6 +47,7 @@ export function DocumentClient({
   documentId,
   documentName,
   documentType,
+  documentUpdatedAt,
   profileId,
   projectName,
 }: Props) {
@@ -137,20 +142,17 @@ export function DocumentClient({
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'flex-end',
-          padding: '8px 12px',
-          borderBottom: '1px solid var(--color-border-subtle)',
-        }}
-      >
-        <DocumentExportButton
-          documentId={documentId}
-          documentName={documentName}
-          projectId={projectId}
-        />
-      </div>
+      {/* 2026-06-07 — Export trigger removed from the document page.
+          Exports are now created and reviewed from the Project page →
+          Export tab, the single canonical entry point. */}
+      <DocumentTitleStrip
+        projectId={projectId}
+        projectName={projectName ?? null}
+        documentName={documentName}
+        documentType={documentType}
+        documentUpdatedAt={documentUpdatedAt ?? null}
+      />
+      <FilterChipsRow />
       <div style={{ flex: 1, minHeight: 0 }}>
         <NodeTree
           documentId={documentId}

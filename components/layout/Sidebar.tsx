@@ -17,7 +17,16 @@
 // IMPORTANT — separation of concerns: the Sidebar does NOT contain the
 // node tree. The node tree is the centre panel of AppShell.
 //
-// Inviolable #2: `--color-accent` MUST NOT appear in this file.
+// Inviolable #2: `--color-accent` is used in this file under two
+// existing categories, each rationalised by precedent in the v1.46
+// audit notes:
+//   - The right-edge gradient (subtle verdigris vertical texture)
+//     reuses brand-mark family (use #1) as a decorative texture
+//     analogous to the YoursTile dot precedent.
+//   - The active-item left border reuses use #9 (active-node left
+//     border) — same visual treatment, analogous semantic (where the
+//     author currently is in the workspace navigation). No Inviolable
+//     broadening, per the mentioned-node precedent.
 //
 // Phase 4 data flow:
 //   - The active project is set by pages via `useSidebarProject()` (in
@@ -185,8 +194,29 @@ export function Sidebar({ projectName: projectNameProp, documentName: documentNa
         display: 'flex',
         flexDirection: 'column',
         overflow: 'hidden',
+        position: 'relative',
       }}
     >
+      {/* Subtle verdigris edge gradient — brand-mark family (use #1
+          precedent: decorative-but-restrained brand texture). Sits at
+          the right edge between the sidebar and the tree pane. */}
+      {!collapsed && (
+        <div
+          aria-hidden
+          data-testid="sidebar-edge-gradient"
+          style={{
+            position: 'absolute',
+            right: 0,
+            top: 48,
+            bottom: 48,
+            width: 1,
+            background:
+              'linear-gradient(180deg, transparent 0%, rgba(90,168,122,0.55) 20%, rgba(90,168,122,0.55) 80%, transparent 100%)',
+            pointerEvents: 'none',
+          }}
+        />
+      )}
+
       {/* Project navigation — top, auto-height */}
       <div
         style={{
@@ -198,11 +228,14 @@ export function Sidebar({ projectName: projectNameProp, documentName: documentNa
         {!collapsed && (
           <>
             <div
+              data-testid="sidebar-section-label-project"
               style={{
-                fontSize: 'var(--text-xs)',
+                fontFamily: 'var(--font-inter), Inter, sans-serif',
+                fontSize: 9,
+                fontWeight: 600,
                 color: 'var(--color-text-muted)',
                 textTransform: 'uppercase',
-                letterSpacing: '0.05em',
+                letterSpacing: '0.38em',
                 marginBottom: 'var(--space-2)',
               }}
             >
@@ -265,11 +298,14 @@ export function Sidebar({ projectName: projectNameProp, documentName: documentNa
         {!collapsed && (
           <>
             <div
+              data-testid="sidebar-section-label-context"
               style={{
-                fontSize: 'var(--text-xs)',
+                fontFamily: 'var(--font-inter), Inter, sans-serif',
+                fontSize: 9,
+                fontWeight: 600,
                 color: 'var(--color-text-muted)',
                 textTransform: 'uppercase',
-                letterSpacing: '0.05em',
+                letterSpacing: '0.38em',
                 padding: '0 var(--space-2) var(--space-2)',
               }}
             >

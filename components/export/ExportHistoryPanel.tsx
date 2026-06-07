@@ -9,6 +9,13 @@
  * with their error_message + a Retry action.
  *
  * Subscribes to export_jobs filtered by document_id via Realtime.
+ *
+ * 2026-06-07 update — now also renders in-flight rows (queued / planning /
+ * rendering / assembling / uploading / cancellation_requested) with a
+ * status pill, chapter progress when known, and a Cancel action. This
+ * panel is now the single entry point: users trigger an export from
+ * here and watch it move through its states without leaving the page.
+ * The bottom-right ExportProgressStack was removed in the same change.
  */
 
 import { useState } from 'react'
@@ -38,6 +45,59 @@ function timeAgo(iso: string): string {
   return `${Math.floor(seconds / 86_400)} days ago`
 }
 
+/** In-flight statuses — the export is still being produced. */
+const IN_FLIGHT_STATUSES = new Set<ExportJob['status']>([
+  'queued', 'pending', 'planning', 'rendering', 'assembling',
+  'uploading', 'cancellation_requested',
+])
+
+/** Failed-retention window for the "removed in N hours" indicator on
+ *  failed/cancelled rows. Mirrors the platform_config default of 24h
+ *  (export.failed_retention_hours, set in M-211). Pure presentation —
+ *  the actual purge is server-side. If an admin tunes the config key
+ *  to a non-default this indicator will be slightly off, but the
+ *  display tolerance for "you have around a day" is high enough that
+ *  it's not worth the extra fetch.
+ */
+const FAILED_RETENTION_HOURS_DISPLAY = 24
+
+/** Render a relative-time string for how long until a row+file are
+ *  purged. `expiresAt` is either signed_url_expires_at (completed
+ *  rows) or created_at + retention window (failed/cancelled rows).
+ *  Returns null when already expired (caller will already render
+ *  "URL expired" / handle the terminal state separately).
+ */
+function removedInLabel(expiresAtIso: string, nowMs: number): string | null {
+  const expiresMs = new Date(expiresAtIso).getTime()
+  if (!Number.isFinite(expiresMs)) return null
+  const remainingMs = expiresMs - nowMs
+  if (remainingMs <= 0) return null
+  const hours = Math.floor(remainingMs / 3_600_000)
+  if (hours < 1) {
+    const minutes = Math.max(1, Math.floor(remainingMs / 60_000))
+    return `removed in ${minutes} min`
+  }
+  if (hours < 24) {
+    return `removed in ${hours} hour${hours === 1 ? '' : 's'}`
+  }
+  const days = Math.floor(hours / 24)
+  return `removed in ${days} day${days === 1 ? '' : 's'}`
+}
+
+/** User-facing label for each non-terminal status. */
+function inFlightLabel(status: ExportJob['status']): string {
+  switch (status) {
+    case 'queued':                 return 'Queued'
+    case 'pending':                return 'Queued'
+    case 'planning':               return 'Planning'
+    case 'rendering':              return 'Rendering'
+    case 'assembling':             return 'Assembling'
+    case 'uploading':              return 'Uploading'
+    case 'cancellation_requested': return 'Cancelling…'
+    default:                       return status
+  }
+}
+
 export function ExportHistoryPanel({ documentId, documentName }: ExportHistoryPanelProps) {
   const exports = useExportHistory(documentId)
   const [busyId, setBusyId] = useState<string | null>(null)
@@ -49,6 +109,15 @@ export function ExportHistoryPanel({ documentId, documentName }: ExportHistoryPa
     setBusyId(jobId)
     try {
       await fetch(`/api/exports/${jobId}/retry`, { method: 'POST' })
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  async function handleCancel(jobId: string) {
+    setBusyId(jobId)
+    try {
+      await fetch(`/api/exports/${jobId}/cancel`, { method: 'POST' })
     } finally {
       setBusyId(null)
     }
@@ -89,12 +158,37 @@ export function ExportHistoryPanel({ documentId, documentName }: ExportHistoryPa
           ? new Date(job.signed_url_expires_at).getTime() < now
           : false
         const isFailed = job.status === 'failed'
+        const isCancelled = job.status === 'cancelled'
         const isCompleted = job.status === 'completed' && !expired
+        const isInFlight = IN_FLIGHT_STATUSES.has(job.status)
+        const canCancel = isInFlight && job.status !== 'cancellation_requested'
+        // "removed in N days" indicator. Completed rows expire at
+        // signed_url_expires_at (7-day default). Failed/cancelled rows
+        // expire at created_at + FAILED_RETENTION_HOURS_DISPLAY (24h
+        // default). The purge route deletes both file and row when the
+        // window elapses (M-211 + /api/cron/purge-expired-exports).
+        let removedLabel: string | null = null
+        if (isCompleted && job.signed_url_expires_at) {
+          removedLabel = removedInLabel(job.signed_url_expires_at, now)
+        } else if (isFailed || isCancelled) {
+          const expiresMs = new Date(job.created_at).getTime() +
+            FAILED_RETENTION_HOURS_DISPLAY * 3_600_000
+          removedLabel = removedInLabel(new Date(expiresMs).toISOString(), now)
+        }
+        // Chapter progress when the runner has reported it. total_chapters
+        // lives on the row itself; current_chapter lives in progress JSONB.
+        const cur = job.progress.current_chapter
+        const tot = job.total_chapters ?? job.progress.total_chapters ?? null
+        const progressFraction =
+          cur != null && tot != null && tot > 0
+            ? Math.max(0, Math.min(1, cur / tot))
+            : null
 
         return (
           <div
             key={job.id}
             data-testid={`export-history-row-${job.id}`}
+            data-status={job.status}
             style={{
               padding: '10px 16px',
               display: 'grid',
@@ -108,16 +202,63 @@ export function ExportHistoryPanel({ documentId, documentName }: ExportHistoryPa
               {formatIcon(job.format)}
             </div>
             <div>
-              <div style={{ fontSize: 12, color: 'var(--color-text-primary)' }}>
-                {job.format.toUpperCase()}
-                {job.attempt_count > 1 ? ` · attempt ${job.attempt_count}` : ''}
+              <div style={{ fontSize: 12, color: 'var(--color-text-primary)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span>
+                  {job.format.toUpperCase()}
+                  {job.attempt_count > 1 ? ` · attempt ${job.attempt_count}` : ''}
+                </span>
+                {isInFlight && (
+                  <span
+                    data-testid="export-status-pill"
+                    style={{
+                      fontSize: 9.5,
+                      fontWeight: 500,
+                      letterSpacing: '0.04em',
+                      textTransform: 'uppercase',
+                      padding: '1px 6px',
+                      borderRadius: 3,
+                      border: '1px solid color-mix(in srgb, var(--color-info) 50%, transparent)',
+                      color: 'var(--color-info)',
+                      background: 'color-mix(in srgb, var(--color-info) 8%, transparent)',
+                    }}
+                  >
+                    {inFlightLabel(job.status)}
+                  </span>
+                )}
+                {isCancelled && (
+                  <span
+                    data-testid="export-status-pill"
+                    style={{
+                      fontSize: 9.5, fontWeight: 500, letterSpacing: '0.04em',
+                      textTransform: 'uppercase', padding: '1px 6px', borderRadius: 3,
+                      border: '1px solid var(--color-border-default)',
+                      color: 'var(--color-text-muted)',
+                    }}
+                  >
+                    Cancelled
+                  </span>
+                )}
               </div>
               <div style={{ fontSize: 10, color: 'var(--color-text-muted)', marginTop: 2 }}>
                 {timeAgo(job.created_at)}
                 {job.progress.output_size_bytes
                   ? ` · ${(job.progress.output_size_bytes / 1024 / 1024).toFixed(1)} MB`
                   : ''}
+                {isInFlight && progressFraction != null && (
+                  <span style={{ marginLeft: 6 }}>· chapter {cur}/{tot}</span>
+                )}
+                {isInFlight && job.progress.chapter_name && (
+                  <span style={{ marginLeft: 6, fontStyle: 'italic' }}>{job.progress.chapter_name}</span>
+                )}
                 {isCompleted && job.signed_url_expires_at && ' · download available'}
+                {removedLabel && (
+                  <span
+                    data-testid="export-removed-in"
+                    style={{ marginLeft: 6, color: 'var(--color-text-muted)' }}
+                  >
+                    · {removedLabel}
+                  </span>
+                )}
                 {expired && job.status === 'completed' && (
                   <span style={{ fontStyle: 'italic', marginLeft: 6 }}>URL expired</span>
                 )}
@@ -127,6 +268,28 @@ export function ExportHistoryPanel({ documentId, documentName }: ExportHistoryPa
                   </span>
                 )}
               </div>
+              {isInFlight && progressFraction != null && (
+                <div
+                  data-testid="export-progress-bar"
+                  style={{
+                    marginTop: 6,
+                    height: 3,
+                    width: '100%',
+                    background: 'var(--color-bg-base)',
+                    borderRadius: 2,
+                    overflow: 'hidden',
+                  }}
+                >
+                  <div
+                    style={{
+                      height: '100%',
+                      width: `${progressFraction * 100}%`,
+                      background: 'var(--color-info)',
+                      transition: 'width 200ms ease-out',
+                    }}
+                  />
+                </div>
+              )}
             </div>
             <div style={{ display: 'flex', gap: 4 }}>
               {isCompleted && job.signed_url && (
@@ -147,6 +310,16 @@ export function ExportHistoryPanel({ documentId, documentName }: ExportHistoryPa
                   style={ghostActionStyle}
                 >
                   {busyId === job.id ? '…' : isFailed ? 'Retry' : 'Re-run'}
+                </button>
+              )}
+              {canCancel && (
+                <button
+                  type="button"
+                  disabled={busyId === job.id}
+                  onClick={() => handleCancel(job.id)}
+                  style={ghostActionStyle}
+                >
+                  {busyId === job.id ? '…' : 'Cancel'}
                 </button>
               )}
             </div>

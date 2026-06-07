@@ -1,36 +1,32 @@
 // Spec: stelavox_component_specification_v2_0.md §4.2 (NodeRow)
 //       stelavox_brand_identity_v2_0.md §5.1 (verdigris reservation #9)
-//       stelavox_phase2_build_checklist_v1_0.md v1.1 §3.4 T-4.3
 //       stelavox_phase8_01_A_build_checklist_v1_0.md T-5 (44px universal +
 //         bracketed LayerLabel prefix for structural nodes)
 //
-// Phase 8.01.A T-5: row height moves from "36px desktop, 44px tablet" to
-// **44px universal** per Component Spec v2.21 §4.2 wireframe lock (desktop
-// loses no functional density, gains tap-friendliness). Structural rows
-// now carry a bracketed monospace LayerLabel prefix sourced from the
-// node's `node_type` + `order`.
+// Phase 8.01 wireframe-alignment round 2 (Brand Identity v2.4) — NodeRow
+// redesigned to match `02_edit_mode_v2_iter3.html` tree rows. Adds:
+//   1. Per-layer typographic hierarchy on the name
+//      (Series 15px/600 → Beat 12px/300)
+//   2. Per-row 46px word-count progress bar + monospace ratio
+//   3. Status cluster (lifecycle pill / status badge / agent indicator)
+//   4. Hover-actions strip restyled as a compact pill (preserves
+//      Add child / Agent / More functional surface)
 //
-// Four states per Component Spec §4.2:
-//   default — transparent bg, text-secondary
-//   hover   — bg-hover, text-secondary
-//   active  — bg-active-node, text-primary Inter 500, 2px LEFT border
-//             var(--color-accent) — verdigris reservation #9
+// Four states (Component Spec §4.2):
+//   default — transparent bg, layer-typed text colour
+//   hover   — bg-hover, hover-actions visible
+//   active  — bg-active-node, 2px verdigris LEFT border (use #9)
 //   focused — 1px inset border-strong (keyboard focus)
 //
-// Hover actions trio — visible only on row hover (opacity transition).
-//   - Add child (+)
-//   - Agent (⚡) — disabled in Phase 2 (agents arrive Phase 5)
-//   - More (⋯)
-// Action callbacks come through NodeActionsContext, populated by
-// NodeTree in T-4.6/T-4.7.
-//
-// Locked node: a 🔒 glyph displays at the start of the row instead of
-// the chevron's typical position. Drag handle would be hidden in
-// drag-and-drop wiring (T-5.x). Per spec, reading is permitted; the
-// hover actions are also disabled.
-//
-// Inviolable #2: `--color-accent` appears in this file at exactly one
-// location (the active-state left border). No other usage permitted.
+// Inviolable #2: `--color-accent` (or `--color-accent-hover`) appears
+// in this file at exactly three places:
+//   - active-state left border (use #9)
+//   - mentioned-node left border (use #9 — second function under the
+//     same use; no new category)
+//   - `@` mention prefix (use #9 — same use, informational reuse)
+// Plus on the word-count progress bar fill (NEW — use #6 family extension
+// for "progress toward target" — same conceptual use as the WordCount
+// component, just the per-row variant in the tree).
 
 import { createContext, useContext, useRef, useState } from 'react'
 import { useLongPress } from '@/lib/touch/useLongPress'
@@ -43,13 +39,26 @@ import { useActiveJobForNode, useNodeHasRunningJob } from '@/lib/hooks/useAgentJ
 import { useAiChangedFlag, markNodeAsViewed } from '@/lib/hooks/useAiChangedFlag'
 import { useIsNodeMentioned } from '@/lib/stores/mentioned-nodes'
 
-// V1 layer-stack canonical structural types — the abbreviation map in
-// LayerLabel covers exactly these. Anything not in this set falls through
-// to LayerLabel's defensive title-case fallback. Phase 14 (post-V1)
-// replaces this guard with layer_stack-driven type validation.
 const STRUCTURAL_LAYER_KINDS: ReadonlySet<string> = new Set<LayerKind>([
   'series', 'book', 'act', 'chapter', 'scene', 'beat',
 ])
+
+/** Per-layer typographic hierarchy on the name column. Pulled directly
+ *  from `02_edit_mode_v2_iter3.html` .row-{layer} .row-name selectors.
+ *  Exported for unit tests. */
+export const LAYER_NAME_TYPOGRAPHY: Record<LayerKind, {
+  fontSize: number
+  fontWeight: number
+  color: string
+  letterSpacing?: string
+}> = {
+  series:  { fontSize: 15,   fontWeight: 600, color: 'var(--color-text-primary)',   letterSpacing: '-0.005em' },
+  book:    { fontSize: 14.5, fontWeight: 600, color: 'var(--color-text-primary)',   letterSpacing: '-0.005em' },
+  act:     { fontSize: 13.5, fontWeight: 500, color: 'var(--color-text-primary)' },
+  chapter: { fontSize: 13,   fontWeight: 500, color: 'var(--color-text-primary)' },
+  scene:   { fontSize: 12.5, fontWeight: 400, color: 'var(--color-text-secondary)' },
+  beat:    { fontSize: 12,   fontWeight: 300, color: 'var(--color-text-secondary)' },
+}
 
 export interface NodeActions {
   onAddChild?: (parentId: string) => void
@@ -77,14 +86,7 @@ export interface NodeData {
   word_count_target: number | null
   word_count_actual: number | null
   version: number
-  // Phase 3 v1.1: server-derived per API Contract §2.12 / TA v1.6 H-15.
-  // Hides the `+ Add child` button so the UI mirrors the database's
-  // move_node layer_violation refusal. Optional for backwards compat with
-  // any caller that hasn't been re-fetched against the v1.1 API.
   is_leaf?: boolean
-  // V1.x-D.2 (Migration 142) — set by accept_agent_job when AI content
-  // replaces the node. NodeRow compares this to localStorage's
-  // last-viewed-at per node to surface the AI-changed flag.
   last_ai_change_at?: string | null
 }
 
@@ -99,44 +101,35 @@ export function NodeRow({ node, style, dragHandle }: NodeRendererProps<ArboristN
   const actions = useContext(NodeActionsContext)
   const [hovered, setHovered] = useState(false)
 
-  const data    = node.data.data
-  // SU-J12-4 (Mars-drive 2026-05-09): the chevron must reflect the
-  // server-derived layer-stack leaf-ness (`data.is_leaf`), not react-
-  // arborist's structural `node.isLeaf` which is purely a function of
-  // currently-loaded children. A Book with zero Acts is still a parent
-  // layer, and authors must see the chevron to know they can expand.
-  // H-15: leaf-ness is a layer-stack property, never inferred from
-  // child count. Falls back to node.isLeaf for backwards compat with
-  // any data path that hasn't supplied is_leaf yet.
-  const isLeaf  = data.is_leaf ?? node.isLeaf
-  const isOpen  = node.isOpen
-  const active  = node.isSelected
+  const data = node.data.data
+  const isLeaf = data.is_leaf ?? node.isLeaf
+  const isOpen = node.isOpen
+  const active = node.isSelected
   const focused = node.isFocused
-  const locked  = data.locked
-  // Phase 8.01.C T-8 — mentioned-node highlight. Reuses Inviolable #2
-  // use #9 (active-node left border) via the same verdigris token; this
-  // is a second function under the existing use, NO new use category.
-  // Active state takes precedence over mentioned (active node always wins
-  // the bg + bold + border treatment).
+  const locked = data.locked
   const isMentioned = useIsNodeMentioned(data.id)
 
-  // Background priority: active > hover > default. Focused state
-  // overlays a 1px inset border, doesn't change bg.
   const background = active
     ? 'var(--color-bg-active-node)'
     : hovered
     ? 'var(--color-bg-hover)'
     : 'transparent'
 
-  const textColour = active ? 'var(--color-text-primary)' : 'var(--color-text-secondary)'
-  const fontWeight = active ? 500 : 400
+  // Per-layer typography on the name column.
+  const layerKind: LayerKind | null =
+    data.node_category === 'structural' && STRUCTURAL_LAYER_KINDS.has(data.node_type)
+      ? (data.node_type as LayerKind)
+      : null
+  const nameTypo = layerKind ? LAYER_NAME_TYPOGRAPHY[layerKind] : {
+    fontSize: 12.5,
+    fontWeight: 400 as number,
+    color: 'var(--color-text-secondary)',
+    letterSpacing: undefined as string | undefined,
+  }
+  // Active state always uses text-primary + weight 500 minimum.
+  const nameColor = active ? 'var(--color-text-primary)' : nameTypo.color
+  const nameWeight = active ? Math.max(500, nameTypo.fontWeight) : nameTypo.fontWeight
 
-  // Phase 8.01.F T-9 — touch long-press → row More menu.
-  // The 800ms context-menu timer opens the same menu the desktop "More"
-  // (⋯) button opens. The 350ms drag timer is wired but react-arborist's
-  // drag mechanism is mouse-based; touch-initiated drag falls back to
-  // long-press → context-menu → use the existing menu actions. Real
-  // touch-drag is a Phase 8.x polish item.
   const didLongPressRef = useRef(false)
   const rowElRef = useRef<HTMLDivElement | null>(null)
   const longPressHandlers = useLongPress({
@@ -149,29 +142,19 @@ export function NodeRow({ node, style, dragHandle }: NodeRendererProps<ArboristN
     },
   })
 
-  // Note: react-arborist's outer wrapper already supplies
-  // role="treeitem" / aria-expanded / aria-level / aria-selected.
-  // We only attach aria-label here to avoid duplicate ARIA.
   return (
     <div
       ref={(el) => {
-        // Capture both refs — react-arborist's drag handle + our own for
-        // anchoring the context menu on touch long-press.
         if (typeof dragHandle === 'function') dragHandle(el)
         else if (dragHandle) (dragHandle as { current: HTMLDivElement | null }).current = el
         rowElRef.current = el
       }}
       aria-label={`${data.name ?? '(untitled)'}, ${data.status}`}
       onClick={() => {
-        // Phase 8.01.F T-9: ignore the synthetic click that fires after
-        // a long-press → context-menu sequence.
         if (didLongPressRef.current) {
           didLongPressRef.current = false
           return
         }
-        // V1.x-D.2: any interaction with the row counts as a view —
-        // clears the AI-changed dot (read-receipt model). Behaviour
-        // unchanged for internal vs leaf node selection.
         markNodeAsViewed(data.id)
         if (node.isInternal) {
           node.toggle()
@@ -187,24 +170,13 @@ export function NodeRow({ node, style, dragHandle }: NodeRendererProps<ArboristN
       onPointerCancel={longPressHandlers.onPointerCancel}
       style={{
         ...style,
-        // Phase 8.01.A T-5: 44px universal (was "36px desktop, 44px tablet").
-        // Component Spec v2.21 §4.2 wireframe lock.
         height: '44px',
         display: 'flex',
         alignItems: 'center',
         gap: '6px',
         paddingRight: '8px',
         background,
-        color: textColour,
-        fontSize: 'var(--text-sm)',
-        fontWeight,
         cursor: 'pointer',
-        // Active state: 2px verdigris left border (reservation #9).
-        // Use box-shadow inset so it doesn't shift the row content.
-        // Phase 8.01.C T-8 — mentioned-node also paints the verdigris
-        // left border (same verdigris use #9; second function under the
-        // existing use category; no Inviolable broadening). Active wins
-        // when both are true (visual priority).
         boxShadow: active
           ? 'inset 2px 0 0 var(--color-accent)'
           : isMentioned
@@ -214,7 +186,7 @@ export function NodeRow({ node, style, dragHandle }: NodeRendererProps<ArboristN
           : 'none',
       }}
     >
-      {/* Chevron — hidden (opacity 0) for leaves to preserve alignment */}
+      {/* Chevron */}
       <span
         aria-hidden="true"
         style={{
@@ -225,42 +197,37 @@ export function NodeRow({ node, style, dragHandle }: NodeRendererProps<ArboristN
           transition: 'transform var(--duration-fast)',
           transform: isOpen ? 'rotate(0deg)' : 'rotate(-90deg)',
           fontSize: '10px',
+          flexShrink: 0,
         }}
       >
         ▾
       </span>
 
-      {/* Locked glyph or type-icon placeholder.
-          User lock: 🔒 in --color-text-muted (existing convention).
-          V1.x-D.2: auto-lock — when an agent_job is queued or running
-          on this node, show 🔒 in --color-info with a small clock
-          overlay to disambiguate from user-lock (Component Spec §17.8). */}
       <NodeLockIndicator nodeId={data.id} userLocked={locked} />
 
-      {/* Phase 8.01.A T-5.1: bracketed monospace LayerLabel prefix for
-          structural nodes. Context nodes (characters, locations, themes,
-          etc.) render without a label — they have no canonical position
-          in the hierarchy. */}
-      {data.node_category === 'structural' && STRUCTURAL_LAYER_KINDS.has(data.node_type) && (
+      {/* Bracketed monospace LayerLabel prefix for structural nodes. */}
+      {layerKind && (
         <LayerLabel
-          layer={data.node_type as LayerKind}
+          layer={layerKind}
           position={data.order}
-          style={{ marginRight: '2px' }}
+          style={{ marginRight: '2px', flexShrink: 0 }}
         />
       )}
 
-      {/* Name — flex 1, truncate. Phase 8.01.C T-8: `@` prefix when this
-          node is referenced by an active mention in DirectorInput.
-          The prefix uses --color-accent (verdigris use #9 — same use as
-          the active-node left border and the mentioned-node left border;
-          informational reuse, no new use category). */}
+      {/* Name — flex 1, truncate. Per-layer typography. */}
       <span
+        data-testid="node-row-name"
         style={{
           flex: 1,
           minWidth: 0,
           whiteSpace: 'nowrap',
           overflow: 'hidden',
           textOverflow: 'ellipsis',
+          fontFamily: 'var(--font-inter), Inter, sans-serif',
+          fontSize: `${nameTypo.fontSize}px`,
+          fontWeight: nameWeight,
+          color: nameColor,
+          letterSpacing: nameTypo.letterSpacing,
         }}
       >
         {isMentioned && (
@@ -270,7 +237,6 @@ export function NodeRow({ node, style, dragHandle }: NodeRendererProps<ArboristN
             style={{
               color: 'var(--color-accent)',
               marginRight: 4,
-              fontFamily: 'var(--font-inter), Inter, sans-serif',
               fontSize: 11,
             }}
           >
@@ -280,34 +246,50 @@ export function NodeRow({ node, style, dragHandle }: NodeRendererProps<ArboristN
         {data.name ?? '(untitled)'}
       </span>
 
-      {/* V1.x-D.2 — AI-changed flag. Small dot in --color-info when the
-          node has been AI-changed since the author last viewed it on
-          this device (Component Spec §17.8). */}
+      {/* Word-count column — 46px progress bar + monospace ratio.
+          Only rendered when target is set; otherwise nothing (the
+          column collapses). */}
+      <NodeRowWordCount
+        actual={data.word_count_actual ?? 0}
+        target={data.word_count_target ?? 0}
+      />
+
       <NodeAiChangedDot nodeId={data.id} lastAiChangeAt={data.last_ai_change_at ?? null} />
 
-      {/* V1.x-D.2 — Lifecycle badge for active or completed-pending agent_jobs
-          (Component Spec §17.8). Renders alongside the status badge below. */}
+      {/* Status cluster — lifecycle badge for active agent jobs +
+          status badge for the node itself. */}
       <NodeLifecycle nodeId={data.id} />
-
-      {/* Status badge — replaced by AgentActivityIndicator-styled spinner
-          when a pending/running agent job targets this node (Phase 5,
-          Component Spec §4.4). */}
       <NodeWithAgentBadge nodeId={data.id} status={data.status} />
 
-      {/* Hover actions — visible on row hover; disabled when locked.
-          opacity transition keeps layout space stable. */}
+      {/* Hover actions — visible on row hover regardless of lock state.
+          Wireframe shows Expand / Refine / Comment / Lock; the live
+          functional surface is Add child / Agent (Phase 5+) / More.
+          Restyled to match the wireframe's compact pill aesthetic.
+
+          Lock-gating is per-button, not per-strip: Add child is
+          destructive (mutates structure) so it disables when locked.
+          More (⋯) stays enabled when locked because it contains the
+          Unlock affordance — gating the whole strip on `!locked`
+          would trap the user with no way out via mouse. (Touch
+          long-press already bypassed the strip.) */}
       <span
+        data-testid="node-row-actions"
         style={{
           display: 'flex',
-          gap: '4px',
-          opacity: hovered && !locked ? 1 : 0,
-          transition: 'opacity var(--duration-fast)',
+          alignItems: 'center',
+          gap: 0,
+          padding: 2,
+          background: hovered ? 'var(--color-bg-selected)' : 'transparent',
+          border: hovered
+            ? '1px solid var(--color-border-strong)'
+            : '1px solid transparent',
+          borderRadius: 4,
+          opacity: hovered ? 1 : 0,
+          pointerEvents: hovered ? 'auto' : 'none',
+          transition: 'opacity var(--duration-fast) ease',
           flexShrink: 0,
         }}
       >
-        {/* `+ Add child` is hidden on leaves so the UI mirrors the DB's
-            move_node layer_violation refusal (Migration 021). Component
-            Spec v2.2 §4.2 + TA v1.6 H-15. */}
         {!data.is_leaf && (
           <RowActionButton
             aria-label="Add child"
@@ -324,7 +306,6 @@ export function NodeRow({ node, style, dragHandle }: NodeRendererProps<ArboristN
         <RowActionButton
           aria-label="More"
           onClick={(e) => { e.stopPropagation(); actions.onMore?.(data.id, e.currentTarget) }}
-          disabled={locked}
           glyph="⋯"
         />
       </span>
@@ -339,14 +320,96 @@ interface RowActionButtonProps {
   'aria-label': string
 }
 
-/**
- * Wrapper that swaps NodeStatusBadge for the AgentActivityIndicator pulse
- * when an agent job is actively running on this node. Per Component Spec
- * §4.4: type icon (proxied here by the status badge container) opacity
- * pulses 1 → 0.4 → 1 over 2s ease-in-out infinite.
+function RowActionButton({ glyph, disabled, onClick, ...rest }: RowActionButtonProps) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={onClick}
+      aria-label={rest['aria-label']}
+      style={{
+        height: '20px',
+        minWidth: '22px',
+        padding: '0 6px',
+        border: 0,
+        background: 'transparent',
+        color: 'var(--color-text-secondary)',
+        cursor: disabled ? 'not-allowed' : 'pointer',
+        opacity: disabled ? 0.5 : 1,
+        fontSize: '11px',
+        lineHeight: 1,
+        borderRadius: 2,
+      }}
+    >
+      {glyph}
+    </button>
+  )
+}
+
+/** Per-row 46px word-count progress bar + monospace ratio.
+ *  Verdigris-gradient fill (use #4/#6 family — progress toward target,
+ *  same conceptual use as WordCount component; per-row variant).
  *
- * Falls through to the standard NodeStatusBadge when no job is active.
+ *  Phase 8.01 round-3 follow-up — no amber over-target colour. Going
+ *  over target is often the author's intent (a beat may legitimately
+ *  run long); the orange read as "something's wrong" when nothing was.
+ *  Bar fill stays verdigris-gradient and ratio text stays neutral
+ *  whether or not the actual exceeds the target.
  */
+function NodeRowWordCount({ actual, target }: { actual: number; target: number }) {
+  if (!target || target <= 0) {
+    return <span style={{ width: 130, flexShrink: 0 }} aria-hidden />
+  }
+  const pct = Math.min(100, Math.round((actual / target) * 100))
+  const fmt = new Intl.NumberFormat('en-US')
+  return (
+    <span
+      data-testid="node-row-wc"
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 6,
+        minWidth: 130,
+        flexShrink: 0,
+      }}
+    >
+      <span
+        data-testid="node-row-wc-bar"
+        style={{
+          width: 46,
+          height: 4,
+          background: 'var(--color-border-subtle)',
+          borderRadius: 2,
+          overflow: 'hidden',
+        }}
+      >
+        <span
+          style={{
+            display: 'block',
+            width: `${pct}%`,
+            height: '100%',
+            background:
+              'linear-gradient(90deg, var(--color-accent) 0%, var(--color-accent-hover) 100%)',
+            borderRadius: 2,
+          }}
+        />
+      </span>
+      <span
+        data-testid="node-row-wc-ratio"
+        style={{
+          fontFamily: 'ui-monospace, "JetBrains Mono", SFMono-Regular, Menlo, monospace',
+          fontSize: 10,
+          color: 'var(--color-text-muted)',
+          fontVariantNumeric: 'tabular-nums',
+          whiteSpace: 'nowrap',
+        }}
+      >
+        {fmt.format(actual)} / {fmt.format(target)}
+      </span>
+    </span>
+  )
+}
+
 function NodeWithAgentBadge({ nodeId, status }: { nodeId: string; status: string }) {
   const hasRunningJob = useNodeHasRunningJob(nodeId)
   if (hasRunningJob) {
@@ -368,38 +431,6 @@ function NodeWithAgentBadge({ nodeId, status }: { nodeId: string; status: string
   return <NodeStatusBadge status={status} />
 }
 
-function RowActionButton({ glyph, disabled, onClick, ...rest }: RowActionButtonProps) {
-  return (
-    <button
-      type="button"
-      disabled={disabled}
-      onClick={onClick}
-      aria-label={rest['aria-label']}
-      style={{
-        height: '22px',
-        minWidth: '22px',
-        padding: '0 6px',
-        border: '1px solid var(--color-border-subtle)',
-        borderRadius: '3px',
-        background: 'transparent',
-        color: 'var(--color-text-muted)',
-        cursor: disabled ? 'not-allowed' : 'pointer',
-        opacity: disabled ? 0.5 : 1,
-        fontSize: '11px',
-        lineHeight: 1,
-      }}
-    >
-      {glyph}
-    </button>
-  )
-}
-
-/**
- * V1.x-D.2 — small dot rendered before the status badge when the node
- * has been AI-changed since the author last viewed it on this device.
- * Uses --color-info (neutral teal — attention without alarm).
- * Component Spec §17.8. Cleared by markNodeAsViewed() on row click.
- */
 function NodeAiChangedDot({
   nodeId,
   lastAiChangeAt,
@@ -427,11 +458,6 @@ function NodeAiChangedDot({
   )
 }
 
-/**
- * V1.x-D.2 — Lifecycle badge mounted in NodeRow when the node has an
- * active or recently-completed agent_job. See NodeLifecycleBadge.tsx
- * for the visual spec.
- */
 function NodeLifecycle({ nodeId }: { nodeId: string }) {
   const job = useActiveJobForNode(nodeId)
   const lifecycle = lifecycleFromJobStatus(job?.status)

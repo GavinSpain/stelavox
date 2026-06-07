@@ -113,6 +113,46 @@ export function decorateWithLeaf<T extends NodeRow>(
   return { ...node, is_leaf }
 }
 
+/**
+ * Batch variant of getDocumentMaxLayerIndex. Returns Map<documentId, maxIndex>
+ * for the given documentIds. Documents whose layer_stacks row is missing,
+ * empty, or malformed are silently OMITTED from the map (no entry), instead
+ * of throwing — callers that aggregate across the org degrade gracefully
+ * if one document is in a bad state, rather than crashing the whole view.
+ *
+ * Used by org-spanning dashboard helpers (resumeWriting, projectAggregates,
+ * quickStartCompletion) and any other surface that needs leaf-ness for
+ * nodes spanning multiple documents in one round-trip.
+ *
+ * Routes that need hard data-integrity checks for a single document
+ * should keep using getDocumentMaxLayerIndex which throws.
+ */
+export async function getMaxLayerIndexByDocument(
+  supabase: Client,
+  documentIds: readonly string[],
+): Promise<Map<string, number>> {
+  const out = new Map<string, number>()
+  if (documentIds.length === 0) return out
+  const { data } = await supabase
+    .from('layer_stacks')
+    .select('document_id, layers')
+    .in('document_id', Array.from(new Set(documentIds)))
+    .eq('is_template', false)
+  for (const row of data ?? []) {
+    const layers = row.layers as Array<{ index?: unknown }> | null
+    if (!Array.isArray(layers) || layers.length === 0) continue
+    const indices: number[] = []
+    for (const l of layers) {
+      if (typeof l.index === 'number' && Number.isFinite(l.index)) {
+        indices.push(l.index)
+      }
+    }
+    if (indices.length === 0) continue
+    if (row.document_id) out.set(row.document_id, Math.max(...indices))
+  }
+  return out
+}
+
 // §2.12: returned fields. Excludes mobile_notes, attachment_count,
 // export_*, external_ref, created_by, last_modified_by, locked_at,
 // locked_version (Phase 2 doesn't surface them).

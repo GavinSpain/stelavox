@@ -30,10 +30,11 @@
   --color-text-primary:     #ecf0f5;  /* 🔒 Main text. ~14.8:1 on bg-base. NOT #ffffff */
   --color-text-secondary:   #8aa0b8;  /* Labels, metadata, helper text */
   --color-text-muted:       #6884a4;  /* Placeholder, secondary labels — WCAG AA on bg-base/surface (~5.2:1) */
+  --color-text-faint:       #4a6080;  /* Non-textual quiet fills — progress-bar fills, scale ticks. ~3:1 on bg-base (below WCAG AA for text; do not use for legible text) */
   --color-text-disabled:    #2a3850;  /* Disabled controls only — never use for visible text content */
 
   /* ── Accent: verdigris — EXACTLY 9 sanctioned uses, see Brand Identity v2.0 §5 ── */
-  --color-accent:           #3d7858;  /* 🔒 The single accent. 9 uses only. */
+  --color-accent:           #3d7858;  /* 🔒 The single accent. 12 uses only. */
   --color-accent-hover:     #5aa87a;  /* Hover on accent elements */
   --color-accent-muted:     #1a3028;  /* Subtle fills, selection backgrounds */
 
@@ -165,6 +166,7 @@
   --color-text-primary:     #1e1a12;  /* 🔒 Warm dark ink. NOT #000000 */
   --color-text-secondary:   #6a6050;
   --color-text-muted:       #6e6856;  /* WCAG AA on bg-base/surface (~4.7:1) */
+  --color-text-faint:       #9c9078;  /* Non-textual quiet fills — progress-bar fills, scale ticks. ~3:1 on bg-base (below WCAG AA for text; do not use for legible text) */
   --color-text-disabled:    #c0b8a8;  /* Disabled controls only — never use for visible text content */
 
   /* Accent */

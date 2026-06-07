@@ -106,7 +106,14 @@ export function DirectorMessage({
         marginBottom: 16,
       }}
     >
+      {/* Phase 8.01 wireframe-alignment round 3 — message metadata
+          strip per wireframe 05_director_mode_v1_iter1 .msg-meta:
+          9.5px / weight 600 / 0.32em uppercase, with a quieter time
+          on the right at 10px / 300. The verdigris ◆ glyph that used
+          to live here is now subsumed by the panel-header brand mark
+          (Brand Identity v2.4 §12 Inviolable #3 refinement). */}
       <div
+        data-testid="director-message-meta"
         style={{
           display: 'flex',
           alignItems: 'baseline',
@@ -117,17 +124,13 @@ export function DirectorMessage({
         <span
           style={{
             fontFamily: 'var(--font-inter), Inter, sans-serif',
-            fontWeight: 500,
-            fontSize: 10,
-            letterSpacing: '0.1em',
+            fontWeight: 600,
+            fontSize: 9.5,
+            letterSpacing: '0.32em',
             textTransform: 'uppercase',
-            color: 'var(--color-text-muted)',
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 4,
+            color: 'var(--color-accent-hover)',
           }}
         >
-          <span aria-hidden="true" style={{ color: 'var(--color-accent)' }}>◆</span>
           Director
         </span>
         <time
@@ -136,6 +139,7 @@ export function DirectorMessage({
             fontFamily: 'var(--font-inter), Inter, sans-serif',
             fontWeight: 300,
             fontSize: 10,
+            letterSpacing: '0.04em',
             color: 'var(--color-text-muted)',
           }}
         >
@@ -144,14 +148,25 @@ export function DirectorMessage({
       </div>
       {/* Phase 8.01.C T-5.1 — collapsed Reasoning chip above the prose body. */}
       {planText && <ReasoningChip text={planText} />}
+      {/* Phase 8.01 round-3 follow-up — Director body reverts from
+          Lora back to Inter. The v2.4 amendment had moved this body
+          into Lora on the rationale that the agent's response is
+          "the work being shaped"; the author found in the live build
+          that Lora reads too close to the prose-editor surface and
+          confuses the register. Inter restores the system-typed
+          "direction" framing — the Director speaks in chrome, like
+          the sidebar and headers. Brand Identity v2.5 walks back the
+          Lora portion of the v2.4 #4 refinement; the Inviolable #3
+          brand-mark portion is unchanged. */}
       <div
+        data-testid="director-message-body"
         aria-live={isStreaming ? 'polite' : undefined}
         style={{
           fontFamily: 'var(--font-inter), Inter, sans-serif',
           fontWeight: 400,
-          fontSize: 12,
+          fontSize: 13,
           lineHeight: 1.6,
-          color: 'var(--color-text-secondary)',
+          color: 'var(--color-text-primary)',
           whiteSpace: 'pre-wrap',
           wordBreak: 'break-word',
         }}

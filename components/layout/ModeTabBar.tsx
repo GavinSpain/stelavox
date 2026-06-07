@@ -17,6 +17,7 @@ import { useEffect, useState } from 'react'
 import { useMode, type AppMode } from './ModeContext'
 import { useSidebarProject } from './AppShell'
 import { createClient } from '@/lib/supabase/client'
+import { ensureRealtimeAuth } from '@/lib/supabase/realtime-auth'
 
 const TABS: ReadonlyArray<{ id: AppMode | 'focus'; label: string; selectable: boolean }> = [
   { id: 'edit',     label: 'Edit',     selectable: true  },
@@ -35,14 +36,24 @@ export function ModeTabBar() {
   // affordance. Hide entirely when no document client is mounted.
   if (!enabled) return null
 
+  // Phase 8.01 wireframe-alignment round 2: pill grouper per
+  // 02_edit_mode_v2_iter3.html .mode-tabs — --color-bg-surface bg, 1px
+  // --color-border-default border, 5px radius, 2px internal padding.
+  // Active tab gets --color-bg-selected (not --color-bg-surface — the
+  // grouper IS bg-surface so the active state needs a different tonal
+  // step).
   return (
     <div
       role="tablist"
+      data-testid="mode-tab-bar"
       style={{
         display: 'inline-flex',
-        background: 'var(--color-bg-base)',
-        padding: 4,
-        borderRadius: 6,
+        alignItems: 'center',
+        gap: 2,
+        background: 'var(--color-bg-surface)',
+        border: '1px solid var(--color-border-default)',
+        padding: 2,
+        borderRadius: 5,
       }}
     >
       {TABS.map((tab) => {
@@ -65,16 +76,19 @@ export function ModeTabBar() {
             style={{
               fontFamily: 'var(--font-inter), Inter, sans-serif',
               border: 'none',
-              background: active ? 'var(--color-bg-surface)' : 'transparent',
+              background: active ? 'var(--color-bg-selected)' : 'transparent',
               color: active
                 ? 'var(--color-text-primary)'
                 : 'var(--color-text-muted)',
-              fontWeight: active ? 500 : 400,
+              fontWeight: 500,
               fontSize: 12,
-              padding: '4px 14px',
-              borderRadius: 4,
+              padding: '5px 14px',
+              borderRadius: 3,
               cursor: disabled ? 'not-allowed' : 'pointer',
               opacity: disabled && !tab.selectable ? 0.5 : 1,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
               transition:
                 'background var(--duration-fast) var(--easing-smooth), ' +
                 'color var(--duration-fast) var(--easing-smooth)',
@@ -87,11 +101,11 @@ export function ModeTabBar() {
                 aria-label="Director has pending attention"
                 style={{
                   display: 'inline-block',
-                  marginLeft: 6,
                   width: 6,
                   height: 6,
                   borderRadius: 999,
-                  background: 'rgba(208, 153, 50, 0.95)',  // attention-amber, not verdigris
+                  background: 'var(--color-info)',  // wireframe uses running-bright blue
+                  boxShadow: '0 0 4px rgba(77,143,214,0.6)',
                   verticalAlign: 'middle',
                 }}
               />
@@ -134,15 +148,21 @@ function useDirectorPendingForDocument(documentId: string | null): boolean {
     void refresh()
 
     const supabase = createClient()
-    const channel = supabase
-      .channel(`director-tab:${documentId}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'conversation_messages' }, () => void refresh())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'briefs', filter: `document_id=eq.${documentId}` }, () => void refresh())
-      .subscribe()
+    let channel: ReturnType<typeof supabase.channel> | null = null
+    // Wait for auth before subscribing — see lib/supabase/realtime-auth.ts.
+    void (async () => {
+      await ensureRealtimeAuth(supabase)
+      if (cancelled) return
+      channel = supabase
+        .channel(`director-tab:${documentId}`)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'conversation_messages' }, () => void refresh())
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'briefs', filter: `document_id=eq.${documentId}` }, () => void refresh())
+        .subscribe()
+    })()
 
     return () => {
       cancelled = true
-      void supabase.removeChannel(channel)
+      if (channel) void supabase.removeChannel(channel)
     }
   }, [documentId])
 

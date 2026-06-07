@@ -23,6 +23,7 @@
 import { create } from 'zustand'
 import { useEffect, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { ensureRealtimeAuth } from '@/lib/supabase/realtime-auth'
 
 export interface AgentJob {
   id: string
@@ -152,25 +153,34 @@ export function useAgentJobsRealtime(organisationId: string | null): void {
     // F-201 (round-3 audit B3.5): wired the subscribe-status callback so
     // CHANNEL_ERROR / TIMED_OUT / CLOSED don't drop silently. See
     // handleRealtimeStatus above.
-    const channel = supabase
-      .channel(`agent-jobs:${organisationId}`)
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'agent_jobs', filter: `organisation_id=eq.${organisationId}` },
-        (payload) => {
-          if (payload.eventType === 'DELETE') {
-            const id = (payload.old as { id?: string }).id
-            if (id) removeJob(id)
-          } else {
-            upsertJob(payload.new as AgentJob)
-          }
-        },
-      )
-      .subscribe(handleRealtimeStatus)
+    //
+    // 2026-06-07 — wait for auth before subscribing. The org-id gate
+    // gave incidental protection against the anon-race bug
+    // (see lib/supabase/realtime-auth.ts) but explicit is safer.
+    let channel: ReturnType<typeof supabase.channel> | null = null
+    void (async () => {
+      await ensureRealtimeAuth(supabase)
+      if (cancelled) return
+      channel = supabase
+        .channel(`agent-jobs:${organisationId}`)
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'agent_jobs', filter: `organisation_id=eq.${organisationId}` },
+          (payload) => {
+            if (payload.eventType === 'DELETE') {
+              const id = (payload.old as { id?: string }).id
+              if (id) removeJob(id)
+            } else {
+              upsertJob(payload.new as AgentJob)
+            }
+          },
+        )
+        .subscribe(handleRealtimeStatus)
+    })()
 
     return () => {
       cancelled = true
-      void supabase.removeChannel(channel)
+      if (channel) void supabase.removeChannel(channel)
       clear()
     }
   }, [organisationId, upsertJob, removeJob, clear])
