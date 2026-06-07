@@ -49,6 +49,8 @@ import { PanelResizer } from './PanelResizer'
 import { ModeProvider } from './ModeContext'
 import { AppShellStatusIndicator } from './AppShellStatusIndicator'
 import { KeyboardShortcutsProvider } from '@/components/help/KeyboardShortcutsProvider'
+import { CommandPalette } from '@/components/command/CommandPalette'
+import { CommandBridge } from '@/components/command/CommandBridge'
 import { createClient } from '@/lib/supabase/client'
 import { useAgentJobsRealtime } from '@/lib/hooks/useAgentJobsRealtime'
 
@@ -328,9 +330,13 @@ function AppShellInner({ userEmail, children }: AppShellProps) {
       {/* Phase 8.4 — global keyboard shortcuts. Listens for `?` (opens
           help overlay) and ⌘K (dispatches command-palette open event
           for Phase 8.1 to catch). Both skip when focus is inside a
-          text-entry surface. Mounting at AppShell level means every
-          authenticated route gets the shortcuts. */}
+          text-entry surface. */}
       <KeyboardShortcutsProvider />
+      {/* Phase 8.1 — command palette + bridge for emit-event handlers
+          that aren't owned elsewhere (toggles, sign-out). Palette opens
+          on the COMMAND_PALETTE_OPEN_EVENT dispatched by ⌘K + SearchChip. */}
+      <CommandPalette />
+      <CommandBridge />
       {/* 2026-06-07 — ExportProgressStack removed. Exports live at the
           Project page → Export tab as the single entry point for both
           creation and review; the bottom-right chip stack was a duplicate

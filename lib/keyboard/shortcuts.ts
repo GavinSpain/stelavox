@@ -55,6 +55,7 @@ export const SHORTCUTS: ReadonlyArray<ShortcutEntry> = [
   // ─── Document ──────────────────────────────────────────────────────
   { id: 'export',     keyDisplay: '⌘⇧E', label: 'Export this document',    scope: 'document' },
   { id: 'enter-focus', keyDisplay: '⌘↵',  label: 'Enter Focus Mode on this leaf', scope: 'document' },
+  { id: 'mode-toggle', keyDisplay: '⌘.',  label: 'Toggle Edit ↔ Director mode',    scope: 'document' },
 
   // ─── Editor ────────────────────────────────────────────────────────
   { id: 'bold',   keyDisplay: '⌘B', label: 'Bold the selection',                  scope: 'editor' },

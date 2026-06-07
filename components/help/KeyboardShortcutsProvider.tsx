@@ -34,6 +34,15 @@ export const COMMAND_PALETTE_OPEN_EVENT = 'stelavox:command-palette:open'
 export function KeyboardShortcutsProvider() {
   const [helpOpen, setHelpOpen] = useState(false)
 
+  // Phase 8.1 — command palette can also open the help overlay via
+  // the "Show keyboard shortcuts" command. Same source of truth as
+  // the `?` keypress below.
+  useEffect(() => {
+    function onShow() { setHelpOpen(true) }
+    window.addEventListener('stelavox:command:show-shortcuts', onShow)
+    return () => window.removeEventListener('stelavox:command:show-shortcuts', onShow)
+  }, [])
+
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       // Skip if focus is inside a text-entry surface — `?` should type
