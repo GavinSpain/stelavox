@@ -121,13 +121,20 @@ describe.skipIf(!hasServiceKey)('Phase 7.C renderOutline', () => {
     expect(out).toMatch(/^# The Mars Series — Book 1/)
   })
 
-  it('renders Act / Chapter / Scene at correct heading depths', async () => {
+  it('renders Act / Chapter / Scene with bracketed layer labels', async () => {
+    // 2026-06-07 — the renderer prefixes each structural line with the
+    // canonical bracketed-monospace layer label (`[Act 1]`, `[Ch 1]`,
+    // `[Sc 1]`) instead of the old `##` / `###` / `####` headings.
+    // Document title stays `# Name`.
     if (!fix) throw new Error('no fixture')
     const walked = await walkDocument(svc, fix.documentId)
     const out = await renderOutline(walked.blocks, walked, {}, noopProgress)
-    expect(out).toMatch(/^## Act 1: The Departure/m)
-    expect(out).toMatch(/^### Chapter 1: The Letter/m)
-    expect(out).toMatch(/^#### At the door/m)
+    expect(out).toMatch(/^\[Act 1\] Act 1: The Departure/m)
+    expect(out).toMatch(/^\[Ch 1\] Chapter 1: The Letter/m)
+    expect(out).toMatch(/^\[Sc 1\] At the door/m)
+    // And no Markdown headings should creep into structural lines.
+    expect(out).not.toMatch(/^## Act/m)
+    expect(out).not.toMatch(/^### Chapter/m)
   })
 
   it('renders summary as blockquote', async () => {
@@ -143,9 +150,9 @@ describe.skipIf(!hasServiceKey)('Phase 7.C renderOutline', () => {
     if (!fix) throw new Error('no fixture')
     const walked = await walkDocument(svc, fix.documentId)
     const out = await renderOutline(walked.blocks, walked, { max_depth: 1 }, noopProgress)
-    expect(out).toMatch(/^## Act 1/m)
-    expect(out).not.toMatch(/^### Chapter/m)
-    expect(out).not.toMatch(/^#### At the door/m)
+    expect(out).toMatch(/^\[Act 1\] Act 1/m)
+    expect(out).not.toMatch(/^\[Ch /m)
+    expect(out).not.toMatch(/^\[Sc /m)
   })
 
   it('honours include_word_count_target toggle', async () => {
