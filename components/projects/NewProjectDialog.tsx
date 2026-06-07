@@ -1,5 +1,10 @@
 'use client'
 
+// Phase 8.3 — supports controlled mode so callers (Dashboard's empty
+// + populated canvases) can drive the dialog without owning the
+// DialogTrigger. Backward-compatible: when no props are passed, the
+// dialog renders its own "New project" trigger button.
+
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
@@ -16,9 +21,32 @@ const DOCUMENT_TYPES = [
   { value: 'series',      label: 'Series' },
 ]
 
-export default function NewProjectDialog() {
+export interface NewProjectDialogProps {
+  /** Controlled open state. Omit for uncontrolled (the dialog renders
+   *  its own trigger button). When provided, the caller is responsible
+   *  for opening + closing the dialog. */
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
+  /** Called after a successful POST /api/projects with the new project.
+   *  When provided, the dialog skips the default `router.refresh()`
+   *  navigation — the caller takes over (typically to navigate the
+   *  user into the new project). */
+  onCreated?: (result: { projectId: string; projectName: string }) => void
+}
+
+export default function NewProjectDialog({
+  open: controlledOpen,
+  onOpenChange,
+  onCreated,
+}: NewProjectDialogProps = {}) {
   const router = useRouter()
-  const [open, setOpen] = useState(false)
+  const [internalOpen, setInternalOpen] = useState(false)
+  const isControlled = controlledOpen !== undefined
+  const open = isControlled ? controlledOpen : internalOpen
+  const setOpen = isControlled
+    ? (o: boolean) => onOpenChange?.(o)
+    : setInternalOpen
+
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [docType, setDocType] = useState('novel')
@@ -47,14 +75,21 @@ export default function NewProjectDialog() {
       setError(body.message ?? body.error ?? 'Failed to create project.')
       return
     }
+    const body = await res.json().catch(() => ({}))
     setOpen(false)
     reset()
-    router.refresh()
+    if (onCreated && body?.project?.id) {
+      onCreated({ projectId: body.project.id, projectName: body.project.name ?? '' })
+    } else {
+      router.refresh()
+    }
   }
 
   return (
     <Dialog open={open} onOpenChange={o => { setOpen(o); if (!o) reset() }}>
-      <DialogTrigger style={primaryButtonStyle}>New project</DialogTrigger>
+      {!isControlled && (
+        <DialogTrigger style={primaryButtonStyle}>New project</DialogTrigger>
+      )}
       <DialogContent style={{ background: 'var(--color-bg-elevated)', border: '1px solid var(--color-border-default)' }}>
         <DialogHeader>
           <DialogTitle style={{ color: 'var(--color-text-primary)', fontSize: 'var(--text-lg)' }}>

@@ -394,23 +394,9 @@ export function NodeDetailPanel({ nodeId, refreshKey, onMutated, onClose, onSele
               <Trash2 size={14} />
             </button>
           )}
-          {onClose && (
-            <button
-              type="button"
-              onClick={onClose}
-              aria-label="Close detail panel"
-              style={{
-                background: 'transparent',
-                border: 'none',
-                color: 'var(--color-text-muted)',
-                cursor: 'pointer',
-                fontSize: '16px',
-                padding: '4px',
-              }}
-            >
-              ×
-            </button>
-          )}
+          {/* Phase 8.2 — close affordance removed. Selection changes
+              by clicking another tree row; there is no "deselected"
+              state on a document page. */}
         </div>
 
         {/* Phase 8.01 wireframe-alignment round 3 — meta row matches

@@ -1,16 +1,13 @@
 'use client'
 
 // Phase 8.01 wireframe-alignment round 2 — Header search chip.
-//
-// Visual chrome only for V1: clicking the chip is a no-op placeholder
-// until the global command-palette (Phase 8.1) is wired up. The chip
-// itself telegraphs the keyboard-first nature of the product, which is
-// half of why the wireframe header reads "professional tool" at a
-// glance.
+// Phase 8.4 — click now dispatches the same window event ⌘K does.
 //
 // Spec: docs/wireframes/wireframe_phase8_01_ux_consistency/02_edit_mode_v2_iter3.html
 //       .cmd-chip — --color-bg-surface background, --color-border-strong
 //       border, monospace kbd hint.
+
+import { COMMAND_PALETTE_OPEN_EVENT } from '@/components/help/KeyboardShortcutsProvider'
 
 interface SearchChipProps {
   /** Optional label override; defaults to "Search". */
@@ -23,7 +20,9 @@ export function SearchChip({ label = 'Search' }: SearchChipProps) {
       type="button"
       data-testid="header-search-chip"
       onClick={() => {
-        // Phase 8.1 hook point — open the command palette.
+        // Phase 8.4 — click and ⌘K go through the same window event;
+        // Phase 8.1's command palette listens for it.
+        window.dispatchEvent(new CustomEvent(COMMAND_PALETTE_OPEN_EVENT))
       }}
       style={{
         display: 'inline-flex',

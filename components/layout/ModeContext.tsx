@@ -62,6 +62,21 @@ export function ModeProvider({ children }: { children: ReactNode }) {
     return () => window.removeEventListener('keydown', onKey)
   }, [enabled])
 
+  // Phase 8.1 — command palette emit events for mode switching.
+  // The palette dispatches these when the user picks the
+  // "Switch to Edit / Director mode" item.
+  useEffect(() => {
+    if (!enabled) return
+    function onSwitchEdit() { setMode('edit') }
+    function onSwitchDirector() { setMode('director') }
+    window.addEventListener('stelavox:command:switch-mode-edit', onSwitchEdit)
+    window.addEventListener('stelavox:command:switch-mode-director', onSwitchDirector)
+    return () => {
+      window.removeEventListener('stelavox:command:switch-mode-edit', onSwitchEdit)
+      window.removeEventListener('stelavox:command:switch-mode-director', onSwitchDirector)
+    }
+  }, [enabled])
+
   // When the document client unmounts (route change away from a
   // document), reset to Edit so the next document opens in Edit by
   // default.

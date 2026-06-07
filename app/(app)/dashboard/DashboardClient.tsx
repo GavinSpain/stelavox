@@ -8,7 +8,6 @@
 // side state to open/close.
 
 import { useState } from 'react'
-import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 
 import { DashboardSidebar, type SidebarCounts } from '@/components/dashboard/DashboardSidebar'
@@ -17,6 +16,7 @@ import { NeedsAttentionStrip } from '@/components/dashboard/NeedsAttentionStrip'
 import { ProjectGrid } from '@/components/dashboard/ProjectGrid'
 import { PhilosophyStrip } from '@/components/dashboard/PhilosophyStrip'
 import { SampleNovelImportModal } from '@/components/dashboard/SampleNovelImportModal'
+import NewProjectDialog from '@/components/projects/NewProjectDialog'
 
 import type { ResumeWritingTarget } from '@/lib/dashboard/resumeWriting'
 import type { ProjectAggregate } from '@/lib/dashboard/projectAggregates'
@@ -39,10 +39,22 @@ export function DashboardClient({
 }: DashboardClientProps) {
   const router = useRouter()
   const [importOpen, setImportOpen] = useState(false)
+  // Phase 8.3 — onboarding fix. The dashboard hoists the New Project
+  // dialog state so both EmptyCanvas's "Get started" CTA (previously
+  // a no-op preventDefault link) and PopulatedCanvas's new "+ New
+  // project" affordance can open the same dialog, and the parent can
+  // route the user into the new project on creation.
+  const [newProjectOpen, setNewProjectOpen] = useState(false)
   const openImport = () => setImportOpen(true)
   const closeImport = () => setImportOpen(false)
+  const openNewProject = () => setNewProjectOpen(true)
   const handleImported = (r: { projectId: string; documentId: string }) => {
     router.push(`/projects/${r.projectId}/documents/${r.documentId}`)
+  }
+  const handleProjectCreated = (r: { projectId: string }) => {
+    // After creating a project, route the user to it. They land on
+    // the project page where they can create their first document.
+    router.push(`/projects/${r.projectId}`)
   }
 
   return (
@@ -72,13 +84,22 @@ export function DashboardClient({
           }}
         >
           {shape === 'populated' ? (
-            <PopulatedCanvas resumeTarget={resumeTarget} aggregates={aggregates} />
+            <PopulatedCanvas
+              resumeTarget={resumeTarget}
+              aggregates={aggregates}
+              onNewProject={openNewProject}
+            />
           ) : (
-            <EmptyCanvas onTrySample={openImport} />
+            <EmptyCanvas onTrySample={openImport} onGetStarted={openNewProject} />
           )}
         </main>
       </div>
       <SampleNovelImportModal open={importOpen} onClose={closeImport} onImported={handleImported} />
+      <NewProjectDialog
+        open={newProjectOpen}
+        onOpenChange={setNewProjectOpen}
+        onCreated={handleProjectCreated}
+      />
     </>
   )
 }
@@ -86,9 +107,11 @@ export function DashboardClient({
 function PopulatedCanvas({
   resumeTarget,
   aggregates,
+  onNewProject,
 }: {
   resumeTarget: ResumeWritingTarget | null
   aggregates: ProjectAggregate[]
+  onNewProject: () => void
 }) {
   return (
     <>
@@ -111,9 +134,32 @@ function PopulatedCanvas({
         >
           All projects
         </h2>
-        <span style={{ color: 'var(--color-text-muted)', fontSize: 12 }}>
-          {aggregates.length} {aggregates.length === 1 ? 'project' : 'projects'}
-        </span>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 16 }}>
+          {/* Phase 8.3 — affordance to create another project from the
+              populated dashboard. The empty dashboard has its own
+              verdigris "Get started" hero CTA; this is the smaller
+              recurring entry point. */}
+          <button
+            type="button"
+            data-testid="dashboard-new-project"
+            onClick={onNewProject}
+            style={{
+              background: 'transparent',
+              border: '1px solid var(--color-border-strong)',
+              borderRadius: 4,
+              padding: '5px 12px',
+              color: 'var(--color-text-primary)',
+              fontFamily: 'var(--font-inter), Inter, sans-serif',
+              fontSize: 12,
+              cursor: 'pointer',
+            }}
+          >
+            + New project
+          </button>
+          <span style={{ color: 'var(--color-text-muted)', fontSize: 12 }}>
+            {aggregates.length} {aggregates.length === 1 ? 'project' : 'projects'}
+          </span>
+        </div>
       </div>
       {(resumeTarget || true) && (
         <div
@@ -136,7 +182,7 @@ function PopulatedCanvas({
   )
 }
 
-function EmptyCanvas({ onTrySample }: { onTrySample: () => void }) {
+function EmptyCanvas({ onTrySample, onGetStarted }: { onTrySample: () => void; onGetStarted: () => void }) {
   return (
     <div
       style={{
@@ -181,8 +227,12 @@ function EmptyCanvas({ onTrySample }: { onTrySample: () => void }) {
         </p>
       </div>
       <div style={{ display: 'flex', gap: 14, margin: '18px 0 28px' }}>
-        <Link
-          href="/dashboard"
+        {/* Phase 8.3 — Get Started now opens the New Project dialog.
+            Previously this was a Link with preventDefault — the
+            primary onboarding CTA was a no-op since 8.01.D. */}
+        <button
+          type="button"
+          onClick={onGetStarted}
           data-testid="empty-get-started"
           style={{
             background: 'var(--color-accent)',
@@ -193,18 +243,11 @@ function EmptyCanvas({ onTrySample }: { onTrySample: () => void }) {
             fontFamily: 'var(--font-inter), Inter, sans-serif',
             fontSize: 13.5,
             fontWeight: 500,
-            textDecoration: 'none',
-          }}
-          onClick={(e) => {
-            // For V1 the "Get started" CTA opens the New Project dialog. Until
-            // we wire that here, fall back to a no-op (the link still routes
-            // to /dashboard which is the current page) so the button is
-            // never broken.
-            e.preventDefault()
+            cursor: 'pointer',
           }}
         >
           Get started
-        </Link>
+        </button>
         <button
           type="button"
           onClick={onTrySample}

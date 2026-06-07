@@ -48,6 +48,9 @@ import { useViewportBreakpoint } from '@/lib/hooks/useViewportBreakpoint'
 import { PanelResizer } from './PanelResizer'
 import { ModeProvider } from './ModeContext'
 import { AppShellStatusIndicator } from './AppShellStatusIndicator'
+import { KeyboardShortcutsProvider } from '@/components/help/KeyboardShortcutsProvider'
+import { CommandPalette } from '@/components/command/CommandPalette'
+import { CommandBridge } from '@/components/command/CommandBridge'
 import { createClient } from '@/lib/supabase/client'
 import { useAgentJobsRealtime } from '@/lib/hooks/useAgentJobsRealtime'
 
@@ -311,9 +314,30 @@ function AppShellInner({ userEmail, children }: AppShellProps) {
               }}
             >
               {rightSlotContent ?? (
-                <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <span style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-muted)' }}>
-                    Node detail
+                /* Phase 8.2 — rare empty state. On a document page the
+                   tree auto-selects on first load, so this surface is
+                   almost never visible. It still acts as a safety net
+                   for transitional moments (route change in progress,
+                   selected node deletion before the next selection
+                   resolves). Copy is concise on purpose. */
+                <div
+                  data-testid="right-slot-empty"
+                  style={{
+                    flex: 1,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 8,
+                    padding: 24,
+                    textAlign: 'center',
+                  }}
+                >
+                  <span style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-secondary)' }}>
+                    Select a node from the tree to see its details.
+                  </span>
+                  <span style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>
+                    Press <kbd style={kbdInlineHint}>?</kbd> for keyboard shortcuts.
                   </span>
                 </div>
               )}
@@ -324,6 +348,16 @@ function AppShellInner({ userEmail, children }: AppShellProps) {
       {/* V1.x-B.1.1 — persistent bottom-right status indicator. Fixed-position;
           non-blocking; visible from every screen (CS v2.10 §17.1). */}
       <AppShellStatusIndicator />
+      {/* Phase 8.4 — global keyboard shortcuts. Listens for `?` (opens
+          help overlay) and ⌘K (dispatches command-palette open event
+          for Phase 8.1 to catch). Both skip when focus is inside a
+          text-entry surface. */}
+      <KeyboardShortcutsProvider />
+      {/* Phase 8.1 — command palette + bridge for emit-event handlers
+          that aren't owned elsewhere (toggles, sign-out). Palette opens
+          on the COMMAND_PALETTE_OPEN_EVENT dispatched by ⌘K + SearchChip. */}
+      <CommandPalette />
+      <CommandBridge />
       {/* 2026-06-07 — ExportProgressStack removed. Exports live at the
           Project page → Export tab as the single entry point for both
           creation and review; the bottom-right chip stack was a duplicate
@@ -339,4 +373,15 @@ function AppShellInner({ userEmail, children }: AppShellProps) {
     </RightSlotContext.Provider>
     </SidebarProjectContext.Provider>
   )
+}
+
+const kbdInlineHint: React.CSSProperties = {
+  fontFamily: 'ui-monospace, "JetBrains Mono", SFMono-Regular, Menlo, monospace',
+  fontSize: 10,
+  color: 'var(--color-text-secondary)',
+  background: 'var(--color-bg-surface)',
+  border: '1px solid var(--color-border-subtle)',
+  borderRadius: 2,
+  padding: '1px 5px',
+  margin: '0 2px',
 }
