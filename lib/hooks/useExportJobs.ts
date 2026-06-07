@@ -206,7 +206,30 @@ export function useExportHistory(documentId: string | null): ExportJob[] {
 
     void fetchInitial()
 
-    const channel = supabase.channel(`export_jobs:doc:${documentId}`).on(
+    // 2026-06-07 — wait for the auth session to load BEFORE subscribing.
+    // `@supabase/ssr`'s browser client reads the JWT from cookies
+    // asynchronously; if we open the channel before that has happened,
+    // Realtime registers the subscription with role='anon' and silently
+    // drops every event the RLS policy would only authorise for the
+    // logged-in user. The auth-state-change listener does NOT
+    // retroactively re-authenticate existing channels, so once anon,
+    // always anon. Calling getSession() resolves cleanly when auth has
+    // loaded, then we subscribe with the JWT in place — registration
+    // lands as role='authenticated' and the RLS policy passes.
+    let channel: ReturnType<typeof supabase.channel> | null = null
+
+    void (async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (session?.access_token) {
+        // Make sure the Realtime socket has the current JWT before the
+        // subscribe handshake. Belt-and-braces: createBrowserClient's
+        // auth listener should also call this on token change, but
+        // we set it explicitly here to remove any timing dependency.
+        supabase.realtime.setAuth(session.access_token)
+      }
+      if (!mountedRef.current) return
+
+      channel = supabase.channel(`export_jobs:doc:${documentId}`).on(
       'postgres_changes',
       { event: '*', schema: 'public', table: 'export_jobs', filter: `document_id=eq.${documentId}` },
       (payload) => {
@@ -246,6 +269,7 @@ export function useExportHistory(documentId: string | null): ExportJob[] {
       // eslint-disable-next-line no-console
       console.info(`[useExportHistory] channel ${documentId} status:`, status)
     })
+    })()
 
     // 2026-06-07 — modal-dispatched event refresh. When ExportModal
     // POSTs /api/exports successfully, it dispatches a window event;
@@ -268,7 +292,7 @@ export function useExportHistory(documentId: string | null): ExportJob[] {
 
     return () => {
       mountedRef.current = false
-      void supabase.removeChannel(channel)
+      if (channel) void supabase.removeChannel(channel)
       window.removeEventListener(EXPORT_STARTED_EVENT, onExportStarted)
       window.removeEventListener('focus', onFocus)
       document.removeEventListener('visibilitychange', onVisibilityChange)
