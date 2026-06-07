@@ -14,6 +14,7 @@ import { useEffect, useState } from 'react'
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog'
+import { EXPORT_STARTED_EVENT } from '@/lib/hooks/useExportJobs'
 
 type ExportFormat = 'docx' | 'epub' | 'json' | 'outline'
 
@@ -109,6 +110,11 @@ function ExportModalBody({
       })
       if (res.ok) {
         const body = await res.json() as { export_job_id: string }
+        // 2026-06-07 — broadcast to mounted ExportHistoryPanel(s) so the
+        // new row appears immediately without waiting for Realtime.
+        window.dispatchEvent(new CustomEvent(EXPORT_STARTED_EVENT, {
+          detail: { documentId, exportJobId: body.export_job_id },
+        }))
         onExportStarted(body.export_job_id)
         onClose()
       } else {

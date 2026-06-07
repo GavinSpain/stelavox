@@ -162,6 +162,15 @@ export function useExportProgress(exportJobId: string | null): ExportJob | null 
   return job
 }
 
+/**
+ * Window CustomEvent name dispatched by ExportModal when a new export
+ * has been accepted by the API (POST /api/exports returned 202). The
+ * detail shape is { documentId: string }. ExportHistoryPanel listens
+ * for matching document_id values and refetches — instant visibility
+ * without depending on Realtime for the create case.
+ */
+export const EXPORT_STARTED_EVENT = 'stelavox:export-started'
+
 export function useExportHistory(documentId: string | null): ExportJob[] {
   const [jobs, setJobs] = useState<ExportJob[]>([])
 
@@ -200,11 +209,44 @@ export function useExportHistory(documentId: string | null): ExportJob[] {
           return filtered
         })
       },
-    ).subscribe()
+    ).subscribe((status) => {
+      // 2026-06-07 — surface channel status so a silent Realtime failure
+      // (CHANNEL_ERROR / TIMED_OUT / CLOSED) shows up in console. The
+      // hook still works without Realtime thanks to the event + focus
+      // refetch paths below.
+      if (status !== 'SUBSCRIBED') {
+        // eslint-disable-next-line no-console
+        console.debug(`[useExportHistory] channel status for ${documentId}:`, status)
+      }
+    })
+
+    // 2026-06-07 — modal-dispatched event refresh. When ExportModal
+    // POSTs /api/exports successfully, it dispatches a window event;
+    // we refetch immediately so the new row shows up without waiting
+    // for the Realtime INSERT broadcast.
+    function onExportStarted(e: Event) {
+      const detail = (e as CustomEvent<{ documentId?: string }>).detail
+      if (detail?.documentId === documentId) void fetchInitial()
+    }
+    window.addEventListener(EXPORT_STARTED_EVENT, onExportStarted)
+
+    // 2026-06-07 — tab-focus + visibility refetch. Covers the common
+    // case of triggering an export, tabbing away, and coming back. The
+    // refetch is cheap (one query, 50-row cap) and fills any gap a
+    // missed Realtime event would have left.
+    function onFocus() { void fetchInitial() }
+    function onVisibilityChange() {
+      if (document.visibilityState === 'visible') void fetchInitial()
+    }
+    window.addEventListener('focus', onFocus)
+    document.addEventListener('visibilitychange', onVisibilityChange)
 
     return () => {
       mounted = false
       void supabase.removeChannel(channel)
+      window.removeEventListener(EXPORT_STARTED_EVENT, onExportStarted)
+      window.removeEventListener('focus', onFocus)
+      document.removeEventListener('visibilitychange', onVisibilityChange)
     }
   }, [documentId])
 
