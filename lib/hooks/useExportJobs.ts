@@ -210,6 +210,18 @@ export function useExportHistory(documentId: string | null): ExportJob[] {
       'postgres_changes',
       { event: '*', schema: 'public', table: 'export_jobs', filter: `document_id=eq.${documentId}` },
       (payload) => {
+        // 2026-06-07 DIAGNOSTIC — log every event the channel receives.
+        // Distinguishes "events arrive but the hook drops them" from
+        // "events don't arrive at all". Demote / remove once the
+        // Realtime path is confirmed end-to-end.
+        // eslint-disable-next-line no-console
+        console.info(
+          `[useExportHistory] event for ${documentId}:`,
+          payload.eventType,
+          (payload.new as { id?: string; status?: string } | undefined)?.id,
+          (payload.new as { id?: string; status?: string } | undefined)?.status,
+        )
+
         if (!mountedRef.current) return
         const newRow = payload.new as ExportJob | undefined
         const oldRow = payload.old as ExportJob | undefined
@@ -263,19 +275,12 @@ export function useExportHistory(documentId: string | null): ExportJob[] {
     }
   }, [documentId, fetchInitial])
 
-  // 2026-06-07 — short-interval polling while any export is in-flight.
-  // On environments where Realtime postgres_changes UPDATE events drop
-  // silently (observed locally during V1 testing), this is the
-  // mechanism that drives queued → planning → rendering → completed
-  // transitions live in the panel. The interval stops the moment the
-  // panel has no in-flight rows — so on an idle history view there is
-  // zero background traffic.
-  const hasInFlight = jobs.some(j => IN_FLIGHT_FOR_POLL.has(j.status))
-  useEffect(() => {
-    if (!hasInFlight || !documentId) return
-    const id = setInterval(() => { void fetchInitial() }, POLL_INTERVAL_MS)
-    return () => clearInterval(id)
-  }, [hasInFlight, documentId, fetchInitial])
+  // 2026-06-07 — polling fallback removed for Realtime diagnosis. The
+  // user wants the root cause of Realtime not delivering UPDATE events
+  // properly diagnosed before we keep a workaround in place. If
+  // Realtime is broken, the panel will visibly stay at "Queued" until
+  // tab focus refetches — that's the symptom we want to see while
+  // chasing the underlying issue.
 
   return jobs
 }
