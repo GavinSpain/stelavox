@@ -9,6 +9,22 @@ import Link from 'next/link'
 export default function SettingsIndexPage() {
   return (
     <div style={{ maxWidth: 720, margin: '0 auto', padding: '24px 32px' }}>
+      {/* Phase 8 nav: explicit back-affordance. Sub-pages of /settings
+         already use the ← Settings pattern; the landing page was the
+         odd-one-out with no breadcrumb home except the Wordmark. */}
+      <div style={{ marginBottom: 16 }}>
+        <Link
+          href="/dashboard"
+          style={{
+            fontSize: 12,
+            color: 'var(--color-text-secondary)',
+            textDecoration: 'none',
+            fontFamily: 'var(--font-inter), Inter, sans-serif',
+          }}
+        >
+          ← Dashboard
+        </Link>
+      </div>
       <h1
         style={{
           fontFamily: 'var(--font-inter), Inter, sans-serif',

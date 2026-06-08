@@ -241,15 +241,33 @@ export function Sidebar({ projectName: projectNameProp, documentName: documentNa
             >
               Project
             </div>
-            <div
-              style={{
-                fontSize: 'var(--text-sm)',
-                color: 'var(--color-text-primary)',
-                fontWeight: 500,
-              }}
-            >
-              {projectName ?? '—'}
-            </div>
+            {/* Phase 8 nav refactor: project name is a Link to the
+               project page, giving authors an explicit back-path from
+               document → project (previously plain text; only escape
+               was Wordmark → /dashboard). */}
+            {projectId ? (
+              <Link
+                href={`/projects/${projectId}`}
+                style={{
+                  fontSize: 'var(--text-sm)',
+                  color: 'var(--color-text-primary)',
+                  fontWeight: 500,
+                  textDecoration: 'none',
+                }}
+              >
+                {projectName ?? '—'}
+              </Link>
+            ) : (
+              <div
+                style={{
+                  fontSize: 'var(--text-sm)',
+                  color: 'var(--color-text-primary)',
+                  fontWeight: 500,
+                }}
+              >
+                {projectName ?? '—'}
+              </div>
+            )}
             {documentName && (
               <div
                 style={{

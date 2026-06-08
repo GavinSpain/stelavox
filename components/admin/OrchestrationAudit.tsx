@@ -99,6 +99,19 @@ export function OrchestrationAudit() {
 
   return (
     <div style={{ padding: '24px', maxWidth: 1200, margin: '0 auto', fontFamily: 'var(--font-inter)' }}>
+      {/* Phase 8 nav: explicit back-affordance to the admin landing. */}
+      <div style={{ marginBottom: 16 }}>
+        <a
+          href="/admin"
+          style={{
+            fontSize: 12,
+            color: 'var(--color-text-secondary)',
+            textDecoration: 'none',
+          }}
+        >
+          ← Admin
+        </a>
+      </div>
       <h1 style={{ fontSize: 24, fontWeight: 600, marginBottom: 8 }}>Orchestration audit</h1>
       <p style={{ color: 'var(--color-text-secondary)', marginBottom: 24, fontSize: 14 }}>
         Apollo-grade state-machine integrity check. Empty → system is in a known consistent state.
