@@ -1,9 +1,11 @@
 # Stelavox Document Load Architecture
-## Version 1.1
+## Version 1.2
 **Date:** 2026-06-08
-**Status:** Draft v1.1 — for user review before any code lands
+**Status:** Authoritative — B.1 through B.5c shipped; B.6 in progress
 
-> **v1.1 audit pass.** v1.0 was an architecture sketch; this revision absorbs the C1–C10 + I-tier findings from the 2026-06-08 critical audit. New material: concrete code inventory (§0.2), existing scaffolding pointers (§3.0, §5.0), typed query-key factories (§3.3.1), ordering guarantees for Realtime-before-fetch (§3.4.1), App Router gotchas (§3.6.1), SSR data-source decision (§3.6.2), error handling and failure UX (§3.7), loading-state vocabulary (§3.7.1), observability (§3.8), TypeScript type-contracts (§2.5), correction of the "channel per session" claim to per-tab reality (§5.2), CI mechanism decision (§7.1), pagination revisit thresholds (§11.1). Existing sections retained substantially with reference updates.
+> **v1.2 amendment.** B.5c shipped 2026-06-08 closing the Realtime multiplex migration. v1.2 adds §5.7 — B.6 idle-tab channel close — and renumbers the §10 phase plan (bundle slim demotes from B.6 to B.7). The Tier-A §5.3 cap raise (10 → 12 topics) absorbed in B.5c remains; H-34 status updates from "accepted" to "partially addressed by B.6". The previously-V2 BroadcastChannel idea demotes to a deferred candidate gated on observed need — idle-close hits the bigger problem (idle holding) with much smaller implementation cost.
+
+> **v1.1 audit pass.** v1.0 was an architecture sketch; v1.1 absorbed the C1–C10 + I-tier findings from the 2026-06-08 critical audit. New material then: concrete code inventory (§0.2), existing scaffolding pointers (§3.0, §5.0), typed query-key factories (§3.3.1), ordering guarantees for Realtime-before-fetch (§3.4.1), App Router gotchas (§3.6.1), SSR data-source decision (§3.6.2), error handling and failure UX (§3.7), loading-state vocabulary (§3.7.1), observability (§3.8), TypeScript type-contracts (§2.5), correction of the "channel per session" claim to per-tab reality (§5.2), CI mechanism decision (§7.1), pagination revisit thresholds (§11.1).
 
 ---
 
@@ -702,7 +704,9 @@ Each component subscribes its own Realtime channel; total active channels per ta
 
 **One persistent Supabase Realtime channel per browser tab**, named `user:{userId}` (where userId comes from the authenticated session). The channel subscribes to a curated set of `postgres_changes` filters that cover everything that tab might care about. A client-side demuxer fans out events to registered listeners by topic.
 
-**Correction from v1.0.** v1.0 called this "per user session" but a "session" in Supabase Auth terms is per-tab. A user with 5 tabs has 5 channels under v1.1's design. Cross-tab coordination (using BroadcastChannel API to fan one channel out across tabs) is a V2 optimisation — see §11 out-of-scope list.
+**Correction from v1.0.** v1.0 called this "per user session" but a "session" in Supabase Auth terms is per-tab. A user with 5 tabs holds 5 channels in the baseline design.
+
+**v1.2 — B.6 idle-tab close lands.** A tab whose `document.visibilityState` has been `'hidden'` continuously for 10 minutes drops its channel until visibility returns. See §5.7 for the design. Cross-tab coordination (using BroadcastChannel API to fan one channel out across same-browser tabs) was previously the V2 candidate here; idle-close hits the bigger problem (idle-holding cost) with much smaller implementation, so BroadcastChannel demotes to a later candidate, gated on post-launch metrics showing heavy active-multi-tab usage.
 
 Sketch:
 
@@ -794,6 +798,28 @@ Substrate hook handles reconnection with the same logic existing code uses today
 ### 5.6 Backwards compatibility during migration
 
 The migration in sub-phase B.5 lands the substrate *first*, then consumers migrate one at a time. Each consumer migration is its own commit. Old per-channel code paths stay in place until their consumer is migrated. The final commit of B.5 deletes the old helpers when no consumer remains.
+
+**Status (v1.2):** B.5 + B.5b + B.5c shipped. No production consumer opens a standalone `supabase.channel()` anymore. Section retained for historical reference.
+
+### 5.7 Idle-tab channel close (B.6)
+
+**Problem.** A tab that hasn't been focused in a long time still holds a Realtime channel slot against the Supabase Pro 500-channel cap. Idle holding is a major contributor to channel pressure at scale: a user with 5 tabs at lunch holds 5 channels for the whole break. The §5.5 reconnect cascade handles unplanned drops (PC sleep, network blip) cleanly via `refetchOnReconnect: 'always'`, so a *planned* drop on visibility=hidden is structurally identical to those cases the system already handles.
+
+**Design.** A `useTabIsActive` hook tracks `document.visibilityState` + a 10-minute idle timer. When the tab transitions to hidden, the timer starts; if visibility returns to visible before it elapses, the timer resets. When the timer fires, the hook returns `false`. A `ChannelGate` component wraps `UserRealtimeChannel` in `app/(app)/layout.tsx` and conditionally mounts it — `active=false` unmounts the channel; `active=true` mounts it. Unmount path calls the existing `useEffect` cleanup which calls `supabase.removeChannel(channel)`. On re-mount, the existing connect cascade runs: `ensureRealtimeAuth` re-runs, the 12 topic filters re-register, the subscribe callback flips status to `connected`, and TanStack's `refetchOnReconnect: 'always'` brings active queries to current state.
+
+**Threshold.** 10 minutes hardcoded in v1.2. Tunable to a `platform_config` key later if metrics show wanting to tighten or loosen. Rationale: 10 minutes is long enough that brief tab-switching (alt-tab to look something up) doesn't trip the timer, and short enough that lunch breaks are caught. Empirically observed user behaviour post-launch will adjust this.
+
+**Signal scope.** Primary signal is `document.visibilityState === 'hidden'`. Visible-but-no-input (the "reading the same paragraph for 12 minutes" case) is NOT in scope for B.6 — a visible tab is treated as active regardless of input. Adding input-tracking as a secondary signal is a separate sub-phase if metrics show meaningful capacity benefit.
+
+**Subscriber lifecycle.** `useRealtimeTopic` subscribers register with the module-level demuxer, which is unaffected by channel mount state. During idle-close, subscribers stay registered; no events dispatch because no events arrive. On channel reopen, subscribers are already in place; the first event after reopen dispatches normally.
+
+**Patcher mount.** `NodesPatcherMount` is structurally independent of the user channel — it just registers a `useRealtimeTopic('nodes', ...)` subscriber. It stays mounted across idle-close transitions. The `window.__stelavox_nodes_patcher_mounted` marker stays `true` because the patcher is mounted; NodeTree's gate behaves correctly (skip-invalidate) because TanStack's `refetchOnReconnect` provides the catch-up path.
+
+**RealtimeBadge during idle.** The badge listens to channel status. During idle-close, the channel cleanup flips `globalStatus` to `'connecting'`, which would normally show the reconnect badge. The badge is silent during intentional idle (the close was deliberate, not a failure) — implementation passes an explicit "idle" flag down so the badge can distinguish "we hung up" from "we got dropped". Brief reconnect flash on tab return is acceptable UX.
+
+**Capacity multiplier.** Conservative case (1 active tab + 4 idle background tabs for a typical user): user holds 1 channel during idle windows instead of 5 — 5× improvement on that user's channel cost during those windows. Aggregate: average channels-per-user could drop from the baseline 1.5 (used in §5.2 math) to ~0.7, more than doubling concurrent-user headroom on the same Supabase Pro plan.
+
+**Out of scope for B.6.** BroadcastChannel-based cross-tab coordination (one channel shared across same-browser tabs) — deferred to a later sub-phase, gated on observed need. Configurable threshold via platform_config — deferred. Input-tracking secondary signal (visible-but-idle close) — deferred.
 
 ---
 
@@ -896,7 +922,7 @@ Cold cache + Realtime event in flight: `setQueryData` on an empty cache + subseq
 
 ### H-34 — Cross-tab Realtime channel multiplication
 
-A user opens 5 tabs → 5 `user:{userId}` channels → 5× channel cost. Supabase Pro 500-cap fires earlier than the per-user model assumes. **Mitigation:** v1.1 design accepts this; multi-user scaling math in §5.2 uses tabs not users. Cross-tab coordination via BroadcastChannel API is V2 candidate. **Status:** accepted; revisit if average tabs/user crosses 2.0.
+A user opens 5 tabs → 5 `user:{userId}` channels → 5× channel cost. Supabase Pro 500-cap fires earlier than the per-user model assumes. **Mitigation:** v1.1 design accepted this; v1.2 B.6 partially addresses it by idle-tab close — backgrounded tabs drop their channel after 10 minutes of `visibilityState='hidden'`. Active multi-tab usage (user actively switching between many tabs) is still cost-multiplicative; BroadcastChannel-based cross-tab coordination is the further mitigation, deferred to a later sub-phase gated on observed need. **Status:** partially addressed by B.6 idle-close; revisit if post-launch metrics show active-multi-tab usage as the dominant cost shape.
 
 ### H-35 — Optimistic update overlap
 
@@ -915,8 +941,9 @@ These six hazards (H-29 through H-35) join the existing H-01..H-28 in `docs/stel
 | B.3 — Client cache | TanStack Query + Realtime patching + error UI | In-doc navigation feels instant | 2 |
 | B.4 — RSC seed | Server dehydrates query cache | Cold doc open noticeably faster | 1 |
 | B.5 — Realtime multiplex | Channel-per-tab with demuxer; 11 consumers migrated | Scales to ~330 concurrent users on Supabase Pro | 3 |
-| B.6 — Bundle slim | docx/epub leak fix + dynamic imports + husky pre-push budget | Cold load ~50-80 KB lighter | 1 |
-| **Total** | | | **10 sessions** |
+| B.6 — Idle-tab channel close | useTabIsActive hook + ChannelGate wrap + idle-aware RealtimeBadge | Average channels/user drops from ~1.5 to ~0.7; concurrent-user headroom more than doubles | 1 |
+| B.7 — Bundle slim | docx/epub leak fix + dynamic imports + husky pre-push budget | Cold load ~50-80 KB lighter | 1 |
+| **Total** | | | **11 sessions** |
 
 Detailed work-item breakdown in `docs/stelavox_phase8_5b_build_checklist_v1_0.md`.
 
@@ -933,7 +960,7 @@ Out of scope for V1.0:
 - **Postgres read replicas.** Not needed at V1 scale; signalled here as the V2 scaling lever.
 - **Anthropic API redesign.** Director and agent endpoints already use streaming + caching + BYOK. No changes in this phase.
 - **Self-hosted Realtime.** V2+ scaling lever beyond what Supabase Team can deliver.
-- **Cross-tab Realtime channel coordination via BroadcastChannel API.** V2+; current spec accepts per-tab multiplication (see H-34).
+- **Cross-tab Realtime channel coordination via BroadcastChannel API.** Deferred to a later sub-phase, gated on post-launch metrics showing heavy active-multi-tab usage. B.6 idle-close (§5.7) hits the larger problem (idle-holding) with much smaller implementation cost.
 - **GitHub Actions / cloud CI.** V2+; current spec uses Husky pre-push hook (§7.1).
 - **Streaming SSR (`@tanstack/react-query-next-experimental`).** V2+; current spec uses standard `dehydrate`/`hydrate`.
 

@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { AppShell } from '@/components/layout/AppShell'
 import { QueryProvider } from './QueryProvider'
 import { NodesPatcherMount } from '@/lib/queries/NodesPatcherMount'
-import { UserRealtimeChannel } from '@/lib/realtime/useUserChannel'
+import { ChannelGate } from '@/lib/realtime/ChannelGate'
 import { RealtimeBadge } from '@/components/feedback/RealtimeBadge'
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
@@ -33,12 +33,16 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   // Phase 8.5b B.5 — UserRealtimeChannel opens the SINGLE multiplexed
   // user channel (Tier-A §5.2). Per-component consumers subscribe via
   // useRealtimeTopic and receive demuxed events. RealtimeBadge surfaces
-  // disconnect status. B.5 substrate ships alongside the existing
-  // per-resource hooks until each is migrated; both can run side by
-  // side because they listen on different channel names.
+  // disconnect status.
+  //
+  // Phase 8.5b B.6 — ChannelGate wraps UserRealtimeChannel and unmounts
+  // it after 10 min of `document.visibilityState='hidden'`. Background
+  // tabs free their Supabase channel slot; the gate re-mounts on tab
+  // return and TanStack's refetchOnReconnect catches active queries up.
+  // See Tier-A §5.7.
   return (
     <QueryProvider>
-      <UserRealtimeChannel userId={user.id} orgId={orgId} />
+      <ChannelGate userId={user.id} orgId={orgId} />
       <NodesPatcherMount orgId={orgId} />
       <AppShell userEmail={user.email ?? ''}>{children}</AppShell>
       <RealtimeBadge />
