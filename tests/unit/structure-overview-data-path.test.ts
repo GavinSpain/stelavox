@@ -88,6 +88,12 @@ function nodesChain(
       return chain
     },
     order() { return chain },
+    // Phase 8.5b B.1 — computeChildActualAggregates now paginates the
+    // all-document fetch via .range(offset, offset + pageSize - 1) to
+    // sidestep PostgREST's 1000-row default cap. The mock supports
+    // .range() as a no-op pass-through — single-page returns suffice
+    // for unit tests whose fixtures are well below the cap.
+    range() { return chain },
     returns() { return chain },
     then(resolve: (v: { data: ChildRow[] | DescendantRow[]; error: null }) => void) {
       if (sawParentId) resolve({ data: children, error: null })

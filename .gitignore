@@ -23,6 +23,10 @@ test-rpc.mjs
 # fixtures/director-corpus/j5-novel/baselines.md is the curated record)
 /results
 
+# Phase 8.5 perf measurement run artifacts (regenerable JSON;
+# docs/stelavox_phase8_5_perf_baseline_v1_0.md is the curated record)
+docs/perf/
+
 # Claude Code session-runtime files (per-session lock state)
 .claude/scheduled_tasks.lock
 
