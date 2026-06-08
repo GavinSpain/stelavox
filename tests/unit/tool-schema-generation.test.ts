@@ -33,15 +33,6 @@ describe('B6.1 — F-81: tool input schemas are generated from Zod', () => {
     expect(schema.additionalProperties).toBe(false)
   })
 
-  // 2026-05-19 Phase 3 of create_*_step deprecation: the per-step
-  // input-schemas were removed from ToolInputSchemas. Per-op-type
-  // parameter validation now lives in propose_brief's StepSchema
-  // (lib/brief/proposalBuilder.ts), exercised by the m181-phase1
-  // tests directly against execProposeBrief.
-  it.skip('SUPERSEDED — create_refine_step input schema (Phase 3 removed; replaced by StepSchema in proposalBuilder)', () => {})
-  it.skip('SUPERSEDED — create_context_step input schema (Phase 3 removed)', () => {})
-  it.skip('SUPERSEDED — create_node_reorder_step input schema (Phase 3 removed)', () => {})
-
   it('current ToolInputSchemas entries all generate without error', () => {
     const names = [
       'get_project_profile', 'get_brief_state', 'get_document_state',

@@ -102,49 +102,6 @@ function session(overrides: Partial<DirectorSession> = {}): DirectorSession {
 }
 
 describe('TC-S-02 — validateToolCall blocks locked-node write', () => {
-  // 2026-05-19 Phase 2 of create_*_step deprecation: the per-step
-  // create_*_step tools are no longer registered as write tools. The
-  // locked-node defence for workflow steps now lives in propose_brief's
-  // per-step diagnostics (see tests/unit/m181-phase1-per-step-validation:
-  // "rejects a rename targeting a locked node with per_step_errors").
-  // After Phase 2, validateToolCall returns 'unknown_tool' for the
-  // deprecated step tools; the locked-node check is exercised via
-  // propose_brief's per-step lock validator.
-  it.skip('SUPERSEDED — denies create_refine_step targeting a locked chapter (was node_locked, now unknown_tool)', async () => {
-    if (!fixture) throw new Error('fixture not seeded')
-    const result = await validateToolCall({
-      toolName: 'create_refine_step',
-      arguments: {
-        target_node_id: fixture.lockedChapterId,
-        target_field: 'summary',
-        instruction: 'tighten',
-        description: 'Should be denied — chapter is locked.',
-        estimated_duration_seconds: 30,
-      },
-      session: session(),
-    })
-    expect(result.allowed).toBe(false)
-    if (!result.allowed) {
-      expect(result.reason).toBe('node_locked')
-    }
-  })
-
-  it.skip('SUPERSEDED — allows create_refine_step targeting an unlocked chapter', async () => {
-    if (!fixture) throw new Error('fixture not seeded')
-    const result = await validateToolCall({
-      toolName: 'create_refine_step',
-      arguments: {
-        target_node_id: fixture.unlockedChapterId,
-        target_field: 'summary',
-        instruction: 'tighten',
-        description: 'Permitted — chapter is not locked.',
-        estimated_duration_seconds: 30,
-      },
-      session: session(),
-    })
-    expect(result.allowed).toBe(true)
-  })
-
   it('Phase 2: deprecated create_*_step tools are denied by validateToolCall', async () => {
     // After Phase 2, create_refine_step is no longer registered as a
     // write tool. ToolInputSchemas still has the entry (Phase 3 cleanup
@@ -170,26 +127,4 @@ describe('TC-S-02 — validateToolCall blocks locked-node write', () => {
     expect(result.allowed).toBe(true)
   })
 
-  it.skip('SUPERSEDED — denies create_refine_step against a fabricated UUID (was cross_org_access_denied)', async () => {
-    // Phase 2: create_refine_step returns unknown_tool from
-    // validateToolCall before reaching the org-scope check. The
-    // cross-org defence for workflow steps now lives in propose_brief's
-    // target-existence check (lib/director/tools/write.ts:checkNodesExist
-    // scopes by organisation_id + document_id).
-    const result = await validateToolCall({
-      toolName: 'create_refine_step',
-      arguments: {
-        target_node_id: 'b2c3d4e5-f678-4abc-9def-0123456789ab',
-        target_field: 'summary',
-        instruction: 'fabricated',
-        description: 'Fabricated node id.',
-        estimated_duration_seconds: 30,
-      },
-      session: session(),
-    })
-    expect(result.allowed).toBe(false)
-    if (!result.allowed) {
-      expect(result.reason).toBe('cross_org_access_denied')
-    }
-  })
 })
