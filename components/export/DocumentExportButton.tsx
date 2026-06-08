@@ -11,7 +11,17 @@
  */
 
 import { useEffect, useState } from 'react'
-import { ExportModal } from './ExportModal'
+import dynamic from 'next/dynamic'
+
+// Phase 8.5b B.7 — ExportModal dynamic-imported. The modal's dialog
+// primitives + format tile + profile picker + history shouldn't ship in
+// the document-route bundle; they're only needed when the user opens
+// the export dialog. The JSX below is gated on `open === true` so the
+// chunk is fetched lazily on first open, not on initial render.
+const ExportModal = dynamic(
+  () => import('./ExportModal').then((m) => m.ExportModal),
+  { ssr: false },
+)
 
 interface DocumentExportButtonProps {
   projectId: string
@@ -58,17 +68,19 @@ export function DocumentExportButton({ projectId, documentId, documentName }: Do
         📄 Export
       </button>
 
-      <ExportModal
-        open={open}
-        documentId={documentId}
-        projectId={projectId}
-        documentName={documentName}
-        onClose={() => setOpen(false)}
-        onExportStarted={() => {
-          // Modal closes; ExportProgressStack at AppShell-level picks up
-          // the new export_jobs row via Realtime and renders its chip.
-        }}
-      />
+      {open ? (
+        <ExportModal
+          open={open}
+          documentId={documentId}
+          projectId={projectId}
+          documentName={documentName}
+          onClose={() => setOpen(false)}
+          onExportStarted={() => {
+            // Modal closes; ExportProgressStack at AppShell-level picks up
+            // the new export_jobs row via Realtime and renders its chip.
+          }}
+        />
+      ) : null}
     </>
   )
 }

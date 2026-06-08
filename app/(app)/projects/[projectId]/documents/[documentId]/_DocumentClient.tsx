@@ -18,14 +18,25 @@
 // Edit returns the user to where they were.
 
 import { useEffect, useState } from 'react'
+import dynamic from 'next/dynamic'
 import { useSearchParams } from 'next/navigation'
 import { NodeTree } from '@/components/tree/NodeTree'
 import { NodeDetailPanel } from '@/components/detail/NodeDetailPanel'
-import { DirectorPanel } from '@/components/director/DirectorPanel'
 import { DocumentTitleStrip } from '@/components/tree/DocumentTitleStrip'
 import { FilterChipsRow } from '@/components/tree/FilterChipsRow'
 import { useRightSlot, useSidebarProject } from '@/components/layout/AppShell'
 import { useMode } from '@/components/layout/ModeContext'
+
+// Phase 8.5b B.7 — DirectorPanel dynamic-imported so the Director
+// conversation thread + workflow card primitives stay out of the
+// document-route bundle until the user actually switches to Director
+// mode. `ssr: false` because the panel is interactive-only and there's
+// no SSR-relevant content to pre-render (the conversation hydrates from
+// /api/documents/[id]/conversation on mount).
+const DirectorPanel = dynamic(
+  () => import('@/components/director/DirectorPanel').then((m) => m.DirectorPanel),
+  { ssr: false },
+)
 
 interface Props {
   projectId: string

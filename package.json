@@ -12,7 +12,9 @@
     "test:unit": "vitest run",
     "test:unit:watch": "vitest",
     "db:types": "supabase gen types typescript --linked 2>/dev/null > lib/types/database.ts",
-    "db:types:local": "supabase gen types typescript --local 2>/dev/null > lib/types/database.ts"
+    "db:types:local": "supabase gen types typescript --local 2>/dev/null > lib/types/database.ts",
+    "check-bundle-budget": "tsx scripts/check-bundle-budget.ts",
+    "prepare": "husky"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.92.0",
@@ -64,6 +66,7 @@
     "drizzle-kit": "^0.31.10",
     "eslint": "^9",
     "eslint-config-next": "16.2.4",
+    "husky": "^9.1.7",
     "tailwindcss": "^4",
     "tsx": "^4.21.0",
     "typescript": "^5",
