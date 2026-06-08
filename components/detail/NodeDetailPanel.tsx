@@ -21,7 +21,13 @@
 // surface; the prose-side verdigris uses (#3 cursor, #6 word count, #7 accept)
 // are inside ProseEditor / WordCount / AgentTab, not here.
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
+
+import { useNode } from '@/lib/queries/useNode'
+import { nodeKeys } from '@/lib/queries/keys'
+import { DetailPanelSkeleton } from '@/components/feedback/skeletons/DetailPanelSkeleton'
+import { QueryErrorFallback } from '@/components/feedback/QueryErrorFallback'
 import { TabStrip } from './TabStrip'
 import { NodeStatusBadge } from '@/components/tree/NodeStatusBadge'
 import { LayerLabel, type LayerKind } from '@/components/tree/LayerLabel'
@@ -42,7 +48,7 @@ import { CommentThread } from './CommentThread'
 import { AgentJobHistory } from './AgentJobHistory'
 import { createClient } from '@/lib/supabase/client'
 import { useNodeRealtime } from '@/lib/hooks/useNodeRealtime'
-import { useCallback } from 'react'
+// useCallback already imported above for B.3b wiring.
 import { FocusMode } from '@/components/focus/FocusMode'
 import { useEditorStore } from '@/lib/stores/editor-store'
 import { useSidebarProject } from '@/components/layout/AppShell'
@@ -122,6 +128,13 @@ const TABS = [
 ] as const
 
 export function NodeDetailPanel({ nodeId, refreshKey, onMutated, onClose, onSelectNode }: NodeDetailPanelProps) {
+  const queryClient = useQueryClient()
+  // Phase 8.5b B.3b — useNode is the cache-backed read for /api/nodes/[id].
+  // Local `node` state still drives the UI (post-PATCH mutations write to
+  // the local state for snappy feedback + setQueryData to keep the cache
+  // in sync). The hook is the source of truth for the FIRST load and for
+  // Realtime-patcher updates.
+  const nodeQuery = useNode(nodeId)
   const [node, setNode] = useState<NodeRecord | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [editing, setEditing] = useState(false)
@@ -134,10 +147,14 @@ export function NodeDetailPanel({ nodeId, refreshKey, onMutated, onClose, onSele
 
   // Phase 5 (SU-31 proper fix): refresh the open node when its row in the
   // nodes table changes (e.g. after an agent Accept commits new prose to
-  // nodes.prose). Bumps a tick that the existing fetch useEffect deps on.
-  // The fetch flushes pending local edits first, so this is safe even
-  // mid-typing.
-  const triggerRefetch = useCallback(() => setRealtimeTick((t) => t + 1), [])
+  // nodes.prose). Pre-B.3b this bumped a local tick; now it invalidates
+  // the cache key so useNode refetches and the local `node` state syncs
+  // via the useEffect below. The NodesPatcherMount at app shell also
+  // patches the cache for non-prose UPDATEs without a fetch.
+  const triggerRefetch = useCallback(() => {
+    setRealtimeTick((t) => t + 1)
+    if (nodeId) void queryClient.invalidateQueries({ queryKey: nodeKeys.single(nodeId) })
+  }, [nodeId, queryClient])
   useNodeRealtime(nodeId, triggerRefetch)
 
   // Load the current user ID once for the CommentThread (author check).
@@ -159,35 +176,29 @@ export function NodeDetailPanel({ nodeId, refreshKey, onMutated, onClose, onSele
   const loadNode     = useEditorStore(s => s.loadNode)
   const flushPending = useEditorStore(s => s.flushPending)
 
-  // Phase 3 (T-4.9): on every nodeId change, flush the prior node's pending
-  // edits BEFORE fetching the new node. Then load the new node into the
-  // store. The cleanup is fire-and-forget on unmount (best-effort).
+  // Phase 8.5b B.3b — useNode is the cache-backed fetch. This effect
+  // syncs the hook's data to local `node` state and loads the editor
+  // store. The flushPending call still runs first on every nodeId
+  // change to commit the prior node's edits before the new node lands.
   useEffect(() => {
     let cancelled = false
     ;(async () => {
       await flushPending()
       if (cancelled) return
-
-      const r = await fetch(`/api/nodes/${nodeId}`, {
-        headers: { 'content-type': 'application/json' },
-      })
-      const body = await r.json().catch(() => null)
-      if (cancelled) return
-      if (!r.ok || !body?.node) {
-        setError(typeof body?.error === 'string' ? body.error : 'fetch_failed')
+      if (nodeQuery.error) {
+        setError(nodeQuery.error.message ?? 'fetch_failed')
+        return
+      }
+      if (!nodeQuery.data) {
+        // Still loading or zero-row; leave error null until query lands.
         return
       }
       setError(null)
-      const fetched = body.node as NodeRecord
+      const fetched = nodeQuery.data as unknown as NodeRecord
       setNode(fetched)
       loadNode({
         id: fetched.id,
         version: fetched.version,
-        // SU-J14-15 (Step 2 multi-tab drive 2026-05-10): the editor-store
-        // anchors autosave concurrency on content_revision (J14-1).
-        // Forgetting to pass it here meant the store fell back to
-        // version, which only bumps on agent Accept — every autosave then
-        // sent a stale expected_content_revision and 409'd.
         content_revision: (fetched as { content_revision?: number }).content_revision,
         summary: fetched.summary,
         prose: fetched.prose,
@@ -196,7 +207,13 @@ export function NodeDetailPanel({ nodeId, refreshKey, onMutated, onClose, onSele
       })
     })()
     return () => { cancelled = true }
-  }, [nodeId, refreshKey, realtimeTick, flushPending, loadNode])
+  }, [nodeId, refreshKey, realtimeTick, flushPending, loadNode, nodeQuery.data, nodeQuery.error])
+
+  // refreshKey-driven invalidation — keeps parity with pre-B.3 behaviour.
+  useEffect(() => {
+    if (!nodeId || refreshKey === undefined) return
+    void queryClient.invalidateQueries({ queryKey: nodeKeys.single(nodeId) })
+  }, [refreshKey, nodeId, queryClient])
 
   // T-6.8: ⌘Return in Edit Mode prose enters Focus Mode. capture:true so
   // we run before Tiptap's hard-break binding (HardBreak extension binds
@@ -244,7 +261,12 @@ export function NodeDetailPanel({ nodeId, refreshKey, onMutated, onClose, onSele
     }
     if (r.ok) {
       const body = await r.json()
-      setNode(body.node as NodeRecord)
+      const updated = body.node as NodeRecord
+      setNode(updated)
+      // Phase 8.5b B.3b — keep the cache in sync so any other consumer
+      // (other tabs in the same browser via Realtime; future cross-
+      // mounted siblings) reads the new name without a refetch.
+      queryClient.setQueryData(nodeKeys.single(nodeId), updated)
       onMutated?.()
       return
     }
@@ -261,25 +283,28 @@ export function NodeDetailPanel({ nodeId, refreshKey, onMutated, onClose, onSele
     })
     if (r.ok) {
       const body = await r.json()
-      setNode(body.node as NodeRecord)
+      const updated = body.node as NodeRecord
+      setNode(updated)
+      // Phase 8.5b B.3b — cache sync (same rationale as submitName).
+      queryClient.setQueryData(nodeKeys.single(nodeId), updated)
       onMutated?.()
     }
   }
 
   if (error) {
     return (
-      <div style={{ padding: 'var(--space-5)', color: 'var(--color-text-muted)' }}>
-        Could not load node.
-      </div>
+      <QueryErrorFallback
+        error={nodeQuery.error ?? new Error(error)}
+        onRetry={() => {
+          if (nodeId) void queryClient.invalidateQueries({ queryKey: nodeKeys.single(nodeId) })
+        }}
+        label="Could not load node"
+      />
     )
   }
 
   if (!node) {
-    return (
-      <div style={{ padding: 'var(--space-5)', color: 'var(--color-text-muted)' }}>
-        Loading…
-      </div>
-    )
+    return <DetailPanelSkeleton />
   }
 
   const isReadOnly = !!lockedReason

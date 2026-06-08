@@ -139,14 +139,25 @@ function NodeTreeInner({ documentId, documentType, onSelect, refreshKey, selecte
     if (defaultId) onSelect(defaultId)
   }, [data, documentId, onSelect, selectedId])
 
-  // Phase 5 / B.3 — Realtime nodes-table events route through
-  // queryClient.invalidateQueries (instead of the pre-B.3 setData
-  // path). B.5 swaps useNodesRealtime for the user-channel demuxer +
-  // direct cache patching, eliminating the refetch entirely.
+  // Phase 5 / B.3 / B.3b — Realtime nodes-table events:
+  //   - When NodesPatcherMount is in scope (app shell mounted the
+  //     direct patcher channel — B.3b), skip the invalidate. The
+  //     patcher updates the cache in place; useQuery re-renders
+  //     against the new data automatically. We still bump remountTick
+  //     on structural changes so react-arborist's openByDefault
+  //     re-evaluates (preserves the SU-J13-1 invisible-children fix).
+  //   - When NodesPatcherMount is NOT in scope (legacy fallback;
+  //     development reload edge cases), invalidate to keep behaviour
+  //     identical to the B.3 substrate.
+  // B.5 swaps useNodesRealtime for the user-channel demuxer.
   const triggerRefetch = useCallback(
     (kind: 'structural' | 'data') => {
       if (!documentId) return
-      void queryClient.invalidateQueries({ queryKey: documentKeys.nodes(documentId) })
+      const patcherMounted =
+        typeof window !== 'undefined' && !!window.__stelavox_nodes_patcher_mounted
+      if (!patcherMounted) {
+        void queryClient.invalidateQueries({ queryKey: documentKeys.nodes(documentId) })
+      }
       if (kind === 'structural') setRemountTick((t) => t + 1)
     },
     [documentId, queryClient],
