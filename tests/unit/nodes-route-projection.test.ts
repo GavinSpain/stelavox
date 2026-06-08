@@ -168,4 +168,58 @@ describe('Phase 8.5b B.2a — endpoint projection contract', () => {
       expect(sel.trim()).toBe(sel)
     }
   })
+
+  // ─── B.2b — default flip ─────────────────────────────────────────────
+
+  // ───────────────────────────────────────────────────────────────────
+  // TC-8.5b-B2b-01 — Structural projection drops at least 6 column
+  // groups (prose, summary, notes, metadata, short_description, tags,
+  // agent_instruction — 7 specific names). Wire-payload savings are
+  // exercised by the Playwright suite against the mega-doc fixture;
+  // this unit assertion only verifies the column-list shape.
+  // ───────────────────────────────────────────────────────────────────
+  it("TC-8.5b-B2b-01 — structural projection has 7+ fewer columns than full", () => {
+    const fullCols = new Set(buildNodeSelect('full').split(',').map(s => s.trim()))
+    const structuralCols = new Set(buildNodeSelect('structural').split(',').map(s => s.trim()))
+    expect(fullCols.size - structuralCols.size).toBeGreaterThanOrEqual(7)
+    // The seven dropped fields (all content):
+    for (const f of ['summary', 'prose', 'notes', 'metadata', 'short_description', 'tags', 'agent_instruction']) {
+      expect(fullCols.has(f)).toBe(true)
+      expect(structuralCols.has(f)).toBe(false)
+    }
+  })
+
+  // ───────────────────────────────────────────────────────────────────
+  // TC-8.5b-B2b-02 — Full projection contains all opt-in column groups.
+  // ───────────────────────────────────────────────────────────────────
+  it("TC-8.5b-B2b-02 — 'full' is the union of structural + every include opt-in", () => {
+    const full = buildNodeSelect('full')
+    const allOptIns = buildNodeSelect(['summary', 'prose', 'notes', 'metadata'])
+    // Every column in 'full' should also be in allOptIns (set equality).
+    const fullCols = new Set(full.split(',').map(s => s.trim()))
+    const allCols = new Set(allOptIns.split(',').map(s => s.trim()))
+    for (const col of fullCols) expect(allCols.has(col)).toBe(true)
+    for (const col of allCols) expect(fullCols.has(col)).toBe(true)
+  })
+
+  // ───────────────────────────────────────────────────────────────────
+  // TC-8.5b-B2b-03 — Structural projection contains the columns required
+  // by the tree renderer + leaf derivation + locking + AI-changed flag.
+  // ───────────────────────────────────────────────────────────────────
+  it("TC-8.5b-B2b-03 — structural projection includes all tree-renderer fields", () => {
+    const sel = buildNodeSelect('structural')
+    // Tree renderer needs these structural fields. If any are missing,
+    // the tree component renders incomplete rows.
+    const required = [
+      'id', 'parent_id', '"order"', 'depth', 'layer_index',
+      'node_type', 'name', 'status',
+      'word_count_actual', 'word_count_target',
+      'updated_at', 'created_at',
+      // V1.x-D.2 — NodeRow AI-changed flag.
+      'last_ai_change_at',
+    ]
+    for (const col of required) {
+      expect(sel).toContain(col)
+    }
+  })
 })
