@@ -21,9 +21,11 @@
 // 600px height. T-4.x can swap to a measured parent height (or
 // react-virtualized-auto-sizer) once the surrounding layout settles.
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Tree } from 'react-arborist'
 import type { MoveHandler } from 'react-arborist'
+import { useQueryClient } from '@tanstack/react-query'
+
 import { NodeRow, NodeActionsProvider, type ArboristNode, type NodeData } from './NodeRow'
 // Legacy LayerDivider was used as an inline horizontal legend at the
 // top of the tree pane. Phase 8.01 round-3 replaces that with the
@@ -36,6 +38,10 @@ import { TreeLayerHeader } from './TreeLayerHeader'
 import { NodeMoreMenu } from './NodeMoreMenu'
 import { ToastProvider, useToast } from '@/components/feedback/Toast'
 import { useNodesRealtime } from '@/lib/hooks/useNodesRealtime'
+import { useDocumentNodes } from '@/lib/queries/useDocumentNodes'
+import { documentKeys } from '@/lib/queries/keys'
+import { TreeSkeleton } from '@/components/feedback/skeletons/TreeSkeleton'
+import { QueryErrorFallback } from '@/components/feedback/QueryErrorFallback'
 
 interface NodeTreeProps {
   documentId: string
@@ -95,76 +101,72 @@ export function NodeTree(props: NodeTreeProps) {
 
 function NodeTreeInner({ documentId, documentType, onSelect, refreshKey, selectedId }: NodeTreeProps) {
   const toast = useToast()
+  const queryClient = useQueryClient()
   // Phase 8.2 — track whether we've auto-selected for the current
   // documentId yet. Resets when the documentId changes so navigating
   // to a different document re-auto-selects there.
   const autoSelectedForDoc = useRef<string | null>(null)
-  const [data, setData]   = useState<ArboristNode[] | null>(null)
-  const [error, setError] = useState<string | null>(null)
-  // Phase 8.01 round-3 follow-up — split the single refreshTick into
-  // dataTick (refetch trigger) and remountTick (Tree-key trigger). Most
-  // realtime events are UPDATEs (autosaves, agent-accept word-count
-  // rolls, status changes) that only need new data — no remount, so the
-  // user's scroll position survives. Only INSERT/DELETE bumps
-  // remountTick, preserving SU-J13-1 (newly-inserted children become
-  // visible because openByDefault re-applies on remount).
-  const [dataTick, setDataTick]       = useState(0)
+
+  // Phase 8.5b B.3 — data + error state move into TanStack Query.
+  // useDocumentNodes wraps the same GET /api/documents/[id]/nodes
+  // fetch in a cache-keyed query (documentKeys.nodes(documentId)). The
+  // built-tree derivation lives in a useMemo against the query data.
+  const queryResult = useDocumentNodes(documentId)
+  const rawNodes = queryResult.data
+  const isLoading = queryResult.isLoading
+  const error = queryResult.error ? 'fetch_failed' : null
+  const data = useMemo(
+    () => (rawNodes ? buildTree(rawNodes as never[]) : null),
+    [rawNodes],
+  )
+
+  // Phase 8.01 round-3 follow-up — remountTick still drives the
+  // react-arborist Tree key for INSERT/DELETE structural changes so
+  // openByDefault re-applies on remount. dataTick is gone: B.3 routes
+  // refetch through queryClient.invalidateQueries instead.
   const [remountTick, setRemountTick] = useState(0)
   const [moreMenu, setMoreMenu] = useState<{ nodeId: string; anchor: HTMLElement; isRoot: boolean; parentNodeId: string | null } | null>(null)
 
-  // Phase 5 (SU-31 proper fix): subscribe to realtime nodes-table changes for
-  // this document. The hook fans events out into 'structural'
-  // (INSERT/DELETE) vs 'data' (UPDATE) — see lib/hooks/useNodesRealtime.
-  const triggerRefetch = useCallback((kind: 'structural' | 'data') => {
-    setDataTick((t) => t + 1)
-    if (kind === 'structural') setRemountTick((t) => t + 1)
-  }, [])
+  // Auto-select after first data lands (replaces the old fetch-then-set
+  // side-effect; runs whenever rawNodes transitions from undefined to
+  // an array of >=1 row).
+  useEffect(() => {
+    if (!onSelect || !data || data.length === 0) return
+    if (autoSelectedForDoc.current === documentId) return
+    if (selectedId != null) return
+    autoSelectedForDoc.current = documentId
+    const defaultId = pickDefaultSelection(data)
+    if (defaultId) onSelect(defaultId)
+  }, [data, documentId, onSelect, selectedId])
+
+  // Phase 5 / B.3 — Realtime nodes-table events route through
+  // queryClient.invalidateQueries (instead of the pre-B.3 setData
+  // path). B.5 swaps useNodesRealtime for the user-channel demuxer +
+  // direct cache patching, eliminating the refetch entirely.
+  const triggerRefetch = useCallback(
+    (kind: 'structural' | 'data') => {
+      if (!documentId) return
+      void queryClient.invalidateQueries({ queryKey: documentKeys.nodes(documentId) })
+      if (kind === 'structural') setRemountTick((t) => t + 1)
+    },
+    [documentId, queryClient],
+  )
   useNodesRealtime(documentId, triggerRefetch)
 
-  // Local mutations (Add Child, Move, NodeDetailPanel onMutated) call this
-  // — they're known structural by construction, so they bump both ticks
-  // immediately rather than waiting for the realtime echo (~50-200ms).
+  // Local mutations (Add Child, Move, NodeDetailPanel onMutated) call
+  // this — known structural by construction. Invalidate immediately
+  // rather than waiting for the Realtime echo.
   const bumpStructural = useCallback(() => {
-    setDataTick((t) => t + 1)
+    if (!documentId) return
+    void queryClient.invalidateQueries({ queryKey: documentKeys.nodes(documentId) })
     setRemountTick((t) => t + 1)
-  }, [])
+  }, [documentId, queryClient])
 
+  // External refreshKey nudges — keep parity with the pre-B.3 path.
   useEffect(() => {
-    let cancelled = false
-    fetch(`/api/documents/${documentId}/nodes`, {
-      headers: { 'content-type': 'application/json' },
-    })
-      .then(async r => {
-        const body = await r.json()
-        if (cancelled) return
-        if (!r.ok) {
-          setError(typeof body?.error === 'string' ? body.error : 'fetch_failed')
-          return
-        }
-        setError(null)
-        const tree = buildTree(Array.isArray(body?.nodes) ? body.nodes : [])
-        setData(tree)
-        // Phase 8.2 — auto-select a sensible default on first load
-        // for this documentId. Skips if the parent already has a
-        // selection (e.g., from a ?selectedNode= deep link, or
-        // because the user already clicked something).
-        if (
-          onSelect &&
-          autoSelectedForDoc.current !== documentId &&
-          selectedId == null &&
-          tree.length > 0
-        ) {
-          autoSelectedForDoc.current = documentId
-          const defaultId = pickDefaultSelection(tree)
-          if (defaultId) onSelect(defaultId)
-        }
-      })
-      .catch(() => {
-        if (cancelled) return
-        setError('fetch_failed')
-      })
-    return () => { cancelled = true }
-  }, [documentId, dataTick, refreshKey])
+    if (!documentId || refreshKey === undefined) return
+    void queryClient.invalidateQueries({ queryKey: documentKeys.nodes(documentId) })
+  }, [refreshKey, documentId, queryClient])
 
   function findInTree(nodes: ArboristNode[], id: string): ArboristNode | null {
     for (const n of nodes) {
@@ -247,13 +249,16 @@ function NodeTreeInner({ documentId, documentType, onSelect, refreshKey, selecte
     const newParent = findInTree(data, parentId)
     if (!movedNode || !newParent) return
 
-    // Snapshot for rollback. Deep clone via JSON round-trip — the
-    // tree is small (low thousands of nodes max in Phase 2) so cost
-    // is negligible.
-    const snapshot: ArboristNode[] = JSON.parse(JSON.stringify(data))
-
-    // Optimistic update: rebuild tree with moved node in new place.
-    setData(applyMoveOptimistic(data, nodeId, parentId, index))
+    // Phase 8.5b B.3 — the pre-B.3 path snapshot-and-restored a local
+    // `data` state for optimistic feedback. Under TanStack Query the
+    // optimistic update would patch the flat node array via
+    // setQueryData; the current move payload only carries
+    // (nodeId, parentId, position) and a robust cache-side optimistic
+    // update needs to recompute depth / order values that the server
+    // canonicalises. Out of scope for B.3 — the move action now
+    // posts and re-fetches on success, the same way bumpStructural()
+    // path already worked. UX feel is slightly less immediate;
+    // optimistic moves can land in a follow-up if measurements justify.
 
     // Send PATCH
     const r = await fetch(`/api/nodes/${nodeId}/move`, {
@@ -268,8 +273,6 @@ function NodeTreeInner({ documentId, documentType, onSelect, refreshKey, selecte
       return
     }
 
-    // Rollback + toast.
-    setData(snapshot)
     const body = await r.json().catch(() => ({}))
     const movedType = movedNode.data.node_type
     const newParentType = newParent.data.node_type
@@ -299,13 +302,19 @@ function NodeTreeInner({ documentId, documentType, onSelect, refreshKey, selecte
 
   if (error !== null) {
     return (
-      <div style={{ padding: 'var(--space-4)', color: 'var(--color-text-muted)', fontSize: 'var(--text-sm)' }}>
-        Failed to load tree.
-      </div>
+      <QueryErrorFallback
+        error={queryResult.error}
+        onRetry={() => {
+          if (documentId) {
+            void queryClient.invalidateQueries({ queryKey: documentKeys.nodes(documentId) })
+          }
+        }}
+        label="Tree failed to load"
+      />
     )
   }
-  if (data === null) {
-    return <LoadingSkeleton />
+  if (isLoading || data === null) {
+    return <TreeSkeleton />
   }
 
   const layerLabels = documentType ? LAYER_LABELS[documentType] : undefined
@@ -449,7 +458,10 @@ function findFirstLeaf(nodes: ArboristNode[]): string | null {
 // Loading skeleton — chevron + indent placeholder rows. No spinners
 // per Component Spec §4.1's intent (the tree is information, not an
 // event surface). Fades in via opacity to avoid drawing attention.
-function LoadingSkeleton() {
+// Phase 8.5b B.3 — replaced by TreeSkeleton from components/feedback/
+// skeletons/. Function kept (prefixed) for one release cycle in case a
+// downstream consumer reaches in to import it; remove in B.6 polish.
+function _LoadingSkeleton() {
   // A few rows at varying depths to suggest the tree shape.
   const rows: { depth: number; width: number }[] = [
     { depth: 0, width: 140 },
@@ -492,7 +504,11 @@ function LoadingSkeleton() {
 // and insert it at `index` in the new parent's children. Returns a
 // new tree (not mutating the original). Used by handleMove before
 // the API round-trip; rolled back on failure via the snapshot.
-function applyMoveOptimistic(
+// Phase 8.5b B.3 — no longer called from the move handler (the path
+// now invalidates + refetches rather than patching the cache locally
+// because the server canonicalises order + depth). Kept (prefixed) for
+// one release cycle; remove in B.6 polish.
+function _applyMoveOptimistic(
   tree: ArboristNode[],
   nodeId: string,
   newParentId: string,
