@@ -49,7 +49,18 @@ import { AgentJobHistory } from './AgentJobHistory'
 import { createClient } from '@/lib/supabase/client'
 import { useNodeRealtime } from '@/lib/hooks/useNodeRealtime'
 // useCallback already imported above for B.3b wiring.
-import { FocusMode } from '@/components/focus/FocusMode'
+// Phase 8.5b B.7 — FocusMode dynamic-imported so the typewriter
+// container + sentence-focus state machine + full-screen Portal mount
+// only load when the user actually enters Focus Mode. `ssr: false` is
+// correct because Focus Mode is interactive-only and uses
+// `document.body` createPortal which is not server-renderable. Static
+// import is replaced via next/dynamic; FocusModeProps shape is
+// unchanged.
+import nextDynamic from 'next/dynamic'
+const FocusMode = nextDynamic(
+  () => import('@/components/focus/FocusMode').then((m) => m.FocusMode),
+  { ssr: false },
+)
 import { useEditorStore } from '@/lib/stores/editor-store'
 import { useSidebarProject } from '@/components/layout/AppShell'
 import { DeleteContextNodeModal } from '@/components/context/DeleteContextNodeModal'

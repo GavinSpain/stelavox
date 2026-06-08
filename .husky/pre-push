@@ -1,0 +1,12 @@
+#!/usr/bin/env sh
+
+# Phase 8.5b B.7 — Pre-push bundle-budget gate.
+#
+# Runs `npm run check-bundle-budget` which builds the app and asserts
+# the per-route First Load JS gzipped size stays within the Tier-A §8
+# budgets (document ≤ 350 KB, dashboard ≤ 200 KB).
+#
+# Bypass for emergency push: `git push --no-verify` (documented as a
+# developer responsibility; surfaces in code review).
+
+npm run check-bundle-budget

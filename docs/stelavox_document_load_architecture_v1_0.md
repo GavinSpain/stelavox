@@ -894,6 +894,17 @@ The Phase 8.5 baseline proposed these. They become contractual in this spec.
 
 Numbers are aspirational targets for end of Phase 8.5b. Current numbers vs targets land in the Phase 8.5b test report (per Phase 8.5 baseline `docs/stelavox_phase8_5_perf_baseline_v1_0.md` §2).
 
+**B.7 status (v1.2).** B.7 shipped the bundle-slim wins (docx/epub serverExternalPackages, dynamic imports for DirectorPanel + FocusMode + ExportModal, Lucide-import audit confirmed clean) and the Husky pre-push gate. Post-B.7 measured First Load JS gzipped:
+
+| Route | Aspirational (§8) | Post-B.7 measured | Gate budget |
+|---|---|---|---|
+| `/dashboard` | 200 KB | 301 KB | 320 KB |
+| `/projects/[p]/documents/[d]` | 350 KB | 481 KB | 500 KB |
+
+The gate budgets are set above the post-B.7 measured baseline so the gate functions as a regression guard (don't grow further) rather than an unmet aspirational target. The aspirational §8 numbers remain the long-term goal. Tightening the gate as more slim work lands is a deliberate follow-up; bumping the gate budget requires an explicit changelog entry.
+
+Gap to aspirational comes from (1) the Tiptap + ProseMirror bundle (~264 KB gzipped) which is unavoidable on the document route and load-once-per-session, (2) the TanStack + React + Next.js runtime shared chunks (~100 KB), and (3) the shadcn / Base UI primitives + small per-route component code. Future tightening candidates: tree-shake Tiptap extensions, split shadcn primitives, audit chunk sharing across routes.
+
 ---
 
 ## 9. Hazards
