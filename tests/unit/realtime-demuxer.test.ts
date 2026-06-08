@@ -137,6 +137,10 @@ describe('Phase 8.5b B.5 — Realtime demuxer', () => {
       'nodes', 'agent_jobs', 'briefs', 'brief_stages',
       'conversation_messages', 'director_turns', 'export_jobs',
       'project_profiles', 'profile_amendments',
+      // B.5b — added for CostMeterFull. organisations row events fire
+      // when the accumulate_cost_credits_into_org trigger updates
+      // tokens_used / cost_credits.
+      'organisations',
     ]))
   })
 })
