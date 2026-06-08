@@ -67,6 +67,17 @@ interface MockAgentJob {
 const mockJobsTable: MockAgentJob[] = []
 const mockBatchesTable: Array<{ id: string; pool_key: string; request_count: number }> = []
 
+// allowed_transitions rows the orchestration's CAS lookup expects to
+// find for the events used downstream by the submitter (dispatcher_cas_claim
+// + persist_running_start, used by transitionAgentJob + persistRunningStart
+// during the dispatch+claim flow). Phase 8.5c: updated to match the
+// post-Apollo orchestration shape.
+const ALLOWED_TRANSITIONS_FAKE: Record<string, string[]> = {
+  dispatcher_cas_claim: ['queued'],
+  persist_running_start: ['dispatched'],
+  runner_start_bypass: ['queued'],
+}
+
 const mockSupabase = {
   from: (table: string) => {
     if (table === 'agent_jobs') {
@@ -76,6 +87,15 @@ const mockSupabase = {
           is: function (this: unknown, _col: string, _val: unknown) { return this },
           in: function (this: unknown, _col: string, _val: unknown) { return this },
           order: function (this: unknown, _col: string, _opts: unknown) { return this },
+          maybeSingle: () => {
+            // The CAS-protected UPDATE in transitionAgentJob ends with
+            // .select('id, state').maybeSingle() to surface ok / cas_lost.
+            // Return a minimal updated-row shape.
+            return Promise.resolve({
+              data: { id: 'fake-id', state: 'running' },
+              error: null,
+            })
+          },
           then: (resolve: (v: { data: MockAgentJob[]; error: null }) => void) => {
             const filtered = mockJobsTable.filter(
               (j) => j.queue_status === 'queued' && (j.batch_anthropic_id ?? null) === null,
@@ -83,24 +103,66 @@ const mockSupabase = {
             resolve({ data: filtered, error: null })
           },
         }),
-        update: (patch: Partial<MockAgentJob>) => ({
-          in: function (_col: string, ids: string[]) {
-            for (const j of mockJobsTable) {
-              if (ids.includes(j.id)) Object.assign(j, patch)
-            }
-            return Promise.resolve({ error: null })
-          },
-          eq: function (_col: string, val: unknown) {
-            return {
-              in: function (_col2: string, _vals: unknown[]) {
+        update: (rawPatch: Partial<MockAgentJob> & { state?: string }) => {
+          // Auto-derive trigger emulation (Phase 8.5c): the real DB has
+          // a trigger that maps state → queue_status. The orchestration
+          // module writes the state column; this mock mirrors the sync
+          // so tests asserting on the legacy queue_status column see the
+          // expected dispatched/awaiting_accept/etc. values.
+          const STATE_TO_QUEUE_STATUS: Record<string, string> = {
+            queued: 'queued',
+            dispatched: 'dispatched',
+            running: 'running',
+            awaiting_accept: 'completed',
+            accepted: 'accepted',
+            failed: 'failed',
+            cancelled: 'cancelled',
+            crashed: 'failed',
+          }
+          const patch: Partial<MockAgentJob> = { ...rawPatch }
+          if (typeof rawPatch.state === 'string' && STATE_TO_QUEUE_STATUS[rawPatch.state]) {
+            (patch as Partial<MockAgentJob>).queue_status = STATE_TO_QUEUE_STATUS[rawPatch.state]
+          }
+          // Chainable proxy — returns itself until a terminator
+          // (maybeSingle or then) is awaited. Applies the patch in-place
+          // to mock tickets on identifying filters (.eq('id', ...) or
+          // .in('id', [...]).
+          //
+          // The transitionAgentJob CAS flow looks like:
+          //   .update(payload).eq('id', X).in('state', [src,...])
+          //     .select('id, state').maybeSingle()
+          // The .in('state', ...) is the CAS guard; the .eq('id', X)
+          // identifies the row to patch.
+          const proxy: Record<string, unknown> = {
+            in: function (col: string, ids: string[]) {
+              if (col === 'id') {
+                for (const j of mockJobsTable) {
+                  if (ids.includes(j.id)) Object.assign(j, patch)
+                }
+              }
+              return proxy
+            },
+            eq: function (col: string, val: unknown) {
+              if (col === 'id' && typeof val === 'string') {
                 for (const j of mockJobsTable) {
                   if (j.id === val) Object.assign(j, patch)
                 }
-                return Promise.resolve({ error: null })
-              },
-            }
-          },
-        }),
+              }
+              return proxy
+            },
+            select: function () { return proxy },
+            maybeSingle: () => {
+              return Promise.resolve({
+                data: { id: 'fake-id', state: patch.queue_status ?? 'running' },
+                error: null,
+              })
+            },
+            then: (resolve: (v: { data: null; error: null }) => void) => {
+              resolve({ data: null, error: null })
+            },
+          }
+          return proxy
+        },
       }
     }
     if (table === 'anthropic_batches') {
@@ -110,6 +172,27 @@ const mockSupabase = {
           return Promise.resolve({ error: null })
         },
       }
+    }
+    if (table === 'allowed_transitions') {
+      // casLookupSources calls .select('from_state').eq('entity_name', ...)
+      // .eq('event_name', X).eq('to_state', ...). Return the source-state
+      // list for the event_name filter.
+      let filterEventName: string | null = null
+      const proxy: Record<string, unknown> = {
+        select: () => proxy,
+        eq: (col: string, value: string) => {
+          if (col === 'event_name') filterEventName = value
+          return proxy
+        },
+        then: (resolve: (v: { data: Array<{ from_state: string }>; error: null }) => void) => {
+          const sources = filterEventName ? (ALLOWED_TRANSITIONS_FAKE[filterEventName] ?? []) : []
+          resolve({
+            data: sources.map((s) => ({ from_state: s })),
+            error: null,
+          })
+        },
+      }
+      return proxy
     }
     throw new Error(`unmocked table: ${table}`)
   },

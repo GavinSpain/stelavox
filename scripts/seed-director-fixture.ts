@@ -311,8 +311,9 @@ async function main() {
       word_count_actual: word_count > 0 ? word_count : null,
       status: 'draft' as const,
       version: 1,
-      locked: ref.locked === true,
-      lock_reason: ref.locked === true ? 'Locked by j5-novel fixture (engineered for §J5 lock scenario)' : null,
+      // Phase 8.5c: `locked` + `lock_reason` columns were dropped from
+      // nodes by M-154 (Phase 6); locks now live in node_author_locks.
+      // Apply locks post-insert via `apply_author_lock` RPC below.
     }
     const { data: row, error: insertError } = await admin
       .from('nodes')
@@ -326,6 +327,30 @@ async function main() {
     slugToId.set(ref.slug, row.id)
   }
   console.log(`structural nodes inserted: ${sorted.length}`)
+
+  // Step 8.5 (Phase 8.5c): apply Author Locks for any node flagged
+  // `locked: true` in the structure pack. M-154 moved locks from
+  // nodes columns to node_author_locks; the RPC is the canonical
+  // application path.
+  let locksApplied = 0
+  for (const ref of sorted) {
+    if (ref.locked !== true) continue
+    const nodeId = slugToId.get(ref.slug)
+    if (!nodeId) continue
+    const { error: lockError } = await admin.rpc('apply_author_lock', {
+      p_node_id: nodeId,
+      p_user_id: user_id,
+      p_reason: 'Locked by j5-novel fixture (engineered for §J5 lock scenario)',
+      p_bulk_operation_id: null,
+    })
+    if (lockError) {
+      console.error(`warn: apply_author_lock failed for "${ref.slug}":`, lockError.message)
+      // Continue — the fixture loads usefully even without the engineered locks.
+    } else {
+      locksApplied++
+    }
+  }
+  if (locksApplied > 0) console.log(`author locks applied: ${locksApplied}`)
 
   // Step 9: insert context nodes.
   for (const ctx of pack.context) {
