@@ -24,8 +24,11 @@
  */
 
 import { useCallback, useEffect, useState } from 'react'
-import { createClient } from '@/lib/supabase/client'
-import { ensureRealtimeAuth } from '@/lib/supabase/realtime-auth'
+// Phase 8.5b B.5 — createClient + ensureRealtimeAuth no longer needed
+// here. UserRealtimeChannel (mounted at app/(app)/layout.tsx) opens
+// the SINGLE channel for the tab; this component subscribes to topics
+// via useRealtimeTopic and the demuxer routes events.
+import { useRealtimeTopic } from '@/lib/realtime/useRealtimeTopic'
 import { StatusIndicatorPopover } from './StatusIndicatorPopover'
 
 type CostMeterPayload =
@@ -135,26 +138,13 @@ export function AppShellStatusIndicator() {
     void refresh()
   }, [refresh])
 
-  // Realtime — agent_jobs + briefs change → refresh counts.
-  useEffect(() => {
-    const supabase = createClient()
-    let channel: ReturnType<typeof supabase.channel> | null = null
-    let mounted = true
-    // Wait for auth before subscribing — see lib/supabase/realtime-auth.ts.
-    void (async () => {
-      await ensureRealtimeAuth(supabase)
-      if (!mounted) return
-      channel = supabase
-        .channel('app-shell-status')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'agent_jobs' }, () => void refresh())
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'briefs' }, () => void refresh())
-        .subscribe()
-    })()
-    return () => {
-      mounted = false
-      if (channel) void supabase.removeChannel(channel)
-    }
-  }, [refresh])
+  // Phase 8.5b B.5 — Realtime — subscribe via the multiplexed user
+  // channel demuxer (Tier-A §5.2). Replaces the inline `supabase
+  // .channel('app-shell-status').on(...)` pattern. The channel itself
+  // lives at app/(app)/layout.tsx; this component just registers
+  // interest in two topics.
+  useRealtimeTopic('agent_jobs', () => void refresh())
+  useRealtimeTopic('briefs', () => void refresh())
 
   // Safety-net poll in case Realtime drops mid-session.
   useEffect(() => {
