@@ -26,8 +26,11 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { createClient } from '@/lib/supabase/client'
-import { ensureRealtimeAuth } from '@/lib/supabase/realtime-auth'
+// Phase 8.5b B.5c — createClient + ensureRealtimeAuth dropped here;
+// the multiplexed user channel (UserRealtimeChannel) carries both
+// `workflows` and `workflow_steps` topics. See REALTIME_TOPICS in
+// lib/realtime/demuxer.ts and the cap-raise rationale in Tier-A §5.3.
+import { useRealtimeTopic } from '@/lib/realtime/useRealtimeTopic'
 
 export interface ConversationDto {
   id: string
@@ -199,71 +202,32 @@ export function useDirectorConversation(
     }, 200)
   }, [refresh])
 
-  // Real-time on workflows for this document — fire a refresh when any
-  // row changes. Cheap because the GET endpoint resolves the right
-  // current workflow for us.
-  useEffect(() => {
-    if (!documentId) return
-    const supabase = createClient()
-    let channel: ReturnType<typeof supabase.channel> | null = null
-    let mounted = true
-    // Wait for auth before subscribing — see lib/supabase/realtime-auth.ts.
-    void (async () => {
-      await ensureRealtimeAuth(supabase)
-      if (!mounted) return
-      channel = supabase
-        .channel(`director-workflows:${documentId}`)
-        .on(
-          'postgres_changes',
-          {
-            event: '*',
-            schema: 'public',
-            table: 'workflows',
-            filter: `document_id=eq.${documentId}`,
-          },
-          () => debouncedRefresh(),
-        )
-        .subscribe()
-    })()
-    return () => {
-      mounted = false
-      if (channel) void supabase.removeChannel(channel)
-    }
-  }, [documentId, debouncedRefresh])
-
-  // Real-time on workflow_steps for the current workflow — same
-  // refresh-on-event pattern. Re-subscribes when the active workflow
-  // changes. Shares the debounced refresher with the workflows
-  // subscription above so a burst hitting both channels coalesces.
-  useEffect(() => {
-    if (!currentWorkflow?.id) return
-    const supabase = createClient()
-    const wfId = currentWorkflow.id
-    let channel: ReturnType<typeof supabase.channel> | null = null
-    let mounted = true
-    // Wait for auth before subscribing — see lib/supabase/realtime-auth.ts.
-    void (async () => {
-      await ensureRealtimeAuth(supabase)
-      if (!mounted) return
-      channel = supabase
-        .channel(`director-workflow-steps:${wfId}`)
-        .on(
-          'postgres_changes',
-          {
-            event: '*',
-            schema: 'public',
-            table: 'workflow_steps',
-            filter: `workflow_id=eq.${wfId}`,
-          },
-          () => debouncedRefresh(),
-        )
-        .subscribe()
-    })()
-    return () => {
-      mounted = false
-      if (channel) void supabase.removeChannel(channel)
-    }
-  }, [currentWorkflow?.id, debouncedRefresh])
+  // Phase 8.5b B.5c — Realtime via the multiplexed user channel. Two
+  // topic subscriptions instead of two standalone channels. Filters
+  // run at the subscriber level because workflows / workflow_steps are
+  // not org-scoped at the channel level (no `organisation_id` column).
+  //
+  // Both subscriptions share the same debounced refresher so a burst
+  // hitting both topics coalesces into a single fetch.
+  useRealtimeTopic<{ document_id?: string }>(
+    'workflows',
+    () => debouncedRefresh(),
+    (payload) => {
+      if (!documentId) return false
+      const row = (payload.new && Object.keys(payload.new).length > 0 ? payload.new : payload.old)
+      return row.document_id === documentId
+    },
+  )
+  useRealtimeTopic<{ workflow_id?: string }>(
+    'workflow_steps',
+    () => debouncedRefresh(),
+    (payload) => {
+      const wfId = currentWorkflow?.id
+      if (!wfId) return false
+      const row = (payload.new && Object.keys(payload.new).length > 0 ? payload.new : payload.old)
+      return row.workflow_id === wfId
+    },
+  )
 
   // Clean up any pending debounce timer on unmount.
   useEffect(() => {

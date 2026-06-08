@@ -128,19 +128,28 @@ describe('Phase 8.5b B.5 — Realtime demuxer', () => {
   })
 
   // ───────────────────────────────────────────────────────────────────
-  // TC-8.5b-B5-08 — REALTIME_TOPICS covers exactly 9 entries with the
-  // expected names. Soft cap is 10 per Tier-A §5.3.
+  // TC-8.5b-B5-08 — REALTIME_TOPICS covers exactly 12 entries with the
+  // expected names. Soft cap raised to 12 per Tier-A §5.3 changelog of
+  // 2026-06-08. Cap raise rationale: workflows + workflow_steps are
+  // core Director functionality with no fall-back signal in any other
+  // multiplexed topic; carrying them on the user channel is strictly
+  // cheaper than keeping a per-tab Director channel.
   // ───────────────────────────────────────────────────────────────────
   it('TC-8.5b-B5-08 — REALTIME_TOPICS list is stable and within soft cap', () => {
-    expect(REALTIME_TOPICS.length).toBeLessThanOrEqual(10)
+    expect(REALTIME_TOPICS.length).toBeLessThanOrEqual(12)
     expect(new Set(REALTIME_TOPICS)).toEqual(new Set([
       'nodes', 'agent_jobs', 'briefs', 'brief_stages',
       'conversation_messages', 'director_turns', 'export_jobs',
       'project_profiles', 'profile_amendments',
-      // B.5b — added for CostMeterFull. organisations row events fire
-      // when the accumulate_cost_credits_into_org trigger updates
+      // B.5b — for CostMeterFull. organisations row events fire when
+      // the accumulate_cost_credits_into_org trigger updates
       // tokens_used / cost_credits.
       'organisations',
+      // B.5c — for useDirectorConversation. workflows row INSERT on
+      // user Approve has no fall-back signal in any other topic; the
+      // dispatcher's agent_jobs INSERT lands asynchronously.
+      'workflows',
+      'workflow_steps',
     ]))
   })
 })

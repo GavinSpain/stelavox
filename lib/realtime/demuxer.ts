@@ -116,8 +116,14 @@ export function __subscriberCountForTest(topic?: string): number {
  * useRealtimeTopic accepts only these strings as topic names (type-
  * checked via the union type below).
  *
- * Soft cap: 10 per Tier-A §5.3. Adding an 11th must be justified in
- * the spec changelog.
+ * Soft cap raised to 12 per Tier-A §5.3 changelog entry of 2026-06-08.
+ * Rationale: workflows + workflow_steps are core Director functionality
+ * (useDirectorConversation needs both — the workflow INSERT on user
+ * Approve fires no agent_jobs event yet, so it can't be inferred from
+ * any other topic). The marginal server cost of two more `.on()`
+ * handlers on a per-tab channel is negligible compared with the saving
+ * of one fewer standalone channel. Further additions still require a
+ * spec changelog entry.
  */
 export const REALTIME_TOPICS = [
   'nodes',
@@ -135,6 +141,12 @@ export const REALTIME_TOPICS = [
   // on agent_jobs writes; we subscribe to organisations directly
   // because that's the table the relevant fields live on.
   'organisations',
+  // Phase 8.5b B.5c — `workflows` + `workflow_steps` added so
+  // useDirectorConversation runs off the user channel rather than its
+  // own pair of channels. See Tier-A §5.3 changelog 2026-06-08 for the
+  // cap-raise rationale.
+  'workflows',
+  'workflow_steps',
 ] as const
 
 export type RealtimeTopic = (typeof REALTIME_TOPICS)[number]

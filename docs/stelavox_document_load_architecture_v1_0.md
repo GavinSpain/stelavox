@@ -770,7 +770,9 @@ Postgres-changes filters on the channel are at the organisation/user level — b
 
 The tradeoff: server delivers more events to the client than any one component cares about; client filters down. This is acceptable at the per-user scale (one user's org generates modest event volume). It would not be acceptable at "tenant Realtime" scale, which is V2+ if it ever arises.
 
-**Soft cap: 10 topic filters per channel.** Adding an 11th must be justified in the spec changelog with rationale.
+**Soft cap: 12 topic filters per channel** (raised from 10 on 2026-06-08; see changelog). Adding a 13th must be justified in the spec changelog with rationale.
+
+**2026-06-08 — cap raised 10 → 12.** B.5b added `organisations` (10th topic). B.5c added `workflows` + `workflow_steps` (11th + 12th) so `useDirectorConversation` runs off the user channel rather than its own pair of standalone channels. Both topics are core Director functionality: the `workflows` row INSERT happens when the user approves a Plan, and no other already-multiplexed topic fires at that moment (`agent_jobs` rows are inserted asynchronously by the dispatcher; `conversation_messages` is the Director's assistant turn that proposed the plan, not the user's approval). Without `workflows` in REALTIME_TOPICS, the PlanCard would lag behind the user's Approve click. Marginal server cost of two extra `.on()` handlers on a per-tab channel is negligible compared with the elimination of two standalone channels. Soft cap is advisory; the spec-changelog gate is the mechanism that forces this conversation when adding topics. Further additions still require a changelog entry.
 
 ### 5.4 Channel-per-document considered and rejected
 
