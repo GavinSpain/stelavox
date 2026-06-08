@@ -129,6 +129,12 @@ export const REALTIME_TOPICS = [
   'export_jobs',
   'project_profiles',
   'profile_amendments',
+  // Phase 8.5b B.5b — `organisations` added for CostMeterFull which
+  // refreshes when org.tokens_used / cost_credits change. The org row
+  // updates are driven by the accumulate_cost_credits_into_org trigger
+  // on agent_jobs writes; we subscribe to organisations directly
+  // because that's the table the relevant fields live on.
+  'organisations',
 ] as const
 
 export type RealtimeTopic = (typeof REALTIME_TOPICS)[number]

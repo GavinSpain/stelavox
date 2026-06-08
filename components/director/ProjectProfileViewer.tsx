@@ -9,11 +9,12 @@
 // Inviolable discipline: Inter typography only (structural panel). No
 // verdigris use.
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 
 import type { ProjectProfilePayload } from '@/lib/profile/types'
-import { createClient } from '@/lib/supabase/client'
-import { ensureRealtimeAuth } from '@/lib/supabase/realtime-auth'
+// Phase 8.5b B.5b — createClient + ensureRealtimeAuth dropped; the
+// multiplexed user channel handles both for the whole tab.
+import { useRealtimeTopic } from '@/lib/realtime/useRealtimeTopic'
 
 interface ProjectProfileViewerProps {
   profileId: string
@@ -47,29 +48,30 @@ export function ProjectProfileViewer({ profileId, initialState }: ProjectProfile
     return () => { cancelled = true }
   }, [profileId, initialState])
 
-  useEffect(() => {
-    const supabase = createClient()
-    const refetch = async () => {
-      const res = await fetch(`/api/profile/${profileId}`)
-      if (res.ok) setState((await res.json()) as ProjectProfilePayload)
-    }
-    let channel: ReturnType<typeof supabase.channel> | null = null
-    let mounted = true
-    // Wait for auth before subscribing — see lib/supabase/realtime-auth.ts.
-    void (async () => {
-      await ensureRealtimeAuth(supabase)
-      if (!mounted) return
-      channel = supabase
-        .channel(`profile:${profileId}`)
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'project_profiles', filter: `id=eq.${profileId}` }, () => void refetch())
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'profile_amendments', filter: `profile_id=eq.${profileId}` }, () => void refetch())
-        .subscribe()
-    })()
-    return () => {
-      mounted = false
-      if (channel) void supabase.removeChannel(channel)
-    }
+  // Phase 8.5b B.5b — Realtime via the multiplexed user channel.
+  // Two topics with id-scoped filters at the subscriber level:
+  //   project_profiles (.id === profileId)
+  //   profile_amendments (.profile_id === profileId)
+  const refetch = useCallback(async () => {
+    const res = await fetch(`/api/profile/${profileId}`)
+    if (res.ok) setState((await res.json()) as ProjectProfilePayload)
   }, [profileId])
+  useRealtimeTopic(
+    'project_profiles',
+    () => void refetch(),
+    (payload) => {
+      const row = (payload.new && Object.keys(payload.new).length > 0 ? payload.new : payload.old) as { id?: string }
+      return row.id === profileId
+    },
+  )
+  useRealtimeTopic(
+    'profile_amendments',
+    () => void refetch(),
+    (payload) => {
+      const row = (payload.new && Object.keys(payload.new).length > 0 ? payload.new : payload.old) as { profile_id?: string }
+      return row.profile_id === profileId
+    },
+  )
 
   if (loading) {
     return (

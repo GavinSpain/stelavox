@@ -25,7 +25,9 @@
 import { useCallback, useEffect, useState } from 'react'
 
 import { createClient } from '@/lib/supabase/client'
-import { ensureRealtimeAuth } from '@/lib/supabase/realtime-auth'
+// Phase 8.5b B.5b — ensureRealtimeAuth no longer needed here; the
+// multiplexed user channel handles auth + subscribe once per tab.
+import { useRealtimeTopic } from '@/lib/realtime/useRealtimeTopic'
 
 interface CurrentPeriodPayload {
   plan: string
@@ -116,29 +118,20 @@ export function CostMeterFull({ orgId }: { orgId: string }) {
     void refresh()
   }, [refresh])
 
-  // Realtime: refresh on organisations row changes for this org.
-  useEffect(() => {
-    const supabase = createClient()
-    let channel: ReturnType<typeof supabase.channel> | null = null
-    let mounted = true
-    // Wait for auth before subscribing — see lib/supabase/realtime-auth.ts.
-    void (async () => {
-      await ensureRealtimeAuth(supabase)
-      if (!mounted) return
-      channel = supabase
-        .channel(`cost-meter-${orgId}`)
-        .on(
-          'postgres_changes',
-          { event: 'UPDATE', schema: 'public', table: 'organisations', filter: `id=eq.${orgId}` },
-          () => void refresh(),
-        )
-        .subscribe()
-    })()
-    return () => {
-      mounted = false
-      if (channel) void supabase.removeChannel(channel)
-    }
-  }, [orgId, refresh])
+  // Phase 8.5b B.5b — Realtime via the multiplexed user channel.
+  // The org row's tokens_used / cost_credits update via the
+  // accumulate_cost_credits_into_org trigger on agent_jobs writes;
+  // we filter by id at the topic-subscriber level (rather than the
+  // channel level) so the user channel only carries one `organisations`
+  // filter for all consumers.
+  useRealtimeTopic(
+    'organisations',
+    () => void refresh(),
+    (payload) => {
+      const row = (payload.new && Object.keys(payload.new).length > 0 ? payload.new : payload.old) as { id?: string }
+      return row.id === orgId
+    },
+  )
 
   if (loading && !period) {
     return (

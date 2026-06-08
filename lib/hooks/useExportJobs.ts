@@ -17,7 +17,9 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { ensureRealtimeAuth } from '@/lib/supabase/realtime-auth'
+// Phase 8.5b B.5b — ensureRealtimeAuth no longer needed here; the
+// multiplexed user channel handles it once for the whole tab.
+import { useRealtimeTopic } from '@/lib/realtime/useRealtimeTopic'
 
 export interface ExportJob {
   id: string
@@ -85,49 +87,32 @@ export function useActiveExports(): ExportJob[] {
 
     void fetchInitial()
 
-    // Wait for auth before subscribing — see lib/supabase/realtime-auth.ts.
-    let channel: ReturnType<typeof supabase.channel> | null = null
-
-    void (async () => {
-      await ensureRealtimeAuth(supabase)
-      if (!mounted) return
-
-      channel = supabase.channel('export_jobs:active').on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'export_jobs' },
-        (payload) => {
-          if (!mounted) return
-          const newRow = payload.new as ExportJob | undefined
-          const oldRow = payload.old as ExportJob | undefined
-          const id = newRow?.id ?? oldRow?.id
-          if (!id) return
-
-          setJobs(prev => {
-            // Remove the row from prev
-            const filtered = prev.filter(j => j.id !== id)
-            // Re-insert if active
-            if (newRow && ACTIVE_STATUSES.has(newRow.status)) {
-              return [newRow, ...filtered]
-            }
-            // Keep terminal exports for 10s so the UI can render the
-            // success/failure state before they disappear — we leverage
-            // a small grace by NOT removing immediately. Instead, set a
-            // timer in the component (ExportProgressStack) to dismiss
-            // after the user acts or after a TTL.
-            if (newRow && TERMINAL_STATUSES.has(newRow.status)) {
-              return [newRow, ...filtered]
-            }
-            return filtered
-          })
-        },
-      ).subscribe()
-    })()
-
     return () => {
       mounted = false
-      if (channel) void supabase.removeChannel(channel)
     }
   }, [])
+
+  // Phase 8.5b B.5b — Realtime via the multiplexed user channel.
+  useRealtimeTopic<ExportJob>(
+    'export_jobs',
+    (payload) => {
+      const newRow = (payload.new as ExportJob | undefined) ?? undefined
+      const oldRow = (payload.old as ExportJob | undefined) ?? undefined
+      const id = newRow?.id ?? oldRow?.id
+      if (!id) return
+
+      setJobs((prev) => {
+        const filtered = prev.filter((j) => j.id !== id)
+        if (newRow && ACTIVE_STATUSES.has(newRow.status)) {
+          return [newRow, ...filtered]
+        }
+        if (newRow && TERMINAL_STATUSES.has(newRow.status)) {
+          return [newRow, ...filtered]
+        }
+        return filtered
+      })
+    },
+  )
 
   return jobs
 }
@@ -152,29 +137,25 @@ export function useExportProgress(exportJobId: string | null): ExportJob | null 
 
     void fetchInitial()
 
-    // Wait for auth before subscribing — see lib/supabase/realtime-auth.ts.
-    let channel: ReturnType<typeof supabase.channel> | null = null
-
-    void (async () => {
-      await ensureRealtimeAuth(supabase)
-      if (!mounted) return
-
-      channel = supabase.channel(`export_jobs:${exportJobId}`).on(
-        'postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'export_jobs', filter: `id=eq.${exportJobId}` },
-        (payload) => {
-          if (!mounted) return
-          const newRow = payload.new as ExportJob | undefined
-          if (newRow) setJob(newRow)
-        },
-      ).subscribe()
-    })()
-
     return () => {
       mounted = false
-      if (channel) void supabase.removeChannel(channel)
     }
   }, [exportJobId])
+
+  // Phase 8.5b B.5b — Realtime via the multiplexed user channel.
+  // Filter by id at the subscriber level (UPDATE on a specific job).
+  useRealtimeTopic<ExportJob>(
+    'export_jobs',
+    (payload) => {
+      if (payload.eventType !== 'UPDATE') return
+      const newRow = payload.new as ExportJob | undefined
+      if (newRow) setJob(newRow)
+    },
+    (payload) => {
+      const row = payload.new && Object.keys(payload.new).length > 0 ? (payload.new as ExportJob) : (payload.old as ExportJob)
+      return row?.id === exportJobId
+    },
+  )
 
   return job
 }
@@ -218,46 +199,42 @@ export function useExportHistory(documentId: string | null): ExportJob[] {
 
   useEffect(() => {
     if (!documentId) return
-    const supabase = createClient()
     mountedRef.current = true
 
     void fetchInitial()
+    return () => { mountedRef.current = false }
+  }, [documentId, fetchInitial])
 
-    // Wait for auth before subscribing — see lib/supabase/realtime-auth.ts.
-    let channel: ReturnType<typeof supabase.channel> | null = null
-
-    void (async () => {
-      await ensureRealtimeAuth(supabase)
+  // Phase 8.5b B.5b — Realtime via the multiplexed user channel.
+  // Filter by document_id at the subscriber level. Status drops are
+  // handled by the channel-status subscription (no per-channel
+  // warning needed; RealtimeBadge surfaces global status).
+  useRealtimeTopic<ExportJob>(
+    'export_jobs',
+    (payload) => {
       if (!mountedRef.current) return
+      const newRow = payload.new as ExportJob | undefined
+      const oldRow = payload.old as ExportJob | undefined
+      const id = newRow?.id ?? oldRow?.id
+      if (!id) return
 
-      channel = supabase.channel(`export_jobs:doc:${documentId}`).on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'export_jobs', filter: `document_id=eq.${documentId}` },
-        (payload) => {
-          if (!mountedRef.current) return
-          const newRow = payload.new as ExportJob | undefined
-          const oldRow = payload.old as ExportJob | undefined
-          const id = newRow?.id ?? oldRow?.id
-          if (!id) return
-
-          setJobs(prev => {
-            if (payload.eventType === 'DELETE') return prev.filter(j => j.id !== id)
-            const filtered = prev.filter(j => j.id !== id)
-            if (newRow) return [newRow, ...filtered].slice(0, 50)
-            return filtered
-          })
-        },
-      ).subscribe((status) => {
-        // Surface a non-SUBSCRIBED status so a silent Realtime failure
-        // (CHANNEL_ERROR / TIMED_OUT / CLOSED) is visible to diagnose. We
-        // intentionally do NOT log SUBSCRIBED — that's the happy path
-        // and would just be noise in production console output.
-        if (status !== 'SUBSCRIBED') {
-          // eslint-disable-next-line no-console
-          console.warn(`[useExportHistory] channel ${documentId} status:`, status)
-        }
+      setJobs((prev) => {
+        if (payload.eventType === 'DELETE') return prev.filter((j) => j.id !== id)
+        const filtered = prev.filter((j) => j.id !== id)
+        if (newRow) return [newRow, ...filtered].slice(0, 50)
+        return filtered
       })
-    })()
+    },
+    (payload) => {
+      const row = payload.new && Object.keys(payload.new).length > 0 ? (payload.new as ExportJob) : (payload.old as ExportJob)
+      return row?.document_id === documentId
+    },
+  )
+
+  // The trailing useEffect handles the EXPORT_STARTED_EVENT + window
+  // focus / visibility refetch.
+  useEffect(() => {
+    if (!documentId) return
 
     // 2026-06-07 — modal-dispatched event refresh. When ExportModal
     // POSTs /api/exports successfully, it dispatches a window event;
@@ -280,7 +257,6 @@ export function useExportHistory(documentId: string | null): ExportJob[] {
 
     return () => {
       mountedRef.current = false
-      if (channel) void supabase.removeChannel(channel)
       window.removeEventListener(EXPORT_STARTED_EVENT, onExportStarted)
       window.removeEventListener('focus', onFocus)
       document.removeEventListener('visibilitychange', onVisibilityChange)

@@ -148,6 +148,11 @@ function isOrgScoped(topic: RealtimeTopic): boolean {
     case 'export_jobs':
     case 'project_profiles':
       return true
+    case 'organisations':
+      // organisations is keyed by id (own org); filter at the topic
+      // subscriber level rather than at the channel level so the
+      // channel can carry the singular event.
+      return false
     case 'brief_stages':
     case 'conversation_messages':
     case 'director_turns':
