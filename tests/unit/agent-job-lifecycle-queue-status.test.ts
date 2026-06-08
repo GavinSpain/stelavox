@@ -23,14 +23,35 @@ import {
   persistRunningStart,
 } from '@/lib/agent/job-lifecycle'
 
+// allowed_transitions rows the orchestration's CAS lookup expects to find.
+// Sourced from the live `allowed_transitions` table (see M-205 layer-0).
+// Phase 8.5c: updated to match the post-Apollo orchestration shape.
+const ALLOWED_TRANSITIONS_FAKE: Record<string, string[]> = {
+  // event_name → [from_state, ...]
+  llm_ok: ['running'],
+  llm_fail: ['running'],
+  cancel_mid_run: ['running'],
+  persist_running_start: ['dispatched'],
+  runner_start_bypass: ['queued'],
+}
+
 function fakeSupabase() {
   const writes: Array<{ table: string; payload: Record<string, unknown> }> = []
-  // Track which UPDATE call we're in — first call returns ok, subsequent
-  // calls (e.g. persistRunningStart's bypass-fallback) also return ok.
-  // The orchestration module calls .select().maybeSingle() to read back
-  // the updated row; emulate that as a successful match with a state value.
+  // The orchestration module's flow:
+  //   1. casLookupSources reads from('allowed_transitions').select('from_state')
+  //      .eq('entity_name', ...).eq('event_name', ...).eq('to_state', ...)
+  //   2. If sources exist, it calls from('agent_jobs').update(payload).eq('id', ...)
+  //      .in('state', sources).select('id, state').maybeSingle()
+  //   3. persistFailure/Cancellation/RunningStart also read 'triggered_by' or
+  //      similar via from('agent_jobs').select(...).eq('id', ...).maybeSingle()
+  //
+  // The fake needs to dispatch on table + chain so each call resolves with
+  // the right shape. We track the current table + the current event_name /
+  // to_state filters so allowed_transitions returns the right rows.
   let lastWritePayload: Record<string, unknown> | null = null
   const fluent = (table: string) => {
+    let filterEventName: string | null = null
+    let filterToState: string | null = null
     const proxy: Record<string, unknown> = {
       update(payload: Record<string, unknown>, _opts?: unknown) {
         writes.push({ table, payload })
@@ -38,15 +59,35 @@ function fakeSupabase() {
         return proxy
       },
       select() { return proxy },
-      eq() { return proxy },
+      eq(col: string, value: string) {
+        if (col === 'event_name') filterEventName = value
+        else if (col === 'to_state') filterToState = value
+        return proxy
+      },
       neq() { return proxy },
       in() { return proxy },
-      maybeSingle: () => Promise.resolve({
-        data: { id: 'fake-id', state: (lastWritePayload?.state as string) ?? 'running' },
-        error: null,
-      }),
-      // Terminal chainables resolved as success.
-      then(onFulfilled: (v: { data: null; error: null; count: number }) => unknown) {
+      maybeSingle: () => {
+        if (table === 'agent_jobs') {
+          // Mimics the post-update read.
+          return Promise.resolve({
+            data: { id: 'fake-id', state: (lastWritePayload?.state as string) ?? 'running', triggered_by: null },
+            error: null,
+          })
+        }
+        return Promise.resolve({ data: null, error: null })
+      },
+      // Awaiting an unterminated chain (no .maybeSingle). For
+      // allowed_transitions this is the casLookupSources path — return the
+      // list of source states for the event we filtered on.
+      then(onFulfilled: (v: { data: unknown; error: null; count?: number }) => unknown) {
+        if (table === 'allowed_transitions' && filterEventName) {
+          const sources = ALLOWED_TRANSITIONS_FAKE[filterEventName] ?? []
+          void filterToState // not used to scope but kept for completeness
+          return Promise.resolve({
+            data: sources.map((s) => ({ from_state: s })),
+            error: null,
+          }).then(onFulfilled)
+        }
         return Promise.resolve({ data: null, error: null, count: 1 }).then(onFulfilled)
       },
     }
