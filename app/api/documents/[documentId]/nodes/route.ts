@@ -16,12 +16,47 @@ import { normalizeContent } from '@/lib/editor/serialise'
 import {
   createNode, getNode, listNodes,
   getDocumentMaxLayerIndex, decorateWithLeaf,
+  type NodeProjection,
 } from '@/lib/data/nodes'
 import { enforceWritable } from '@/lib/locking/enforceWritable'
+import { ALLOWED_INCLUDES, type NodeIncludeField } from '@/lib/types/api'
 
 interface Context { params: Promise<{ documentId: string }> }
 
 const VALID_CATEGORIES = new Set(['structural', 'context', 'all'])
+const VALID_QUERY_PARAMS = new Set(['category', 'include'])
+
+// Phase 8.5b B.2 — parse the `?include=` query string into a
+// NodeProjection. Validates against the allow-list; unknown values
+// produce an error response (the route returns 400 in that case).
+//
+// Contract (B.2b — default flipped):
+//   - absent                  → 'structural' (NEW default: structural
+//     columns only; the tree-render path uses this. Cuts mega-doc
+//     payload from 2.7 MB to ~80 KB gzipped)
+//   - `?include=*`            → 'full' (explicit escape hatch — every
+//     column including the JSONB content fields; preserved for the
+//     callers that legitimately need all fields)
+//   - `?include=summary`      → ['summary'] (structural + summary)
+//   - `?include=summary,prose` → ['summary', 'prose']
+//   - any unknown value        → throws ProjectionError (caller maps to 400)
+//
+// Refs: docs/stelavox_document_load_architecture_v1_0.md §2.1
+//       docs/stelavox_phase8_5b_build_checklist_v1_0.md §2 B.2b
+class ProjectionError extends Error {
+  constructor(public unknown: string) { super(`unknown include field: ${unknown}`) }
+}
+function parseProjection(includeParam: string | null): NodeProjection {
+  if (includeParam === null) return 'structural'
+  if (includeParam === '*') return 'full'
+  const fields = includeParam.split(',').map((s) => s.trim()).filter(Boolean)
+  for (const f of fields) {
+    if (!(ALLOWED_INCLUDES as readonly string[]).includes(f)) {
+      throw new ProjectionError(f)
+    }
+  }
+  return fields as readonly NodeIncludeField[]
+}
 
 // ─── helpers ──────────────────────────────────────────────────────────
 
@@ -195,10 +230,24 @@ export async function GET(request: NextRequest, { params }: Context) {
 
     const { searchParams } = new URL(request.url)
     for (const key of searchParams.keys()) {
-      if (key !== 'category') return err.unknownParam()
+      if (!VALID_QUERY_PARAMS.has(key)) return err.unknownParam()
     }
     const categoryParam = searchParams.get('category') ?? 'structural'
     if (!VALID_CATEGORIES.has(categoryParam)) return err.unknownParam()
+
+    // Phase 8.5b B.2a — parse `?include=`. Default 'full' preserves
+    // back-compat; B.2b flips to 'structural' once consumers are
+    // migrated. The route always accepts `?include=*` as the explicit
+    // escape hatch.
+    let projection: NodeProjection
+    try {
+      projection = parseProjection(searchParams.get('include'))
+    } catch (e) {
+      if (e instanceof ProjectionError) {
+        return err.unknownParam()
+      }
+      throw e
+    }
 
     const { data: doc } = await getDocument(supabase, documentId)
     if (!doc) return err.notFound('document_not_found')
@@ -207,6 +256,7 @@ export async function GET(request: NextRequest, { params }: Context) {
       supabase,
       documentId,
       categoryParam as 'structural' | 'context' | 'all',
+      projection,
     )
     if (error) return err.internal()
 

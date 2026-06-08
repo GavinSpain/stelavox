@@ -175,6 +175,74 @@ const NODE_SELECT = [
   'last_ai_change_at',
 ].join(', ')
 
+// Phase 8.5b B.2 — structural projection (drops the four JSONB content
+// fields + three small text content fields). Used by the projected
+// default of GET /api/documents/[id]/nodes; the tree renderer needs
+// only these fields. Mirrors lib/types/api.ts STRUCTURAL_COLUMNS plus
+// the implementation-detail columns the route handler / tree builder
+// rely on (document_id, project_id, organisation_id for RLS scoping;
+// depth + scope for derived `is_leaf` and tree-build logic; version +
+// content_revision for the optimistic-update concurrency check;
+// last_ai_change_at for the NodeRow AI-changed flag).
+//
+// Refs: docs/stelavox_document_load_architecture_v1_0.md §2.1
+const STRUCTURAL_SELECT = [
+  'id', 'document_id', 'project_id', 'organisation_id',
+  'parent_id', '"order"', 'depth', 'layer_index',
+  'node_type', 'node_category', 'scope',
+  'name',
+  'status',
+  'word_count_target', 'word_count_actual',
+  'version', 'content_revision', 'created_at', 'updated_at',
+  'last_ai_change_at',
+].join(', ')
+
+// Phase 8.5b B.2 — `?include=` field allow-list for the route handler.
+// Mirrors lib/types/api.ts ALLOWED_INCLUDES. Each entry maps to the
+// raw column added on top of STRUCTURAL_SELECT when explicitly opted-in.
+//
+// The 'metadata' opt-in also pulls in `short_description, tags,
+// agent_instruction` because those are conceptually part of the node's
+// authored metadata (small TEXT fields the tree doesn't need but
+// detail/Director/export surfaces sometimes do).
+const INCLUDE_FIELD_TO_COLUMNS: Record<string, readonly string[]> = {
+  summary: ['summary'],
+  prose: ['prose'],
+  notes: ['notes'],
+  metadata: ['metadata', 'short_description', 'tags', 'agent_instruction'],
+}
+
+/**
+ * Phase 8.5b B.2 — projection type for `listNodes`.
+ *
+ * `'full'`        — back-compat default; returns every column (NODE_SELECT)
+ * `'structural'`  — drops the JSONB content fields + small text content
+ *                   fields; returns STRUCTURAL_SELECT
+ * `string[]`      — structural fields + the columns associated with each
+ *                   listed `?include=` field. Empty array is equivalent
+ *                   to `'structural'`.
+ */
+export type NodeProjection = 'full' | 'structural' | readonly string[]
+
+/**
+ * Returns the comma-separated SELECT column list to use for a given
+ * projection. Exported for unit tests so the projection contract is
+ * directly assertable. Unknown include-field strings are silently
+ * ignored — the route handler validates against the allow-list BEFORE
+ * passing the list in here, so by this point everything is sanitised.
+ */
+export function buildNodeSelect(projection: NodeProjection): string {
+  if (projection === 'full') return NODE_SELECT
+  if (projection === 'structural') return STRUCTURAL_SELECT
+  const extras = new Set<string>()
+  for (const field of projection) {
+    const cols = INCLUDE_FIELD_TO_COLUMNS[field]
+    if (cols) for (const c of cols) extras.add(c)
+  }
+  if (extras.size === 0) return STRUCTURAL_SELECT
+  return `${STRUCTURAL_SELECT}, ${[...extras].join(', ')}`
+}
+
 export async function createNode(
   supabase: Client,
   fields: NodeInsert,
@@ -191,10 +259,11 @@ export async function listNodes(
   supabase: Client,
   documentId: string,
   category: 'structural' | 'context' | 'all' = 'structural',
+  projection: NodeProjection = 'full',
 ) {
   let query = supabase
     .from('nodes')
-    .select(NODE_SELECT)
+    .select(buildNodeSelect(projection))
     .eq('document_id', documentId)
 
   // 'all' applies no category filter (Phase 4 will return both structural
