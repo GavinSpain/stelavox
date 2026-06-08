@@ -255,26 +255,68 @@ export async function createNode(
     .single() as unknown as PostgrestSingleResponse<NodeRow>
 }
 
+// Phase 8.5b B.1b — pagination loop added 2026-06-08. The previous
+// single-query implementation hit PostgREST's 1000-row default response
+// cap for any document with > 1000 nodes (same root cause class as the
+// B.1 dashboard 187k bug; the B.1 audit fixed the same shape in
+// `computeChildActualAggregates` but missed this helper).
+//
+// Symptom that surfaced the bug: the mega-doc (1556 nodes) showed only
+// 3 of 5 beats per scene in the tree because the depth-4 beat rows came
+// back ordered by `order` and the 1000th row landed mid-way through the
+// order=3 beats. Detail panel showed all 5 because `getStructuralOverview`
+// reads `parent_id=eq.<sceneId>` — bounded per parent, never truncates.
+//
+// Pagination shape: 1000-row chunks via `.range()` until a chunk returns
+// fewer than `PAGE_SIZE` rows. Mirrors `computeChildActualAggregates`
+// for consistency. At V1 scale (typical novels ≤ 2000 nodes) this loops
+// 1-2 times; even a 10000-node project loops 10 times — well within
+// acceptable.
+const LIST_NODES_PAGE_SIZE = 1000
+
 export async function listNodes(
   supabase: Client,
   documentId: string,
   category: 'structural' | 'context' | 'all' = 'structural',
   projection: NodeProjection = 'full',
-) {
-  let query = supabase
-    .from('nodes')
-    .select(buildNodeSelect(projection))
-    .eq('document_id', documentId)
+): Promise<PostgrestResponse<NodeRow>> {
+  const select = buildNodeSelect(projection)
+  const allRows: NodeRow[] = []
+  let offset = 0
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    let query = supabase
+      .from('nodes')
+      .select(select)
+      .eq('document_id', documentId)
 
-  // 'all' applies no category filter (Phase 4 will return both structural
-  // and context nodes). 'structural' and 'context' filter to that single
-  // category. Phase 2 has no context nodes, so 'context' returns [].
-  if (category === 'structural') query = query.eq('node_category', 'structural')
-  else if (category === 'context') query = query.eq('node_category', 'context')
+    if (category === 'structural') query = query.eq('node_category', 'structural')
+    else if (category === 'context') query = query.eq('node_category', 'context')
 
-  return query
-    .order('depth', { ascending: true })
-    .order('order', { ascending: true }) as unknown as Promise<PostgrestResponse<NodeRow>>
+    const result = await query
+      .order('depth', { ascending: true })
+      .order('order', { ascending: true })
+      .range(offset, offset + LIST_NODES_PAGE_SIZE - 1)
+
+    if (result.error) {
+      // Surface the error in the PostgrestResponse shape callers expect.
+      return result as unknown as PostgrestResponse<NodeRow>
+    }
+    const rows = (result.data ?? []) as unknown as NodeRow[]
+    allRows.push(...rows)
+    if (rows.length < LIST_NODES_PAGE_SIZE) break
+    offset += LIST_NODES_PAGE_SIZE
+  }
+
+  // Re-pack into the PostgrestResponse shape so the function signature
+  // is unchanged for every caller.
+  return {
+    data: allRows,
+    error: null,
+    count: null,
+    status: 200,
+    statusText: 'OK',
+  } as unknown as PostgrestResponse<NodeRow>
 }
 
 export async function getNode(
