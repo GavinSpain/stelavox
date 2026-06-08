@@ -4,14 +4,29 @@
 //
 // Single component with `shape: 'populated' | 'first-time'` per locks
 // from the build checklist:
-//   - Populated: LIBRARY (All / Recent) — NO Archived row per OQ-4 lock;
-//                CONTEXT (Characters / Locations / Themes); SYSTEM links;
-//                permanent "Try a sample" link in LEARN section (OQ-3 3a).
-//   - First-time: QUICK START checklist; LEARN section with Walkthrough + Sample.
+//   - Populated: LEARN section (Try a sample); SYSTEM (Settings, Usage).
+//   - First-time: QUICK START checklist; LEARN (Sample novel tour).
 //
-// Inviolable #2: no verdigris. Counts in monospace, neutral palette.
+// Phase 8 nav cleanup (2026-06-08):
+//   - LIBRARY section deleted. The "All projects" row was a circular
+//     <Link> back to /dashboard with a count; "Recent" was a count
+//     with no link. Both duplicated the centre-panel ProjectGrid
+//     without adding navigation power. If we want a real "Recent"
+//     filter, build it as a chip above the grid where it can actually
+//     filter — not as an inert count in the sidebar.
+//   - CONTEXT section deleted. Aggregated counts of context nodes
+//     across all projects in the org had no scope — context is
+//     project-scoped (a character belongs to a novel). The document
+//     page's Sidebar already shows the 6 context types properly
+//     scoped with inline create-and-link UX.
+//   - SYSTEM > Exports row deleted. Linked to /settings which has no
+//     Exports page. Exports are document-scoped in the implementation
+//     (the Export button lives on the Project page Export tab).
+//   - LEARN > Walkthrough row deleted. href="#" placeholder; Phase 12
+//     user-docs work will resurrect it with a real destination.
+//
+// Inviolable #2: no verdigris.
 
-import Link from 'next/link'
 import { QuickStartChecklist, type QuickStartCompletion } from './QuickStartChecklist'
 
 export interface SidebarCounts {
@@ -50,32 +65,16 @@ const ROW_STYLE = {
   minHeight: 44,
 }
 
-function CountRow({ label, count, href }: { label: string; count: number; href?: string }) {
-  const inner = (
-    <>
-      <span>{label}</span>
-      <span
-        style={{
-          marginLeft: 'auto',
-          fontFamily: 'ui-monospace, "JetBrains Mono", SFMono-Regular, Menlo, monospace',
-          fontSize: 10.5,
-          color: 'var(--color-text-muted)',
-        }}
-      >
-        {count}
-      </span>
-    </>
-  )
-  if (href) return <Link href={href} style={ROW_STYLE}>{inner}</Link>
-  return <div style={ROW_STYLE}>{inner}</div>
-}
+// Phase 8 nav cleanup: CountRow deleted alongside the LIBRARY +
+// CONTEXT sections that consumed it. Re-add if a future section
+// genuinely benefits from the count-row shape.
 
 function ActionRow({ href, label, onClick, testid }: { href?: string; label: string; onClick?: () => void; testid?: string }) {
   if (href) {
     return (
-      <Link href={href} style={ROW_STYLE} data-testid={testid}>
+      <a href={href} style={ROW_STYLE} data-testid={testid}>
         {label}
-      </Link>
+      </a>
     )
   }
   return (
@@ -113,27 +112,13 @@ export function DashboardSidebar({ shape, counts, quickStart, onTrySample }: Das
       {shape === 'populated' ? (
         <>
           <section style={{ padding: '0 16px 16px' }}>
-            <div style={LABEL_STYLE}>LIBRARY</div>
-            <CountRow label="All projects" count={counts?.allProjects ?? 0} href="/dashboard" />
-            <CountRow label="Recent" count={counts?.recent ?? 0} />
-            {/* OQ-4 lock: Archived row OMITTED — archive feature doesn't exist yet. */}
-          </section>
-          <section style={{ padding: '0 16px 16px' }}>
-            <div style={LABEL_STYLE}>CONTEXT</div>
-            <CountRow label="Characters" count={counts?.characters ?? 0} />
-            <CountRow label="Locations" count={counts?.locations ?? 0} />
-            <CountRow label="Themes" count={counts?.themes ?? 0} />
-          </section>
-          <section style={{ padding: '0 16px 16px' }}>
             <div style={LABEL_STYLE}>LEARN</div>
-            <ActionRow label="Walkthrough" href="#" />
             {/* OQ-3 (3a) lock: permanent "Try a sample" link in the populated sidebar. */}
             <ActionRow label="Try a sample" onClick={onTrySample} testid="sidebar-try-sample" />
           </section>
           <section style={{ padding: '0 16px 16px' }}>
             <div style={LABEL_STYLE}>SYSTEM</div>
             <ActionRow label="Settings" href="/settings" />
-            <ActionRow label="Exports" href="/settings" />
             <ActionRow label="Usage" href="/settings/usage" />
           </section>
         </>
@@ -145,7 +130,6 @@ export function DashboardSidebar({ shape, counts, quickStart, onTrySample }: Das
           </section>
           <section style={{ padding: '0 16px 16px' }}>
             <div style={LABEL_STYLE}>LEARN</div>
-            <ActionRow label="Walkthrough" href="#" />
             <ActionRow label="Sample novel tour" onClick={onTrySample} testid="sidebar-try-sample" />
           </section>
         </>

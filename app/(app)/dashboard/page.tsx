@@ -45,18 +45,23 @@ export default async function DashboardPage() {
   }
   const orgId = membership.organisation_id
 
-  const [aggregates, resumeTarget, quickStart, contextCounts, recentCount] = await Promise.all([
+  // Phase 8 nav cleanup: getContextCounts + getRecentProjectCount
+  // deleted alongside the LIBRARY + CONTEXT sidebar sections that
+  // consumed them. SidebarCounts shape kept for back-compat with
+  // DashboardClient prop signature; the fields are unused by the
+  // pruned sidebar.
+  const [aggregates, resumeTarget, quickStart] = await Promise.all([
     getProjectAggregates(supabase, orgId),
     getResumeWritingTarget(supabase, orgId),
     getQuickStartCompletion(supabase, orgId),
-    getContextCounts(supabase, orgId),
-    getRecentProjectCount(supabase, orgId),
   ])
 
   const sidebarCounts: SidebarCounts = {
     allProjects: aggregates.length,
-    recent: recentCount,
-    ...contextCounts,
+    recent: 0,
+    characters: 0,
+    locations: 0,
+    themes: 0,
   }
 
   const shape: 'populated' | 'first-time' = aggregates.length === 0 ? 'first-time' : 'populated'
@@ -69,42 +74,4 @@ export default async function DashboardPage() {
       quickStart={quickStart}
     />
   )
-}
-
-async function getContextCounts(supabase: Awaited<ReturnType<typeof createClient>>, orgId: string) {
-  const [chars, locs, themes] = await Promise.all([
-    supabase
-      .from('nodes')
-      .select('id', { count: 'exact', head: true })
-      .eq('organisation_id', orgId)
-      .eq('node_category', 'context')
-      .eq('node_type', 'character'),
-    supabase
-      .from('nodes')
-      .select('id', { count: 'exact', head: true })
-      .eq('organisation_id', orgId)
-      .eq('node_category', 'context')
-      .eq('node_type', 'location'),
-    supabase
-      .from('nodes')
-      .select('id', { count: 'exact', head: true })
-      .eq('organisation_id', orgId)
-      .eq('node_category', 'context')
-      .eq('node_type', 'theme'),
-  ])
-  return {
-    characters: chars.count ?? 0,
-    locations: locs.count ?? 0,
-    themes: themes.count ?? 0,
-  }
-}
-
-async function getRecentProjectCount(supabase: Awaited<ReturnType<typeof createClient>>, orgId: string): Promise<number> {
-  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
-  const { count } = await supabase
-    .from('projects')
-    .select('id', { count: 'exact', head: true })
-    .eq('organisation_id', orgId)
-    .gte('updated_at', sevenDaysAgo)
-  return count ?? 0
 }
