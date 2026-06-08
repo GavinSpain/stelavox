@@ -121,12 +121,13 @@ export function StatusIndicatorPopover({ counts, onClose }: { counts: Counts; on
         role="dialog"
         aria-label="Pending Director attention"
         style={{
-          // 2026-05-22 — moved to bottom-left in lockstep with the
-          // status chip (see AppShellStatusIndicator.tsx). Polish phase
-          // to reposition properly.
+          // Phase 8 nav refactor (2026-06-08): anchored to top-right
+          // beneath the Header (52px tall) where the indicator pill
+          // now lives. Replaces the previous bottom-left floating
+          // position the chip + popover shared.
           position: 'fixed',
-          left: 24,
-          bottom: 72,
+          right: 24,
+          top: 60,
           zIndex: 51,
           width: 360,
           maxHeight: '60vh',

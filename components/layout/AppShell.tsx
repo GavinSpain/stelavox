@@ -47,7 +47,9 @@ import { TreeSlideOver } from './TreeSlideOver'
 import { useViewportBreakpoint } from '@/lib/hooks/useViewportBreakpoint'
 import { PanelResizer } from './PanelResizer'
 import { ModeProvider } from './ModeContext'
-import { AppShellStatusIndicator } from './AppShellStatusIndicator'
+// Phase 8 nav refactor (2026-06-08): AppShellStatusIndicator import
+// removed — the indicator is now mounted in Header.tsx as a chrome
+// pill (no longer fixed-position floating).
 import { KeyboardShortcutsProvider } from '@/components/help/KeyboardShortcutsProvider'
 import { CommandPalette } from '@/components/command/CommandPalette'
 import { CommandBridge } from '@/components/command/CommandBridge'
@@ -345,9 +347,8 @@ function AppShellInner({ userEmail, children }: AppShellProps) {
           </>
         )}
       </div>
-      {/* V1.x-B.1.1 — persistent bottom-right status indicator. Fixed-position;
-          non-blocking; visible from every screen (CS v2.10 §17.1). */}
-      <AppShellStatusIndicator />
+      {/* Phase 8 nav refactor (2026-06-08): AppShellStatusIndicator
+         relocated into the Header right cluster. No longer floating. */}
       {/* Phase 8.4 — global keyboard shortcuts. Listens for `?` (opens
           help overlay) and ⌘K (dispatches command-palette open event
           for Phase 8.1 to catch). Both skip when focus is inside a
