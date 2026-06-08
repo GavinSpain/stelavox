@@ -12,9 +12,11 @@
  * nodeId. Cleanup on unmount per H-05.
  */
 
-import { useEffect, useRef } from 'react'
-import { createClient } from '@/lib/supabase/client'
-import { ensureRealtimeAuth } from '@/lib/supabase/realtime-auth'
+import { useCallback, useEffect, useRef } from 'react'
+// Phase 8.5b B.5c — createClient + ensureRealtimeAuth dropped; the
+// multiplexed user channel carries the `nodes` topic. Subscribe via
+// the demuxer hook + filter by id at the subscriber level.
+import { useRealtimeTopic } from '@/lib/realtime/useRealtimeTopic'
 
 const REFETCH_DEBOUNCE_MS = 200
 
@@ -27,41 +29,36 @@ export function useNodeRealtime(
     onChangeRef.current = onChange
   }, [onChange])
 
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const handleEvent = useCallback((payload: { eventType: string }) => {
+    // Original hook only fired on UPDATE; preserve that behaviour.
+    if (payload.eventType !== 'UPDATE') return
+    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current)
+    debounceTimerRef.current = setTimeout(() => {
+      onChangeRef.current()
+      debounceTimerRef.current = null
+    }, REFETCH_DEBOUNCE_MS)
+  }, [])
+
+  const filter = useCallback(
+    (payload: { new: { id?: string }; old: { id?: string } }) => {
+      if (!nodeId) return false
+      const row = payload.new && Object.keys(payload.new).length > 0 ? payload.new : payload.old
+      return row.id === nodeId
+    },
+    [nodeId],
+  )
+
+  useRealtimeTopic<{ id?: string }>('nodes', handleEvent, filter)
+
+  // Cleanup any pending debounce on unmount.
   useEffect(() => {
-    if (!nodeId) return
-    const supabase = createClient()
-    let debounceTimer: ReturnType<typeof setTimeout> | null = null
-    let channel: ReturnType<typeof supabase.channel> | null = null
-    let mounted = true
-
-    const triggerRefetch = () => {
-      if (debounceTimer) clearTimeout(debounceTimer)
-      debounceTimer = setTimeout(() => onChangeRef.current(), REFETCH_DEBOUNCE_MS)
-    }
-
-    // Wait for auth before subscribing — see lib/supabase/realtime-auth.ts.
-    void (async () => {
-      await ensureRealtimeAuth(supabase)
-      if (!mounted) return
-      channel = supabase
-        .channel(`node:${nodeId}`)
-        .on(
-          'postgres_changes',
-          {
-            event: 'UPDATE',
-            schema: 'public',
-            table: 'nodes',
-            filter: `id=eq.${nodeId}`,
-          },
-          triggerRefetch,
-        )
-        .subscribe()
-    })()
-
     return () => {
-      mounted = false
-      if (debounceTimer) clearTimeout(debounceTimer)
-      if (channel) void supabase.removeChannel(channel)
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current)
+        debounceTimerRef.current = null
+      }
     }
-  }, [nodeId])
+  }, [])
 }

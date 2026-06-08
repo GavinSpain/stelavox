@@ -34,7 +34,6 @@
 //   resolves the first fetch. Buffer bounded at 1000 (FIFO eviction).
 
 import type { QueryClient, QueryKey } from '@tanstack/react-query'
-import type { RealtimeChannel, SupabaseClient } from '@supabase/supabase-js'
 
 import { documentKeys, nodeKeys } from './keys'
 import type { TreeNodeRow } from './useDocumentNodes'
@@ -201,42 +200,7 @@ export function applyNodeDelete(
   queryClient.removeQueries({ queryKey: nodeKeys.single(oldRow.id), exact: true })
 }
 
-/**
- * Open the nodes-table channel and wire dispatches to the cache
- * patcher. Returns the channel so the caller can clean it up on
- * unmount. The caller is responsible for awaiting
- * `ensureRealtimeAuth(supabase)` BEFORE this function — see Tier-A §5.0.
- *
- * B.5 will replace per-feature channel-opening with a single multiplexed
- * user channel; until then this hook lives standalone.
- */
-export function attachNodesRealtimePatcher(
-  supabase: SupabaseClient,
-  queryClient: QueryClient,
-  orgId: string,
-): RealtimeChannel {
-  const channel = supabase.channel(`nodes-patcher:${orgId}`)
-    .on(
-      'postgres_changes' as never,
-      { event: 'UPDATE', schema: 'public', table: 'nodes', filter: `organisation_id=eq.${orgId}` },
-      (payload: { old: Partial<TreeNodeRow> | null; new: Partial<TreeNodeRow> & { id: string; document_id?: string | null } }) => {
-        applyNodeUpdate(queryClient, payload.old ?? null, payload.new)
-      },
-    )
-    .on(
-      'postgres_changes' as never,
-      { event: 'INSERT', schema: 'public', table: 'nodes', filter: `organisation_id=eq.${orgId}` },
-      (payload: { new: TreeNodeRow & { document_id: string } }) => {
-        applyNodeInsert(queryClient, payload.new)
-      },
-    )
-    .on(
-      'postgres_changes' as never,
-      { event: 'DELETE', schema: 'public', table: 'nodes', filter: `organisation_id=eq.${orgId}` },
-      (payload: { old: { id: string; document_id: string | null } }) => {
-        applyNodeDelete(queryClient, payload.old)
-      },
-    )
-    .subscribe()
-  return channel
-}
+// B.5c — `attachNodesRealtimePatcher` removed. The patcher functions
+// above are now driven by a `useRealtimeTopic('nodes', ...)` subscriber
+// in `lib/queries/NodesPatcherMount.tsx`. No consumer opens a standalone
+// channel for nodes events anymore.

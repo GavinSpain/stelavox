@@ -38,9 +38,11 @@
  * Cleanup on unmount per H-05.
  */
 
-import { useEffect, useRef } from 'react'
-import { createClient } from '@/lib/supabase/client'
-import { ensureRealtimeAuth } from '@/lib/supabase/realtime-auth'
+import { useCallback, useEffect, useRef } from 'react'
+// Phase 8.5b B.5c — createClient + ensureRealtimeAuth dropped; the
+// multiplexed user channel carries the `nodes` topic. Subscribe via
+// the demuxer hook + filter by document_id at the subscriber level.
+import { useRealtimeTopic } from '@/lib/realtime/useRealtimeTopic'
 
 const REFETCH_DEBOUNCE_MS = 200
 
@@ -60,54 +62,48 @@ export function useNodesRealtime(
     onChangeRef.current = onChange
   }, [onChange])
 
+  // Debounce machinery lives in refs so the callback identity is
+  // stable across renders. The demuxer cleanup tears down the
+  // subscription; we also clear any pending timer on unmount.
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const pendingKindRef = useRef<NodesRealtimeKind | null>(null)
+
+  const handleEvent = useCallback((payload: { eventType: string; new: { document_id?: string }; old: { document_id?: string } }) => {
+    const evt = payload.eventType
+    const structural = evt === 'INSERT' || evt === 'DELETE'
+    if (structural || pendingKindRef.current !== 'structural') {
+      pendingKindRef.current = structural ? 'structural' : 'data'
+    }
+    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current)
+    debounceTimerRef.current = setTimeout(() => {
+      const kind = pendingKindRef.current ?? 'data'
+      pendingKindRef.current = null
+      debounceTimerRef.current = null
+      onChangeRef.current(kind)
+    }, REFETCH_DEBOUNCE_MS)
+  }, [])
+
+  const filter = useCallback(
+    (payload: { new: { document_id?: string }; old: { document_id?: string } }) => {
+      if (!documentId) return false
+      const row = payload.new && Object.keys(payload.new).length > 0 ? payload.new : payload.old
+      return row.document_id === documentId
+    },
+    [documentId],
+  )
+
+  // Skip the subscription entirely when documentId is null — register
+  // a no-op subscriber so the hook stays unconditional but no events
+  // ever match.
+  useRealtimeTopic<{ document_id?: string }>('nodes', handleEvent, filter)
+
+  // Cleanup any pending debounce on unmount.
   useEffect(() => {
-    if (!documentId) return
-    const supabase = createClient()
-    let debounceTimer: ReturnType<typeof setTimeout> | null = null
-    let pendingKind: NodesRealtimeKind | null = null
-    let channel: ReturnType<typeof supabase.channel> | null = null
-    let mounted = true
-
-    const onEvent = (payload: { eventType?: string; type?: string }) => {
-      // postgres_changes payloads use `eventType`; the older / unfiltered
-      // shape uses `type`. Cover both.
-      const evt = payload.eventType ?? payload.type ?? ''
-      const structural = evt === 'INSERT' || evt === 'DELETE'
-      // Structural wins over data within a debounce batch.
-      if (structural || pendingKind !== 'structural') {
-        pendingKind = structural ? 'structural' : 'data'
-      }
-      if (debounceTimer) clearTimeout(debounceTimer)
-      debounceTimer = setTimeout(() => {
-        const kind = pendingKind ?? 'data'
-        pendingKind = null
-        onChangeRef.current(kind)
-      }, REFETCH_DEBOUNCE_MS)
-    }
-
-    // Wait for auth before subscribing — see lib/supabase/realtime-auth.ts.
-    void (async () => {
-      await ensureRealtimeAuth(supabase)
-      if (!mounted) return
-      channel = supabase
-        .channel(`nodes:doc:${documentId}`)
-        .on(
-          'postgres_changes',
-          {
-            event: '*',
-            schema: 'public',
-            table: 'nodes',
-            filter: `document_id=eq.${documentId}`,
-          },
-          onEvent,
-        )
-        .subscribe()
-    })()
-
     return () => {
-      mounted = false
-      if (debounceTimer) clearTimeout(debounceTimer)
-      if (channel) void supabase.removeChannel(channel)
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current)
+        debounceTimerRef.current = null
+      }
     }
-  }, [documentId])
+  }, [])
 }

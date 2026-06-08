@@ -158,5 +158,11 @@ function isOrgScoped(topic: RealtimeTopic): boolean {
     case 'director_turns':
     case 'profile_amendments':
       return false
+    case 'workflows':
+    case 'workflow_steps':
+      // B.5c — both are document-scoped (workflows via document_id,
+      // workflow_steps via workflow_id). Filter at the subscriber
+      // level in useDirectorConversation.
+      return false
   }
 }

@@ -24,7 +24,11 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { ensureRealtimeAuth } from '@/lib/supabase/realtime-auth'
+// Phase 8.5b B.5c — ensureRealtimeAuth dropped here; the multiplexed
+// user channel covers briefs / brief_stages / agent_jobs realtime.
+// createClient is still used by ConcurrentBriefsNote below for a
+// one-off non-Realtime read against the briefs table.
+import { useRealtimeTopic } from '@/lib/realtime/useRealtimeTopic'
 import type { BriefQueueState } from '@/lib/brief/types'
 
 interface SchedulerPanelProps {
@@ -99,29 +103,29 @@ export function SchedulerPanel({ projectId, documentId, documentName }: Schedule
     void refresh()
   }, [refresh])
 
-  // Realtime — re-fetch on briefs / brief_stages / agent_jobs changes.
-  // Coarse refresh (re-pull whole payload) keeps the wire format simple
-  // for B.1.1; finer-grained patches are a polish item for later.
-  useEffect(() => {
-    const supabase = createClient()
-    let channel: ReturnType<typeof supabase.channel> | null = null
-    let mounted = true
-    // Wait for auth before subscribing — see lib/supabase/realtime-auth.ts.
-    void (async () => {
-      await ensureRealtimeAuth(supabase)
-      if (!mounted) return
-      channel = supabase
-        .channel(`scheduler:${documentId}`)
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'briefs', filter: `document_id=eq.${documentId}` }, () => void refresh())
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'brief_stages' }, () => void refresh())
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'agent_jobs', filter: `document_id=eq.${documentId}` }, () => void refresh())
-        .subscribe()
-    })()
-    return () => {
-      mounted = false
-      if (channel) void supabase.removeChannel(channel)
-    }
-  }, [documentId, refresh])
+  // Phase 8.5b B.5c — Realtime via the multiplexed user channel.
+  // Three topic subscriptions instead of one standalone channel.
+  // Coarse refresh (re-pull whole payload) is preserved; finer-grained
+  // patches are still a polish item for later.
+  //
+  // briefs + agent_jobs filter by document_id at the subscriber level
+  // even though both are org-scoped at the channel level (channel-level
+  // filter is organisation_id; we additionally need to scope to the
+  // document open in this panel).
+  //
+  // brief_stages has no document_id column (joined via brief_id) — we
+  // fall back to refreshing on any brief_stages event for this user's
+  // org. Coarse but cheap.
+  const documentFilter = useCallback(
+    (payload: { new: { document_id?: string }; old: { document_id?: string } }) => {
+      const row = (payload.new && Object.keys(payload.new).length > 0 ? payload.new : payload.old)
+      return row.document_id === documentId
+    },
+    [documentId],
+  )
+  useRealtimeTopic<{ document_id?: string }>('briefs', () => void refresh(), documentFilter)
+  useRealtimeTopic<{ document_id?: string }>('agent_jobs', () => void refresh(), documentFilter)
+  useRealtimeTopic('brief_stages', () => void refresh())
 
   if (loading) {
     return <div style={{ padding: 24, color: 'var(--color-text-muted)', fontFamily: 'var(--font-inter), Inter, sans-serif' }}>Loading scheduler queue…</div>
