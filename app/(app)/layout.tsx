@@ -3,6 +3,8 @@ import { createClient } from '@/lib/supabase/server'
 import { AppShell } from '@/components/layout/AppShell'
 import { QueryProvider } from './QueryProvider'
 import { NodesPatcherMount } from '@/lib/queries/NodesPatcherMount'
+import { UserRealtimeChannel } from '@/lib/realtime/useUserChannel'
+import { RealtimeBadge } from '@/components/feedback/RealtimeBadge'
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient()
@@ -26,13 +28,20 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   // per Tier-A §3.2.
   //
   // Phase 8.5b B.3b — NodesPatcherMount subscribes to nodes-table
-  // postgres_changes and patches the cache directly. Replaces the
-  // per-component invalidate-then-refetch pattern; B.5 absorbs into
-  // the multiplexed user channel.
+  // postgres_changes and patches the cache directly.
+  //
+  // Phase 8.5b B.5 — UserRealtimeChannel opens the SINGLE multiplexed
+  // user channel (Tier-A §5.2). Per-component consumers subscribe via
+  // useRealtimeTopic and receive demuxed events. RealtimeBadge surfaces
+  // disconnect status. B.5 substrate ships alongside the existing
+  // per-resource hooks until each is migrated; both can run side by
+  // side because they listen on different channel names.
   return (
     <QueryProvider>
+      <UserRealtimeChannel userId={user.id} orgId={orgId} />
       <NodesPatcherMount orgId={orgId} />
       <AppShell userEmail={user.email ?? ''}>{children}</AppShell>
+      <RealtimeBadge />
     </QueryProvider>
   )
 }

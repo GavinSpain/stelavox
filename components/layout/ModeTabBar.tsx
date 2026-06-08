@@ -13,11 +13,13 @@
 // --color-bg-surface; the Director-running pulse dot uses
 // --color-agent-running, NOT --color-accent.
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useMode, type AppMode } from './ModeContext'
 import { useSidebarProject } from './AppShell'
-import { createClient } from '@/lib/supabase/client'
-import { ensureRealtimeAuth } from '@/lib/supabase/realtime-auth'
+// Phase 8.5b B.5 — createClient + ensureRealtimeAuth no longer needed;
+// the multiplexed user channel handles auth + subscribe once for the
+// whole tab.
+import { useRealtimeTopic } from '@/lib/realtime/useRealtimeTopic'
 
 // Phase 8.8 — the dead "Focus" tab was removed. Focus Mode is a
 // leaf-context overlay, not a route-level mode; entry stays at the
@@ -130,44 +132,46 @@ export function ModeTabBar() {
 function useDirectorPendingForDocument(documentId: string | null): boolean {
   const [pending, setPending] = useState(false)
 
+  // Define refresh outside the effect so the realtime hooks can close
+  // over a stable reference for cleanup. The conditional disable
+  // when documentId is null keeps the API call from firing.
+  const refresh = useCallback(async () => {
+    if (!documentId) return
+    try {
+      const res = await fetch(`/api/status/document/${documentId}/pending-director`, { cache: 'no-store' })
+      if (res.ok) {
+        const body = (await res.json()) as { has_pending?: boolean }
+        setPending(!!body.has_pending)
+      }
+    } catch {
+      // network error — keep last known
+    }
+  }, [documentId])
+
   useEffect(() => {
     if (!documentId) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setPending(false)
       return
     }
-    let cancelled = false
-    const refresh = async () => {
-      try {
-        const res = await fetch(`/api/status/document/${documentId}/pending-director`, { cache: 'no-store' })
-        if (!cancelled && res.ok) {
-          const body = (await res.json()) as { has_pending?: boolean }
-          setPending(!!body.has_pending)
-        }
-      } catch {
-        // network error — keep last known
-      }
-    }
     void refresh()
+  }, [documentId, refresh])
 
-    const supabase = createClient()
-    let channel: ReturnType<typeof supabase.channel> | null = null
-    // Wait for auth before subscribing — see lib/supabase/realtime-auth.ts.
-    void (async () => {
-      await ensureRealtimeAuth(supabase)
-      if (cancelled) return
-      channel = supabase
-        .channel(`director-tab:${documentId}`)
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'conversation_messages' }, () => void refresh())
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'briefs', filter: `document_id=eq.${documentId}` }, () => void refresh())
-        .subscribe()
-    })()
-
-    return () => {
-      cancelled = true
-      if (channel) void supabase.removeChannel(channel)
-    }
-  }, [documentId])
+  // Phase 8.5b B.5 — Realtime via the multiplexed user channel demuxer.
+  // conversation_messages is not org-scoped at the channel level so the
+  // demuxer sees all events for the user's joined surfaces; we accept
+  // them all because the refresh handler is idempotent and the API
+  // call is cheap. briefs is org-scoped at the channel; we filter by
+  // documentId here to ignore other docs' brief changes.
+  useRealtimeTopic('conversation_messages', () => void refresh())
+  useRealtimeTopic(
+    'briefs',
+    () => void refresh(),
+    (payload) => {
+      const row = (payload.new && Object.keys(payload.new).length > 0 ? payload.new : payload.old) as { document_id?: string }
+      return row.document_id === documentId
+    },
+  )
 
   return pending
 }
