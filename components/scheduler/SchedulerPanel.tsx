@@ -142,8 +142,10 @@ export function SchedulerPanel({ projectId, documentId, documentName }: Schedule
   return (
     <div data-testid="scheduler-panel" style={{ fontFamily: 'var(--font-inter), Inter, sans-serif', padding: '24px 32px', maxWidth: 980, margin: '0 auto', color: 'var(--color-text-primary)' }}>
       <div style={{ marginBottom: 24 }}>
-        <a href={`/projects/${projectId}/documents/${documentId}`} style={{ fontSize: 12, color: 'var(--color-text-secondary)', textDecoration: 'none' }}>← {documentName}</a>
-        <h1 style={{ fontSize: 22, fontWeight: 500, margin: '8px 0 4px' }}>Scheduler</h1>
+        {/* Phase 8 nav refactor: ← back-link removed. Scheduler is now
+           a peer mode in the ModeTabBar; the Edit / Director tabs
+           provide the navigation away from this view. */}
+        <h1 style={{ fontSize: 22, fontWeight: 500, margin: '0 0 4px' }}>Scheduler</h1>
         <div style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>
           {brief.active ? '1 active Brief' : 'No active Brief'} · {brief.queue.length} queued · {jobs.length} agent jobs
         </div>

@@ -261,28 +261,9 @@ export function Sidebar({ projectName: projectNameProp, documentName: documentNa
                 {documentName}
               </div>
             )}
-            {/* Scheduler link — only when a document is loaded. Gives
-               the user a way to see queued/active Briefs + workflows
-               + agent jobs. The route was orphaned before this. */}
-            {projectId && documentId && (
-              <div style={{ marginTop: 'var(--space-3)' }}>
-                <Link
-                  href={`/projects/${projectId}/documents/${documentId}/scheduler`}
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: 6,
-                    fontSize: 'var(--text-xs)',
-                    color: 'var(--color-text-secondary)',
-                    textDecoration: 'none',
-                    padding: '4px 0',
-                  }}
-                >
-                  <span aria-hidden="true">⧗</span>
-                  Scheduler
-                </Link>
-              </div>
-            )}
+            {/* Phase 8 nav refactor: Scheduler link removed — Scheduler
+               is now a peer mode in the ModeTabBar (Edit · Director ·
+               Scheduler) at the top of the document layout. */}
           </>
         )}
       </div>

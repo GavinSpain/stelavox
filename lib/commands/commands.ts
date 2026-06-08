@@ -65,8 +65,8 @@ export interface CommandContext {
   /** Document the user is currently looking at (if any). */
   projectId: string | null
   documentId: string | null
-  /** Current ModeContext value (edit / director). */
-  mode: 'edit' | 'director' | null
+  /** Current ModeContext value (edit / director / scheduler). */
+  mode: 'edit' | 'director' | 'scheduler' | null
   /** Is the user on a route that's INSIDE a document page? */
   onDocumentPage: boolean
 }
