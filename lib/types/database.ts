@@ -3327,6 +3327,18 @@ export type Database = {
         Args: { p_node_id: string; p_reason: string }
         Returns: Json
       }
+      get_document_rollup: {
+        Args: { p_document_id: string }
+        Returns: {
+          document_id: string
+          last_updated_at: string
+          leaf_count: number
+          node_count: number
+          status_counts: Json
+          words_drafted: number
+          words_target: number
+        }[]
+      }
       get_org_anthropic_key_for_byok_call: {
         Args: { p_org_id: string }
         Returns: string
@@ -3334,6 +3346,18 @@ export type Database = {
       get_org_anthropic_key_status: {
         Args: { p_org_id: string }
         Returns: Json
+      }
+      get_project_rollup: {
+        Args: { p_project_id: string }
+        Returns: {
+          document_count: number
+          last_updated_at: string
+          leaf_count: number
+          node_count: number
+          project_id: string
+          words_drafted: number
+          words_target: number
+        }[]
       }
       get_user_anthropic_key_for_byok_call: {
         Args: { p_user_id: string }
@@ -3357,7 +3381,6 @@ export type Database = {
         Args: { p_node_ids: string[] }
         Returns: Json
       }
-      purge_expired_exports: { Args: never; Returns: number }
       purge_raw_metric_samples: { Args: never; Returns: Json }
       reconcile_orchestration_state: { Args: never; Returns: Json }
       recovery_sweep_exports: { Args: never; Returns: number }
@@ -3552,4 +3575,3 @@ export const Constants = {
     Enums: {},
   },
 } as const
-

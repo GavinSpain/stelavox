@@ -138,6 +138,15 @@ interface DescendantRow {
  * Pure rollup — does not care about leaf-ness; non-leaf nodes have
  * word_count_actual = 0 by convention so summing all rows is the same
  * as summing only the leaves. Exported for unit tests.
+ *
+ * Phase 8.5b B.1 — pagination loop added. The previous single-query
+ * implementation hit the PostgREST 1000-row response cap for any
+ * document with > 1000 structural nodes (the same root cause as the
+ * dashboard 187k bug). Loops via .range() until the response is short
+ * of pageSize, then assembles the full row set. Per-subtree rollup
+ * semantics preserved — this function legitimately needs per-immediate-
+ * child sums (not document-level total like `get_document_rollup`
+ * returns), so it doesn't switch to the RPC.
  */
 export async function computeChildActualAggregates(
   supabase: SupabaseClient,
@@ -146,13 +155,23 @@ export async function computeChildActualAggregates(
 ): Promise<Map<string, number>> {
   const out = new Map<string, number>()
   if (!documentId || childIds.length === 0) return out
-  const { data: allRows } = await supabase
-    .from('nodes')
-    .select('id, parent_id, word_count_actual')
-    .eq('document_id', documentId)
-    .eq('node_category', 'structural')
-    .returns<DescendantRow[]>()
-  if (!allRows || allRows.length === 0) return out
+  const allRows: DescendantRow[] = []
+  const pageSize = 1000
+  let offset = 0
+  while (true) {
+    const { data, error } = await supabase
+      .from('nodes')
+      .select('id, parent_id, word_count_actual')
+      .eq('document_id', documentId)
+      .eq('node_category', 'structural')
+      .range(offset, offset + pageSize - 1)
+      .returns<DescendantRow[]>()
+    if (error || !data) break
+    allRows.push(...data)
+    if (data.length < pageSize) break
+    offset += pageSize
+  }
+  if (allRows.length === 0) return out
   // Build children-by-parent map for the whole document.
   const childrenByParent = new Map<string, DescendantRow[]>()
   for (const row of allRows) {
