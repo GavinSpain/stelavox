@@ -140,7 +140,20 @@ export function SchedulerPanel({ projectId, documentId, documentName }: Schedule
   const { brief, jobs } = data
 
   return (
-    <div data-testid="scheduler-panel" style={{ fontFamily: 'var(--font-inter), Inter, sans-serif', padding: '24px 32px', maxWidth: 980, margin: '0 auto', color: 'var(--color-text-primary)' }}>
+    <div data-testid="scheduler-panel" style={{
+      fontFamily: 'var(--font-inter), Inter, sans-serif',
+      padding: '24px 32px',
+      maxWidth: 980,
+      margin: '0 auto',
+      color: 'var(--color-text-primary)',
+      // Phase 8 nav refactor follow-up: SchedulerPanel mounts inside
+      // AppShell's right-slot column (overflow: hidden, flex column),
+      // so when the queue is long the list was getting clipped. Fill
+      // the slot height and scroll internally so the jobs list is
+      // reachable regardless of length.
+      height: '100%',
+      overflowY: 'auto',
+    }}>
       <div style={{ marginBottom: 24 }}>
         {/* Phase 8 nav refactor: ← back-link removed. Scheduler is now
            a peer mode in the ModeTabBar; the Edit / Director tabs
