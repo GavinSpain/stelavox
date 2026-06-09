@@ -22,8 +22,8 @@
 //     reads DocumentContext and pushes its content into the right slot
 //     via useRightSlot().
 
-import { createContext, useCallback, useContext, useEffect, useState } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 
 import { NodeTree } from '@/components/tree/NodeTree'
 import { DocumentTitleStrip } from '@/components/tree/DocumentTitleStrip'
@@ -86,6 +86,34 @@ export function DocumentLayoutClient({
   const [refreshKey, setRefreshKey] = useState(0)
   const bumpRefresh = useCallback(() => setRefreshKey((k) => k + 1), [])
 
+  // Phase 8 nav cleanup follow-up (2026-06-09) — selecting a node is
+  // a "show me this node" verb regardless of which mode owns the right
+  // slot. The tree is persistent chrome across Edit / Director /
+  // Scheduler, but in Director or Scheduler modes their respective
+  // panels own the right slot — so a tree click that only updated
+  // state produced no visible change. Author intuition: clicking a
+  // node should navigate to Edit mode for that node. Director and
+  // Scheduler are operations on the work; the work itself is Edit.
+  //
+  // The layout persists across sub-route changes (Next.js App Router
+  // contract), so the selectedNodeId state survives the router.push
+  // and the Edit mode body's NodeDetailPanel mounts on the new route.
+  const router = useRouter()
+  const pathname = usePathname()
+  const editPath = useMemo(
+    () => `/projects/${projectId}/documents/${documentId}`,
+    [projectId, documentId],
+  )
+  const selectNode = useCallback(
+    (id: string | null) => {
+      setSelectedNodeId(id)
+      if (id !== null && pathname !== editPath) {
+        router.push(editPath)
+      }
+    },
+    [pathname, editPath, router],
+  )
+
   // Phase 8.01.D OQ-5 — honour `?selectedNode={nodeId}` query param.
   // The Resume Writing hero on the dashboard (and future deep-link
   // surfaces) navigate here with the target beat in the URL; selecting
@@ -113,7 +141,11 @@ export function DocumentLayoutClient({
       documentId,
       projectName: projectName ?? null,
       documentName,
-      onSelectContextNode: (id: string) => setSelectedNodeId(id),
+      // Clicking a node in the Sidebar's Context Library has the same
+      // mental model as clicking one in the tree — route through
+      // selectNode so it navigates to Edit when invoked from Director
+      // or Scheduler mode.
+      onSelectContextNode: selectNode,
     })
     return () => {
       setProject({
@@ -124,7 +156,7 @@ export function DocumentLayoutClient({
         onSelectContextNode: null,
       })
     }
-  }, [projectId, documentId, projectName, documentName, setProject])
+  }, [projectId, documentId, projectName, documentName, setProject, selectNode])
 
   // Enable the global ModeTabBar (and ⌘. shortcut) while a document
   // layout is mounted. Disabling on unmount returns the bar to its
@@ -163,7 +195,7 @@ export function DocumentLayoutClient({
           <NodeTree
             documentId={documentId}
             documentType={documentType}
-            onSelect={setSelectedNodeId}
+            onSelect={selectNode}
             selectedId={selectedNodeId}
             refreshKey={refreshKey}
           />
