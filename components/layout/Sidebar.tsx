@@ -12,7 +12,10 @@
 //                          ↑ Phase 4 populates: six SidebarContextSections
 //                            (Characters / Locations / Organisations /
 //                            Themes / Plot Threads / Worlds).
-//   3. Settings footer    (bottom; collapse chevron lives here too)
+//   3. Collapse footer    (bottom; collapse chevron only.
+//                          The legacy "Settings" link was removed
+//                          2026-06-09 — Header UserMenu is the canonical
+//                          Settings entry.)
 //
 // IMPORTANT — separation of concerns: the Sidebar does NOT contain the
 // node tree. The node tree is the centre panel of AppShell.
@@ -51,20 +54,25 @@ import { getContextIcon } from '@/lib/context/icons'
 import { SidebarContextSection } from './SidebarContextSection'
 import { ContextCreateModal } from '@/components/context/ContextCreateModal'
 import { useSidebarProject } from './AppShell'
+import { useProjectDocuments } from '@/lib/queries/useProjectDocuments'
 
 const STORAGE_KEY            = 'stelavox_sidebar_state'
 const SECTIONS_EXPANDED_KEY  = 'stelavox_sidebar_context_expanded'
 
 interface SidebarProps {
   /**
-   * Optional prop overrides — useful for tests + the rare case where a
-   * page wants to render the Sidebar with explicit names. The default
-   * pulls names from SidebarProjectContext (populated by DocumentClient /
-   * ProjectSidebarSetup); previously these props were the only source
-   * and the context never carried names, so the slot showed "—".
+   * Optional prop override — useful for tests + the rare case where a
+   * page wants to render the Sidebar with an explicit project name.
+   * The default pulls the name from SidebarProjectContext (populated by
+   * DocumentClient / ProjectSidebarSetup).
+   *
+   * Phase 8 nav cleanup follow-up (2026-06-09): the legacy `documentName`
+   * prop was dropped — the PROJECT slot now renders the project's full
+   * document list (via useProjectDocuments) with active-state highlight
+   * derived from the active documentId in context. There is no longer
+   * a single string "current document" to override.
    */
   projectName?: string
-  documentName?: string
   width?: number
 }
 
@@ -75,7 +83,7 @@ interface ContextNodeSummary {
   scope:     'project' | 'document'
 }
 
-export function Sidebar({ projectName: projectNameProp, documentName: documentNameProp, width = 220 }: SidebarProps) {
+export function Sidebar({ projectName: projectNameProp, width = 220 }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(false)
   const [expandedSections, setExpandedSections] =
     useState<Record<ContextNodeType, boolean>>(() => Object.fromEntries(
@@ -88,7 +96,14 @@ export function Sidebar({ projectName: projectNameProp, documentName: documentNa
   const { projectId, documentId, onSelectContextNode, refreshKey } = state
   // Prop wins (test override); fall back to context.
   const projectName = projectNameProp ?? state.projectName ?? undefined
-  const documentName = documentNameProp ?? state.documentName ?? undefined
+
+  // Phase 8 nav cleanup follow-up (2026-06-09) — fetch the project's
+  // active documents so the PROJECT slot can render the whole list
+  // (indented under the project name) with the active document
+  // highlighted. Provides one-click switching between siblings.
+  // staleTime=5min in the hook; layout-remount-on-doc-switch refetches
+  // naturally on navigation. See lib/queries/useProjectDocuments.ts.
+  const { data: projectDocuments } = useProjectDocuments(projectId)
 
   // Hydrate sidebar collapse state. setState-in-effect is the standard
   // SSR-safe pattern for client-only storage; same exception as Phase 2's
@@ -244,15 +259,25 @@ export function Sidebar({ projectName: projectNameProp, documentName: documentNa
             {/* Phase 8 nav refactor: project name is a Link to the
                project page, giving authors an explicit back-path from
                document → project (previously plain text; only escape
-               was Wordmark → /dashboard). */}
+               was Wordmark → /dashboard).
+
+               Phase 8 nav cleanup follow-up (2026-06-09): the project
+               name now sits above an indented list of the project's
+               active documents. Each row is a Link; the row whose id
+               matches the active documentId gets a neutral highlight
+               (bg-elevated + primary text). This turns the slot into
+               a real navigation surface for sibling-document switching
+               instead of a flat current-doc label. */}
             {projectId ? (
               <Link
                 href={`/projects/${projectId}`}
+                data-testid="sidebar-project-name-link"
                 style={{
                   fontSize: 'var(--text-sm)',
                   color: 'var(--color-text-primary)',
                   fontWeight: 500,
                   textDecoration: 'none',
+                  display: 'block',
                 }}
               >
                 {projectName ?? '—'}
@@ -268,17 +293,60 @@ export function Sidebar({ projectName: projectNameProp, documentName: documentNa
                 {projectName ?? '—'}
               </div>
             )}
-            {documentName && (
-              <div
+            {projectId && projectDocuments && projectDocuments.length > 0 ? (
+              <ul
+                data-testid="sidebar-project-documents-list"
                 style={{
-                  fontSize: 'var(--text-sm)',
-                  color: 'var(--color-text-secondary)',
-                  marginTop: 'var(--space-1)',
+                  listStyle: 'none',
+                  margin: 'var(--space-2) 0 0',
+                  padding: 0,
                 }}
               >
-                {documentName}
-              </div>
-            )}
+                {projectDocuments.map((doc) => {
+                  const isActive = doc.id === documentId
+                  return (
+                    <li key={doc.id} style={{ margin: 0 }}>
+                      <Link
+                        href={`/projects/${projectId}/documents/${doc.id}`}
+                        data-testid="sidebar-project-document-row"
+                        data-document-id={doc.id}
+                        data-active={isActive ? 'true' : 'false'}
+                        style={{
+                          display: 'block',
+                          // Inviolable #2: no verdigris. Active state
+                          // uses neutral bg-elevated + primary text;
+                          // inactive uses secondary text.
+                          fontSize: 'var(--text-sm)',
+                          color: isActive
+                            ? 'var(--color-text-primary)'
+                            : 'var(--color-text-secondary)',
+                          fontWeight: isActive ? 500 : 400,
+                          background: isActive ? 'var(--color-bg-elevated)' : 'transparent',
+                          padding: '4px 8px',
+                          // Indent under the project name to make the
+                          // parent / child relationship visible.
+                          marginLeft: 'var(--space-3)',
+                          borderRadius: 3,
+                          textDecoration: 'none',
+                          // Truncate long names rather than wrapping
+                          // and breaking the slot's vertical rhythm.
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                        }}
+                        // Fall through to plain client-nav unless this
+                        // is the current doc — clicking the current
+                        // doc should be a no-op rather than a wasteful
+                        // re-mount.
+                        onClick={isActive ? (e) => e.preventDefault() : undefined}
+                      >
+                        {doc.name}
+                      </Link>
+                    </li>
+                  )
+                })}
+              </ul>
+            ) : null}
             {/* Phase 8 nav refactor: Scheduler link removed — Scheduler
                is now a peer mode in the ModeTabBar (Edit · Director ·
                Scheduler) at the top of the document layout. */}
@@ -340,28 +408,22 @@ export function Sidebar({ projectName: projectNameProp, documentName: documentNa
         )}
       </div>
 
-      {/* Footer — settings link + collapse chevron */}
+      {/* Footer — collapse chevron only.
+          Phase 8 nav cleanup follow-up (2026-06-09): the "Settings" link
+          was removed in favour of the Header UserMenu (avatar dropdown)
+          as the single canonical entry point. Settings is global chrome
+          and never belonged in the project sidebar — the legacy footer
+          link also produced a jarring return path (Settings page → ←
+          Dashboard, not back to the project). */}
       <div
         style={{
           padding: 'var(--space-3) var(--space-4)',
           borderTop: '1px solid var(--color-border-subtle)',
           display: 'flex',
           alignItems: 'center',
-          justifyContent: collapsed ? 'center' : 'space-between',
+          justifyContent: collapsed ? 'center' : 'flex-end',
         }}
       >
-        {!collapsed && (
-          <a
-            href="/settings"
-            style={{
-              fontSize: 'var(--text-sm)',
-              color: 'var(--color-text-secondary)',
-              textDecoration: 'none',
-            }}
-          >
-            Settings
-          </a>
-        )}
         <button
           type="button"
           onClick={toggleSidebar}
