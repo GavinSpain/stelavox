@@ -2,9 +2,8 @@
 
 // Phase 8.01.D T-5 — DashboardSidebar.
 //
-// Single component with `shape: 'populated' | 'first-time'` per locks
-// from the build checklist:
-//   - Populated: LEARN section (Try a sample); SYSTEM (Settings, Usage).
+// Single component with `shape: 'populated' | 'first-time'`:
+//   - Populated: LEARN section (Try a sample).
 //   - First-time: QUICK START checklist; LEARN (Sample novel tour).
 //
 // Phase 8 nav cleanup (2026-06-08):
@@ -24,6 +23,14 @@
 //     (the Export button lives on the Project page Export tab).
 //   - LEARN > Walkthrough row deleted. href="#" placeholder; Phase 12
 //     user-docs work will resurrect it with a real destination.
+//
+// Phase 8 nav cleanup follow-up (2026-06-09):
+//   - SYSTEM section deleted in its entirety. Settings + Usage were
+//     duplicates of the Header UserMenu (avatar dropdown) which is
+//     available from every page. Settings is global chrome; it now
+//     lives in exactly one canonical place. Usage is reachable via
+//     Settings → Usage. Project Sidebar's footer Settings link
+//     deleted in the same pass.
 //
 // Inviolable #2: no verdigris.
 
@@ -115,11 +122,6 @@ export function DashboardSidebar({ shape, counts, quickStart, onTrySample }: Das
             <div style={LABEL_STYLE}>LEARN</div>
             {/* OQ-3 (3a) lock: permanent "Try a sample" link in the populated sidebar. */}
             <ActionRow label="Try a sample" onClick={onTrySample} testid="sidebar-try-sample" />
-          </section>
-          <section style={{ padding: '0 16px 16px' }}>
-            <div style={LABEL_STYLE}>SYSTEM</div>
-            <ActionRow label="Settings" href="/settings" />
-            <ActionRow label="Usage" href="/settings/usage" />
           </section>
         </>
       ) : (

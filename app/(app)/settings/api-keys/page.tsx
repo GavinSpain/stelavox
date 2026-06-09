@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import { AnthropicKeyPanel } from '@/components/settings/AnthropicKeyPanel'
 
 /**
@@ -10,12 +11,16 @@ export default function ApiKeysSettingsPage() {
   return (
     <div style={{ maxWidth: 720, margin: '0 auto', padding: '24px 32px' }}>
       <div style={{ marginBottom: 16 }}>
-        <a
+        {/* `replace` prevents history growth inside the Account hub —
+           see app/(app)/settings/page.tsx for the hub-and-spoke
+           rationale. */}
+        <Link
           href="/settings"
+          replace
           style={{ fontSize: 12, color: 'var(--color-text-secondary)', textDecoration: 'none', fontFamily: 'var(--font-inter), Inter, sans-serif' }}
         >
-          ← Settings
-        </a>
+          ← Account
+        </Link>
       </div>
       <h1
         style={{

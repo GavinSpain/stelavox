@@ -119,8 +119,13 @@ export const COMMANDS: ReadonlyArray<CommandDescriptor> = [
   },
   {
     id: 'go-settings',
-    label: 'Go to settings',
-    keywords: ['preferences'],
+    label: 'Go to account',
+    // Phase 8 nav cleanup follow-up (2026-06-09): label renamed from
+    // "Go to settings" to "Go to account" to match the new label of
+    // the global /settings surface. The /settings path is preserved
+    // for URL stability. "settings" stays in keywords so users with
+    // muscle memory still hit this command when they search.
+    keywords: ['settings', 'preferences', 'billing', 'plan'],
     group: 'navigate',
     glyph: '⚙',
     action: { kind: 'navigate', path: '/settings' },

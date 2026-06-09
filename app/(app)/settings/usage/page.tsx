@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import { redirect } from 'next/navigation'
 
 import { CostMeterFull } from '@/components/cost/CostMeterFull'
@@ -33,8 +34,10 @@ export default async function UsageSettingsPage() {
   return (
     <div style={{ maxWidth: 720, margin: '0 auto', padding: '24px 32px' }}>
       <div style={{ marginBottom: 16 }}>
-        <a
+        {/* `replace` prevents history growth inside the Account hub. */}
+        <Link
           href="/settings"
+          replace
           style={{
             fontSize: 12,
             color: 'var(--color-text-secondary)',
@@ -42,8 +45,8 @@ export default async function UsageSettingsPage() {
             fontFamily: 'var(--font-inter), Inter, sans-serif',
           }}
         >
-          ← Settings
-        </a>
+          ← Account
+        </Link>
       </div>
       <h1
         style={{
