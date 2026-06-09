@@ -47,7 +47,9 @@ import { TreeSlideOver } from './TreeSlideOver'
 import { useViewportBreakpoint } from '@/lib/hooks/useViewportBreakpoint'
 import { PanelResizer } from './PanelResizer'
 import { ModeProvider } from './ModeContext'
-import { AppShellStatusIndicator } from './AppShellStatusIndicator'
+// Phase 8 nav refactor (2026-06-08): AppShellStatusIndicator import
+// removed — the indicator is now mounted in Header.tsx as a chrome
+// pill (no longer fixed-position floating).
 import { KeyboardShortcutsProvider } from '@/components/help/KeyboardShortcutsProvider'
 import { CommandPalette } from '@/components/command/CommandPalette'
 import { CommandBridge } from '@/components/command/CommandBridge'
@@ -142,12 +144,22 @@ function AppShellInner({ userEmail, children }: AppShellProps) {
   const isTabletPortrait = breakpoint === 'tablet-portrait'
 
   // Phase 8.01.D wireframe-review fix: the Dashboard owns its own left
-  // chrome (DashboardSidebar: LIBRARY / CONTEXT / SYSTEM / LEARN) and
-  // a full-width canvas — it has no right detail-panel surface. Hide
-  // the AppShell project Sidebar AND the detail panel only at
-  // `/dashboard`. All other routes keep the three-panel shell exactly.
+  // chrome (DashboardSidebar: LEARN) and a full-width canvas — it has no
+  // right detail-panel surface. Hide the AppShell project Sidebar AND
+  // the detail panel only at `/dashboard`.
+  //
+  // Phase 8 nav cleanup follow-up (2026-06-09): /settings (and every
+  // /settings/* sub-page) is a global destination with no project
+  // context. The project Sidebar (PROJECT slot + CONTEXT LIBRARY) was
+  // rendering empty/inert, and the right detail panel was showing the
+  // "Select a node from the tree" empty-state. Both were chrome
+  // without payoff. Suppress them at /settings/* the same way they
+  // are suppressed at /dashboard. All other routes keep the
+  // three-panel shell exactly.
   const pathname = usePathname()
   const isDashboardRoute = pathname === '/dashboard'
+  const isSettingsRoute = pathname.startsWith('/settings')
+  const isChromeFreeRoute = isDashboardRoute || isSettingsRoute
   const [sidebarWidth, setSidebarWidth] = useState(SIDEBAR_DEFAULT)
   const [detailWidth,  setDetailWidth]  = useState(DETAIL_DEFAULT)
   const [rightSlotContent, setRightSlotContent] = useState<ReactNode | null>(null)
@@ -253,10 +265,15 @@ function AppShellInner({ userEmail, children }: AppShellProps) {
 
             Phase 8.01.D wireframe-review — At `/dashboard`, the AppShell
             project Sidebar is suppressed too: the Dashboard owns its own
-            left chrome (LIBRARY / CONTEXT / SYSTEM / LEARN) with a
-            different section shape, and stacking two sidebars eats >440px
-            of canvas. All other routes keep the existing layout. */}
-        {!isTabletPortrait && !isDashboardRoute && (
+            left chrome (LEARN) with a different section shape, and
+            stacking two sidebars eats >440px of canvas.
+
+            Phase 8 nav cleanup follow-up (2026-06-09) — Also suppress
+            the project Sidebar at /settings/*: Settings is global, has
+            no project context, and the PROJECT slot + CONTEXT LIBRARY
+            sections were rendering empty/inert. All other routes keep
+            the existing layout. */}
+        {!isTabletPortrait && !isChromeFreeRoute && (
           <>
             <div data-shell="sidebar" style={{ display: 'flex' }}>
               <Sidebar width={sidebarWidth} />
@@ -287,8 +304,13 @@ function AppShellInner({ userEmail, children }: AppShellProps) {
         {/* Phase 8.01.D wireframe-review — The dashboard has no right
             detail-panel surface; suppress the resizer + panel at
             `/dashboard` so the dashboard canvas spans the full width.
-            All other routes preserve the right detail-panel exactly. */}
-        {!isDashboardRoute && (
+            Phase 8 nav cleanup follow-up (2026-06-09): same suppression
+            at /settings/* — it's a flat destination page, not a
+            tree+detail surface, and the empty-state "Select a node from
+            the tree" was rendering inertly to the right of the Settings
+            content. All other routes preserve the right detail-panel
+            exactly. */}
+        {!isChromeFreeRoute && (
           <>
             <PanelResizer
               position="tree-detail"
@@ -345,9 +367,8 @@ function AppShellInner({ userEmail, children }: AppShellProps) {
           </>
         )}
       </div>
-      {/* V1.x-B.1.1 — persistent bottom-right status indicator. Fixed-position;
-          non-blocking; visible from every screen (CS v2.10 §17.1). */}
-      <AppShellStatusIndicator />
+      {/* Phase 8 nav refactor (2026-06-08): AppShellStatusIndicator
+         relocated into the Header right cluster. No longer floating. */}
       {/* Phase 8.4 — global keyboard shortcuts. Listens for `?` (opens
           help overlay) and ⌘K (dispatches command-palette open event
           for Phase 8.1 to catch). Both skip when focus is inside a

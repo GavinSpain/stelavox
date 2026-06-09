@@ -43,6 +43,8 @@ export const projectKeys = {
   all: () => ['project'] as const,
   /** Aggregate rollup from GET /api/projects/[id]/rollup. */
   rollup: (projectId: string) => ['project', projectId, 'rollup'] as const,
+  /** Document list from GET /api/projects/[id]/documents. */
+  documents: (projectId: string) => ['project', projectId, 'documents'] as const,
 } as const
 
 export const userKeys = {

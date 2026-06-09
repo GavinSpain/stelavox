@@ -106,8 +106,29 @@ function DocumentRow({ projectId, doc, ordinal }: DocumentRowProps) {
   const [hovered, setHovered] = useState(false)
   const [archiving, startArchiveTransition] = useTransition()
 
+  // Phase 8 nav cleanup follow-up (2026-06-09) — use the rollup-derived
+  // last-edit timestamp (MAX(nodes.updated_at)) when available. Falls
+  // back to documents.updated_at (which never bumps when nodes change,
+  // so it shows the document row's last metadata edit — usually stale
+  // by weeks for an active document) only when the rollup didn't load.
+  const effectiveLastEditAt = doc.rollup?.lastUpdatedAt ?? doc.updated_at ?? doc.created_at
   const lastEdit =
-    formatLastActive(doc.updated_at ?? doc.created_at)?.replace(/^last active /, 'last edit ') ?? null
+    formatLastActive(effectiveLastEditAt)?.replace(/^last active /, 'last edit ') ?? null
+
+  // Phase 8 nav cleanup follow-up (2026-06-09) — replace the static
+  // `documents.description` field with live word counts pulled from
+  // the rollup. The description string was a one-time text typed at
+  // document creation and never updated; live counts give real
+  // signal. Falls back to description if rollup didn't load (or has
+  // wordsTarget=0, which means the rollup couldn't compute targets
+  // and any displayed "X / 0 words" would be misleading).
+  const fmt = new Intl.NumberFormat('en-US')
+  const summaryLine =
+    doc.rollup && doc.rollup.wordsTarget > 0
+      ? `${prettyDocumentType(doc.document_type)} · ${fmt.format(doc.rollup.wordsDrafted)} / ${fmt.format(doc.rollup.wordsTarget)} words`
+      : doc.rollup
+        ? `${prettyDocumentType(doc.document_type)} · ${fmt.format(doc.rollup.wordsDrafted)} words`
+        : doc.description
 
   function handleArchive() {
     startArchiveTransition(async () => {
@@ -169,7 +190,7 @@ function DocumentRow({ projectId, doc, ordinal }: DocumentRowProps) {
             </span>
             <StackTag documentType={doc.document_type} />
           </div>
-          <MetaStrip lastEdit={lastEdit} status={doc.status} description={doc.description} />
+          <MetaStrip lastEdit={lastEdit} status={doc.status} description={summaryLine} />
         </Link>
       </div>
 

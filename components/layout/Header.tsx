@@ -23,6 +23,7 @@ import { Wordmark } from '@/components/brand/Wordmark'
 import { TreeSummonButton } from './TreeSummonButton'
 import { SearchChip } from './SearchChip'
 import { UserMenu } from './UserMenu'
+import { AppShellStatusIndicator } from './AppShellStatusIndicator'
 
 interface HeaderProps {
   userEmail: string
@@ -72,7 +73,11 @@ export function Header({ userEmail }: HeaderProps) {
       {/* Flex spacer pushes the right cluster to the edge. */}
       <div style={{ flex: 1 }} aria-hidden="true" />
 
-      {/* Right cluster — Search chip + UserMenu (avatar + name + dropdown). */}
+      {/* Right cluster — Director status pill + Search chip + UserMenu.
+         Phase 8 nav refactor: the status indicator moved from a fixed-
+         position floating chip (bottom-left) into the Header's right
+         cluster. Same popover; permanent chrome location instead of
+         floating overlay. */}
       <div
         style={{
           display: 'flex',
@@ -80,6 +85,7 @@ export function Header({ userEmail }: HeaderProps) {
           gap: 14,
         }}
       >
+        <AppShellStatusIndicator />
         <SearchChip />
         <UserMenu userEmail={userEmail} />
       </div>

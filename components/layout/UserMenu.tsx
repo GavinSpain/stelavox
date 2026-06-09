@@ -4,7 +4,14 @@
 //
 // Replaces the live header's plain email + Sign Out button with the
 // wireframe pattern: circular 28×28 avatar (initials) + display name +
-// dropdown menu containing Settings and Sign Out.
+// dropdown menu containing Account and Sign Out.
+//
+// Phase 8 nav cleanup follow-up (2026-06-09): the label was previously
+// "Settings" — renamed to "Account" to disambiguate from the project
+// page's Settings tab (different concept entirely). The /settings URL
+// stays for backward compat; only the user-facing label changed. The
+// page heading at /settings is also "Account" now. See CLAUDE.md
+// changelog for the rationale.
 //
 // Spec: docs/wireframes/wireframe_phase8_01_ux_consistency/02_edit_mode_v2_iter3.html
 //       .uav (user avatar) — 30×30 circle, --color-bg-surface bg,
@@ -172,7 +179,7 @@ export function UserMenu({ userEmail }: UserMenuProps) {
               borderRadius: 3,
             }}
           >
-            Settings
+            Account
           </Link>
           <button
             type="button"

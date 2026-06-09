@@ -215,6 +215,21 @@ export function AdminDashboard() {
 
   return (
     <div style={{ maxWidth: '1100px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+      {/* Phase 8 nav: explicit back-affordance. Admin pages otherwise
+         strand the user — the only escape was the global Wordmark. */}
+      <div style={{ paddingTop: 'var(--space-3)' }}>
+        <a
+          href="/dashboard"
+          style={{
+            fontSize: 12,
+            color: 'var(--color-text-secondary)',
+            textDecoration: 'none',
+            fontFamily: 'var(--font-inter), Inter, sans-serif',
+          }}
+        >
+          ← Dashboard
+        </a>
+      </div>
       <header
         style={{
           display: 'flex',

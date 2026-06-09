@@ -1,33 +1,30 @@
 'use client'
 
 /**
- * V1.x-B.1.1 — AppShellStatusIndicator.
+ * Director status indicator — Header pill.
  *
- * Per Component Spec v2.10 §17.1 + design record §3 / §5.
+ * Phase 8 nav refactor (2026-06-08): relocated from a fixed-position
+ * floating pill (bottom-left) into the Header right cluster (left of
+ * the Search chip + UserMenu).
  *
- * Persistent bottom-right corner indicator. Visible from every screen.
- * Non-blocking — fixed-position; never overlays user content. Click
- * opens a popover listing pending Director attention items grouped by
- * document with deep-link rows.
- *
- * B.1.1 surfaces: Director state badge (running jobs > 0 = "thinking"),
- * scheduler counters (running / queued briefs / active briefs), alert
- * dot (failed jobs in 24h window). Cost meter compact form is mounted
- * as a placeholder skeleton until V1.x-C.
+ * - Permanent chrome location: visible from every page without floating
+ *   over content.
+ * - Quiet state: muted "Idle" pill with a subtle dot. Active state:
+ *   running count + alert dot.
+ * - Click opens the StatusIndicatorPopover anchored to the top-right
+ *   (under the header), listing pending Director-attention items with
+ *   deep-link rows.
  *
  * Realtime subscribes to agent_jobs + briefs to keep counts fresh.
  * First-paint hydrate via /api/status/pending-attention.
  *
- * Inviolable #2: NO verdigris use. Director-state badge uses
+ * Inviolable #2: NO verdigris use. Director-state label uses
  * --color-text-secondary; alert dot uses attention-amber rgba; counters
  * use --color-text-primary at the right sizing.
  */
 
 import { useCallback, useEffect, useState } from 'react'
-// Phase 8.5b B.5 — createClient + ensureRealtimeAuth no longer needed
-// here. UserRealtimeChannel (mounted at app/(app)/layout.tsx) opens
-// the SINGLE channel for the tab; this component subscribes to topics
-// via useRealtimeTopic and the demuxer routes events.
+
 import { useRealtimeTopic } from '@/lib/realtime/useRealtimeTopic'
 import { StatusIndicatorPopover } from './StatusIndicatorPopover'
 
@@ -50,69 +47,6 @@ interface PendingAttention {
   alerts: number
   primary_org_id?: string | null
   cost_meter?: CostMeterPayload
-}
-
-function formatThousands(n: number): string {
-  if (n >= 1_000_000) {
-    return `${(n / 1_000_000).toFixed(1)}M`
-  }
-  if (n >= 1000) {
-    return `${Math.round(n / 1000)}k`
-  }
-  return String(n)
-}
-
-function CostMeterCompact({ cost }: { cost: CostMeterPayload }) {
-  if (!cost) return null
-  if (cost.byok_enabled) {
-    return (
-      <span
-        data-testid="cost-meter"
-        data-user-type="byok"
-        data-tokens-in={cost.tokens_input}
-        data-tokens-out={cost.tokens_output}
-        style={{
-          color: 'var(--color-text-secondary)',
-          paddingLeft: 8,
-          marginLeft: 4,
-          borderLeft: '1px solid var(--color-border-subtle)',
-        }}
-      >
-        {formatThousands(cost.tokens_input)} in · {formatThousands(cost.tokens_output)} out
-      </span>
-    )
-  }
-  if (cost.allocation_credits === null || cost.allocation_credits === 0) {
-    // Unenforced (BYOK plan slug pending or unmapped) — render nothing.
-    return null
-  }
-  const pct = Math.min(100, Math.round((cost.usage_credits / cost.allocation_credits) * 100))
-  const days = cost.days_remaining
-  const cap = pct >= 100
-  const warn = pct >= 80 && !cap
-  const colour = cap
-    ? 'var(--color-error)'
-    : warn
-      ? 'var(--color-warning)'
-      : 'var(--color-text-secondary)'
-  return (
-    <span
-      data-testid="cost-meter"
-      data-user-type="platform"
-      data-usage-pct={pct}
-      data-days-remaining={days ?? ''}
-      style={{
-        color: colour,
-        paddingLeft: 8,
-        marginLeft: 4,
-        borderLeft: '1px solid var(--color-border-subtle)',
-        fontVariantNumeric: 'tabular-nums',
-      }}
-    >
-      {pct}%
-      {cap ? ' · cap reached' : days !== null ? ` · renews in ${days}d` : ''}
-    </span>
-  )
 }
 
 const POLL_FALLBACK_MS = 60_000  // safety-net poll if Realtime drops
@@ -138,11 +72,7 @@ export function AppShellStatusIndicator() {
     void refresh()
   }, [refresh])
 
-  // Phase 8.5b B.5 — Realtime — subscribe via the multiplexed user
-  // channel demuxer (Tier-A §5.2). Replaces the inline `supabase
-  // .channel('app-shell-status').on(...)` pattern. The channel itself
-  // lives at app/(app)/layout.tsx; this component just registers
-  // interest in two topics.
+  // Realtime via the multiplexed user channel demuxer (Tier-A §5.2).
   useRealtimeTopic('agent_jobs', () => void refresh())
   useRealtimeTopic('briefs', () => void refresh())
 
@@ -175,33 +105,38 @@ export function AppShellStatusIndicator() {
         aria-label={`Director status. ${data.running_jobs} running, ${data.queued_briefs} queued, ${data.alerts} alerts.`}
         onClick={() => setOpen((o) => !o)}
         style={{
-          // 2026-05-22 — temporarily moved from bottom-right to bottom-left
-          // because it overlapped the DirectorInput textarea. To be
-          // revisited properly in the polish phase.
-          position: 'fixed',
-          left: 24,
-          bottom: 24,
-          zIndex: 50,
-          background: 'var(--color-bg-surface)',
-          border: '1px solid var(--color-border-strong)',
+          // Header pill — inline in the right cluster. NO position:fixed.
+          background: isQuiet ? 'transparent' : 'var(--color-bg-surface)',
+          border: `1px solid ${isQuiet ? 'var(--color-border-subtle)' : 'var(--color-border-default)'}`,
           borderRadius: 999,
-          padding: '8px 14px',
+          padding: '5px 12px',
           fontFamily: 'var(--font-inter), Inter, sans-serif',
-          fontSize: 12,
+          fontSize: 11.5,
           color: isQuiet ? 'var(--color-text-muted)' : 'var(--color-text-primary)',
           cursor: 'pointer',
-          display: 'flex',
+          display: 'inline-flex',
           alignItems: 'center',
-          gap: 10,
-          boxShadow: '0 2px 8px rgba(0,0,0,0.18)',
+          gap: 8,
+          height: 28,
+          lineHeight: 1,
         }}
       >
+        <span
+          aria-hidden="true"
+          style={{
+            display: 'inline-block',
+            width: 6,
+            height: 6,
+            borderRadius: 999,
+            background: totalActive > 0 ? 'var(--color-agent-running)' : 'var(--color-text-muted)',
+          }}
+        />
         <span data-testid="director-state-badge" data-state={totalActive > 0 ? 'thinking' : 'idle'} style={{ fontWeight: 500 }}>
           {totalActive > 0 ? 'Director' : 'Idle'}
         </span>
         {totalActive > 0 ? (
           <span data-testid="scheduler-counters" data-running={data.running_jobs} data-queued={data.queued_briefs} style={{ color: 'var(--color-text-secondary)' }}>
-            {data.running_jobs} running{queued > 0 ? ` · ${queued} queued` : ''}
+            {data.running_jobs}{queued > 0 ? ` · ${queued}` : ''}
           </span>
         ) : queued > 0 ? (
           <span data-testid="scheduler-counters" data-queued={data.queued_briefs} style={{ color: 'var(--color-text-secondary)' }}>
@@ -214,14 +149,13 @@ export function AppShellStatusIndicator() {
             aria-label={`${data.alerts} alerts`}
             style={{
               display: 'inline-block',
-              width: 8,
-              height: 8,
+              width: 7,
+              height: 7,
               borderRadius: 999,
-              background: 'rgba(208, 153, 50, 0.9)',  // attention-amber
+              background: 'rgba(208, 153, 50, 0.95)',  // attention-amber
             }}
           />
         ) : null}
-        <CostMeterCompact cost={data.cost_meter ?? null} />
       </button>
       {open ? (
         <StatusIndicatorPopover counts={data} onClose={() => setOpen(false)} />

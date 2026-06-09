@@ -23,6 +23,22 @@ import { ProjectSettingsTab } from '@/components/project/ProjectSettingsTab'
 export type ProjectTabId = 'documents' | 'export' | 'settings'
 const VALID_TABS: ReadonlySet<string> = new Set<ProjectTabId>(['documents', 'export', 'settings'])
 
+/**
+ * Per-document rollup. Computed server-side from get_document_rollup
+ * (M-212). Embedded on the row so the document list can show live
+ * `wordsDrafted / wordsTarget` and a real `last_edit` derived from
+ * `MAX(nodes.updated_at)` instead of the document's stale `updated_at`.
+ *
+ * Optional — if the rollup RPC ever fails per row we fall back to the
+ * legacy description string + `documents.updated_at`.
+ */
+export interface ProjectDocumentRollup {
+  wordsDrafted: number
+  wordsTarget: number
+  /** ISO timestamp from MAX(nodes.updated_at) across the document. */
+  lastUpdatedAt: string | null
+}
+
 export interface ProjectDocumentRow {
   id: string
   name: string
@@ -31,6 +47,9 @@ export interface ProjectDocumentRow {
   status: string
   created_at: string
   updated_at: string | null
+  /** Phase 8 nav cleanup follow-up (2026-06-09): live rollup so the
+   *  Documents tab can show real word counts + real last-edit. */
+  rollup?: ProjectDocumentRollup | null
 }
 
 interface ProjectPageClientProps {

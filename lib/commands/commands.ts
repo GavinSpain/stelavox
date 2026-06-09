@@ -65,8 +65,8 @@ export interface CommandContext {
   /** Document the user is currently looking at (if any). */
   projectId: string | null
   documentId: string | null
-  /** Current ModeContext value (edit / director). */
-  mode: 'edit' | 'director' | null
+  /** Current ModeContext value (edit / director / scheduler). */
+  mode: 'edit' | 'director' | 'scheduler' | null
   /** Is the user on a route that's INSIDE a document page? */
   onDocumentPage: boolean
 }
@@ -119,8 +119,13 @@ export const COMMANDS: ReadonlyArray<CommandDescriptor> = [
   },
   {
     id: 'go-settings',
-    label: 'Go to settings',
-    keywords: ['preferences'],
+    label: 'Go to account',
+    // Phase 8 nav cleanup follow-up (2026-06-09): label renamed from
+    // "Go to settings" to "Go to account" to match the new label of
+    // the global /settings surface. The /settings path is preserved
+    // for URL stability. "settings" stays in keywords so users with
+    // muscle memory still hit this command when they search.
+    keywords: ['settings', 'preferences', 'billing', 'plan'],
     group: 'navigate',
     glyph: '⚙',
     action: { kind: 'navigate', path: '/settings' },
