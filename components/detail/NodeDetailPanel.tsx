@@ -330,8 +330,15 @@ export function NodeDetailPanel({ nodeId, refreshKey, onMutated, onClose, onSele
         background: 'var(--color-bg-surface)',
       }}
     >
-      {/* Header — title + status + tabs */}
-      <div style={{ padding: 'var(--space-4) var(--space-5)', flexShrink: 0 }}>
+      {/* Header — title + status + tabs. Phase 8 polish 2026-06-10:
+          shared mode-panel chrome — 14/20 padding + bottom border so
+          Edit/Director/Scheduler all read as one panel family.
+          See docs/wireframes/wireframe_mode_panel_chrome_v1.html. */}
+      <div style={{
+        padding: '14px 20px',
+        flexShrink: 0,
+        borderBottom: '1px solid var(--color-border-subtle)',
+      }}>
         {/* Phase 8.01.E T-7 — Detail-pane crumb above the title. Closes
             the 8.01.A T-7 deferral. Hidden when onSelectNode is
             unavailable AND ancestor chain would be empty + node isn't

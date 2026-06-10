@@ -1,0 +1,768 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Stelavox — Mode Panel Chrome Consistency Wireframe v1.0</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500&family=Cormorant+Garamond:ital,wght@1,300&family=Inter:wght@200;300;400;500;600;700&family=JetBrains+Mono:wght@400&family=Lora:wght@400&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --ink:#0d1014; --deep:#131820; --surface:#1a2030; --hover:#1e2838; --selected:#1f2d45;
+  --border-s:#1e2535; --border-d:#253045; --border-str:#3a4a62;
+  --text-p:#ecf0f5; --text-s:#8aa0b8; --text-m:#4a6080; --text-dis:#2a3850;
+  --verd:#3d7858; --verd-h:#5aa87a; --verd-m:#1a3028;
+  --info:#3a6090; --amber:#a86e1a; --error:#a04040;
+  --spec-bg:#0a0d12; --spec-pan:#111520; --callout:#e8b840;
+}
+
+body { background: var(--spec-bg); color: var(--text-p); font-family: 'Inter', sans-serif; font-size: 13px; line-height: 1.5; }
+.doc-header { background: var(--spec-pan); border-bottom: 1px solid var(--border-d); padding: 24px 48px; display:flex; align-items:baseline; justify-content:space-between; }
+.wm-s { font-family:'Cinzel',serif; font-size:14px; font-weight:500; letter-spacing:.18em; }
+.wm-v { font-family:'Cormorant Garamond',serif; font-style:italic; font-weight:300; font-size:16px; letter-spacing:.08em; opacity:.82; }
+.doc-meta { font-size:11px; font-weight:300; letter-spacing:.2em; text-transform:uppercase; color:var(--text-m); }
+
+.section { padding: 40px 48px 0; }
+.slabel { font-size:9px; font-weight:400; letter-spacing:.45em; text-transform:uppercase; color:var(--text-m); margin-bottom:20px; padding-bottom:12px; border-bottom:1px solid var(--border-s); }
+.intro { font-size: 13px; color: var(--text-s); margin-bottom: 28px; max-width: 820px; line-height: 1.65; }
+.intro strong { color: var(--text-p); font-weight: 500; }
+
+/* Numbered callouts that overlay panels */
+.cn { display:inline-flex; align-items:center; justify-content:center; width:18px; height:18px; background:var(--callout); color:#0a0800; border-radius:50%; font-size:10px; font-weight:700; flex-shrink:0; position:absolute; z-index:20; }
+
+/* Side-by-side stage layout */
+.stage-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; align-items: start; padding-bottom: 40px; }
+.stage-frame { background: var(--ink); border: 1px solid var(--border-s); border-radius: 8px; padding: 20px; position: relative; }
+.stage-title { font-size: 10px; font-weight: 500; letter-spacing: .22em; text-transform: uppercase; color: var(--text-s); margin-bottom: 14px; display: flex; gap: 10px; align-items: baseline; }
+.stage-title .tag { font-size: 9px; color: var(--text-m); letter-spacing: .15em; padding: 1px 6px; border: 1px solid var(--border-s); border-radius: 3px; }
+.stage-title .tag.good { color: var(--verd-h); border-color: var(--verd-m); }
+.stage-title .tag.bad { color: var(--amber); border-color: var(--amber); }
+
+/* The right-slot panel mock — the unit of comparison */
+.panel-slot {
+  background: var(--ink);
+  border: 1px solid var(--border-s);
+  border-radius: 6px;
+  overflow: hidden;
+  width: 380px;
+  height: 460px;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+.panel-slot.wide { width: 440px; }
+.panel-slot.scheduler-old { background: var(--ink); /* before — falls through */ }
+
+/* Inside the slot: the panel surface */
+.panel { display: flex; flex-direction: column; height: 100%; background: var(--surface); /* bg-surface */ }
+.panel.no-surface { background: var(--ink); } /* simulates Scheduler today */
+
+/* ─── Header strip variants ─── */
+.ph {
+  flex-shrink: 0;
+  padding: 14px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border-bottom: 1px solid var(--border-s);
+}
+.ph.no-border { border-bottom: 0; }
+.ph.tight { padding: 12px 20px; }
+.ph.loose { padding: 24px 32px; }
+
+.ph-title-row { display: flex; align-items: center; gap: 10px; }
+.ph-title-row .grow { flex: 1; min-width: 0; }
+.ph-title-row h1 { font-family: 'Inter'; font-size: 18px; font-weight: 600; color: var(--text-p); letter-spacing: -0.005em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ph-title-row h1.big { font-size: 22px; font-weight: 500; }
+.ph-title-row h1.heading { margin: 0; }
+
+/* Bracketed monospace layer chip (matches existing LayerLabel) */
+.layer-chip {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 10.5px;
+  color: var(--text-s);
+  border: 1px solid var(--border-s);
+  border-radius: 3px;
+  padding: 1px 6px;
+  flex-shrink: 0;
+}
+
+/* Director brand mark + label */
+.dir-mark {
+  width: 22px; height: 22px;
+  border-radius: 5px;
+  background: linear-gradient(135deg, var(--verd-h), var(--verd));
+  box-shadow: 0 0 8px rgba(90,168,122,0.45);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-family: 'Cinzel', serif;
+  font-size: 11px;
+  color: var(--ink);
+  font-weight: 500;
+}
+.dir-label {
+  font-family: 'Cinzel', serif;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: .15em;
+  color: var(--text-p);
+}
+
+/* Document-name pill chip (Director) */
+.doc-chip {
+  font-family: 'Inter';
+  font-size: 10px;
+  font-weight: 300;
+  color: var(--text-s);
+  background: var(--ink);
+  border: 1px solid var(--border-s);
+  border-radius: 3px;
+  padding: 1px 6px;
+  max-width: 140px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Header right-side action group */
+.ph-actions { display: inline-flex; gap: 6px; align-items: center; }
+.ph-actions .btn {
+  font-family: 'Inter';
+  font-size: 11px;
+  font-weight: 300;
+  color: var(--text-s);
+  background: transparent;
+  border: 1px solid var(--border-s);
+  border-radius: 3px;
+  padding: 3px 9px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.ph-actions .btn.dead { color: var(--text-dis); cursor: not-allowed; opacity: 0.6; }
+.ph-actions .btn.danger { color: var(--amber); border-color: var(--amber); }
+.ph-actions .x { font-size: 14px; color: var(--text-m); background: transparent; border: 0; padding: 0 4px; cursor: pointer; line-height: 1; }
+
+/* Meta row */
+.ph-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 11px;
+  color: var(--text-s);
+}
+.ph-meta .pip { width: 6px; height: 6px; border-radius: 50%; background: var(--info); display: inline-block; }
+.ph-meta .pip.run { background: var(--verd-h); box-shadow: 0 0 6px rgba(90,168,122,0.5); animation: pulse 1.6s ease-in-out infinite; }
+.ph-meta .pip.idle { background: var(--text-m); }
+.ph-meta .type { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--text-s); }
+.ph-meta .pill { font-size: 10px; padding: 1px 6px; border-radius: 3px; background: var(--verd-m); color: var(--verd-h); }
+.ph-meta .sep { color: var(--text-dis); }
+@keyframes pulse { 0%,100% { opacity: 1 } 50% { opacity: .4 } }
+
+/* Crumb above title (Edit) */
+.crumb { font-size: 11px; color: var(--text-m); padding-bottom: 4px; }
+.crumb a { color: var(--text-s); }
+
+/* TabStrip (Edit only) */
+.tabstrip { display: flex; gap: 18px; padding: 0 20px; border-bottom: 1px solid var(--border-s); flex-shrink: 0; }
+.tabstrip .ts { padding: 8px 0 8px; font-size: 11px; color: var(--text-m); }
+.tabstrip .ts.active { color: var(--text-p); border-bottom: 1px solid var(--text-s); margin-bottom: -1px; }
+
+/* Section labels (Scheduler) */
+.sched-section { padding: 16px 20px 6px; }
+.sched-section h2 { font-size: 10px; font-weight: 500; letter-spacing: .35em; text-transform: uppercase; color: var(--text-m); margin: 0; }
+
+/* Card surface — content rows */
+.card-list {
+  margin: 6px 20px 0;
+  border: 1px solid var(--border-s);
+  border-radius: 6px;
+  background: var(--ink);
+  overflow: hidden;
+}
+.card-list .row { padding: 10px 14px; border-bottom: 1px solid var(--border-s); font-size: 11.5px; }
+.card-list .row:last-child { border-bottom: 0; }
+.card-list .row .ttl { color: var(--text-p); font-weight: 500; margin-bottom: 2px; }
+.card-list .row .meta { color: var(--text-m); font-size: 10.5px; }
+.card-list .row .meta .status { font-size: 10px; padding: 1px 5px; border-radius: 3px; }
+.card-list .row .meta .status.run { background: var(--verd-m); color: var(--verd-h); }
+.card-list .row .meta .status.fail { background: rgba(160,64,64,0.18); color: var(--amber); }
+.empty { padding: 14px 16px; color: var(--text-m); font-size: 11.5px; }
+
+/* Conversation bubble stub (Director) */
+.conv { padding: 16px 20px; display: flex; flex-direction: column; gap: 12px; flex: 1; overflow: hidden; }
+.conv .msg { font-size: 12px; }
+.conv .msg .by { font-size: 9px; letter-spacing: .22em; color: var(--text-m); margin-bottom: 4px; }
+.conv .msg.dir .by { color: var(--verd-h); }
+.conv .msg .body { color: var(--text-s); line-height: 1.55; }
+
+/* Detail-pane content stub (Edit) */
+.detail-body { padding: 16px 20px; flex: 1; }
+.detail-body .summary { font-size: 12px; color: var(--text-s); line-height: 1.55; padding-bottom: 12px; border-bottom: 1px solid var(--border-s); }
+.detail-body .prose { font-family: 'Lora'; font-size: 14px; color: var(--text-p); line-height: 1.7; padding: 12px 0 0; }
+.detail-body .prose em { font-style: italic; }
+
+/* Input pinned at bottom (Director) */
+.dir-input { flex-shrink: 0; padding: 12px 20px; border-top: 1px solid var(--border-s); display: flex; align-items: center; gap: 8px; background: var(--ink); }
+.dir-input .stub { flex: 1; font-size: 11.5px; color: var(--text-m); }
+.dir-input .send { width: 24px; height: 24px; border-radius: 4px; background: var(--verd-m); color: var(--verd-h); display: inline-flex; align-items: center; justify-content: center; }
+
+/* Scheduler content area */
+.sched-body { flex: 1; overflow-y: auto; padding-bottom: 16px; }
+
+/* Centering wrapper (Scheduler BEFORE) */
+.center-wrap { max-width: 280px; margin: 0 auto; padding: 24px; }
+.center-wrap h1 { font-size: 22px; font-weight: 500; margin-bottom: 4px; }
+.center-wrap .meta { font-size: 11.5px; color: var(--text-s); margin-bottom: 18px; }
+.center-wrap h2 { font-size: 10px; font-weight: 500; text-transform: uppercase; letter-spacing: .35em; color: var(--text-m); margin: 16px 0 6px; }
+.center-wrap .card { background: var(--ink); border: 1px solid var(--border-s); border-radius: 6px; padding: 10px 12px; font-size: 11.5px; }
+
+/* Notes grid */
+.notes-grid { display:grid; grid-template-columns: 32px 1fr; gap: 12px 16px; padding: 24px 48px 60px; align-items: start; }
+.note-num { display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; background: var(--callout); color:#0a0800; border-radius:50%; font-size:11px; font-weight:700; margin-top: 1px; }
+.note-text { font-size: 12.5px; color: var(--text-s); line-height: 1.55; padding-top: 1px; }
+.note-text strong { color: var(--text-p); font-weight: 500; }
+.note-text code { font-family: 'JetBrains Mono', monospace; background: var(--spec-pan); padding: 1px 5px; border-radius: 3px; font-size: 11px; color: var(--text-p); }
+.note-text em.diff-rm { color: var(--amber); font-style: normal; text-decoration: line-through; }
+.note-text em.diff-add { color: var(--verd-h); font-style: normal; }
+
+/* Side-by-side three-up final synthesis */
+.three-up { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 18px; padding-bottom: 40px; }
+
+/* Decisions */
+.decisions { display:grid; grid-template-columns:repeat(2,1fr); gap:14px 32px; padding-bottom:28px; font-size:12.5px; color:var(--text-s); }
+.decisions strong { color:var(--text-p); font-weight:500; }
+.decisions div { line-height: 1.5; }
+
+/* Inviolable audit + Open decisions */
+.audit { font-size: 12.5px; color: var(--text-s); padding-bottom: 24px; line-height: 1.6; }
+.audit p { margin-bottom: 10px; max-width: 880px; }
+.audit strong { color: var(--text-p); }
+.audit code { font-family: 'JetBrains Mono', monospace; background: var(--spec-pan); padding: 1px 5px; border-radius: 3px; font-size: 11px; color: var(--text-p); }
+
+.openq { display: grid; grid-template-columns: 1fr; gap: 12px; padding-bottom: 36px; }
+.openq .q { padding: 14px 16px; border: 1px solid var(--border-s); border-radius: 6px; background: var(--ink); }
+.openq .q .lbl { font-size: 10px; letter-spacing: .25em; text-transform: uppercase; color: var(--text-m); margin-bottom: 6px; }
+.openq .q .body { font-size: 12.5px; color: var(--text-s); line-height: 1.55; }
+.openq .q .body strong { color: var(--text-p); }
+.openq .q .rec { margin-top: 8px; font-size: 11.5px; color: var(--verd-h); }
+.openq .q .rec::before { content: '→ '; }
+
+/* Callout positioning helpers */
+.cn.pos-1 { top: -10px; left: -10px; }
+.cn.pos-2 { top: -10px; right: -10px; }
+.cn.pos-3 { bottom: -10px; left: -10px; }
+.cn.pos-4 { bottom: -10px; right: -10px; }
+.cn.in-1 { position: absolute; top: 8px; left: 8px; }
+.cn.in-2 { position: absolute; top: 8px; right: 8px; }
+</style>
+</head>
+<body>
+
+<div class="doc-header">
+  <div>
+    <div><span class="wm-s">STELA</span><span class="wm-v">vox</span></div>
+    <div class="doc-meta" style="margin-top:6px">Mode Panel Chrome — Edit · Director · Scheduler · v1.0</div>
+  </div>
+  <div class="doc-meta">2026-06-10</div>
+</div>
+
+<!-- ─── INTRO + DECISIONS UP FRONT ─────────────────────────────────────── -->
+
+<div class="section">
+  <div class="slabel">Goal</div>
+  <p class="intro">
+    The three right-slot mode panels (<strong>Edit</strong> / <strong>Director</strong> / <strong>Scheduler</strong>) currently fight each other on
+    structural chrome — surface, header strip, title scale, padding, container width — even though they live in the
+    same slot and serve the same architectural role. This wireframe locks a <strong>shared panel chrome</strong> that all three
+    adopt, while preserving the divergences each mode has earned (Director's brand mark, Scheduler's section labels).
+  </p>
+</div>
+
+<div class="section">
+  <div class="slabel">Decisions Locked</div>
+  <div class="decisions">
+    <div><strong>D1 — Shared surface.</strong> All three mode panels render on <code>--color-bg-surface</code>, fill the slot height, scroll internally. Scheduler stops being transparent over the page background.</div>
+    <div><strong>D2 — Shared header strip.</strong> Every mode panel has a header band: title row + meta row, padded <code>14px 20px</code>, ending in a <code>1px solid --color-border-subtle</code> bottom border. The band is non-scrolling chrome; content scrolls beneath.</div>
+    <div><strong>D3 — Shared title scale.</strong> Inter 18px / 600 for Edit and Scheduler. Director keeps its brand-mark + Cinzel "DIRECTOR" wordmark (Inviolable #4 v2.5 — earned divergence; brand-mark category).</div>
+    <div><strong>D4 — Drop centering on Scheduler.</strong> <code>maxWidth: 980; margin: 0 auto</code> removed. The queue + jobs lists fill the slot like Director's conversation does.</div>
+    <div><strong>D5 — Drop ✕ on Director header.</strong> Mode-as-URL refactor made the ✕ redundant against the ModeTabBar's Edit tab. Stop / Clear conversation / History stay — those are mode-specific verbs that the tab bar doesn't carry.</div>
+    <div><strong>D6 — Section labels stay Scheduler-only.</strong> Uppercase 10px / letter-spacing .35em ("ACTIVE BRIEF" / "QUEUED BRIEFS" / "AGENT JOBS") is the right visual vocabulary for grouped lists; Edit and Director don't have grouped-list content.</div>
+    <div><strong>D7 — Verdigris count unchanged.</strong> Nothing in this polish adds a new use of <code>--color-accent</code>. Inviolable #2 stays at 12 uses; new uses still require the §5.3 three-test gate.</div>
+    <div><strong>D8 — Layout primitive deferred.</strong> A shared <code>&lt;PanelHeader&gt;</code> React primitive (title row + meta row + bottom-border container) is a follow-up after D1–D6 land. The first pass restyles in place to keep the diff minimal and reversible.</div>
+  </div>
+</div>
+
+<!-- ─── STAGE 1: EDIT MODE ─────────────────────────────────────────────── -->
+
+<div class="section">
+  <div class="slabel">Stage 1 — Edit (NodeDetailPanel)</div>
+  <p class="intro">Edit is closest to canonical today. The one addition is the bottom border on the header band so the
+    visual rhythm matches Director + Scheduler. The crumb + title-row + meta-row already pattern-match D2.</p>
+  <div class="stage-grid">
+
+    <!-- BEFORE -->
+    <div class="stage-frame">
+      <div class="stage-title"><span class="tag">Before</span> Today's state</div>
+      <div class="panel-slot">
+        <div class="panel">
+          <div class="ph no-border">
+            <span class="cn pos-2">1</span>
+            <div class="crumb">Act One: The Salvage <span style="color:var(--text-dis)">›</span> Salvage <span style="color:var(--text-dis)">›</span> The Iron Ghost</div>
+            <div class="ph-title-row">
+              <span class="layer-chip">[Bt 1]</span>
+              <div class="grow"><h1 class="heading">The Signal</h1></div>
+            </div>
+            <div class="ph-meta">
+              <span class="pip run"></span>
+              <span class="type">beat</span>
+              <span class="sep">·</span>
+              <span class="pill">approved</span>
+            </div>
+          </div>
+          <div class="tabstrip">
+            <div class="ts active">Content</div>
+            <div class="ts">Agent</div>
+            <div class="ts">Comments</div>
+            <div class="ts">History</div>
+          </div>
+          <div class="detail-body">
+            <div class="summary">A neutral-static fragment in the salvage logs. Kael keeps the cabin cold; the hull's stripped to bone.</div>
+            <div class="prose">The neutral static hit first — a fragment of screaming, distorted through ice and helmet speakers. Marcius said it was, with all of it, cut through the white noise.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- AFTER -->
+    <div class="stage-frame">
+      <div class="stage-title"><span class="tag good">After</span> + 1px border-bottom on header band</div>
+      <div class="panel-slot">
+        <div class="panel">
+          <div class="ph">
+            <span class="cn pos-2">2</span>
+            <div class="crumb">Act One: The Salvage <span style="color:var(--text-dis)">›</span> Salvage <span style="color:var(--text-dis)">›</span> The Iron Ghost</div>
+            <div class="ph-title-row">
+              <span class="layer-chip">[Bt 1]</span>
+              <div class="grow"><h1 class="heading">The Signal</h1></div>
+            </div>
+            <div class="ph-meta">
+              <span class="pip run"></span>
+              <span class="type">beat</span>
+              <span class="sep">·</span>
+              <span class="pill">approved</span>
+            </div>
+          </div>
+          <div class="tabstrip">
+            <div class="ts active">Content</div>
+            <div class="ts">Agent</div>
+            <div class="ts">Comments</div>
+            <div class="ts">History</div>
+          </div>
+          <div class="detail-body">
+            <div class="summary">A neutral-static fragment in the salvage logs. Kael keeps the cabin cold; the hull's stripped to bone.</div>
+            <div class="prose">The neutral static hit first — a fragment of screaming, distorted through ice and helmet speakers. Marcius said it was, with all of it, cut through the white noise.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ─── STAGE 2: DIRECTOR ──────────────────────────────────────────────── -->
+
+<div class="section">
+  <div class="slabel">Stage 2 — Director Panel</div>
+  <p class="intro">Director's header is structurally closest to canonical already — title row + meta row + bottom border
+    are all present. Two cleanups: (a) drop the ✕ close button (redundant against ModeTabBar's Edit tab), (b) nudge
+    padding to <code>14px 20px</code> to match D2.</p>
+  <div class="stage-grid">
+
+    <!-- BEFORE -->
+    <div class="stage-frame">
+      <div class="stage-title"><span class="tag">Before</span> Today's state — ✕ close + 12/20 pad</div>
+      <div class="panel-slot wide">
+        <div class="panel">
+          <div class="ph tight">
+            <span class="cn pos-2">3</span>
+            <div class="ph-title-row">
+              <span class="dir-mark">S</span>
+              <span class="dir-label">DIRECTOR</span>
+              <span class="doc-chip">Shadow Protocol</span>
+              <div class="grow"></div>
+              <div class="ph-actions">
+                <button class="btn">Clear<br>conversation</button>
+                <button class="btn dead">History</button>
+                <button class="x">✕</button>
+              </div>
+            </div>
+            <div class="ph-meta">
+              <span class="pip idle"></span>
+              <span style="font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--text-m)">Idle</span>
+            </div>
+          </div>
+          <div class="conv">
+            <div class="msg dir">
+              <div class="by">DIRECTOR · 11:47 PM</div>
+              <div class="body">Stage 1 "Synthesise beats 1–5 in The Countdown scene" completed.</div>
+            </div>
+            <div class="msg">
+              <div class="by">USER · 12:19 AM</div>
+              <div class="body">Review all of chapter two and tell me what you think.</div>
+            </div>
+          </div>
+          <div class="dir-input">
+            <div class="stub">Message the Director… (@ to reference a node)</div>
+            <div class="send">↑</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- AFTER -->
+    <div class="stage-frame">
+      <div class="stage-title"><span class="tag good">After</span> drop ✕ · pad 14/20</div>
+      <div class="panel-slot wide">
+        <div class="panel">
+          <div class="ph">
+            <span class="cn pos-2">4</span>
+            <div class="ph-title-row">
+              <span class="dir-mark">S</span>
+              <span class="dir-label">DIRECTOR</span>
+              <span class="doc-chip">Shadow Protocol</span>
+              <div class="grow"></div>
+              <div class="ph-actions">
+                <button class="btn">Clear conversation</button>
+                <button class="btn dead">History</button>
+              </div>
+            </div>
+            <div class="ph-meta">
+              <span class="pip idle"></span>
+              <span style="font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--text-m)">Idle</span>
+            </div>
+          </div>
+          <div class="conv">
+            <div class="msg dir">
+              <div class="by">DIRECTOR · 11:47 PM</div>
+              <div class="body">Stage 1 "Synthesise beats 1–5 in The Countdown scene" completed.</div>
+            </div>
+            <div class="msg">
+              <div class="by">USER · 12:19 AM</div>
+              <div class="body">Review all of chapter two and tell me what you think.</div>
+            </div>
+          </div>
+          <div class="dir-input">
+            <div class="stub">Message the Director… (@ to reference a node)</div>
+            <div class="send">↑</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ─── STAGE 3: SCHEDULER ─────────────────────────────────────────────── -->
+
+<div class="section">
+  <div class="slabel">Stage 3 — Scheduler Panel — biggest move</div>
+  <p class="intro">Scheduler currently has none of the shared chrome — it's transparent, centered, page-sized, and
+    title bleeds into content. After: <code>bg-surface</code> like the others, header band with bottom border, title at 18px / 600
+    Inter, drop the <code>maxWidth: 980</code> centering, let the queue + jobs fill the slot.</p>
+  <div class="stage-grid">
+
+    <!-- BEFORE -->
+    <div class="stage-frame">
+      <div class="stage-title"><span class="tag bad">Before</span> transparent · centered · 22px · no header strip</div>
+      <div class="panel-slot scheduler-old">
+        <div class="panel no-surface">
+          <span class="cn pos-1">5</span>
+          <span class="cn pos-2">6</span>
+          <div class="center-wrap">
+            <h1>Scheduler</h1>
+            <div class="meta">No active Brief · 0 queued · 50 agent jobs</div>
+            <h2>Active Brief</h2>
+            <div class="card">No active Brief on this document.</div>
+            <h2>Queued Briefs (0)</h2>
+            <div class="card">Queue empty.</div>
+            <h2>Agent jobs (50)</h2>
+            <div class="card">
+              <div style="color:var(--text-p);font-weight:500;margin-bottom:2px">director_iteration</div>
+              <div style="color:var(--text-m);font-size:10.5px">intent: immediate · class 1 · route platform</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- AFTER -->
+    <div class="stage-frame">
+      <div class="stage-title"><span class="tag good">After</span> bg-surface · header strip · 18px · full-width</div>
+      <div class="panel-slot">
+        <div class="panel">
+          <div class="ph">
+            <span class="cn pos-2">7</span>
+            <div class="ph-title-row">
+              <div class="grow"><h1 class="heading">Scheduler</h1></div>
+            </div>
+            <div class="ph-meta">
+              <span class="pip idle"></span>
+              <span>No active Brief</span>
+              <span class="sep">·</span>
+              <span>0 queued</span>
+              <span class="sep">·</span>
+              <span>50 agent jobs</span>
+            </div>
+          </div>
+          <div class="sched-body">
+            <div class="sched-section"><span class="cn in-2">8</span><h2>Active Brief</h2></div>
+            <div class="card-list">
+              <div class="empty">No active Brief on this document.</div>
+            </div>
+            <div class="sched-section"><h2>Queued Briefs (0)</h2></div>
+            <div class="card-list">
+              <div class="empty">Queue empty.</div>
+            </div>
+            <div class="sched-section"><h2>Agent jobs (50)</h2></div>
+            <div class="card-list">
+              <div class="row">
+                <div class="ttl">director_iteration</div>
+                <div class="meta">
+                  <span class="status fail">failed</span>
+                  &nbsp;intent: immediate · class 1 · route platform · cause: user_message · 7h ago
+                </div>
+              </div>
+              <div class="row">
+                <div class="ttl">director_iteration</div>
+                <div class="meta">
+                  <span class="status run">accepted</span>
+                  &nbsp;intent: immediate · class 1 · route platform · 10h ago
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ─── STAGE 4: SIDE-BY-SIDE FINAL ────────────────────────────────────── -->
+
+<div class="section">
+  <div class="slabel">Stage 4 — Three-up · final synthesised view</div>
+  <p class="intro">All three mode panels after the polish lands. Same surface, same header band shape, same 18px title
+    register, same content padding. Director keeps its brand mark; Scheduler keeps its section labels; Edit keeps its
+    TabStrip. The chrome is one family; the content is three different shapes inside it.</p>
+  <div class="three-up">
+
+    <!-- EDIT -->
+    <div>
+      <div class="stage-title">EDIT</div>
+      <div class="panel-slot" style="width:auto;height:430px">
+        <div class="panel">
+          <div class="ph">
+            <div class="crumb">Act 1 <span style="color:var(--text-dis)">›</span> Salvage <span style="color:var(--text-dis)">›</span> The Iron Ghost</div>
+            <div class="ph-title-row">
+              <span class="layer-chip">[Bt 1]</span>
+              <div class="grow"><h1 class="heading">The Signal</h1></div>
+            </div>
+            <div class="ph-meta">
+              <span class="pip run"></span>
+              <span class="type">beat</span>
+              <span class="sep">·</span>
+              <span class="pill">approved</span>
+            </div>
+          </div>
+          <div class="tabstrip">
+            <div class="ts active">Content</div>
+            <div class="ts">Agent</div>
+            <div class="ts">Comments</div>
+            <div class="ts">History</div>
+          </div>
+          <div class="detail-body">
+            <div class="summary">A neutral-static fragment in the salvage logs.</div>
+            <div class="prose" style="font-size:13px">The neutral static hit first — a fragment of screaming, distorted through ice and helmet speakers.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- DIRECTOR -->
+    <div>
+      <div class="stage-title">DIRECTOR</div>
+      <div class="panel-slot" style="width:auto;height:430px">
+        <div class="panel">
+          <div class="ph">
+            <div class="ph-title-row">
+              <span class="dir-mark">S</span>
+              <span class="dir-label">DIRECTOR</span>
+              <span class="doc-chip">Shadow…</span>
+              <div class="grow"></div>
+              <div class="ph-actions">
+                <button class="btn">Clear</button>
+              </div>
+            </div>
+            <div class="ph-meta">
+              <span class="pip idle"></span>
+              <span style="font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--text-m)">Idle</span>
+            </div>
+          </div>
+          <div class="conv">
+            <div class="msg dir">
+              <div class="by">DIRECTOR · 11:47 PM</div>
+              <div class="body">Stage 1 completed.</div>
+            </div>
+            <div class="msg">
+              <div class="by">USER · 12:19 AM</div>
+              <div class="body">Review chapter two.</div>
+            </div>
+          </div>
+          <div class="dir-input">
+            <div class="stub">Message the Director…</div>
+            <div class="send">↑</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SCHEDULER -->
+    <div>
+      <div class="stage-title">SCHEDULER</div>
+      <div class="panel-slot" style="width:auto;height:430px">
+        <div class="panel">
+          <div class="ph">
+            <div class="ph-title-row">
+              <div class="grow"><h1 class="heading">Scheduler</h1></div>
+            </div>
+            <div class="ph-meta">
+              <span class="pip idle"></span>
+              <span>0 active</span>
+              <span class="sep">·</span>
+              <span>0 queued</span>
+              <span class="sep">·</span>
+              <span>50 jobs</span>
+            </div>
+          </div>
+          <div class="sched-body">
+            <div class="sched-section"><h2>Active Brief</h2></div>
+            <div class="card-list"><div class="empty">No active Brief.</div></div>
+            <div class="sched-section"><h2>Agent jobs (50)</h2></div>
+            <div class="card-list">
+              <div class="row">
+                <div class="ttl">director_iteration</div>
+                <div class="meta"><span class="status fail">failed</span>&nbsp;immediate · 7h ago</div>
+              </div>
+              <div class="row">
+                <div class="ttl">director_iteration</div>
+                <div class="meta"><span class="status run">accepted</span>&nbsp;immediate · 10h ago</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ─── NOTES ──────────────────────────────────────────────────────────── -->
+
+<div class="section">
+  <div class="slabel">Annotations</div>
+</div>
+
+<div class="notes-grid">
+
+  <div class="note-num">1</div>
+  <div class="note-text"><strong>Edit before — no header border.</strong> The header band today bleeds into the TabStrip. Visually OK because the TabStrip's own bottom-border carries the rhythm, but it's also the only one of three panels without an explicit header/content separator. Inconsistent in a polish that's defining the convention.</div>
+
+  <div class="note-num">2</div>
+  <div class="note-text"><strong>Edit after — header band gets 1px <code>--color-border-subtle</code> bottom border.</strong> Zero functional change for Edit; just brings the visual rhythm into line with Director + Scheduler. The TabStrip below loses its own border-top to avoid doubling. (If TabStrip is read as "another header layer", we can drop its own bottom-border instead — either single-line option works; I'd default to keeping TabStrip's bottom-border since that's what's drawn today.)</div>
+
+  <div class="note-num">3</div>
+  <div class="note-text"><strong>Director before — ✕ close button.</strong> Pre-mode-as-URL refactor, ✕ navigated back to "no panel mounted." Post-refactor it navigates to <code>/edit</code>, which is exactly what clicking the Edit tab in ModeTabBar does — and the tab is more discoverable. The ✕ is now a duplicated, lower-discoverability path.</div>
+
+  <div class="note-num">4</div>
+  <div class="note-text"><strong>Director after — drop ✕ + retake 14px 20px padding.</strong> Stop / Clear / History stay (mode-specific verbs the tab bar doesn't carry). The 12px 20px today felt cramped vs Edit's 16/24 and Scheduler's 24/32; 14/20 splits the difference and is now uniform across all three. The "Clear conversation" label can sit on one line (no two-line wrap) once the ✕ is gone.</div>
+
+  <div class="note-num">5</div>
+  <div class="note-text"><strong>Scheduler before — transparent over page.</strong> The panel never wraps itself in <code>--color-bg-surface</code>; it inherits whatever's behind. Result: visually reads as a page-level view that got dropped into a panel slot, breaking the "this is a panel" register Edit + Director establish.</div>
+
+  <div class="note-num">6</div>
+  <div class="note-text"><strong>Scheduler before — centered with <code>maxWidth: 980</code>.</strong> Made sense when Scheduler was a routed sub-page reachable from anywhere; obsolete after mode-as-URL made it a peer panel in the same slot as Edit + Director. Today produces wasted side margins inside the right slot and makes the queue + jobs columns narrower than they need to be.</div>
+
+  <div class="note-num">7</div>
+  <div class="note-text"><strong>Scheduler after — header band + bg-surface + 18px title + meta-row.</strong> Drops the 22px h1 to match Edit's panel register. Meta line ("No active Brief · 0 queued · 50 agent jobs") moves into the header's meta row alongside an idle pip; same shape Director uses (pip + secondary text). Container loses its <code>maxWidth</code>; the section labels + card-lists fill the slot.</div>
+
+  <div class="note-num">8</div>
+  <div class="note-text"><strong>Scheduler after — section labels survive.</strong> "ACTIVE BRIEF" / "QUEUED BRIEFS" / "AGENT JOBS" at 10px uppercase letter-spacing .35em keeps the grouped-list vocabulary. Edit and Director don't acquire these — neither has grouped-list content to label.</div>
+
+</div>
+
+<!-- ─── INVIOLABLE AUDIT ─────────────────────────────────────────────── -->
+
+<div class="section">
+  <div class="slabel">Inviolable Audit</div>
+  <div class="audit">
+    <p><strong>#1 — Prose surface lowest-noise.</strong> Unchanged. Edit's prose surface (inside the Content tab, when leaf) still renders on <code>--color-bg-base</code> per ProseEditor spec; the header band's <code>--color-bg-surface</code> sits a level above that, which is the established hierarchy. Not affected.</p>
+    <p><strong>#2 — Verdigris exactly 12 places.</strong> Unchanged. Nothing added. The status pip in Scheduler's meta row is the existing idle/running pip vocabulary, using <code>--color-info</code> (idle) or <code>--color-agent-running</code> (active) — not <code>--color-accent</code>. Director's brand mark is the existing brand-mark category (use #1 family). Verdigris-use count stays at 12.</p>
+    <p><strong>#3 — Cinzel only in wordmark.</strong> Director's "DIRECTOR" Cinzel label is the existing v2.4 refinement: Cinzel is admitted in the brand-mark family (wordmark + agent-persona mark). Edit and Scheduler titles are Inter 18px / 600. No new Cinzel sites.</p>
+    <p><strong>#4 — Panel typeface boundary.</strong> All three panel chromes stay on Inter. The prose surface inside Edit's Content tab is Lora per ProseEditor (unchanged). Director's agent reply bodies are Inter per v2.5 (the v2.4 Lora experiment was walked back). No transitions added.</p>
+    <p><strong>#5 — Prose editor has no visible toolbar.</strong> Not in scope; unchanged.</p>
+    <p><strong>#6 — Cormorant Garamond italic only in wordmark.</strong> Not in scope; unchanged.</p>
+  </div>
+</div>
+
+<!-- ─── OPEN QUESTIONS / CHOICES ───────────────────────────────────────── -->
+
+<div class="section">
+  <div class="slabel">Open Decisions for review</div>
+  <div class="openq">
+
+    <div class="q">
+      <div class="lbl">OQ-1 · Header padding value</div>
+      <div class="body">D2 picks <code>14px 20px</code> as the compromise between Edit's current <code>16/24</code>, Director's <code>12/20</code>, Scheduler's <code>24/32</code>. The alternative is <strong>16px 24px</strong> across the board (Edit's current value), which is slightly more generous. Both are defensible; the difference is visible mainly in the meta row's breathing room.</div>
+      <div class="rec">Recommendation: 14px 20px — splits the difference and reads as panel-tight rather than page-loose.</div>
+    </div>
+
+    <div class="q">
+      <div class="lbl">OQ-2 · Edit TabStrip border-top after header gains border-bottom</div>
+      <div class="body">If Edit's header band gains a bottom border AND TabStrip keeps its own bottom border, the area between them is empty-and-double-bordered. Two options: <strong>(a)</strong> keep TabStrip's bottom-border + draw the header bottom-border directly above it (visually like a band of two parallel lines, which is the current state on Director); <strong>(b)</strong> drop the header's bottom border specifically for Edit because TabStrip carries it.</div>
+      <div class="rec">Recommendation: (a) — single-rule consistency wins. The "two parallel lines" appearance is invisible at 1px each on dark surface; it reads as one boundary.</div>
+    </div>
+
+    <div class="q">
+      <div class="lbl">OQ-3 · Director "Clear conversation" label</div>
+      <div class="body">Today the button reads as "Clear / conversation" on two lines because of the ✕'s adjacent width. With the ✕ gone, it fits on one line. Keep as <strong>"Clear conversation"</strong> or shorten to <strong>"Clear"</strong>?</div>
+      <div class="rec">Recommendation: keep "Clear conversation" — "Clear" alone is ambiguous (clear what — the prompt input? the history? all the workflows?).</div>
+    </div>
+
+    <div class="q">
+      <div class="lbl">OQ-4 · Director document-name chip</div>
+      <div class="body">The chip ("Shadow…") next to the DIRECTOR label currently echoes which document the conversation is for. The author is already on the document page; ModeTabBar shows the document mode tabs; the chip arguably duplicates context. <strong>Drop</strong> the chip (cleaner) or <strong>keep</strong> it (defends against a future "global Director" V2)?</div>
+      <div class="rec">Recommendation: keep — it reads as Director persona context, not navigation, and the V2 "Director across documents" backlog item per Director Architecture v2.6 §16.3 reuses exactly this affordance.</div>
+    </div>
+
+    <div class="q">
+      <div class="lbl">OQ-5 · Scheduler "Scheduler" title — what does it gain from a brand mark?</div>
+      <div class="body">Edit has a node-title (real content). Director has a brand mark + Cinzel wordmark (persona). Scheduler just has the literal word "Scheduler". Could it earn a small mark — e.g. a clock glyph or "⌗" — to balance the visual weight against Director's mark?</div>
+      <div class="rec">Recommendation: no. Scheduler is an inspection panel, not a persona. A glyph would read as decorative noise, not signal. The 18px Inter title + meta line is correct for what Scheduler is.</div>
+    </div>
+
+    <div class="q">
+      <div class="lbl">OQ-6 · Shared &lt;PanelHeader&gt; primitive — now or after?</div>
+      <div class="body">A React component <code>&lt;PanelHeader title meta actions /&gt;</code> would lock the convention in code so a future fourth mode can't drift. But it requires touching three call sites simultaneously and increases the diff. <strong>Now</strong> (one larger diff, harder to revert) or <strong>after</strong> (small restyle-in-place first, primitive in a follow-up commit).</div>
+      <div class="rec">Recommendation: after. D1–D6 first as a focused polish — small, all-defensive, all in the same direction. <code>&lt;PanelHeader&gt;</code> as a follow-up once the shape is stable.</div>
+    </div>
+
+  </div>
+</div>
+
+</body>
+</html>
