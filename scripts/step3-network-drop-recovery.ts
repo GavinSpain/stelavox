@@ -77,7 +77,7 @@ async function apiReq(cookie: string, method: string, path: string, body?: unkno
     body: body !== undefined ? JSON.stringify(body) : undefined,
   })
   let parsed: unknown = null
-  try { parsed = await res.json() } catch {}
+  try { parsed = await res.json() } catch { /* non-JSON body — parsed stays null and the caller surfaces the raw status */ }
   return { status: res.status, body: parsed }
 }
 
@@ -86,7 +86,7 @@ async function runCron(): Promise<{ status: number; body: unknown }> {
     method: 'POST', headers: { 'authorization': `Bearer ${CRON_SECRET}` },
   })
   let parsed: unknown = null
-  try { parsed = await res.json() } catch {}
+  try { parsed = await res.json() } catch { /* non-JSON body — parsed stays null and the caller surfaces the raw status */ }
   return { status: res.status, body: parsed }
 }
 

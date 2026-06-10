@@ -81,9 +81,20 @@ export async function notifyWorkflowIfStep(
   try {
     await advanceWorkflow(workflowId)
   } catch (err) {
+    // DR-096 (audit F-56), Phase 9.1 — a failed workflow advance means
+    // the workflow may stall with no visible cause. Audit-logged so the
+    // admin surface can show it; console.error kept as the Vercel-logs
+    // fallback channel.
+    const message = err instanceof Error ? err.message : String(err)
     console.error('[agent-runner] advanceWorkflow failed', {
       workflowId,
-      error: err instanceof Error ? err.message : String(err),
+      error: message,
+    })
+    const { writeAuditLogEntry } = await import('@/lib/security/audit')
+    await writeAuditLogEntry({
+      event_type: 'workflow_advance_failed',
+      severity: 'high',
+      metadata: { workflow_id: workflowId, error: message },
     })
   }
 }
@@ -183,7 +194,18 @@ export async function persistRunningStart(
     // Job was likely already cancelled or in another terminal state.
     return false
   }
+  // DR-096 (audit F-56), Phase 9.1 — an unexpected transition failure
+  // here means a job that should run never will, with no user-visible
+  // signal. Audit-logged for forensics + admin visibility.
   console.error('[agent-lifecycle] persistRunningStart: orchestration transition failed', { jobId, error: result.error, message: result.message })
+  {
+    const { writeAuditLogEntry } = await import('@/lib/security/audit')
+    await writeAuditLogEntry({
+      event_type: 'agent_job_transition_failed',
+      severity: 'high',
+      metadata: { job_id: jobId, error: result.error, message: result.message ?? null },
+    })
+  }
   return false
 }
 
@@ -367,6 +389,17 @@ function formatYearMonth(d: Date): string {
   return `${y}-${m}`
 }
 
+// DR-100 (audit F-133 + F-134), Phase 9.1 — the previous
+// SELECT-then-INSERT-or-UPDATE raced under concurrency: two jobs
+// completing for the same (org, month, operation, provider) could both
+// read "no row" and both INSERT; the M-008 UNIQUE constraint rejected
+// the second write and the error was silently swallowed (no { error }
+// destructure) — lost billing-reconciliation data. Now a single atomic
+// RPC (M-215 `increment_usage_record`, INSERT ... ON CONFLICT ... DO
+// UPDATE with additive increments) does the write, and failure is
+// CHECKED: it doesn't throw (the LLM spend already happened; failing
+// the job post-completion helps no one) but it writes a high-severity
+// audit_log entry so the reconciliation gap is recorded and queryable.
 export async function updateUsageRecords(
   organisationId: string,
   operationType: string,
@@ -376,36 +409,40 @@ export async function updateUsageRecords(
   const supabase = createServiceRoleClient()
   const yearMonth = formatYearMonth(new Date())
 
-  const { data: existing } = await supabase
-    .from('usage_records')
-    .select('id, tokens_input, tokens_output, tokens_cache_write, tokens_cache_read')
-    .eq('organisation_id', organisationId)
-    .eq('year_month', yearMonth)
-    .eq('operation_type', operationType)
-    .eq('provider', provider)
-    .maybeSingle()
+  const { error } = await supabase.rpc('increment_usage_record', {
+    p_organisation_id: organisationId,
+    p_year_month: yearMonth,
+    p_operation_type: operationType,
+    p_provider: provider,
+    p_tokens_input: usage.tokens_input,
+    p_tokens_output: usage.tokens_output,
+    p_tokens_cache_write: usage.tokens_cache_write,
+    p_tokens_cache_read: usage.tokens_cache_read,
+  })
 
-  if (existing) {
-    await supabase
-      .from('usage_records')
-      .update({
-        tokens_input: (existing.tokens_input ?? 0) + usage.tokens_input,
-        tokens_output: (existing.tokens_output ?? 0) + usage.tokens_output,
-        tokens_cache_write: (existing.tokens_cache_write ?? 0) + usage.tokens_cache_write,
-        tokens_cache_read: (existing.tokens_cache_read ?? 0) + usage.tokens_cache_read,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', existing.id)
-  } else {
-    await supabase.from('usage_records').insert({
+  if (error) {
+    console.error('[agent-lifecycle] usage_records increment failed — billing archive gap', {
+      organisationId,
+      yearMonth,
+      operationType,
+      provider,
+      error: error.message,
+    })
+    const { writeAuditLogEntry } = await import('@/lib/security/audit')
+    await writeAuditLogEntry({
+      event_type: 'usage_record_write_failed',
+      severity: 'high',
       organisation_id: organisationId,
-      year_month: yearMonth,
-      operation_type: operationType,
-      provider: provider,
-      tokens_input: usage.tokens_input,
-      tokens_output: usage.tokens_output,
-      tokens_cache_write: usage.tokens_cache_write,
-      tokens_cache_read: usage.tokens_cache_read,
+      metadata: {
+        year_month: yearMonth,
+        operation_type: operationType,
+        provider,
+        tokens_input: usage.tokens_input,
+        tokens_output: usage.tokens_output,
+        tokens_cache_write: usage.tokens_cache_write,
+        tokens_cache_read: usage.tokens_cache_read,
+        error: error.message,
+      },
     })
   }
 }

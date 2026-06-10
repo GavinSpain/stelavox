@@ -42,6 +42,20 @@ const eslintConfig = defineConfig([
       ],
     },
   },
+  // Phase 9.1 DR-097 (audit theme T-1) — silent-failure guard.
+  //
+  // The audit's dominant theme was fail-quiet-by-default: 26+ sites
+  // swallowing errors. All flagged sites were fixed across the
+  // remediation batches (verified zero empty catches remain, 2026-06-10
+  // recon); this rule is the structural defence that stops the pattern
+  // re-entering. An empty catch block is an error project-wide. The
+  // escape hatch is deliberate: a catch containing only a comment
+  // passes — so silencing an error REQUIRES writing down why.
+  {
+    rules: {
+      "no-empty": ["error", { allowEmptyCatch: false }],
+    },
+  },
   // Round-3 audit B1.3 — H-01 guardrail scoped to lib/data/.
   //
   // Background: a broad rule firing on every .single() across the

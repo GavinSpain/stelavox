@@ -3364,6 +3364,19 @@ export type Database = {
         Returns: string
       }
       get_user_anthropic_key_status: { Args: never; Returns: Json }
+      increment_usage_record: {
+        Args: {
+          p_operation_type: string
+          p_organisation_id: string
+          p_provider: string
+          p_tokens_cache_read: number
+          p_tokens_cache_write: number
+          p_tokens_input: number
+          p_tokens_output: number
+          p_year_month: string
+        }
+        Returns: undefined
+      }
       migrate_per_user_keys_to_org: { Args: never; Returns: Json }
       move_node: {
         Args: { p_node_id: string; p_parent_id: string; p_position: number }
@@ -3575,3 +3588,4 @@ export const Constants = {
     Enums: {},
   },
 } as const
+

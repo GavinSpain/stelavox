@@ -122,16 +122,51 @@ export async function POST(req: NextRequest): Promise<Response> {
   }
 
   // ---- 6. Director-message rate limit ----------------------------------
-  const rateLimit = await getConfigInt(
-    'agent.director_message_rate_limit_per_60s',
-  )
+  // DR-095 (audit F-74) — FAIL CLOSED. If we cannot verify the rate-limit
+  // state (config fetch throws, or the count query errors), decline the
+  // dispatch with a retryable 503 rather than letting the request through.
+  // Pre-fix, a count-query error left `recentCount` undefined and
+  // `(undefined ?? 0) >= limit` evaluated false — silently failing OPEN.
+  // Policy locked 2026-06-10 (Deliverables Register DR-095): occasional
+  // spurious retries during DB blips are acceptable; unverified dispatch
+  // is not.
+  let rateLimit: number
+  try {
+    rateLimit = await getConfigInt('agent.director_message_rate_limit_per_60s')
+  } catch (err) {
+    console.error('[director-message] rate-limit config fetch failed — failing closed', {
+      error: err instanceof Error ? err.message : String(err),
+    })
+    return NextResponse.json(
+      {
+        error: 'rate_limit_check_unavailable',
+        message: 'Could not verify rate-limit state. Please retry shortly.',
+        retry_after_seconds: 10,
+      },
+      { status: 503 },
+    )
+  }
   const cutoff = new Date(Date.now() - 60_000).toISOString()
-  const { count: recentCount } = await service
+  const { count: recentCount, error: rateCountError } = await service
     .from('conversation_messages')
     .select('*', { count: 'exact', head: true })
     .eq('conversation_id', conversation.id)
     .eq('role', 'user')
     .gte('created_at', cutoff)
+  if (rateCountError) {
+    console.error('[director-message] rate-limit count query failed — failing closed', {
+      conversationId: conversation.id,
+      error: rateCountError.message,
+    })
+    return NextResponse.json(
+      {
+        error: 'rate_limit_check_unavailable',
+        message: 'Could not verify rate-limit state. Please retry shortly.',
+        retry_after_seconds: 10,
+      },
+      { status: 503 },
+    )
+  }
   if ((recentCount ?? 0) >= rateLimit) {
     return NextResponse.json(
       {

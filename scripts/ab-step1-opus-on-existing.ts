@@ -240,6 +240,6 @@ main().catch(async (e) => {
   // Safety: restore Haiku on any error path.
   try {
     await admin().from('agent_profiles').update({ model_id: HAIKU }).eq('id', SYNTH_PROFILE_ID)
-  } catch {}
+  } catch { /* best-effort restore on an already-fatal path — original error is what matters */ }
   process.exit(1)
 })
