@@ -3377,6 +3377,10 @@ export type Database = {
         }
         Returns: undefined
       }
+      invoke_scheduler_endpoint: {
+        Args: { p_path: string }
+        Returns: undefined
+      }
       migrate_per_user_keys_to_org: { Args: never; Returns: Json }
       move_node: {
         Args: { p_node_id: string; p_parent_id: string; p_position: number }
