@@ -105,9 +105,13 @@ export function DocumentLayoutClient({
     [projectId, documentId],
   )
   const selectNode = useCallback(
-    (id: string | null) => {
+    (id: string | null, source: 'click' | 'auto' = 'click') => {
       setSelectedNodeId(id)
-      if (id !== null && pathname !== editPath) {
+      // Auto-select on first data load (source: 'auto') must NOT
+      // redirect — otherwise a direct page-load on /director or
+      // /scheduler bounces the user back to /edit when the tree
+      // initialises with a default selection.
+      if (id !== null && source === 'click' && pathname !== editPath) {
         router.push(editPath)
       }
     },
