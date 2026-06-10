@@ -46,9 +46,12 @@ import { QueryErrorFallback } from '@/components/feedback/QueryErrorFallback'
 interface NodeTreeProps {
   documentId: string
   documentType?: 'novel' | 'short_story' | 'series'
-  // Notified when a row is selected (clicked). Passed through to the
-  // parent so it can populate AppShell's right slot with a detail panel.
-  onSelect?: (nodeId: string | null) => void
+  // Notified when a row is selected. `source` distinguishes a user
+  // click ('click', default) from the auto-select-on-first-data-load
+  // effect ('auto'). The Edit-mode parent uses this to suppress the
+  // tree-click → Edit redirect when the auto-select fires after a
+  // direct page-load on /director or /scheduler.
+  onSelect?: (nodeId: string | null, source?: 'click' | 'auto') => void
   // External refresh trigger — when this prop changes, the tree refetches.
   // Used by NodeDetailPanel mutations to keep the tree in sync.
   refreshKey?: number
@@ -136,7 +139,11 @@ function NodeTreeInner({ documentId, documentType, onSelect, refreshKey, selecte
     if (selectedId != null) return
     autoSelectedForDoc.current = documentId
     const defaultId = pickDefaultSelection(data)
-    if (defaultId) onSelect(defaultId)
+    // Source 'auto' tells the parent this is the on-first-load default
+    // selection, not a user verb. Important when the user lands
+    // directly on /director or /scheduler: the auto-select would
+    // otherwise be interpreted as a tree click and bounce them to /edit.
+    if (defaultId) onSelect(defaultId, 'auto')
   }, [data, documentId, onSelect, selectedId])
 
   // Phase 5 / B.3 / B.3b — Realtime nodes-table events:

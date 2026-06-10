@@ -427,7 +427,7 @@ function DirectorHeader({
     <header
       style={{
         flexShrink: 0,
-        padding: '12px 20px',
+        padding: '14px 20px',
         borderBottom: '1px solid var(--color-border-subtle)',
         display: 'flex',
         alignItems: 'center',
@@ -496,26 +496,11 @@ function DirectorHeader({
         >
           History
         </button>
-        {onClose ? (
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close Director"
-            style={{
-              fontFamily: 'var(--font-inter), Inter, sans-serif',
-              fontWeight: 300,
-              fontSize: 14,
-              lineHeight: 1,
-              color: 'var(--color-text-muted)',
-              background: 'transparent',
-              border: 'none',
-              padding: '0 4px',
-              cursor: 'pointer',
-            }}
-          >
-            ✕
-          </button>
-        ) : null}
+        {/* Phase 8 polish 2026-06-10: ✕ close removed. Post mode-as-URL,
+            closing Director means switching to Edit — which the
+            ModeTabBar already provides, more discoverably. The onClose
+            prop stays on DirectorPanel's contract for now; it's unused
+            from this header but is harmless. */}
       </div>
     </header>
   )

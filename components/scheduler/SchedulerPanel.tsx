@@ -140,30 +140,42 @@ export function SchedulerPanel({ projectId, documentId, documentName }: Schedule
   const { brief, jobs } = data
 
   return (
+    // Phase 8 polish 2026-06-10: shared mode-panel chrome — bg-surface,
+    // header strip with bottom border, 18px title, fill the slot (drop
+    // the maxWidth: 980 centering). Matches Edit + Director so the three
+    // panels read as one family. Body scrolls internally beneath a
+    // non-scrolling header band. See
+    // docs/wireframes/wireframe_mode_panel_chrome_v1.html.
     <div data-testid="scheduler-panel" style={{
       fontFamily: 'var(--font-inter), Inter, sans-serif',
-      padding: '24px 32px',
-      maxWidth: 980,
-      margin: '0 auto',
       color: 'var(--color-text-primary)',
-      // Phase 8 nav refactor follow-up: SchedulerPanel mounts inside
-      // AppShell's right-slot column (overflow: hidden, flex column),
-      // so when the queue is long the list was getting clipped. Fill
-      // the slot height and scroll internally so the jobs list is
-      // reachable regardless of length.
+      background: 'var(--color-bg-surface)',
       height: '100%',
-      overflowY: 'auto',
+      display: 'flex',
+      flexDirection: 'column',
     }}>
-      <div style={{ marginBottom: 24 }}>
-        {/* Phase 8 nav refactor: ← back-link removed. Scheduler is now
-           a peer mode in the ModeTabBar; the Edit / Director tabs
-           provide the navigation away from this view. */}
-        <h1 style={{ fontSize: 22, fontWeight: 500, margin: '0 0 4px' }}>Scheduler</h1>
-        <div style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>
+      {/* Header strip — non-scrolling. */}
+      <div style={{
+        flexShrink: 0,
+        padding: '14px 20px',
+        borderBottom: '1px solid var(--color-border-subtle)',
+      }}>
+        <h1 style={{
+          fontSize: 18,
+          fontWeight: 600,
+          margin: 0,
+          letterSpacing: '-0.005em',
+          color: 'var(--color-text-primary)',
+        }}>
+          Scheduler
+        </h1>
+        <div style={{ fontSize: 11, color: 'var(--color-text-secondary)', marginTop: 4 }}>
           {brief.active ? '1 active Brief' : 'No active Brief'} · {brief.queue.length} queued · {jobs.length} agent jobs
         </div>
       </div>
 
+      {/* Scrollable body. */}
+      <div style={{ flex: 1, overflowY: 'auto', padding: '16px 20px 20px' }}>
       <Section label="Active Brief">
         {brief.active ? (
           <BriefRow brief={brief.active} kind="active" projectId={projectId} documentId={documentId} onChange={() => void refresh()} />
@@ -206,6 +218,7 @@ export function SchedulerPanel({ projectId, documentId, documentName }: Schedule
           </ul>
         )}
       </Section>
+      </div>{/* end scrollable body */}
     </div>
   )
 }
