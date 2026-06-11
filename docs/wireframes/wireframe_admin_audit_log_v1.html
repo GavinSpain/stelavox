@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Stelavox — Admin Audit Log Viewer Wireframe v1.0 (Phase 9.1 / DR-096)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500&family=Cormorant+Garamond:ital,wght@1,300&family=Inter:wght@200;300;400;500;600;700&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --ink:#0d1014; --deep:#131820; --surface:#1a2030; --hover:#1e2838; --selected:#1f2d45;
+  --border-s:#1e2535; --border-d:#253045; --border-str:#3a4a62;
+  --text-p:#ecf0f5; --text-s:#8aa0b8; --text-m:#4a6080; --text-dis:#2a3850;
+  --verd:#3d7858; --verd-h:#5aa87a;
+  --info:#3a6090; --amber:#a8821a; --review:#a8651a; --error:#a04040;
+  --spec-bg:#0a0d12; --spec-pan:#111520; --callout:#e8b840;
+}
+
+body { background: var(--spec-bg); color: var(--text-p); font-family: 'Inter', sans-serif; font-size: 13px; line-height: 1.5; }
+.doc-header { background: var(--spec-pan); border-bottom: 1px solid var(--border-d); padding: 24px 48px; display:flex; align-items:baseline; justify-content:space-between; }
+.wm-s { font-family:'Cinzel',serif; font-size:14px; font-weight:500; letter-spacing:.18em; }
+.wm-v { font-family:'Cormorant Garamond',serif; font-style:italic; font-weight:300; font-size:16px; letter-spacing:.08em; opacity:.82; }
+.doc-meta { font-size:11px; font-weight:300; letter-spacing:.2em; text-transform:uppercase; color:var(--text-m); }
+
+.section { padding: 40px 48px 0; }
+.slabel { font-size:9px; font-weight:400; letter-spacing:.45em; text-transform:uppercase; color:var(--text-m); margin-bottom:20px; padding-bottom:12px; border-bottom:1px solid var(--border-s); }
+.intro { font-size: 13px; color: var(--text-s); margin-bottom: 28px; max-width: 820px; line-height: 1.65; }
+.intro strong { color: var(--text-p); font-weight: 500; }
+
+.decisions { display:grid; grid-template-columns:repeat(2,1fr); gap:14px 32px; padding-bottom:28px; font-size:12.5px; color:var(--text-s); }
+.decisions strong { color:var(--text-p); font-weight:500; }
+.decisions div { line-height: 1.5; }
+.decisions code { font-family:'JetBrains Mono',monospace; background:var(--spec-pan); padding:1px 5px; border-radius:3px; font-size:11px; color:var(--text-p); }
+
+.cn { display:inline-flex; align-items:center; justify-content:center; width:18px; height:18px; background:var(--callout); color:#0a0800; border-radius:50%; font-size:10px; font-weight:700; flex-shrink:0; position:absolute; z-index:20; }
+
+/* Admin dashboard frame mock */
+.dash { background: var(--ink); border: 1px solid var(--border-s); border-radius: 8px; max-width: 1000px; margin: 0 auto 40px; overflow: hidden; position: relative; }
+.dash-head { padding: 16px 24px; border-bottom: 1px solid var(--border-s); display:flex; align-items:center; justify-content: space-between; }
+.dash-head h1 { font-size: 18px; font-weight: 600; }
+.win-sel { display:inline-flex; gap:2px; background:var(--surface); border:1px solid var(--border-s); border-radius:5px; padding:2px; font-size:11px; }
+.win-sel span { padding: 3px 10px; border-radius: 3px; color: var(--text-m); }
+.win-sel span.active { background: var(--selected); color: var(--text-p); }
+
+.dash-body { padding: 20px 24px; }
+.other-sections { border: 1px dashed var(--border-d); border-radius: 6px; padding: 14px 16px; color: var(--text-dis); font-size: 11.5px; margin-bottom: 22px; text-align:center; letter-spacing: .1em; }
+
+/* The new section */
+.sec-title-row { display:flex; align-items:center; justify-content:space-between; margin-bottom: 10px; position: relative; }
+.sec-title { font-size: 10px; font-weight: 500; letter-spacing: .35em; text-transform: uppercase; color: var(--text-m); }
+.sev-filter { display:inline-flex; gap:4px; font-size:10.5px; }
+.sev-chip { padding: 2px 9px; border: 1px solid var(--border-s); border-radius: 999px; color: var(--text-m); cursor: pointer; }
+.sev-chip.active { border-color: var(--border-str); color: var(--text-p); background: var(--surface); }
+.sev-chip .dot { display:inline-block; width:6px; height:6px; border-radius:50%; margin-right:5px; vertical-align: 1px; }
+
+.audit-table { border: 1px solid var(--border-s); border-radius: 6px; overflow: hidden; background: var(--ink); position: relative; }
+.audit-row { display: grid; grid-template-columns: 86px 90px 1fr 170px 110px; gap: 12px; align-items: center; padding: 9px 14px; border-bottom: 1px solid var(--border-s); font-size: 11.5px; }
+.audit-row:last-child { border-bottom: 0; }
+.audit-row.head { background: var(--deep); font-size: 9.5px; letter-spacing: .2em; text-transform: uppercase; color: var(--text-m); }
+.audit-row:not(.head):hover { background: var(--hover); cursor: pointer; }
+
+.sev { display:inline-flex; align-items:center; gap:6px; font-size:10px; letter-spacing:.08em; text-transform:uppercase; }
+.sev .dot { width:7px; height:7px; border-radius:50%; }
+.sev.critical { color:#d98080; } .sev.critical .dot { background:var(--error); box-shadow:0 0 5px rgba(160,64,64,.6); }
+.sev.high { color:#d9a86a; } .sev.high .dot { background:var(--review); }
+.sev.medium { color:#d9c46a; } .sev.medium .dot { background:var(--amber); }
+.sev.info { color:var(--text-s); } .sev.info .dot { background:var(--info); }
+
+.etype { font-family:'JetBrains Mono',monospace; font-size:10.5px; color:var(--text-p); }
+.meta-prev { color: var(--text-m); font-size: 10.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.org-cell { font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--text-s); }
+.time-cell { color: var(--text-m); font-size: 10.5px; text-align: right; }
+
+/* Expanded row */
+.audit-expand { grid-column: 1 / -1; background: var(--deep); border-radius: 4px; margin: 2px 0 6px; padding: 10px 14px; }
+.audit-expand pre { font-family:'JetBrains Mono',monospace; font-size:10.5px; color:var(--text-s); white-space:pre-wrap; line-height:1.6; }
+.audit-expand .kv { color: var(--text-p); }
+
+.load-more { text-align:center; padding: 10px; }
+.load-more button { background:transparent; border:1px solid var(--border-s); border-radius:4px; color:var(--text-s); font-size:11px; padding:5px 16px; cursor:pointer; }
+
+.empty-state { padding: 22px; text-align: center; color: var(--text-m); font-size: 11.5px; }
+
+.notes-grid { display:grid; grid-template-columns: 32px 1fr; gap: 12px 16px; padding: 24px 48px 40px; align-items: start; }
+.note-num { display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; background: var(--callout); color:#0a0800; border-radius:50%; font-size:11px; font-weight:700; margin-top: 1px; }
+.note-text { font-size: 12.5px; color: var(--text-s); line-height: 1.55; padding-top: 1px; }
+.note-text strong { color: var(--text-p); font-weight: 500; }
+.note-text code { font-family:'JetBrains Mono',monospace; background:var(--spec-pan); padding:1px 5px; border-radius:3px; font-size:11px; color:var(--text-p); }
+
+.audit-sec { font-size: 12.5px; color: var(--text-s); padding-bottom: 40px; line-height: 1.6; max-width: 880px; }
+.audit-sec p { margin-bottom: 10px; }
+.audit-sec strong { color: var(--text-p); }
+</style>
+</head>
+<body>
+
+<div class="doc-header">
+  <div>
+    <div><span class="wm-s">STELA</span><span class="wm-v">vox</span></div>
+    <div class="doc-meta" style="margin-top:6px">Admin Audit Log Viewer · Phase 9.1 / DR-096 · v1.0</div>
+  </div>
+  <div class="doc-meta">2026-06-10</div>
+</div>
+
+<div class="section">
+  <div class="slabel">Context</div>
+  <p class="intro">
+    DR-096 lands audit_log writes on every critical event (security frame violations, H-08 breaches,
+    workflow-advance failures, job-transition failures, job failures, usage-record write failures). The author's
+    requirement: <strong>"I want to be able to see this in the admin section."</strong> This wireframe adds a
+    seventh section to the existing <code>/admin</code> dashboard — below Synthetic Probes — following the
+    established fetch + render pattern (one new keyed field on the <code>GET /api/admin/dashboard</code> payload).
+  </p>
+</div>
+
+<div class="section">
+  <div class="slabel">Decisions Locked (proposed)</div>
+  <div class="decisions">
+    <div><strong>D1 — Section, not page.</strong> The viewer is a section inside the existing AdminDashboard, not a separate route. One payload field (<code>audit_log_recent</code>), one render block. The admin allowlist auth is inherited.</div>
+    <div><strong>D2 — Window-selector aware.</strong> Rows respect the page-level 1h / 24h / 7d window like every other section. Default fetch: most recent 50 rows within the window; "Load more" fetches the next 50.</div>
+    <div><strong>D3 — Severity filter chips.</strong> All · Critical · High · Medium · Info. Client-side filter over the fetched rows (the fetch always brings all severities so counts stay honest).</div>
+    <div><strong>D4 — Click to expand.</strong> A row click expands the full metadata JSONB inline (monospace, pretty-printed) plus the soft-ref UUIDs (document / conversation / node). No modal.</div>
+    <div><strong>D5 — No verdigris.</strong> Severity colours: critical = <code>--color-error</code>, high = <code>--color-status-review</code>, medium = amber family, info = <code>--color-info</code>. Admin surfaces add zero verdigris uses (consistent with V1.x-E).</div>
+    <div><strong>D6 — Read-only.</strong> No acknowledge / dismiss / delete actions in V1. The audit log is an append-only forensic record; admin workflow actions are V1.x if a need emerges.</div>
+  </div>
+</div>
+
+<div class="section">
+  <div class="slabel">Stage — the new section in place</div>
+</div>
+
+<div class="dash">
+  <div class="dash-head">
+    <h1>Admin</h1>
+    <div class="win-sel"><span>1h</span><span class="active">24h</span><span>7d</span></div>
+  </div>
+  <div class="dash-body">
+    <div class="other-sections">EXISTING SECTIONS 1–6 — LIVE COUNTERS · ALERTS · QUEUE DEPTH + HEADROOM · DISPATCH SPARKLINE + FAILURES · SPEND LEADERS · SYNTHETIC PROBES</div>
+
+    <div class="sec-title-row">
+      <span class="cn" style="left:-30px; top:0">1</span>
+      <div class="sec-title">Audit Log (24h · 14 events)</div>
+      <div class="sev-filter">
+        <span class="cn" style="right:-28px; top:-4px">2</span>
+        <span class="sev-chip active">All</span>
+        <span class="sev-chip"><span class="dot" style="background:var(--error)"></span>Critical (1)</span>
+        <span class="sev-chip"><span class="dot" style="background:var(--review)"></span>High (3)</span>
+        <span class="sev-chip"><span class="dot" style="background:var(--amber)"></span>Medium (8)</span>
+        <span class="sev-chip"><span class="dot" style="background:var(--info)"></span>Info (2)</span>
+      </div>
+    </div>
+
+    <div class="audit-table">
+      <span class="cn" style="left:-30px; top:40%">3</span>
+      <div class="audit-row head">
+        <div>Severity</div><div>When</div><div>Event</div><div>Org</div><div style="text-align:right">Refs</div>
+      </div>
+
+      <div class="audit-row">
+        <div class="sev critical"><span class="dot"></span>Critical</div>
+        <div class="time-cell" style="text-align:left">2m ago</div>
+        <div><span class="etype">canary_leak_detected</span><div class="meta-prev">model response contained canary token · job 8f3a…</div></div>
+        <div class="org-cell">94822bb9 · Author's Org</div>
+        <div class="time-cell">node · job</div>
+      </div>
+
+      <div class="audit-row" style="background:var(--hover)">
+        <div class="sev high"><span class="dot"></span>High</div>
+        <div class="time-cell" style="text-align:left">18m ago</div>
+        <div><span class="etype">usage_record_write_failed</span><div class="meta-prev">duplicate key value violates unique constraint…</div></div>
+        <div class="org-cell">94822bb9 · Author's Org</div>
+        <div class="time-cell">—</div>
+      </div>
+      <div class="audit-row" style="border-bottom:1px solid var(--border-s)">
+        <div class="audit-expand">
+          <span class="cn" style="right:-6px; top:-6px; position:absolute">4</span>
+          <pre><span class="kv">event_type:</span>  usage_record_write_failed
+<span class="kv">severity:</span>    high
+<span class="kv">org:</span>         94822bb9-… (Author's Org)
+<span class="kv">created_at:</span>  2026-06-10 14:22:31 UTC
+<span class="kv">metadata:</span>
+{
+  "year_month": "2026-06",
+  "operation_type": "synthesise",
+  "provider": "anthropic",
+  "tokens_input": 14210,
+  "tokens_output": 2891,
+  "error": "duplicate key value violates unique constraint \"usage_records_organisation_id_year_month_operation_type_pro_key\""
+}</pre>
+        </div>
+      </div>
+
+      <div class="audit-row">
+        <div class="sev high"><span class="dot"></span>High</div>
+        <div class="time-cell" style="text-align:left">3h ago</div>
+        <div><span class="etype">workflow_advance_failed</span><div class="meta-prev">workflow 9ecd… · transition rejected by state machine</div></div>
+        <div class="org-cell">94822bb9 · Author's Org</div>
+        <div class="time-cell">—</div>
+      </div>
+
+      <div class="audit-row">
+        <div class="sev medium"><span class="dot"></span>Medium</div>
+        <div class="time-cell" style="text-align:left">5h ago</div>
+        <div><span class="etype">agent_job_failed</span><div class="meta-prev">refine · output_schema_invalid: no JSON object found</div></div>
+        <div class="org-cell">94822bb9 · Author's Org</div>
+        <div class="time-cell">node · job</div>
+      </div>
+
+      <div class="audit-row">
+        <div class="sev medium"><span class="dot"></span>Medium</div>
+        <div class="time-cell" style="text-align:left">9h ago</div>
+        <div><span class="etype">injection_pattern_match</span><div class="meta-prev">medium-severity pattern in node summary · logged, not rejected</div></div>
+        <div class="org-cell">94822bb9 · Author's Org</div>
+        <div class="time-cell">node</div>
+      </div>
+
+      <div class="audit-row">
+        <div class="sev info"><span class="dot"></span>Info</div>
+        <div class="time-cell" style="text-align:left">22h ago</div>
+        <div><span class="etype">tool_call_rejected</span><div class="meta-prev">Director tool arg failed schema validation · retried OK</div></div>
+        <div class="org-cell">94822bb9 · Author's Org</div>
+        <div class="time-cell">conversation</div>
+      </div>
+
+      <div class="load-more"><span class="cn" style="margin-right:10px; position:static">5</span><button>Load 50 more</button></div>
+    </div>
+
+  </div>
+</div>
+
+<div class="section">
+  <div class="slabel">Empty state</div>
+</div>
+<div class="dash" style="max-width:1000px">
+  <div class="dash-body" style="padding:16px 24px">
+    <div class="sec-title" style="margin-bottom:10px">Audit Log (24h · 0 events)</div>
+    <div class="audit-table"><div class="empty-state">No audit events in this window. Quiet is good.</div></div>
+  </div>
+</div>
+
+<div class="section">
+  <div class="slabel">Annotations</div>
+</div>
+<div class="notes-grid">
+  <div class="note-num">1</div>
+  <div class="note-text"><strong>Section header carries the window + count.</strong> "Audit Log (24h · 14 events)" — count is the unfiltered total within the window, so the admin can see volume at a glance even with a severity chip active.</div>
+
+  <div class="note-num">2</div>
+  <div class="note-text"><strong>Severity chips with counts.</strong> Client-side filter; counts always reflect the fetched window. Active chip = <code>--color-bg-surface</code> + border-strong. Dot colours per D5 — zero verdigris.</div>
+
+  <div class="note-num">3</div>
+  <div class="note-text"><strong>Five-column row.</strong> Severity (dot + label) · relative time · event_type (monospace) with a one-line metadata preview underneath · org (short-UUID + name) · soft-ref hints (node / job / conversation when those UUIDs are present). Row height ~38px collapsed.</div>
+
+  <div class="note-num">4</div>
+  <div class="note-text"><strong>Expanded row.</strong> Click toggles an inline expansion: full pretty-printed metadata JSONB + absolute timestamp + full UUIDs. Monospace 10.5px on <code>--color-bg-deep</code>. No modal, no navigation — forensics happen in place. Click again to collapse.</div>
+
+  <div class="note-num">5</div>
+  <div class="note-text"><strong>Load more.</strong> Fetches the next 50 via <code>?audit_before=&lt;created_at cursor&gt;</code>. Ghost button, neutral tokens. The dashboard's 30s poll refreshes only the FIRST page (newest rows); loaded history below stays stable so reading isn't disrupted.</div>
+</div>
+
+<div class="section">
+  <div class="slabel">Inviolable Audit</div>
+  <div class="audit-sec">
+    <p><strong>#2 Verdigris:</strong> zero uses added. Severity colours are error / status-review / amber / info families; chips and buttons are neutral. Count stays at twelve.</p>
+    <p><strong>#3 Cinzel / #6 Cormorant:</strong> not present — admin chrome is Inter throughout, matching the existing dashboard.</p>
+    <p><strong>#4 Typeface boundary:</strong> Inter + JetBrains Mono (established admin-surface convention for identifiers); no Lora.</p>
+    <p><strong>#1 / #5:</strong> not in scope (no prose surface).</p>
+  </div>
+</div>
+
+<div class="section">
+  <div class="slabel">Open Decisions for review</div>
+  <div class="audit-sec">
+    <p><strong>OQ-1 · Poll vs realtime.</strong> The dashboard polls every 30s. Critical audit events (canary leak) arguably justify a realtime subscription so they appear instantly. Recommendation: <strong>stay with the 30s poll for V1</strong> — audit_log isn't in the realtime publication, the admin is one person, and DR-019 (push notifications) is the V1.x answer for instant alerting.</p>
+    <p><strong>OQ-2 · Cross-org visibility.</strong> The viewer shows ALL orgs (platform-operator view, service-role read like the rest of the dashboard). Per-org filtering ships when there are enough orgs to need it (a search box is a V1.x add). Recommendation: ship without org filter.</p>
+    <p><strong>OQ-3 · Retention surfacing.</strong> audit_log currently has no purge job (rows accumulate). Fine for V1 volume; a retention policy joins the Phase 11 ops hardening conversation. Recommendation: note it in Phase 11's scope, nothing in this UI.</p>
+  </div>
+</div>
+
+</body>
+</html>

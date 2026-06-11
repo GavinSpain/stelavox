@@ -71,7 +71,7 @@ class Api {
       body: body !== undefined ? JSON.stringify(body) : undefined,
     })
     let parsed: unknown = null
-    try { parsed = await res.json() } catch {}
+    try { parsed = await res.json() } catch { /* non-JSON body — parsed stays null and the caller surfaces the raw status */ }
     return { status: res.status, body: parsed }
   }
 }

@@ -17,6 +17,9 @@
  *   - capacity_alerts: array of evaluated alerts (see lib/admin/
  *                      capacityAlerts.ts)
  *   - probes: most-recent run per probe_id
+ *   - audit_log_recent: newest 50 audit_log rows within the window
+ *     (Phase 9.1 / DR-096; wireframe_admin_audit_log_v1.html D1-D6).
+ *     ?audit_before=<created_at ISO> pages the next 50 (older rows).
  *
  * Auth: PLATFORM_ADMIN_EMAILS allowlist via isPlatformAdmin. Reads
  * use a service-role client to bypass RLS (admin views all orgs by
@@ -53,6 +56,10 @@ export async function GET(req: NextRequest): Promise<Response> {
   const window = parseWindow(req.nextUrl.searchParams.get('window'))
   const sinceIso = new Date(Date.now() - windowMs(window)).toISOString()
   const dayAgoIso = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+  // DR-096 wireframe D2 + annotation 5 — cursor pagination for the
+  // audit-log section's "Load more": rows strictly older than this
+  // created_at ISO timestamp. Absent = first page (newest 50).
+  const auditBefore = req.nextUrl.searchParams.get('audit_before')
 
   // Use service-role for cross-org reads — admin views are not RLS-scoped.
   const svc = createServiceRoleClient()
@@ -71,6 +78,9 @@ export async function GET(req: NextRequest): Promise<Response> {
     byModelCredits,
     probes,
     autoRecovery,
+    auditRows,
+    auditWindowCount,
+    orgNames,
   ] = await Promise.all([
     svc.from('director_turns').select('id', { count: 'exact', head: true }).eq('status', 'in_progress'),
     svc.from('agent_jobs').select('id', { count: 'exact', head: true }).eq('status', 'running'),
@@ -118,6 +128,27 @@ export async function GET(req: NextRequest): Promise<Response> {
       .from('failure_taxonomy_samples')
       .select('auto_recovered')
       .gte('occurred_at', sinceIso),
+    // DR-096 — audit-log section. All severities fetched (the severity
+    // chips filter client-side so counts stay honest per wireframe D3).
+    (() => {
+      let q = svc
+        .from('audit_log')
+        .select('id, event_type, severity, organisation_id, user_id, document_id, conversation_id, node_id, metadata, created_at')
+        .gte('created_at', sinceIso)
+        .order('created_at', { ascending: false })
+        .limit(50)
+      if (auditBefore) q = q.lt('created_at', auditBefore)
+      return q
+    })(),
+    // Window total (unfiltered count for the section header per
+    // wireframe annotation 1).
+    svc
+      .from('audit_log')
+      .select('id', { count: 'exact', head: true })
+      .gte('created_at', sinceIso),
+    // Org names for the audit rows' org column — small lookup; the
+    // join is done client-side from this map.
+    svc.from('organisations').select('id, name').limit(200),
   ])
 
   // Derive queue-depth-by-class.
@@ -225,6 +256,12 @@ export async function GET(req: NextRequest): Promise<Response> {
     }
   }
 
+  // Org-name lookup for audit rows.
+  const orgNameById = new Map<string, string>()
+  for (const o of (orgNames.data ?? []) as Array<{ id: string; name: string }>) {
+    orgNameById.set(o.id, o.name)
+  }
+
   // Capacity-alert evaluation.
   const alerts = await evaluateCapacityAlerts(svc, {
     headroomByModel: Array.from(headroomMap.values()).map((r) => ({
@@ -277,5 +314,24 @@ export async function GET(req: NextRequest): Promise<Response> {
     },
     capacity_alerts: alerts,
     probes: Array.from(probesByid.values()),
+    audit_log_recent: {
+      window_total: auditWindowCount.count ?? 0,
+      rows: ((auditRows.data ?? []) as Array<{
+        id: string
+        event_type: string
+        severity: string
+        organisation_id: string | null
+        user_id: string | null
+        document_id: string | null
+        conversation_id: string | null
+        node_id: string | null
+        metadata: Record<string, unknown> | null
+        created_at: string
+      }>).map((r) => ({
+        ...r,
+        organisation_name:
+          orgNameById.get(r.organisation_id ?? '') ?? null,
+      })),
+    },
   })
 }

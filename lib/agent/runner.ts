@@ -275,6 +275,23 @@ export async function runAgentJob(jobId: string): Promise<void> {
     } else {
       await persistFailure(supabase, jobId, 'unknown_error')
     }
+    // DR-096 (audit F-56), Phase 9.1 — background-runner failures were
+    // visible only on the agent_jobs row (status='failed'), not in the
+    // forensic audit_log. Now every failure also lands an audit entry.
+    // (Injection + canary paths already write their own entries inside
+    // the scanner/canary modules; this catch-all covers the rest, and a
+    // doubled entry for those two classes is harmless.)
+    {
+      const message = err instanceof Error ? err.message : 'unknown_error'
+      const { writeAuditLogEntry } = await import('@/lib/security/audit')
+      await writeAuditLogEntry({
+        event_type: 'agent_job_failed',
+        severity: 'medium',
+        organisation_id: job.organisation_id,
+        node_id: job.node_id,
+        metadata: { job_id: jobId, operation_type: profile.operation_type, error: message },
+      })
+    }
   } finally {
     stopHeartbeat()
   }

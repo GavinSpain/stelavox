@@ -75,7 +75,7 @@ async function apiReq(cookie: string, method: string, path: string, body?: unkno
     body: body !== undefined ? JSON.stringify(body) : undefined,
   })
   let parsed: unknown = null
-  try { parsed = await res.json() } catch {}
+  try { parsed = await res.json() } catch { /* non-JSON body — parsed stays null and the caller surfaces the raw status */ }
   return { status: res.status, body: parsed }
 }
 
@@ -259,7 +259,7 @@ async function main() {
     try {
       await pageB.waitForSelector('text=/conflict|Keep mine|Accept|Use latest/i', { timeout: 10_000 })
       conflictVisibleB = true
-    } catch {}
+    } catch { /* timeout — flag stays false and STEP2-003 records the failure below */ }
     if (conflictVisibleB) {
       pass('STEP2-003', 'tab B shows ConflictBanner after concurrent edit')
     } else {
@@ -279,7 +279,7 @@ async function main() {
         const btn = pageB.locator('button', { hasText: /keep/i }).first()
         await btn.click({ timeout: 5_000 })
         keepMineFound = true
-      } catch {}
+      } catch { /* neither selector matched — flag stays false and STEP2-004 records it */ }
     }
     if (!keepMineFound) {
       fail('STEP2-004', 'Keep Mine button not found in tab B', '')

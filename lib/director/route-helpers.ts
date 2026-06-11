@@ -57,9 +57,31 @@ export async function assertConversationAuthor(
     .maybeSingle()
 
   if (!data) {
-    // No user messages yet — only the original author of the document
-    // can approve. For Phase 5b V1 we admit any caller in this edge
-    // case (it shouldn't occur — workflows arise from user messages).
+    // No user messages yet (system-initiated turns can produce this).
+    // DR-102 (audit F-89) — the Phase 5b behaviour admitted ANY caller
+    // here; closed 2026-06-10. Fall back to verifying the caller is a
+    // member of the conversation's organisation. Callers pass the
+    // service-role client, so RLS can't carry this check — it must be
+    // explicit. V1 = single-user orgs, so org membership IS the author;
+    // when multi-user orgs land (V2) this tightens to a role check.
+    // Any lookup failure fails CLOSED (deny), consistent with DR-095.
+    const { data: conv, error: convError } = await supabase
+      .from('conversations')
+      .select('organisation_id')
+      .eq('id', conversationId)
+      .maybeSingle()
+    if (convError || !conv) {
+      return apiError(403, 'not_conversation_author')
+    }
+    const { data: membership, error: memberError } = await supabase
+      .from('organisation_members')
+      .select('user_id')
+      .eq('organisation_id', conv.organisation_id)
+      .eq('user_id', userId)
+      .maybeSingle()
+    if (memberError || !membership) {
+      return apiError(403, 'not_conversation_author')
+    }
     return null
   }
   if (data.author_user_id !== userId) {
