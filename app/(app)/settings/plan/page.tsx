@@ -60,7 +60,12 @@ async function safeConfigInt(key: string, fallback: number): Promise<number> {
   }
 }
 
-export default async function PlanSettingsPage() {
+export default async function PlanSettingsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ stripe_status?: string; reason?: string }>
+}) {
+  const params = await searchParams
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
@@ -243,6 +248,61 @@ export default async function PlanSettingsPage() {
         Subscriptions, allocations and BYOK eligibility. Read-only in V1 — upgrades through
         Stripe arrive in V2.
       </div>
+      {params.stripe_status === 'success' ? (
+        <div
+          data-testid="stripe-status-banner-success"
+          style={{
+            marginBottom: 20,
+            padding: '12px 14px',
+            background: 'var(--color-bg-surface)',
+            border: '1px solid var(--color-accent)',
+            borderRadius: 6,
+            fontFamily: 'var(--font-inter), Inter, sans-serif',
+            fontSize: 13,
+            color: 'var(--color-text-primary)',
+          }}
+        >
+          Subscription activated. Your plan and credits will update shortly.
+        </div>
+      ) : null}
+      {params.stripe_status === 'cancelled' ? (
+        <div
+          data-testid="stripe-status-banner-cancelled"
+          style={{
+            marginBottom: 20,
+            padding: '12px 14px',
+            background: 'var(--color-bg-surface)',
+            border: '1px solid var(--color-border-default)',
+            borderRadius: 6,
+            fontFamily: 'var(--font-inter), Inter, sans-serif',
+            fontSize: 13,
+            color: 'var(--color-text-secondary)',
+          }}
+        >
+          Checkout cancelled. You can try again anytime.
+        </div>
+      ) : null}
+      {params.reason === 'trial_expired' ? (
+        <div
+          data-testid="stripe-status-banner-trial-expired"
+          style={{
+            marginBottom: 20,
+            padding: '14px 16px',
+            background: 'var(--color-bg-surface)',
+            border: '1px solid var(--color-status-review)',
+            borderRadius: 6,
+            fontFamily: 'var(--font-inter), Inter, sans-serif',
+            fontSize: 13,
+            color: 'var(--color-text-primary)',
+          }}
+        >
+          <div style={{ fontWeight: 500, marginBottom: 4 }}>Your trial has ended</div>
+          <div style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>
+            Subscribe to a paid plan to keep using the Director and continue writing with AI
+            assistance. Your account, projects, and existing prose are preserved.
+          </div>
+        </div>
+      ) : null}
       {orgId ? (
         <PlanPanel
           currentPlan={currentPlan}

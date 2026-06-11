@@ -674,7 +674,7 @@
 > |---|---|
 > | DR-068 org settings UI | V1.x — subscription management via **Stripe hosted Customer Portal** (linked from Account page as part of DR-070 build; near-zero custom UI) |
 > | DR-069 invitation flow | **V2+** (moved from V1.x — follows the single-user-org lock; invitations only make sense with multi-user orgs) |
-> | DR-070 Stripe | **V1** (locked earlier) |
+> | DR-070 Stripe | **V1 — ✅ SHIPPED 2026-06-11** |
 > | DR-071 document read-sharing | V2+ |
 > | DR-072 audit log UI (user/org-facing) | V2+ — but an **admin-only audit viewer ships V1 under DR-096** |
 
@@ -694,12 +694,13 @@
 - Proposed bucket: V1.x
 - Rationale: V1 launch is one user; invitations matter once teams join. Soon after launch.
 
-#### DR-070 — Stripe integration
+#### DR-070 — Stripe integration ✅ SHIPPED 2026-06-11
 - Origin: TA V2 backlog
 - Description: Real billing — collect payment, manage subscriptions, handle webhooks, dunning.
 - Effort: L  ·  V1-risk: High
-- Bucket: **V1 — LOCKED 2026-06-10**
+- Bucket: **V1 — LOCKED 2026-06-10 — SHIPPED 2026-06-11 (Phase 9.B, two sessions)**
 - Rationale: Author decision: every plan including BYOK pays a platform cost through Stripe, so payment rails are unconditionally required for launch. Plan upgrade + BYOK-conversion flows ride on the same rails (they're the credit-exhaustion escape paths per DR-015). Major implementation — needs its own phase slot in 9.E.
+- **Closeout (2026-06-11):** Phase 9.B shipped in two consecutive sessions on `claude/phase9-b-stripe-substrate` + `claude/phase9-b-session2-webhook`. **Session 1 (B.1-B.4):** substrate (M-219 platform_config keys, M-220 `organisations.trial_expires_at` + `stripe_price_id`, `stripe@22.2.0`, `lib/stripe/{config,client,customers,sessions}`); trial-expiry redirect in `(app)/layout.tsx`; Checkout + Portal routes. **Session 2 (B.5-B.8):** webhook handler with signature verification + 11 event types + idempotency via M-221 unique index; plan transitions in `webhook-handlers.ts` (priceIdToPlan reverse-lookup; American↔British status normalisation); UI polish (status banners on `/settings/plan`); Tier-A bumps. **Locks made during scoping:** test mode for V1 launch with live-swap via `stripe.mode` UPDATE (no deploy); trial expiry redirects to plan-buy page, no data loss; BYOK flat $15/month subscription; comprehensive webhook scope; Price IDs in platform_config (DB-auditable, mode-aware); monthly cadence only for V1. 32 new Vitest PASS. Substrate-only state ships safely (503 `stripe_not_configured` with `missing` list until account provisioned). End-to-end activation gated by user-driven Stripe account setup — checklist in Session 1 Test Report §6.
 
 #### DR-071 — Document read-sharing
 - Origin: TA V2 backlog
@@ -1015,8 +1016,8 @@ The audit's biggest signal is the recurring patterns, not the individual finding
 
 | Bucket | Count | Contents |
 |---|---|---|
-| **V1 shipped** | 13 | Phase 9.1 (9 items) + Phase 9.2 (3 items) + Phase 9.D DR-051 (1 item) — see Test Reports + register entries; merged 2026-06-11 |
-| **V1 remaining** | 9 | Work package B (Stripe), E (UX batch × 5), + 3 Phase-10 folds |
+| **V1 shipped** | 14 | Phase 9.1 (9 items) + Phase 9.2 (3 items) + Phase 9.D DR-051 (1 item) + Phase 9.B DR-070 (1 item, two sessions) — see Test Reports + register entries; merged 2026-06-11 |
+| **V1 remaining** | 8 | Work package E (UX batch × 5), + 3 Phase-10 folds |
 | **V1.x** | ~42 | Calibration, audit cleanup themes, polish, dev docs, cloud auto-backup, org settings, push notifications |
 | **V2+** | ~40 | Director extensions, Phase 14, Document Operations, multi-user orgs + invitations, top-up, read-sharing |
 | **V3** (soft-drop) | 2 | DR-038 KDP submission, DR-114 brief amendments |
@@ -1030,8 +1031,8 @@ The audit's biggest signal is the recurring patterns, not the individual finding
 2. ~~DR-067 — cloud DB sync (~150 migrations)~~ ✅ — reset + 208 migrations applied; surfaced + fixed 7-file date-stamp inversion bug
 3. ~~DR-117 — cron probe schedule~~ ✅ — rides the same pg_net transport (no Vercel-Cron slots consumed)
 
-**Work package B — Stripe + commercial model (mini-phase) — OPEN:**
-4. DR-070 — Stripe integration (plans incl. BYOK platform fee; upgrade + BYOK-conversion flows; hosted Customer Portal link from Account page)
+**Work package B — Stripe + commercial model ✅ SHIPPED 2026-06-11 (Phase 9.B):**
+4. ~~DR-070 — Stripe integration~~ ✅ — substrate (M-219 + M-220 + M-221), `lib/stripe/*`, `lib/billing/trialExpiry.ts`, Checkout + Portal + Webhook routes, SubscribeButton + ManageSubscriptionButton, trial-expiry redirect, 11 webhook event types, idempotency via UNIQUE index. Substrate-only state ships safely (503 stripe_not_configured) until Stripe account provisioning (checklist in `stelavox_phase9_b_session1_test_report_v1_0.md` §6).
 
 **Work package C — Security + correctness hardening ✅ SHIPPED 2026-06-11 (Phase 9.1):**
 5. ~~DR-095 — rate-limit fail-closed~~ ✅
@@ -1087,6 +1088,8 @@ The audit's biggest signal is the recurring patterns, not the individual finding
 - **Living document.** Items can change bucket; new items get the next DR number. Each change adds a changelog note.
 
 # Changelog
+
+**v3.2 — 2026-06-11** **Phase 9.B SHIPPED (DR-070).** Stripe integration in two consecutive sessions: substrate + trial-gate + Checkout/Portal (Session 1) → webhook handler + plan transitions + UI polish + Tier-A close (Session 2). 3 migrations (M-219/220/221), `stripe@22.2.0`, `lib/stripe/*`, 3 API routes, 11 webhook event types, idempotency via UNIQUE index, trial-expiry redirect, 32 new Vitest PASS. Substrate-only ships safely (503 stripe_not_configured until Stripe account provisioned). Apply-time discoveries: subscription_status CHECK uses British spelling (handled via normaliseSubscriptionStatus); platform_config cross-test race surfaced 60s in-process cache + warranted `_clearConfigCache` test helper. Locks made during scoping: test mode default with `stripe.mode` live-swap; trial expiry redirects (no data loss); BYOK flat $15/mo; comprehensive webhook scope; Price IDs in platform_config; monthly cadence only. Bucket distribution: V1 shipped 13 → 14; V1 remaining 9 → 8. Work-package B marked SHIPPED. End-to-end activation gated by user-driven Stripe account setup — checklist in Session 1 Test Report §6.
 
 **v3.1 — 2026-06-11** **Phase 9.D SHIPPED (DR-051).** Director context-node create + link closed. Diagnosis surfaced that the substrate was already live at `lib/director/workflow-executor.ts:496-578` (SU-J11-2 Option B landed at some point after the May-2026 memo without a CLAUDE.md changelog) — both halves (create + auto-link via `node_context_links` row of type `structural_to_context`) shipped together in that block. The remaining work was prompt + documentation parity: M-218 publishes Director config v1.29 with the prompt rewritten in two passages to teach the model the supported path. Apply-time discovery: v1.25/v1.26/v1.27/v1.28 had each shipped without changelog entries — back-documented in TA v2.20. Bucket distribution: V1 shipped 12 → 13; V1 remaining 10 → 9. Work-package D marked SHIPPED. SU-J11-2 memo closed; latent executor transition-event bug flagged as follow-up.
 
