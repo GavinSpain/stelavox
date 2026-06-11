@@ -28,6 +28,10 @@ export type StripeMode = 'test' | 'live'
 export const STRIPE_PLAN_SLUGS = ['writer', 'author', 'pro', 'byok_solo'] as const
 export type StripePlanSlug = (typeof STRIPE_PLAN_SLUGS)[number]
 
+export const STRIPE_CADENCES = ['monthly', 'yearly'] as const
+export type StripeCadence = (typeof STRIPE_CADENCES)[number]
+export const DEFAULT_CADENCE: StripeCadence = 'monthly'
+
 export class StripeNotConfiguredError extends Error {
   constructor(public readonly missing: string[]) {
     super(`Stripe not configured: missing ${missing.join(', ')}`)
@@ -55,12 +59,13 @@ export function getStripeSecretKey(mode: StripeMode): string | null {
   return key && key.length > 0 ? key : null
 }
 
-/** Read the Price ID for a plan in the active mode. */
+/** Read the Price ID for a plan + cadence in the active mode. */
 export async function getStripePriceId(
   mode: StripeMode,
   plan: StripePlanSlug,
+  cadence: StripeCadence = DEFAULT_CADENCE,
 ): Promise<string> {
-  return getConfigString(`stripe.${mode}.price_id.${plan}_monthly`)
+  return getConfigString(`stripe.${mode}.price_id.${plan}_${cadence}`)
 }
 
 /** Read the webhook signing secret for the active mode. */
@@ -97,9 +102,11 @@ export async function requireStripeConfigured(): Promise<{
   }
 
   for (const plan of STRIPE_PLAN_SLUGS) {
-    const priceId = await getStripePriceId(mode, plan)
-    if (!priceId) {
-      missing.push(`stripe.${mode}.price_id.${plan}_monthly`)
+    for (const cadence of STRIPE_CADENCES) {
+      const priceId = await getStripePriceId(mode, plan, cadence)
+      if (!priceId) {
+        missing.push(`stripe.${mode}.price_id.${plan}_${cadence}`)
+      }
     }
   }
 

@@ -17,6 +17,8 @@ import { createClient } from '@supabase/supabase-js'
 
 import { _clearConfigCache } from '@/lib/config/platform-config'
 import {
+  DEFAULT_CADENCE,
+  STRIPE_CADENCES,
   STRIPE_PLAN_SLUGS,
   StripeNotConfiguredError,
   getStripeMode,
@@ -32,6 +34,16 @@ const svc = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: fa
 describe('STRIPE_PLAN_SLUGS', () => {
   it('contains exactly the 4 V1 plan slugs', () => {
     expect(STRIPE_PLAN_SLUGS).toEqual(['writer', 'author', 'pro', 'byok_solo'])
+  })
+})
+
+describe('STRIPE_CADENCES', () => {
+  it('contains exactly monthly + yearly', () => {
+    expect(STRIPE_CADENCES).toEqual(['monthly', 'yearly'])
+  })
+
+  it('DEFAULT_CADENCE is monthly (locked 2026-06-11)', () => {
+    expect(DEFAULT_CADENCE).toBe('monthly')
   })
 })
 

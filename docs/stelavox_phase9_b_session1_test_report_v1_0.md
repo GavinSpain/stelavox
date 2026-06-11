@@ -132,17 +132,31 @@ When you're ready to actually exercise the Subscribe flow end-to-end:
    - Dashboard → Developers → API keys → copy the *Publishable key* (`pk_test_*`) and *Secret key* (`sk_test_*`).
    - In Vercel project env vars, set `STRIPE_SECRET_KEY_TEST = sk_test_...`.
    - In `.env.local` (local dev), set the same.
-4. **Create 4 Products + Prices** (Dashboard → Catalog → Products → + Add product). For each:
-   - **Writer monthly** — Recurring, $20.00 USD, billing every month → copy the resulting `price_*` ID.
-   - **Author monthly** — Recurring, $50.00 USD, monthly.
-   - **Pro monthly** — Recurring, $120.00 USD, monthly.
-   - **BYOK Solo monthly** — Recurring, $15.00 USD, monthly.
-5. **Land the Price IDs into platform_config**. Run (against the cloud DB once Session 2 ships, or against local now):
+4. **Create 4 Products + 8 Prices** (Dashboard → Catalog → Products → + Add product). Stripe's model: one Product per plan, with separate Price rows for monthly vs annual cadence. For each Product, create both a monthly and an annual Price.
+   - **Writer** Product:
+     - Monthly Price: Recurring, $20.00 USD, billing every month → copy `price_*` (monthly).
+     - Annual Price: Recurring, $192.00 USD, billing every year (= $20 × 12 × 0.8 = 20% discount) → copy `price_*` (yearly).
+   - **Author** Product:
+     - Monthly: $50.00 / month → `price_*` (monthly).
+     - Annual: $480.00 / year → `price_*` (yearly).
+   - **Pro** Product:
+     - Monthly: $120.00 / month → `price_*` (monthly).
+     - Annual: $1,152.00 / year → `price_*` (yearly).
+   - **BYOK Solo** Product:
+     - Monthly: $15.00 / month → `price_*` (monthly).
+     - Annual: $144.00 / year → `price_*` (yearly).
+5. **Land the 8 Price IDs into platform_config**. Run (against the cloud DB once webhooks are firing, or against local now):
    ```sql
+   -- Monthly
    UPDATE platform_config SET value = '"price_xxxxxxxxxx"' WHERE key = 'stripe.test.price_id.writer_monthly';
    UPDATE platform_config SET value = '"price_xxxxxxxxxx"' WHERE key = 'stripe.test.price_id.author_monthly';
    UPDATE platform_config SET value = '"price_xxxxxxxxxx"' WHERE key = 'stripe.test.price_id.pro_monthly';
    UPDATE platform_config SET value = '"price_xxxxxxxxxx"' WHERE key = 'stripe.test.price_id.byok_solo_monthly';
+   -- Yearly (Session 3 follow-up)
+   UPDATE platform_config SET value = '"price_xxxxxxxxxx"' WHERE key = 'stripe.test.price_id.writer_yearly';
+   UPDATE platform_config SET value = '"price_xxxxxxxxxx"' WHERE key = 'stripe.test.price_id.author_yearly';
+   UPDATE platform_config SET value = '"price_xxxxxxxxxx"' WHERE key = 'stripe.test.price_id.pro_yearly';
+   UPDATE platform_config SET value = '"price_xxxxxxxxxx"' WHERE key = 'stripe.test.price_id.byok_solo_yearly';
    ```
 6. **Configure the webhook endpoint** (Session 2 lands the handler; this step waits until then):
    - Dashboard → Developers → Webhooks → Add endpoint.

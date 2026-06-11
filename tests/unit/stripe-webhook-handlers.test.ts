@@ -136,6 +136,7 @@ describe.skipIf(!hasServiceKey)('Stripe webhook handlers (DR-070)', () => {
     const outcome = await handleSubscriptionCreatedOrUpdated(event)
     expect(outcome.organisationId).toBe(testOrgId)
     expect(outcome.audit.mapped_plan).toBe('writer')
+    expect(outcome.audit.cadence).toBe('monthly')
     expect(outcome.audit.status).toBe('active')
 
     // Verify DB writes

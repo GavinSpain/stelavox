@@ -7,7 +7,7 @@
  * wrong-mode mapping.
  */
 
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { createClient } from '@supabase/supabase-js'
 
 import { _clearConfigCache } from '@/lib/config/platform-config'
@@ -28,13 +28,17 @@ describe('isByokPlan', () => {
 })
 
 describe.skipIf(!hasServiceKey)('priceIdToPlan', () => {
-  // Seed test-mode placeholder Price IDs for the duration of the suite
-  // so the reverse lookup has something to match.
+  // Seed test-mode placeholder Price IDs for both cadences so the
+  // reverse lookup has something to match against each plan × cadence.
   const TEST_KEYS = [
-    { key: 'stripe.test.price_id.writer_monthly', value: 'price_phase9b_writer' },
-    { key: 'stripe.test.price_id.author_monthly', value: 'price_phase9b_author' },
-    { key: 'stripe.test.price_id.pro_monthly', value: 'price_phase9b_pro' },
-    { key: 'stripe.test.price_id.byok_solo_monthly', value: 'price_phase9b_byok_solo' },
+    { key: 'stripe.test.price_id.writer_monthly', value: 'price_phase9b_writer_m' },
+    { key: 'stripe.test.price_id.author_monthly', value: 'price_phase9b_author_m' },
+    { key: 'stripe.test.price_id.pro_monthly', value: 'price_phase9b_pro_m' },
+    { key: 'stripe.test.price_id.byok_solo_monthly', value: 'price_phase9b_byok_solo_m' },
+    { key: 'stripe.test.price_id.writer_yearly', value: 'price_phase9b_writer_y' },
+    { key: 'stripe.test.price_id.author_yearly', value: 'price_phase9b_author_y' },
+    { key: 'stripe.test.price_id.pro_yearly', value: 'price_phase9b_pro_y' },
+    { key: 'stripe.test.price_id.byok_solo_yearly', value: 'price_phase9b_byok_solo_y' },
   ]
   const originals: Record<string, unknown> = {}
 
@@ -58,6 +62,15 @@ describe.skipIf(!hasServiceKey)('priceIdToPlan', () => {
     _clearConfigCache()
   })
 
+  // Re-seed before each test — another concurrent test file may have
+  // overwritten our writer/author Price IDs between cases.
+  beforeEach(async () => {
+    for (const { key, value } of TEST_KEYS) {
+      await svc.from('platform_config').update({ value }).eq('key', key)
+    }
+    _clearConfigCache()
+  })
+
   it('returns null for an empty/missing price ID', async () => {
     expect(await priceIdToPlan('')).toBeNull()
   })
@@ -66,11 +79,34 @@ describe.skipIf(!hasServiceKey)('priceIdToPlan', () => {
     expect(await priceIdToPlan('price_unknown_xyz')).toBeNull()
   })
 
-  it('maps each seeded test-mode Price ID to its plan slug', async () => {
-    expect(await priceIdToPlan('price_phase9b_writer')).toEqual({ plan: 'writer', mode: 'test' })
-    expect(await priceIdToPlan('price_phase9b_author')).toEqual({ plan: 'author', mode: 'test' })
-    expect(await priceIdToPlan('price_phase9b_pro')).toEqual({ plan: 'pro', mode: 'test' })
-    expect(await priceIdToPlan('price_phase9b_byok_solo')).toEqual({ plan: 'byok_solo', mode: 'test' })
+  it('maps each seeded test-mode monthly Price ID to its plan slug + cadence', async () => {
+    expect(await priceIdToPlan('price_phase9b_writer_m')).toEqual({
+      plan: 'writer', mode: 'test', cadence: 'monthly',
+    })
+    expect(await priceIdToPlan('price_phase9b_author_m')).toEqual({
+      plan: 'author', mode: 'test', cadence: 'monthly',
+    })
+    expect(await priceIdToPlan('price_phase9b_pro_m')).toEqual({
+      plan: 'pro', mode: 'test', cadence: 'monthly',
+    })
+    expect(await priceIdToPlan('price_phase9b_byok_solo_m')).toEqual({
+      plan: 'byok_solo', mode: 'test', cadence: 'monthly',
+    })
+  })
+
+  it('maps each seeded test-mode yearly Price ID to its plan slug + cadence', async () => {
+    expect(await priceIdToPlan('price_phase9b_writer_y')).toEqual({
+      plan: 'writer', mode: 'test', cadence: 'yearly',
+    })
+    expect(await priceIdToPlan('price_phase9b_author_y')).toEqual({
+      plan: 'author', mode: 'test', cadence: 'yearly',
+    })
+    expect(await priceIdToPlan('price_phase9b_pro_y')).toEqual({
+      plan: 'pro', mode: 'test', cadence: 'yearly',
+    })
+    expect(await priceIdToPlan('price_phase9b_byok_solo_y')).toEqual({
+      plan: 'byok_solo', mode: 'test', cadence: 'yearly',
+    })
   })
 })
 
