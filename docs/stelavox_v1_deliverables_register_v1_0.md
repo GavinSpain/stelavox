@@ -604,6 +604,8 @@
 - Rationale: H-22 is documented; mitigation is a small pg_cron job. Won't fire in V1 timescales but is correct-completeness work.
 
 #### DR-063 — Cloud cutover for the TS scheduler listener
+
+> **✅ SHIPPED 2026-06-11** — Phase 9.1+9.2. See `stelavox_phase9_1_2_test_report_v1_0.md`.
 - Origin: V1.x-B.2 SHIPPED memo
 - Description: lib/scheduler/listener.ts is currently local-dev-only. Cloud cutover (running it on Vercel / dedicated worker / Supabase Edge Function) is the deferred path to real deployment.
 - Effort: L  ·  V1-risk: High
@@ -634,6 +636,8 @@
 ### 5.2 Data store realtime / performance
 
 #### DR-067 — Cloud DB sync (~150 missing migrations to stelavox-dev)
+
+> **✅ SHIPPED 2026-06-11** — Phase 9.1+9.2. See `stelavox_phase9_1_2_test_report_v1_0.md`.
 - Origin: 2026-06-10 cloud diagnosis (M-214 attempt)
 - Description: Cloud stelavox-dev is at migration 20260512104456 (V1.x-LB ship date). Missing ~150 migrations covering V1.x-A onward, Phase 6, 7, 8, and the realtime fix M-214.
 - Effort: L  ·  V1-risk: High
@@ -759,6 +763,8 @@
 (See Round-3 audit themes T-7 + T-14 in §12. Active V1.x security work clusters around the injection-frame discipline and DB-layer invariant enforcement.)
 
 #### DR-095 — F-74 — Rate-limit fail-policy: FAIL-CLOSED
+
+> **✅ SHIPPED 2026-06-11** — Phase 9.1+9.2. See `stelavox_phase9_1_2_test_report_v1_0.md`.
 - Origin: Round-3 audit (deferred from Batch B5 to deep dive)
 - Description: Rate-limit query failure currently fails-open. **Decision locked 2026-06-10: fail-closed** — if the rate-limit state can't be verified, decline the dispatch with a Class-A retryable error. Costs an occasional spurious retry during DB blips; consistent with the no-compromise security posture (see DR-050).
 - Effort: S  ·  V1-risk: Medium
@@ -766,6 +772,8 @@
 - Rationale: One of the 14 most-leveraged HIGH findings. Behaviour change + TA policy documentation together.
 
 #### DR-096 — F-56 — audit_log writes on critical events + admin viewer
+
+> **✅ SHIPPED 2026-06-11** — Phase 9.1+9.2. See `stelavox_phase9_1_2_test_report_v1_0.md`.
 - Origin: Round-3 audit (B5.1 partial; spec gap); scope broadened 2026-06-10
 - Description: TA §4.3/§4.5/§4.9 mandate audit_log writes for critical events (auth, RLS denials, agent failures). Code uses console.error in several sites. **Author-broadened scope:** also ship an admin-section audit-log viewer so the events are visible at /admin, not just queryable in the DB. (User/org-facing audit UI stays V2+ as DR-072.)
 - Effort: M  ·  V1-risk: Medium
@@ -801,6 +809,8 @@
 The audit's biggest signal is the recurring patterns, not the individual findings (per `99-themes.md`). Capturing each theme as one DR item gives correct decision-granularity: a fix targeting a theme closes 10–20+ individual findings. Per-finding capture would produce 207 rows that each require the same conceptual decision.
 
 #### DR-097 — Theme T-1 — Silent failure on transport / error / race (26+ sites)
+
+> **✅ SHIPPED 2026-06-11** — Phase 9.1+9.2. See `stelavox_phase9_1_2_test_report_v1_0.md`.
 - Origin: Round-3 audit Theme T-1
 - Description: Dominant audit theme. Functions return null, drop events, swallow errors, or resolve cleanly when underlying operations broke. 26+ sites across Anthropic streams, SSE encoders, autosave, fetch helpers, component-layer fetches.
 - Effort: L  ·  V1-risk: High
@@ -808,6 +818,8 @@ The audit's biggest signal is the recurring patterns, not the individual finding
 - Rationale: Project-wide convention change required. ESLint rule banning bare `} catch { }` + every catch must re-throw / log with context / emit typed error event. Author launch test WILL hit silent-failure surfaces; debugging them post-hoc will be painful.
 
 #### DR-098 — Theme T-2 — H-01 violations (.single() where .maybeSingle() is correct, 10+ sites)
+
+> **✅ SHIPPED 2026-06-11** — Phase 9.1+9.2. See `stelavox_phase9_1_2_test_report_v1_0.md`.
 - Origin: Round-3 audit Theme T-2
 - Description: H-01 documented in TA but not enforced. 10+ sites use `.single()` on UPDATE / fetch-by-id paths where zero rows is a legitimate outcome.
 - Effort: M  ·  V1-risk: Medium
@@ -822,6 +834,8 @@ The audit's biggest signal is the recurring patterns, not the individual finding
 - Rationale: Drift is real but slow-moving. Per-pair consolidation work; can land post-launch as cleanup.
 
 #### DR-100 — Theme T-4 — Race conditions without UPSERT/atomic primitive
+
+> **✅ SHIPPED 2026-06-11** — Phase 9.1+9.2. See `stelavox_phase9_1_2_test_report_v1_0.md`.
 - Origin: Round-3 audit Theme T-4
 - Description: 5 SELECT-then-INSERT-or-UPDATE patterns that race under concurrency. F-99 `getOrCreateConversation` and F-133 `updateUsageRecords` partially closed (DB UNIQUE landed via M-038/M-039 but F-134 still swallows the error → billing-data-loss). F-96 `nextSequence`, F-154 `createNode` (M-038 added UNIQUE; race now rejects silently), F-188 `renumberSiblingsAfterDelete` remain.
 - Effort: M  ·  V1-risk: High
@@ -836,6 +850,8 @@ The audit's biggest signal is the recurring patterns, not the individual finding
 - Rationale: Per-site `.order(...)` additions. Mechanical sweep.
 
 #### DR-102 — Theme T-6 — V2 deferrals contradict V1 checklist
+
+> **✅ SHIPPED 2026-06-11** — Phase 9.1+9.2. See `stelavox_phase9_1_2_test_report_v1_0.md`.
 - Origin: Round-3 audit Theme T-6
 - Description: F-56 audit_log (captured DR-096); F-78/F-115 `create_document_operation_step` Phase 5b carve-out; F-89 `assertConversationAuthor` admits any caller when no user messages exist.
 - Effort: M  ·  V1-risk: Medium
@@ -843,6 +859,8 @@ The audit's biggest signal is the recurring patterns, not the individual finding
 - Rationale: Spec / code divergence on security-relevant surfaces. Either fix or amend spec; current ambiguity is dangerous.
 
 #### DR-103 — Theme T-7 — escapeXml / injection-scan bypass on user content (5 sites)
+
+> **✅ SHIPPED 2026-06-11** — Phase 9.1+9.2. See `stelavox_phase9_1_2_test_report_v1_0.md`.
 - Origin: Round-3 audit Theme T-7
 - Description: Sites that produce LLM input from user strings without going through the security frame. F-55 context-assembler metadata, F-73 tool-validator only walks top-level args, F-95 summariseConversation no escapeXml, F-113 workflow-executor auto-create context node, F-156 `.or()` filter (UUID-validated upstream — defence-in-depth gap).
 - Effort: M  ·  V1-risk: High
@@ -901,6 +919,8 @@ The audit's biggest signal is the recurring patterns, not the individual finding
 ### 12.1 Additional named HIGH residuals from audit
 
 #### DR-111 — F-07 — `getConfig<T>` casts without validation (most-leveraged single fix)
+
+> **✅ SHIPPED 2026-06-11** — Phase 9.1+9.2. See `stelavox_phase9_1_2_test_report_v1_0.md`.
 - Origin: Round-3 audit (per 99-themes.md closing observations)
 - Description: Generic cast in platform_config reader. Cascades to F-20, F-21, F-32, F-50, F-138. Single fix adds runtime validation across entire platform_config layer.
 - Effort: S  ·  V1-risk: Medium
@@ -908,6 +928,8 @@ The audit's biggest signal is the recurring patterns, not the individual finding
 - Rationale: The audit's stated "single most-leveraged fix." Closes a 6-finding cascade.
 
 #### DR-112 — F-152 / F-160 — `decorateWithLeaf` returns is_leaf=false on layer_stack fetch failure
+
+> **✅ SHIPPED 2026-06-11** — Phase 9.1+9.2. See `stelavox_phase9_1_2_test_report_v1_0.md`.
 - Origin: Round-3 audit (per 99-themes.md)
 - Description: Silent fallback when layer_stack fetch fails. Cascades to F-195 affecting every node-API response.
 - Effort: S  ·  V1-risk: Medium
@@ -953,6 +975,8 @@ The audit's biggest signal is the recurring patterns, not the individual finding
 ### 13.2 Other deferrals captured
 
 #### DR-117 — Cloud cutover for synthetic probes
+
+> **✅ SHIPPED 2026-06-11** — Phase 9.1+9.2. See `stelavox_phase9_1_2_test_report_v1_0.md`.
 - Origin: V1.x-F SHIPPED memo
 - Description: pg_cron schedule for probes is local-only. Cloud cron is via Vercel-Cron fallback POST `/api/cron/run-probes` (CRON_SECRET) which the user wires manually in Vercel.
 - Effort: S  ·  V1-risk: Low
@@ -990,45 +1014,46 @@ The audit's biggest signal is the recurring patterns, not the individual finding
 
 | Bucket | Count | Contents |
 |---|---|---|
-| **V1** | 22 | See list below |
+| **V1 shipped** | 12 | Phase 9.1 (9 items) + Phase 9.2 (3 items) — see Test Report v1.0; merged 2026-06-11 |
+| **V1 remaining** | 10 | Work package B (Stripe), D (Director context), E (UX batch × 5), + 3 Phase-10 folds |
 | **V1.x** | ~42 | Calibration, audit cleanup themes, polish, dev docs, cloud auto-backup, org settings, push notifications |
 | **V2+** | ~40 | Director extensions, Phase 14, Document Operations, multi-user orgs + invitations, top-up, read-sharing |
 | **V3** (soft-drop) | 2 | DR-038 KDP submission, DR-114 brief amendments |
 | **Dropped** | 2 | DR-044 Brief-aware lock conflict, DR-053 BriefViewer concurrent indicator (both obsoleted by the Director simplification) |
 | ✓ Closed | 1 | DR-108 verdigris T-12 |
 
-## The V1 work list (22 items) with proposed Phase 9.E groupings
+## The V1 work list (22 items) — execution status
 
-**Work package A — Cloud cutover (mini-phase; design session first):**
-1. DR-063 — scheduler listener cloud home
-2. DR-067 — cloud DB sync (~150 migrations)
-3. DR-117 — Vercel-Cron probe schedule
+**Work package A — Cloud cutover ✅ SHIPPED 2026-06-11 (Phase 9.2):**
+1. ~~DR-063 — scheduler listener cloud home~~ ✅ — solved via pg_net Option E (M-216 + M-217), not an always-on worker
+2. ~~DR-067 — cloud DB sync (~150 migrations)~~ ✅ — reset + 208 migrations applied; surfaced + fixed 7-file date-stamp inversion bug
+3. ~~DR-117 — cron probe schedule~~ ✅ — rides the same pg_net transport (no Vercel-Cron slots consumed)
 
-**Work package B — Stripe + commercial model (mini-phase):**
+**Work package B — Stripe + commercial model (mini-phase) — OPEN:**
 4. DR-070 — Stripe integration (plans incl. BYOK platform fee; upgrade + BYOK-conversion flows; hosted Customer Portal link from Account page)
 
-**Work package C — Security + correctness hardening (mini-phase; mostly audit-derived):**
-5. DR-095 — rate-limit fail-closed
-6. DR-096 — audit_log writes + admin viewer
-7. DR-097 — silent-failure lint rule + hot-path sites
-8. DR-098 — H-01 .single() sweep + ESLint rule
-9. DR-100 — usage-records UPSERT (billing race)
-10. DR-102 — F-89 assertConversationAuthor fix + spec amendments
-11. DR-103 — injection-frame centralisation (5 sites)
-12. DR-111 — getConfig runtime validation
-13. DR-112 — decorateWithLeaf silent-fallback fix
+**Work package C — Security + correctness hardening ✅ SHIPPED 2026-06-11 (Phase 9.1):**
+5. ~~DR-095 — rate-limit fail-closed~~ ✅
+6. ~~DR-096 — audit_log writes + admin viewer~~ ✅ (incl. wireframe-driven viewer)
+7. ~~DR-097 — silent-failure lint rule + hot-path sites~~ ✅ (recon confirmed sites pre-closed; guard rule shipped)
+8. ~~DR-098 — H-01 .single() sweep + ESLint rule~~ ✅ (recon confirmed both pre-closed)
+9. ~~DR-100 — usage-records UPSERT (billing race)~~ ✅ M-215 atomic RPC
+10. ~~DR-102 — F-89 assertConversationAuthor fix~~ ✅ (fallback to org-membership)
+11. ~~DR-103 — injection-frame centralisation~~ ✅ (recon confirmed all 5 sites pre-closed)
+12. ~~DR-111 — getConfig runtime validation~~ ✅ (recon confirmed pre-closed)
+13. ~~DR-112 — decorateWithLeaf silent-fallback fix~~ ✅ (recon confirmed pre-closed)
 
-**Work package D — Director capability (needs Tier-B design pass):**
+**Work package D — Director capability (needs Tier-B design pass) — OPEN:**
 14. DR-051 — Director context-node create + link
 
-**Work package E — UX finish-the-job batch:**
+**Work package E — UX finish-the-job batch — OPEN:**
 15. DR-020 — FailureToast/Banner per-surface adoption
 16. DR-043 — BulkUnlockConfirmModal wiring
 17. DR-046 — editor 423-handling refinement
 18. DR-050 — injection-scanner rejection warning UX (no override)
 19. DR-066 — "Director interrupted — resume?" UI
 
-**Folded into Phase 10 (pre-launch test) rather than standalone:**
+**Folded into Phase 10 (pre-launch test) rather than standalone — OPEN:**
 20. DR-042 — export size-limit banners
 21. DR-057 + DR-058 — Inviolable audit close (one combined task)
 22. DR-121 — Day-1 admin observability verification + gap-close
@@ -1043,10 +1068,15 @@ The audit's biggest signal is the recurring patterns, not the individual finding
 - **Director must create AND link context nodes** (V1 capability).
 - Subscription management via Stripe hosted Customer Portal, not custom UI.
 
-## Phase 9 remaining steps
+## Phase 9 status
 
-- **9.D — Propagate.** Tier-A specs updated to point at this register; drop scattered V2/V3 markers. Product Spec amendment required: "never locked out of writing" guarantee + single-user-org V1 scope. CLAUDE.md changelog entry.
-- **9.E — Slot.** The five work packages above get phase numbers (mini-phases or absorption into Phase 10/11). Sequencing decision: C (hardening) probably first since everything else builds on it; A (cloud) before any production deploy; B (Stripe) and D (Director) independent; E (UX batch) anytime.
+- **9.A inventory** ✅
+- **9.B/9.C triage + lock** ✅ — 121 items bucket-assigned 2026-06-10
+- **9.D propagate** ✅ — TA v2.18, Director Architecture v2.8, Product Spec v1.19, CLAUDE.md v1.51; register adopted as Tier-A planning artefact
+- **9.E slot** ✅ — five work packages numbered (A cloud · B Stripe · C hardening · D Director context · E UX batch)
+- **9.1 work package C (hardening)** ✅ SHIPPED 2026-06-11 — see `stelavox_phase9_1_2_test_report_v1_0.md`
+- **9.2 work package A (cloud cutover)** ✅ SHIPPED 2026-06-11 — same Test Report
+- **Open:** packages B (Stripe), D (Director context — needs Tier-B design), E (UX batch × 5), + 3 Phase-10 folds
 
 ---
 
@@ -1056,6 +1086,8 @@ The audit's biggest signal is the recurring patterns, not the individual finding
 - **Living document.** Items can change bucket; new items get the next DR number. Each change adds a changelog note.
 
 # Changelog
+
+**v3.0 — 2026-06-11** **Phase 9.1 + 9.2 SHIPPED.** 12 V1 register items closed (DR-063 / DR-067 / DR-095 / DR-096 / DR-097 / DR-098 / DR-100 / DR-102 / DR-103 / DR-111 / DR-112 / DR-117). Each carries an inline `✅ SHIPPED 2026-06-11` badge pointing at `stelavox_phase9_1_2_test_report_v1_0.md`. V1 work-list section reorganised by execution status. Bucket distribution: V1 split into "shipped" (12) + "remaining" (10). Work packages B (Stripe), D (Director context), E (UX batch × 5), and 3 Phase-10 folds remain. Phase 9 status section updated — 9.A–9.E all complete; 9.1 + 9.2 shipped.
 
 **v2.1 — 2026-06-10** V1 plan lineup locked: free trial month + single-user platform plans (writer/author/pro) + single-user BYOK (`byok_solo`). `byok_team` explicitly out of V1 (follows multi-user orgs to V2; dormant data, no Stripe product, no signup path).
 
