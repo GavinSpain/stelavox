@@ -454,7 +454,7 @@
 > | DR-048 full sample novel | V2+ |
 > | DR-049 Phase 5d test long-tail | V1.x |
 > | DR-050 injection-scanner rejection UX | **V1 — rescoped: NO override; clear security warning only** |
-> | DR-051 Director context create + link | **V1 — scope broadened: create AND link** |
+> | DR-051 Director context create + link | **V1 — ✅ SHIPPED 2026-06-11** |
 > | DR-052 empty-summary expand guard | V1.x |
 > | DR-053 BriefViewer concurrent indicator | **DROPPED** — multi-active briefs removed by simplification; no concurrent state left to indicate |
 > | DR-054 stage-membership pill | V2+ |
@@ -488,12 +488,13 @@
 - Bucket: **V1 — LOCKED 2026-06-10**
 - Rationale: Author: "Security is paramount and we can not compromise on security. The author is completely free to manually enter the prose themselves and not use the AI." The scanner's behaviour is correct; only the explanation surface is missing.
 
-#### DR-051 — Director context-node capability: create + link
+#### DR-051 — Director context-node capability: create + link ✅ SHIPPED 2026-06-11
 - Origin: Phase 5d Mars-series Bug 4 memo (SU-J11-2), scope broadened 2026-06-10
 - Description: **Author-locked V1 scope:** the Director must be able to (a) generate a context node — create-and-fill as one user-perceived action (Option B executor auto-create resolves the original semantics gap), AND (b) link a context node to an appropriate content node (context_links creation as a Director-plannable step). Original SU-J11-2 only covered (a); the author added (b) as a requirement.
 - Effort: M  ·  V1-risk: Medium
-- Bucket: **V1 — LOCKED 2026-06-10**
+- Bucket: **V1 — LOCKED 2026-06-10 — SHIPPED 2026-06-11**
 - Rationale: Author: "The director needs to be able to generate a context node and also needs to be able to link a context node to an appropriate content node." Both halves are needed for context workflows to function end-to-end through the Director. Touches the Director tool registry (H-08 propose-only discipline applies) — needs a Tier-B design pass before build.
+- **Closeout (2026-06-11):** Substrate was already live at `lib/director/workflow-executor.ts:496-578` (SU-J11-2 Option B landed at some point after the May-2026 memo without a CLAUDE.md changelog entry; both create AND link halves were shipped in that same code block — the executor creates the context node and inserts a `node_context_links` row of type `structural_to_context`). The remaining work was prompt + documentation parity: M-218 publishes Director config **v1.29** with the prompt rewritten in two passages (Step shapes line for generate_context + Trust-the-specialists block) to teach the model the auto-create + auto-link behavior. Tool registry unchanged (17 tools). Verification: 3 new integration cases in `tests/unit/workflow-executor-context.test.ts` + 1 drift-guard case in `tests/unit/director-prompt-vs-schema-drift.test.ts`. SU-J11-2 memo closed. H-08 preserved (executor's auto-create runs at dispatch time, not inside the tool-use loop). Apply-time discovery: v1.25/v1.26/v1.27/v1.28 had each shipped without changelog — back-documented in TA v2.20 §3.6 and Director Architecture v2.10.
 
 #### DR-052 — SU-J11-3 — Validate non-empty target summary before expand dispatch
 - Origin: Phase 5d Mars-series memo (raised as low-priority)
@@ -1014,8 +1015,8 @@ The audit's biggest signal is the recurring patterns, not the individual finding
 
 | Bucket | Count | Contents |
 |---|---|---|
-| **V1 shipped** | 12 | Phase 9.1 (9 items) + Phase 9.2 (3 items) — see Test Report v1.0; merged 2026-06-11 |
-| **V1 remaining** | 10 | Work package B (Stripe), D (Director context), E (UX batch × 5), + 3 Phase-10 folds |
+| **V1 shipped** | 13 | Phase 9.1 (9 items) + Phase 9.2 (3 items) + Phase 9.D DR-051 (1 item) — see Test Reports + register entries; merged 2026-06-11 |
+| **V1 remaining** | 9 | Work package B (Stripe), E (UX batch × 5), + 3 Phase-10 folds |
 | **V1.x** | ~42 | Calibration, audit cleanup themes, polish, dev docs, cloud auto-backup, org settings, push notifications |
 | **V2+** | ~40 | Director extensions, Phase 14, Document Operations, multi-user orgs + invitations, top-up, read-sharing |
 | **V3** (soft-drop) | 2 | DR-038 KDP submission, DR-114 brief amendments |
@@ -1043,8 +1044,8 @@ The audit's biggest signal is the recurring patterns, not the individual finding
 12. ~~DR-111 — getConfig runtime validation~~ ✅ (recon confirmed pre-closed)
 13. ~~DR-112 — decorateWithLeaf silent-fallback fix~~ ✅ (recon confirmed pre-closed)
 
-**Work package D — Director capability (needs Tier-B design pass) — OPEN:**
-14. DR-051 — Director context-node create + link
+**Work package D — Director capability ✅ SHIPPED 2026-06-11 (Phase 9.D):**
+14. ~~DR-051 — Director context-node create + link~~ ✅ — substrate already live at workflow-executor.ts:496-578 (SU-J11-2 Option B); M-218 publishes Director config v1.29 with prompt parity (both halves — create + link — were always shipped together in the executor's `node_context_links insert`)
 
 **Work package E — UX finish-the-job batch — OPEN:**
 15. DR-020 — FailureToast/Banner per-surface adoption
@@ -1086,6 +1087,8 @@ The audit's biggest signal is the recurring patterns, not the individual finding
 - **Living document.** Items can change bucket; new items get the next DR number. Each change adds a changelog note.
 
 # Changelog
+
+**v3.1 — 2026-06-11** **Phase 9.D SHIPPED (DR-051).** Director context-node create + link closed. Diagnosis surfaced that the substrate was already live at `lib/director/workflow-executor.ts:496-578` (SU-J11-2 Option B landed at some point after the May-2026 memo without a CLAUDE.md changelog) — both halves (create + auto-link via `node_context_links` row of type `structural_to_context`) shipped together in that block. The remaining work was prompt + documentation parity: M-218 publishes Director config v1.29 with the prompt rewritten in two passages to teach the model the supported path. Apply-time discovery: v1.25/v1.26/v1.27/v1.28 had each shipped without changelog entries — back-documented in TA v2.20. Bucket distribution: V1 shipped 12 → 13; V1 remaining 10 → 9. Work-package D marked SHIPPED. SU-J11-2 memo closed; latent executor transition-event bug flagged as follow-up.
 
 **v3.0 — 2026-06-11** **Phase 9.1 + 9.2 SHIPPED.** 12 V1 register items closed (DR-063 / DR-067 / DR-095 / DR-096 / DR-097 / DR-098 / DR-100 / DR-102 / DR-103 / DR-111 / DR-112 / DR-117). Each carries an inline `✅ SHIPPED 2026-06-11` badge pointing at `stelavox_phase9_1_2_test_report_v1_0.md`. V1 work-list section reorganised by execution status. Bucket distribution: V1 split into "shipped" (12) + "remaining" (10). Work packages B (Stripe), D (Director context), E (UX batch × 5), and 3 Phase-10 folds remain. Phase 9 status section updated — 9.A–9.E all complete; 9.1 + 9.2 shipped.
 

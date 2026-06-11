@@ -143,5 +143,39 @@ describe.skipIf(!hasServiceKey)(
         `Director config ${productionVersion} system_prompt is missing a "## Step shapes" line for these op_types: ${missingLines.join(', ')}. Without documentation, the model can't use them.`,
       ).toEqual([])
     })
+
+    // DR-051 (work package D / M-218) — the v1.29 revision teaches the
+    // Director that generate_context against a structural target is
+    // supported end-to-end. The executor at workflow-executor.ts lines
+    // 496-578 auto-creates the context node and inserts the
+    // structural_to_context link before dispatch. If the prompt regresses
+    // to the v1.24..v1.28 "context node must pre-exist" framing, the
+    // model will avoid emitting generate_context against structural
+    // targets even though the executor handles it cleanly.
+    it('teaches the auto-create+link behaviour for generate_context (DR-051)', () => {
+      // Step shapes line documents seed_content and the auto-create path.
+      expect(
+        productionPrompt.includes('seed_content'),
+        `Director config ${productionVersion} Step shapes line for generate_context must document seed_content (DR-051 / v1.29).`,
+      ).toBe(true)
+      expect(
+        productionPrompt.includes('auto-creates a context node of the chosen `context_type`'),
+        `Director config ${productionVersion} Step shapes line for generate_context must describe the auto-create behaviour (DR-051 / v1.29).`,
+      ).toBe(true)
+
+      // Trust-the-specialists paragraph admits both target shapes.
+      expect(
+        productionPrompt.includes('links it to the structural target via a `structural_to_context` link'),
+        `Director config ${productionVersion} Context-generation specialist paragraph must describe the structural_to_context link (DR-051 / v1.29).`,
+      ).toBe(true)
+
+      // The prior framing must be gone — if both are present the
+      // executor may run while the model is still being taught to avoid
+      // the path, leaving DR-051 effectively undone.
+      expect(
+        productionPrompt.includes('Targets an existing context node (already created with the right node_type)'),
+        `Director config ${productionVersion} still contains the pre-v1.29 "context node must pre-exist" framing. DR-051 requires this paragraph rewritten.`,
+      ).toBe(false)
+    })
   },
 )

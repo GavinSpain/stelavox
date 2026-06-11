@@ -1,5 +1,7 @@
 # SU-J11-2 — Director-planned `generate_context` against structural target
 
+> **CLOSED 2026-06-11** — Option B (executor-side auto-create + auto-link) landed at some point after this memo was written; lives at `lib/director/workflow-executor.ts:496-578`. Phase 9 work package D (DR-051) closed the documentation gap: M-218 publishes Director config **v1.29** with the prompt taught to plan `generate_context` against structural targets directly. Unit verification: `tests/unit/workflow-executor-context.test.ts` integration cases assert context-node creation + `node_context_links` insertion + `workflow_steps.target_node_id` re-targeting against a real local DB; `tests/unit/director-prompt-vs-schema-drift.test.ts` adds a drift-guard pinning v1.29's new framing. SU-J11-3 (empty-summary expand validation) remains open as a lower-priority follow-up. **Latent follow-up surfaced during the work package D test pass:** the executor's `transitionWorkflowStep(..., 'job_terminal_failure', 'failed')` call when `context_type` is missing fires from a `pending` step, but the only legal transition to `workflow_steps.failed` is from `running` (post-M-205 Apollo CAS sweep). The CAS loses silently; the step stays `pending`. The auto-create artefacts are still correctly NOT created (the early-return runs before the transition). Filed as a separate small executor bug.
+
 > Phase 5d cloud-investigation finding (2026-05-09). Mars-series doc surfaced an architectural gap between Director's workflow planning and workflow_executor's dispatch semantics.
 
 ## The finding
