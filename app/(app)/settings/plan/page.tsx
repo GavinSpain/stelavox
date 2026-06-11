@@ -86,6 +86,7 @@ export default async function PlanSettingsPage() {
   let byokKeyPresent = false
   let byokKeyLastValidatedAt: string | null = null
   let byokKeyLastFour: string | null = null
+  let hasStripeCustomer = false
 
   // This file is a Next.js Server Component — it renders once per
   // request, not on a client re-render. The react-x/no-impure-render
@@ -100,7 +101,7 @@ export default async function PlanSettingsPage() {
     const { data: org } = await supabase
       .from('organisations')
       .select(
-        'plan, current_period_start, byok_api_key_vault_id, byok_api_key_last_four, byok_api_key_last_validated_at',
+        'plan, current_period_start, byok_api_key_vault_id, byok_api_key_last_four, byok_api_key_last_validated_at, stripe_customer_id',
       )
       .eq('id', orgId)
       .maybeSingle()
@@ -119,6 +120,7 @@ export default async function PlanSettingsPage() {
       byokKeyPresent = !!org.byok_api_key_vault_id
       byokKeyLastFour = (org.byok_api_key_last_four as string | null) ?? null
       byokKeyLastValidatedAt = (org.byok_api_key_last_validated_at as string | null) ?? null
+      hasStripeCustomer = !!org.stripe_customer_id
     }
   }
 
@@ -251,6 +253,7 @@ export default async function PlanSettingsPage() {
           byokKeyLastFour={byokKeyLastFour}
           trialDaysRemaining={trialDaysRemaining}
           tiers={tiers}
+          hasStripeCustomer={hasStripeCustomer}
         />
       ) : (
         <div

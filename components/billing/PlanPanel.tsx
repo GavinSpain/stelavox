@@ -1,16 +1,23 @@
 /**
- * V1.x-D — PlanPanel.
+ * PlanPanel — author's plan + tier menu.
  *
- * Source: Component Spec §17.7 (V1.x-D extension) ·
- * wireframe_plan_panel_v1.html.
+ * V1.x-D shipped the read-only structure. Phase 9.B wires Subscribe +
+ * Manage Subscription via Stripe Checkout + Customer Portal:
+ *   - Each subscribable paid tier (writer/author/pro/byok_solo) that
+ *     isn't the current plan gets a Subscribe button → POST
+ *     /api/billing/checkout → redirect to Stripe Checkout.
+ *   - When the org has a Stripe Customer (hasStripeCustomer=true), the
+ *     Manage subscription section replaces the V1.x-D "informational
+ *     only" note and offers Customer Portal access via POST
+ *     /api/billing/portal.
  *
- * Read-only V1 surface at /settings/plan. Shows the org's current plan
- * banner plus the full tier menu (4 Platform tiers + 2 BYOK tiers) so
- * the author understands their options before V2 lights up Stripe.
- *
- * Server-rendered: prices + allocations read from platform_config in
- * the page component; this component is a presentational shell.
+ * Server-rendered: prices + allocations + hasStripeCustomer read from
+ * the DB in the page component; this component is a presentational
+ * shell + two `'use client'` button children.
  */
+
+import { ManageSubscriptionButton } from './ManageSubscriptionButton'
+import { SubscribeButton } from './SubscribeButton'
 
 interface TierRow {
   slug: string
@@ -33,6 +40,8 @@ interface PlanPanelProps {
   byokKeyLastFour: string | null
   trialDaysRemaining: number | null
   tiers: TierRow[]
+  /** Phase 9.B — true when the org has a Stripe Customer (gone through Checkout). */
+  hasStripeCustomer?: boolean
 }
 
 export function PlanPanel({
@@ -43,6 +52,7 @@ export function PlanPanel({
   byokKeyLastFour,
   trialDaysRemaining,
   tiers,
+  hasStripeCustomer = false,
 }: PlanPanelProps) {
   const currentTier = tiers.find((t) => t.slug === currentPlan)
 
@@ -150,30 +160,42 @@ export function PlanPanel({
         currentPlan={currentPlan}
       />
 
-      {/* Read-only V1 note */}
-      <div
-        style={{
-          marginTop: 16,
-          padding: '12px 14px',
-          background: 'var(--color-bg-elevated)',
-          border: '1px dashed var(--color-border-default)',
-          borderRadius: 6,
-          fontSize: 12,
-          color: 'var(--color-text-secondary)',
-          lineHeight: 1.5,
-          fontFamily: 'var(--font-inter), Inter, sans-serif',
-        }}
-        data-testid="plan-switching-note"
-      >
-        <div style={{ color: 'var(--color-text-primary)', fontWeight: 500, marginBottom: 4, fontSize: 13 }}>
-          Switching plans
+      {hasStripeCustomer ? (
+        <div
+          style={{
+            marginTop: 16,
+            padding: '12px 14px',
+            background: 'var(--color-bg-elevated)',
+            border: '1px solid var(--color-border-default)',
+            borderRadius: 6,
+            fontFamily: 'var(--font-inter), Inter, sans-serif',
+          }}
+          data-testid="plan-manage-section"
+        >
+          <div
+            style={{
+              color: 'var(--color-text-primary)',
+              fontWeight: 500,
+              fontSize: 13,
+              marginBottom: 8,
+            }}
+          >
+            Manage subscription
+          </div>
+          <div
+            style={{
+              fontSize: 12,
+              color: 'var(--color-text-secondary)',
+              marginBottom: 10,
+              lineHeight: 1.5,
+            }}
+          >
+            Cancel, switch plan, update payment method, or view invoices on
+            Stripe&apos;s hosted Customer Portal.
+          </div>
+          <ManageSubscriptionButton />
         </div>
-        Plan changes — including BYOK enablement — arrive with V2&apos;s Stripe integration. To
-        change your subscription in V1, contact support.
-        <div style={{ color: 'var(--color-text-muted)', marginTop: 6, fontStyle: 'italic' }}>
-          No Stripe Checkout in V1; this page is informational only.
-        </div>
-      </div>
+      ) : null}
     </section>
   )
 }
@@ -208,6 +230,13 @@ function TierGroup({
     </div>
   )
 }
+
+const SUBSCRIBABLE_SLUGS: ReadonlySet<string> = new Set([
+  'writer',
+  'author',
+  'pro',
+  'byok_solo',
+])
 
 function TierCard({ tier, isCurrent }: { tier: TierRow; isCurrent: boolean }) {
   return (
@@ -291,6 +320,11 @@ function TierCard({ tier, isCurrent }: { tier: TierRow; isCurrent: boolean }) {
             ? '30-day trial'
             : `$${(tier.yearly_cents / 100).toFixed(0)}${tier.slug === 'byok_team' ? '/seat/yr' : '/yr'} (–20%)`}
         </div>
+        {SUBSCRIBABLE_SLUGS.has(tier.slug) && !isCurrent ? (
+          <SubscribeButton
+            plan={tier.slug as 'writer' | 'author' | 'pro' | 'byok_solo'}
+          />
+        ) : null}
       </div>
     </div>
   )

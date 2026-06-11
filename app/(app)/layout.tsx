@@ -1,10 +1,12 @@
 import { redirect } from 'next/navigation'
+import { headers } from 'next/headers'
 import { createClient } from '@/lib/supabase/server'
 import { AppShell } from '@/components/layout/AppShell'
 import { QueryProvider } from './QueryProvider'
 import { NodesPatcherMount } from '@/lib/queries/NodesPatcherMount'
 import { ChannelGate } from '@/lib/realtime/ChannelGate'
 import { RealtimeBadge } from '@/components/feedback/RealtimeBadge'
+import { isPathTrialExempt, isTrialExpired } from '@/lib/billing/trialExpiry'
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient()
@@ -22,6 +24,26 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     .limit(1)
     .maybeSingle()
   const orgId = membership?.organisation_id ?? null
+
+  // Phase 9.B — trial-expiry redirect. The (app)/* shell is gated for
+  // trial orgs whose trial_expires_at has elapsed; the only authenticated
+  // routes that stay reachable are /settings/plan* (so the user can
+  // subscribe) and the /api/billing/* + /api/stripe/* paths (so the
+  // subscribe button actually works). Path detection rides on the
+  // x-pathname header that middleware.ts sets per request.
+  if (orgId) {
+    const { data: org } = await supabase
+      .from('organisations')
+      .select('plan, trial_expires_at')
+      .eq('id', orgId)
+      .maybeSingle()
+    if (org && isTrialExpired(org)) {
+      const pathname = (await headers()).get('x-pathname')
+      if (!isPathTrialExempt(pathname)) {
+        redirect('/settings/plan?reason=trial_expired')
+      }
+    }
+  }
 
   // Phase 8.5b B.3 — TanStack Query provider wraps every authenticated
   // route. One persistent QueryClient per browser tab; default options
