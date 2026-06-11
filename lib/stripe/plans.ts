@@ -19,25 +19,33 @@ import 'server-only'
 
 import { getConfigNumber, getConfigString } from '@/lib/config/platform-config'
 
-import { STRIPE_PLAN_SLUGS, type StripeMode, type StripePlanSlug } from './config'
+import {
+  STRIPE_CADENCES,
+  STRIPE_PLAN_SLUGS,
+  type StripeCadence,
+  type StripeMode,
+  type StripePlanSlug,
+} from './config'
 
 const PLATFORM_PLAN_SLUGS: ReadonlyArray<StripePlanSlug> = ['writer', 'author', 'pro']
 const BYOK_PLAN_SLUGS: ReadonlyArray<StripePlanSlug> = ['byok_solo']
 
 /**
  * Reverse-lookup: given a Stripe Price ID from a webhook, return the
- * { plan, mode } it maps to. Returns null if no match.
+ * { plan, mode, cadence } it maps to. Returns null if no match.
  */
 export async function priceIdToPlan(
   priceId: string,
-): Promise<{ plan: StripePlanSlug; mode: StripeMode } | null> {
+): Promise<{ plan: StripePlanSlug; mode: StripeMode; cadence: StripeCadence } | null> {
   if (!priceId) return null
 
   for (const mode of ['test', 'live'] as const) {
     for (const plan of STRIPE_PLAN_SLUGS) {
-      const configured = await getConfigString(`stripe.${mode}.price_id.${plan}_monthly`)
-      if (configured && configured === priceId) {
-        return { plan, mode }
+      for (const cadence of STRIPE_CADENCES) {
+        const configured = await getConfigString(`stripe.${mode}.price_id.${plan}_${cadence}`)
+        if (configured && configured === priceId) {
+          return { plan, mode, cadence }
+        }
       }
     }
   }

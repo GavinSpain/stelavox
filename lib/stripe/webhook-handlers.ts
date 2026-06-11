@@ -143,12 +143,14 @@ export async function handleSubscriptionCreatedOrUpdated(
     subscription.items.data[0]?.price?.id ?? null
 
   let planSlug: string | null = null
+  let cadence: string | null = null
   let byokEnabled = false
   let allocationCredits: number | null = null
   if (priceId) {
     const mapped = await priceIdToPlan(priceId)
     if (mapped) {
       planSlug = mapped.plan
+      cadence = mapped.cadence
       byokEnabled = isByokPlan(mapped.plan)
       allocationCredits = await getPlanAllocationCredits(mapped.plan)
     }
@@ -192,6 +194,7 @@ export async function handleSubscriptionCreatedOrUpdated(
       subscription_id: subscription.id,
       stripe_price_id: priceId,
       mapped_plan: planSlug,
+      cadence,
       status: subscription.status,
       byok_enabled: byokEnabled,
       current_period_start: periodStart,

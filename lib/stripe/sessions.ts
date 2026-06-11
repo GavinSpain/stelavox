@@ -13,8 +13,8 @@
  */
 
 import { getStripeClient } from './client'
-import type { StripePlanSlug } from './config'
-import { getStripeMode, getStripePriceId } from './config'
+import type { StripeCadence, StripePlanSlug } from './config'
+import { DEFAULT_CADENCE, getStripeMode, getStripePriceId } from './config'
 
 /**
  * Create a Stripe Checkout Session for a new subscription. Returns the
@@ -24,12 +24,16 @@ export async function createCheckoutSession(args: {
   customerId: string
   organisationId: string
   plan: StripePlanSlug
+  cadence?: StripeCadence
   returnBaseUrl: string
 }): Promise<{ url: string; sessionId: string }> {
+  const cadence = args.cadence ?? DEFAULT_CADENCE
   const mode = await getStripeMode()
-  const priceId = await getStripePriceId(mode, args.plan)
+  const priceId = await getStripePriceId(mode, args.plan, cadence)
   if (!priceId) {
-    throw new Error(`No Stripe Price ID configured for ${args.plan} in ${mode} mode`)
+    throw new Error(
+      `No Stripe Price ID configured for ${args.plan} (${cadence}) in ${mode} mode`,
+    )
   }
 
   const stripe = await getStripeClient()
@@ -47,11 +51,13 @@ export async function createCheckoutSession(args: {
     metadata: {
       organisation_id: args.organisationId,
       plan: args.plan,
+      cadence,
     },
     subscription_data: {
       metadata: {
         organisation_id: args.organisationId,
         plan: args.plan,
+        cadence,
       },
     },
   })

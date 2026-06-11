@@ -1,23 +1,33 @@
+'use client'
+
 /**
  * PlanPanel — author's plan + tier menu.
  *
  * V1.x-D shipped the read-only structure. Phase 9.B wires Subscribe +
  * Manage Subscription via Stripe Checkout + Customer Portal:
+ *   - Top of section: Monthly · Annual (save 20%) cadence toggle.
+ *     Defaults to monthly (locked 2026-06-11). Affects the price
+ *     prominently shown on each tier card AND the Price ID that
+ *     Subscribe POSTs to /api/billing/checkout.
  *   - Each subscribable paid tier (writer/author/pro/byok_solo) that
  *     isn't the current plan gets a Subscribe button → POST
- *     /api/billing/checkout → redirect to Stripe Checkout.
+ *     /api/billing/checkout with {plan, cadence} → redirect to Stripe
+ *     Checkout.
  *   - When the org has a Stripe Customer (hasStripeCustomer=true), the
- *     Manage subscription section replaces the V1.x-D "informational
- *     only" note and offers Customer Portal access via POST
- *     /api/billing/portal.
+ *     Manage subscription section offers Customer Portal access via
+ *     POST /api/billing/portal — plan + cadence switches happen there.
  *
- * Server-rendered: prices + allocations + hasStripeCustomer read from
- * the DB in the page component; this component is a presentational
- * shell + two `'use client'` button children.
+ * Client component: the cadence toggle is interactive. Prices,
+ * allocations, and hasStripeCustomer are still server-resolved in the
+ * page component and passed in as props.
  */
+
+import { useState } from 'react'
 
 import { ManageSubscriptionButton } from './ManageSubscriptionButton'
 import { SubscribeButton } from './SubscribeButton'
+
+type Cadence = 'monthly' | 'yearly'
 
 interface TierRow {
   slug: string
@@ -55,6 +65,7 @@ export function PlanPanel({
   hasStripeCustomer = false,
 }: PlanPanelProps) {
   const currentTier = tiers.find((t) => t.slug === currentPlan)
+  const [cadence, setCadence] = useState<Cadence>('monthly')
 
   return (
     <section data-testid="plan-panel">
@@ -146,11 +157,14 @@ export function PlanPanel({
         </div>
       ) : null}
 
+      <CadenceToggle cadence={cadence} onChange={setCadence} />
+
       {/* Platform tiers */}
       <TierGroup
         label="Platform tiers"
         tiers={tiers.filter((t) => t.group === 'platform')}
         currentPlan={currentPlan}
+        cadence={cadence}
       />
 
       {/* BYOK tiers */}
@@ -158,6 +172,7 @@ export function PlanPanel({
         label="BYOK tiers · bring your own LLM provider key"
         tiers={tiers.filter((t) => t.group === 'byok')}
         currentPlan={currentPlan}
+        cadence={cadence}
       />
 
       {hasStripeCustomer ? (
@@ -200,14 +215,78 @@ export function PlanPanel({
   )
 }
 
+function CadenceToggle({
+  cadence,
+  onChange,
+}: {
+  cadence: Cadence
+  onChange: (next: Cadence) => void
+}) {
+  const base: React.CSSProperties = {
+    padding: '6px 14px',
+    fontSize: 12,
+    fontWeight: 500,
+    fontFamily: 'var(--font-inter), Inter, sans-serif',
+    border: 'none',
+    background: 'transparent',
+    color: 'var(--color-text-secondary)',
+    cursor: 'pointer',
+    borderRadius: 4,
+  }
+  const active: React.CSSProperties = {
+    ...base,
+    background: 'var(--color-bg-elevated)',
+    color: 'var(--color-text-primary)',
+  }
+  return (
+    <div
+      data-testid="cadence-toggle"
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 4,
+        padding: 3,
+        background: 'var(--color-bg-surface)',
+        border: '1px solid var(--color-border-subtle)',
+        borderRadius: 6,
+        marginBottom: 16,
+      }}
+    >
+      <button
+        type="button"
+        onClick={() => onChange('monthly')}
+        data-testid="cadence-toggle-monthly"
+        data-active={cadence === 'monthly' || undefined}
+        style={cadence === 'monthly' ? active : base}
+      >
+        Monthly
+      </button>
+      <button
+        type="button"
+        onClick={() => onChange('yearly')}
+        data-testid="cadence-toggle-yearly"
+        data-active={cadence === 'yearly' || undefined}
+        style={cadence === 'yearly' ? active : base}
+      >
+        Annual{' '}
+        <span style={{ fontSize: 10, color: 'var(--color-text-muted)', fontWeight: 400 }}>
+          (save 20%)
+        </span>
+      </button>
+    </div>
+  )
+}
+
 function TierGroup({
   label,
   tiers,
   currentPlan,
+  cadence,
 }: {
   label: string
   tiers: TierRow[]
   currentPlan: string
+  cadence: Cadence
 }) {
   return (
     <div style={{ marginBottom: 18 }}>
@@ -225,7 +304,7 @@ function TierGroup({
         {label}
       </div>
       {tiers.map((t) => (
-        <TierCard key={t.slug} tier={t} isCurrent={t.slug === currentPlan} />
+        <TierCard key={t.slug} tier={t} isCurrent={t.slug === currentPlan} cadence={cadence} />
       ))}
     </div>
   )
@@ -238,7 +317,15 @@ const SUBSCRIBABLE_SLUGS: ReadonlySet<string> = new Set([
   'byok_solo',
 ])
 
-function TierCard({ tier, isCurrent }: { tier: TierRow; isCurrent: boolean }) {
+function TierCard({
+  tier,
+  isCurrent,
+  cadence,
+}: {
+  tier: TierRow
+  isCurrent: boolean
+  cadence: Cadence
+}) {
   return (
     <div
       data-testid={`tier-card-${tier.slug}`}
@@ -306,6 +393,13 @@ function TierCard({ tier, isCurrent }: { tier: TierRow; isCurrent: boolean }) {
         <div style={{ fontSize: 15, fontWeight: 500, color: 'var(--color-text-primary)' }}>
           {tier.monthly_cents === 0 ? (
             'Free'
+          ) : cadence === 'yearly' ? (
+            <>
+              ${(tier.yearly_cents / 100).toFixed(0)}
+              <span style={{ fontSize: 11, color: 'var(--color-text-muted)', fontWeight: 400 }}>
+                {tier.slug === 'byok_team' ? '/seat/yr' : '/yr'}
+              </span>
+            </>
           ) : (
             <>
               ${(tier.monthly_cents / 100).toFixed(0)}
@@ -318,11 +412,14 @@ function TierCard({ tier, isCurrent }: { tier: TierRow; isCurrent: boolean }) {
         <div style={{ fontSize: 11, color: 'var(--color-text-muted)', marginTop: 2 }}>
           {tier.monthly_cents === 0
             ? '30-day trial'
-            : `$${(tier.yearly_cents / 100).toFixed(0)}${tier.slug === 'byok_team' ? '/seat/yr' : '/yr'} (–20%)`}
+            : cadence === 'yearly'
+              ? `$${(tier.monthly_cents / 100).toFixed(0)}${tier.slug === 'byok_team' ? '/seat/mo' : '/mo'} monthly`
+              : `$${(tier.yearly_cents / 100).toFixed(0)}${tier.slug === 'byok_team' ? '/seat/yr' : '/yr'} (–20%)`}
         </div>
         {SUBSCRIBABLE_SLUGS.has(tier.slug) && !isCurrent ? (
           <SubscribeButton
             plan={tier.slug as 'writer' | 'author' | 'pro' | 'byok_solo'}
+            cadence={cadence}
           />
         ) : null}
       </div>

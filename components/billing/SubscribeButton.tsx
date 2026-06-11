@@ -16,10 +16,11 @@ import { useState } from 'react'
 
 interface Props {
   plan: 'writer' | 'author' | 'pro' | 'byok_solo'
+  cadence: 'monthly' | 'yearly'
   disabled?: boolean
 }
 
-export function SubscribeButton({ plan, disabled }: Props) {
+export function SubscribeButton({ plan, cadence, disabled }: Props) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -30,7 +31,7 @@ export function SubscribeButton({ plan, disabled }: Props) {
       const res = await fetch('/api/billing/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ plan }),
+        body: JSON.stringify({ plan, cadence }),
       })
       if (res.status === 503) {
         setError('Subscriptions not yet enabled. Check back shortly.')

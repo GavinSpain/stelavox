@@ -24,21 +24,26 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { apiError } from '@/lib/director/route-helpers'
 import { findOrCreateCustomerForOrg } from '@/lib/stripe/customers'
 import {
+  DEFAULT_CADENCE,
+  STRIPE_CADENCES,
   STRIPE_PLAN_SLUGS,
   StripeNotConfiguredError,
   requireStripeConfigured,
+  type StripeCadence,
   type StripePlanSlug,
 } from '@/lib/stripe/config'
 import { createCheckoutSession } from '@/lib/stripe/sessions'
 import { createClient } from '@/lib/supabase/server'
 
 const PLAN_SLUG_SET: ReadonlySet<string> = new Set(STRIPE_PLAN_SLUGS)
+const CADENCE_SET: ReadonlySet<string> = new Set(STRIPE_CADENCES)
 
 export async function POST(req: NextRequest): Promise<Response> {
   // Parse body.
   let plan: StripePlanSlug
+  let cadence: StripeCadence = DEFAULT_CADENCE
   try {
-    const body = (await req.json()) as { plan?: unknown }
+    const body = (await req.json()) as { plan?: unknown; cadence?: unknown }
     if (typeof body.plan !== 'string' || !PLAN_SLUG_SET.has(body.plan)) {
       return apiError(
         400,
@@ -47,6 +52,16 @@ export async function POST(req: NextRequest): Promise<Response> {
       )
     }
     plan = body.plan as StripePlanSlug
+    if (body.cadence !== undefined) {
+      if (typeof body.cadence !== 'string' || !CADENCE_SET.has(body.cadence)) {
+        return apiError(
+          400,
+          'invalid_body',
+          `cadence: must be one of ${STRIPE_CADENCES.join(', ')}`,
+        )
+      }
+      cadence = body.cadence as StripeCadence
+    }
   } catch {
     return apiError(400, 'invalid_body', 'request body must be JSON with a `plan` field')
   }
@@ -94,6 +109,7 @@ export async function POST(req: NextRequest): Promise<Response> {
     customerId,
     organisationId: membership.organisation_id,
     plan,
+    cadence,
     returnBaseUrl: origin,
   })
 
