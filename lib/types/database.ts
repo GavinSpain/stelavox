@@ -7,31 +7,6 @@ export type Json =
   | Json[]
 
 export type Database = {
-  graphql_public: {
-    Tables: {
-      [_ in never]: never
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      graphql: {
-        Args: {
-          extensions?: Json
-          operationName?: string
-          query?: string
-          variables?: Json
-        }
-        Returns: Json
-      }
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
-  }
   public: {
     Tables: {
       agent_jobs: {
@@ -2238,10 +2213,12 @@ export type Database = {
           preferred_model_overrides: Json | null
           slug: string
           stripe_customer_id: string | null
+          stripe_price_id: string | null
           stripe_subscription_id: string | null
           subscription_status: string
           token_allocation_credits: number | null
           token_usage_credits: number
+          trial_expires_at: string
           updated_at: string
         }
         Insert: {
@@ -2259,10 +2236,12 @@ export type Database = {
           preferred_model_overrides?: Json | null
           slug: string
           stripe_customer_id?: string | null
+          stripe_price_id?: string | null
           stripe_subscription_id?: string | null
           subscription_status?: string
           token_allocation_credits?: number | null
           token_usage_credits?: number
+          trial_expires_at?: string
           updated_at?: string
         }
         Update: {
@@ -2280,10 +2259,12 @@ export type Database = {
           preferred_model_overrides?: Json | null
           slug?: string
           stripe_customer_id?: string | null
+          stripe_price_id?: string | null
           stripe_subscription_id?: string | null
           subscription_status?: string
           token_allocation_credits?: number | null
           token_usage_credits?: number
+          trial_expires_at?: string
           updated_at?: string
         }
         Relationships: []
@@ -3585,9 +3566,6 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
-  graphql_public: {
-    Enums: {},
-  },
   public: {
     Enums: {},
   },

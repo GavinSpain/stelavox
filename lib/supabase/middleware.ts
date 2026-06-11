@@ -35,5 +35,10 @@ export async function updateSession(request: NextRequest) {
   // every request, including public pages.
   await supabase.auth.getUser()
 
+  // Phase 9.B — expose the current pathname to server components so the
+  // (app)/layout.tsx can detect /settings/plan* and skip its
+  // trial-expiry redirect (preventing a redirect loop).
+  response.headers.set('x-pathname', request.nextUrl.pathname)
+
   return response
 }

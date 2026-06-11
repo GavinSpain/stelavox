@@ -44,6 +44,16 @@ export async function getConfig<T = unknown>(key: string): Promise<T> {
   return value
 }
 
+/**
+ * Invalidate the in-process config cache. Tests that flip a config key
+ * mid-run call this between updates so the next read goes to the DB.
+ * No production code should call this — staleness within 60 s is OK in
+ * prod and the cache exists to absorb hot-path reads.
+ */
+export function _clearConfigCache(): void {
+  cache.clear()
+}
+
 // F-07 (round-3 audit): runtime-validated typed aliases. Each throws a
 // clear, key-naming error when the stored JSONB type mismatches the
 // alias's declared return type. JSONB natively distinguishes
