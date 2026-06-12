@@ -29,7 +29,10 @@ import {
   getStripeWebhookSecret,
 } from '@/lib/stripe/config'
 import {
+  handleChargeDisputeCreated,
+  handleChargeRefunded,
   handleCheckoutSessionCompleted,
+  handleInvoicePaymentActionRequired,
   handleInvoicePaymentFailed,
   handleInvoicePaymentSucceeded,
   handleObservationalEvent,
@@ -55,8 +58,12 @@ const HANDLED_EVENT_TYPES = new Set<string>([
   'customer.updated',
   'invoice.payment_succeeded',
   'invoice.payment_failed',
+  'invoice.payment_action_required',
   'invoice.upcoming',
   'payment_method.attached',
+  // Phase 9.B admin payments (C.3) — dispute + refund attention items
+  'charge.dispute.created',
+  'charge.refunded',
 ])
 
 export async function POST(req: NextRequest): Promise<Response> {
@@ -131,6 +138,19 @@ export async function POST(req: NextRequest): Promise<Response> {
       outcome = await handleInvoicePaymentFailed(
         event as Stripe.InvoicePaymentFailedEvent,
       )
+      break
+    case 'invoice.payment_action_required':
+      outcome = await handleInvoicePaymentActionRequired(
+        event as Stripe.InvoicePaymentActionRequiredEvent,
+      )
+      break
+    case 'charge.dispute.created':
+      outcome = await handleChargeDisputeCreated(
+        event as Stripe.ChargeDisputeCreatedEvent,
+      )
+      break
+    case 'charge.refunded':
+      outcome = await handleChargeRefunded(event as Stripe.ChargeRefundedEvent)
       break
     default:
       outcome = await handleObservationalEvent(event)

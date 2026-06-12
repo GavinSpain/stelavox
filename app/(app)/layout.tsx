@@ -31,10 +31,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   // subscribe) and the /api/billing/* + /api/stripe/* paths (so the
   // subscribe button actually works). Path detection rides on the
   // x-pathname header that middleware.ts sets per request.
+  let subscriptionStatus: string | null = null
   if (orgId) {
     const { data: org } = await supabase
       .from('organisations')
-      .select('plan, trial_expires_at')
+      .select('plan, trial_expires_at, subscription_status')
       .eq('id', orgId)
       .maybeSingle()
     if (org && isTrialExpired(org)) {
@@ -43,7 +44,15 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         redirect('/settings/plan?reason=trial_expired')
       }
     }
+    subscriptionStatus = org?.subscription_status ?? null
   }
+  // Phase 9.B admin payments (D4.c) — past-due signal surfaced to the
+  // shell. The credit gate (layer 1) already refuses Director/agent
+  // dispatch when past_due; the layout (layer 2) preserves writing +
+  // app access. A banner on /settings/plan + a Director-side banner
+  // surface the cutoff. `subscriptionStatus` flows through AppShell so
+  // descendants that need to render a banner can read it.
+  const isPastDue = subscriptionStatus === 'past_due'
 
   // Phase 8.5b B.3 — TanStack Query provider wraps every authenticated
   // route. One persistent QueryClient per browser tab; default options
@@ -66,7 +75,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     <QueryProvider>
       <ChannelGate userId={user.id} orgId={orgId} />
       <NodesPatcherMount orgId={orgId} />
-      <AppShell userEmail={user.email ?? ''}>{children}</AppShell>
+      <AppShell userEmail={user.email ?? ''} isPastDue={isPastDue}>{children}</AppShell>
       <RealtimeBadge />
     </QueryProvider>
   )

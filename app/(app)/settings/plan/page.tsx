@@ -92,6 +92,8 @@ export default async function PlanSettingsPage({
   let byokKeyLastValidatedAt: string | null = null
   let byokKeyLastFour: string | null = null
   let hasStripeCustomer = false
+  let subscriptionStatus: string | null = null
+  const gracePeriodDays = await safeConfigInt('billing.payment_failure_grace_days', 7)
 
   // This file is a Next.js Server Component — it renders once per
   // request, not on a client re-render. The react-x/no-impure-render
@@ -106,7 +108,7 @@ export default async function PlanSettingsPage({
     const { data: org } = await supabase
       .from('organisations')
       .select(
-        'plan, current_period_start, byok_api_key_vault_id, byok_api_key_last_four, byok_api_key_last_validated_at, stripe_customer_id',
+        'plan, current_period_start, byok_api_key_vault_id, byok_api_key_last_four, byok_api_key_last_validated_at, stripe_customer_id, subscription_status',
       )
       .eq('id', orgId)
       .maybeSingle()
@@ -126,6 +128,7 @@ export default async function PlanSettingsPage({
       byokKeyLastFour = (org.byok_api_key_last_four as string | null) ?? null
       byokKeyLastValidatedAt = (org.byok_api_key_last_validated_at as string | null) ?? null
       hasStripeCustomer = !!org.stripe_customer_id
+      subscriptionStatus = org.subscription_status ?? null
     }
   }
 
@@ -248,6 +251,34 @@ export default async function PlanSettingsPage({
         Subscriptions, allocations and BYOK eligibility. Read-only in V1 — upgrades through
         Stripe arrive in V2.
       </div>
+      {subscriptionStatus === 'past_due' ? (
+        <div
+          data-testid="past-due-banner"
+          style={{
+            marginBottom: 20,
+            padding: '14px 16px',
+            background: 'var(--color-bg-surface)',
+            border: '1px solid var(--color-status-review)',
+            borderRadius: 6,
+            fontFamily: 'var(--font-inter), Inter, sans-serif',
+            color: 'var(--color-text-primary)',
+          }}
+        >
+          <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 6, color: 'var(--color-status-review)' }}>
+            ● Payment failed
+          </div>
+          <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', lineHeight: 1.65, marginBottom: 10 }}>
+            Your last payment didn&apos;t go through. We&apos;ve paused Director and agent access until your
+            card is updated. You can keep writing and editing — your work is safe.{' '}
+            <strong style={{ color: 'var(--color-text-primary)' }}>Update payment within {gracePeriodDays} days</strong>{' '}
+            to keep your account active.
+          </div>
+          <div style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>
+            Click &ldquo;Manage subscription&rdquo; below to update your card via Stripe&apos;s hosted Customer Portal.
+            Stripe will retry your card up to 4 times.
+          </div>
+        </div>
+      ) : null}
       {params.stripe_status === 'success' ? (
         <div
           data-testid="stripe-status-banner-success"

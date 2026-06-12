@@ -21,7 +21,7 @@
  * changes.
  */
 
-import { getConfigString } from '@/lib/config/platform-config'
+import { getConfigBool, getConfigString } from '@/lib/config/platform-config'
 
 export type StripeMode = 'test' | 'live'
 
@@ -73,6 +73,30 @@ export async function getStripeWebhookSecret(mode: StripeMode): Promise<string> 
   return getConfigString(`stripe.webhook_secret_${mode}`)
 }
 
+/** Read the Stripe SDK API version pin (M-223). */
+export async function getStripeApiVersion(): Promise<string> {
+  return getConfigString('stripe.api_version')
+}
+
+export type BillingAddressCollection = 'auto' | 'required'
+
+/** Read the cluster of Checkout-behaviour options (M-223). */
+export async function getCheckoutOptions(): Promise<{
+  automaticTaxEnabled: boolean
+  allowPromotionCodes: boolean
+  billingAddressCollection: BillingAddressCollection
+}> {
+  const billingAddressCollection = await getConfigString(
+    'stripe.checkout.billing_address_collection',
+  )
+  return {
+    automaticTaxEnabled: await getConfigBool('stripe.checkout.automatic_tax_enabled'),
+    allowPromotionCodes: await getConfigBool('stripe.checkout.allow_promotion_codes'),
+    billingAddressCollection:
+      billingAddressCollection === 'required' ? 'required' : 'auto',
+  }
+}
+
 /**
  * Validate that every piece of substrate the active mode needs is set.
  * Throws StripeNotConfiguredError if anything is missing, listing the
@@ -99,6 +123,11 @@ export async function requireStripeConfigured(): Promise<{
   const webhookSecret = await getStripeWebhookSecret(mode)
   if (!webhookSecret) {
     missing.push(`stripe.webhook_secret_${mode}`)
+  }
+
+  const apiVersion = await getStripeApiVersion()
+  if (!apiVersion) {
+    missing.push('stripe.api_version')
   }
 
   for (const plan of STRIPE_PLAN_SLUGS) {

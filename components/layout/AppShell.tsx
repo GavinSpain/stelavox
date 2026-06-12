@@ -124,18 +124,25 @@ const DETAIL_MAX      = 580 // Phase 5b: covers DirectorPanel max (was 540)
 
 interface AppShellProps {
   userEmail: string
+  /**
+   * Phase 9.B admin payments (D4.c) — past-due signal from the
+   * authenticated layout. When true, a thin global banner renders at
+   * the top with a "Manage subscription" CTA. Director/agent dispatch
+   * has already been refused at the credit-gate layer.
+   */
+  isPastDue?: boolean
   children: React.ReactNode
 }
 
-export function AppShell({ userEmail, children }: AppShellProps) {
+export function AppShell({ userEmail, isPastDue, children }: AppShellProps) {
   return (
     <ModeProvider>
-      <AppShellInner userEmail={userEmail}>{children}</AppShellInner>
+      <AppShellInner userEmail={userEmail} isPastDue={isPastDue}>{children}</AppShellInner>
     </ModeProvider>
   )
 }
 
-function AppShellInner({ userEmail, children }: AppShellProps) {
+function AppShellInner({ userEmail, isPastDue, children }: AppShellProps) {
   // Phase 8.01.F T-5 — viewport awareness. Desktop + tablet-landscape
   // keep the current 3-pane flex layout (R-1 safety: no DOM tree change
   // at the most common breakpoints). Only tablet-portrait collapses the
@@ -253,6 +260,25 @@ function AppShellInner({ userEmail, children }: AppShellProps) {
           overflow: 'hidden',
         }}
       >
+      {isPastDue ? (
+        <a
+          href="/settings/plan"
+          data-testid="global-past-due-banner"
+          style={{
+            display: 'block',
+            padding: '8px 18px',
+            background: 'var(--color-bg-surface)',
+            borderBottom: '1px solid var(--color-status-review)',
+            color: 'var(--color-status-review)',
+            fontSize: 12,
+            fontFamily: 'var(--font-inter), Inter, sans-serif',
+            textDecoration: 'none',
+            textAlign: 'center',
+          }}
+        >
+          Payment failed — Director and agent access is paused. <strong>Update payment →</strong>
+        </a>
+      ) : null}
       <div data-shell="header">
         <Header userEmail={userEmail} />
       </div>

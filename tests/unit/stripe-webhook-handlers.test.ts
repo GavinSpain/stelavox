@@ -16,7 +16,10 @@ import type Stripe from 'stripe'
 
 import { _clearConfigCache } from '@/lib/config/platform-config'
 import {
+  handleChargeDisputeCreated,
+  handleChargeRefunded,
   handleCheckoutSessionCompleted,
+  handleInvoicePaymentActionRequired,
   handleInvoicePaymentFailed,
   handleSubscriptionCreatedOrUpdated,
   handleSubscriptionDeleted,
@@ -217,5 +220,117 @@ describe.skipIf(!hasServiceKey)('Stripe webhook handlers (DR-070)', () => {
       .eq('id', testOrgId)
       .single()
     expect(org!.subscription_status).toBe('past_due')
+  })
+
+  // ---------------------------------------------------------------
+  // C.3 — dispute + refund + payment_action_required handlers
+  // ---------------------------------------------------------------
+
+  it('handleChargeDisputeCreated writes audit_log with severity=critical', async () => {
+    const customerId = `cus_dispute_${Date.now()}`
+    await svc
+      .from('organisations')
+      .update({ stripe_customer_id: customerId })
+      .eq('id', testOrgId)
+
+    const event = {
+      type: 'charge.dispute.created',
+      data: {
+        object: {
+          id: 'dp_test_123',
+          charge: customerId, // Simulates the charge ID; our helper falls back gracefully
+          amount: 5000,
+          currency: 'usd',
+          reason: 'fraudulent',
+          status: 'warning_needs_response',
+          evidence_details: { due_by: 1721000000 },
+        },
+      },
+    } as unknown as Stripe.ChargeDisputeCreatedEvent
+
+    const outcome = await handleChargeDisputeCreated(event)
+    expect(outcome.audit.dispute_id).toBe('dp_test_123')
+    expect(outcome.audit.reason).toBe('fraudulent')
+
+    // audit_log entry exists at severity=critical for this org
+    const { data: rows } = await svc
+      .from('audit_log')
+      .select('event_type, severity, metadata')
+      .eq('organisation_id', testOrgId)
+      .eq('event_type', 'stripe_dispute_created')
+      .order('created_at', { ascending: false })
+      .limit(1)
+    expect(rows!.length).toBeGreaterThan(0)
+    expect(rows![0].severity).toBe('critical')
+  })
+
+  it('handleChargeRefunded writes audit_log with severity=high', async () => {
+    const customerId = `cus_refund_${Date.now()}`
+    await svc
+      .from('organisations')
+      .update({ stripe_customer_id: customerId })
+      .eq('id', testOrgId)
+
+    const event = {
+      type: 'charge.refunded',
+      data: {
+        object: {
+          id: 'ch_test_456',
+          customer: customerId,
+          amount: 5000,
+          amount_refunded: 2000,
+          currency: 'usd',
+          refunded: false, // partial refund
+        },
+      },
+    } as unknown as Stripe.ChargeRefundedEvent
+
+    const outcome = await handleChargeRefunded(event)
+    expect(outcome.organisationId).toBe(testOrgId)
+    expect(outcome.audit.amount_refunded).toBe(2000)
+
+    const { data: rows } = await svc
+      .from('audit_log')
+      .select('event_type, severity')
+      .eq('organisation_id', testOrgId)
+      .eq('event_type', 'stripe_charge_refunded')
+      .order('created_at', { ascending: false })
+      .limit(1)
+    expect(rows!.length).toBeGreaterThan(0)
+    expect(rows![0].severity).toBe('high')
+  })
+
+  it('handleInvoicePaymentActionRequired writes audit_log with severity=high', async () => {
+    const customerId = `cus_3ds_${Date.now()}`
+    await svc
+      .from('organisations')
+      .update({ stripe_customer_id: customerId })
+      .eq('id', testOrgId)
+
+    const event = {
+      type: 'invoice.payment_action_required',
+      data: {
+        object: {
+          id: 'in_test_789',
+          customer: customerId,
+          amount_due: 5000,
+          hosted_invoice_url: 'https://invoice.stripe.com/i/test',
+        },
+      },
+    } as unknown as Stripe.InvoicePaymentActionRequiredEvent
+
+    const outcome = await handleInvoicePaymentActionRequired(event)
+    expect(outcome.organisationId).toBe(testOrgId)
+    expect(outcome.audit.amount_due).toBe(5000)
+
+    const { data: rows } = await svc
+      .from('audit_log')
+      .select('event_type, severity')
+      .eq('organisation_id', testOrgId)
+      .eq('event_type', 'stripe_payment_action_required')
+      .order('created_at', { ascending: false })
+      .limit(1)
+    expect(rows!.length).toBeGreaterThan(0)
+    expect(rows![0].severity).toBe('high')
   })
 })
