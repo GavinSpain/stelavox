@@ -21,6 +21,8 @@ import {
   STRIPE_CADENCES,
   STRIPE_PLAN_SLUGS,
   StripeNotConfiguredError,
+  getCheckoutOptions,
+  getStripeApiVersion,
   getStripeMode,
   getStripeSecretKey,
   requireStripeConfigured,
@@ -147,6 +149,26 @@ describe.skipIf(!hasServiceKey)('Stripe config reader', () => {
       if (ORIGINAL_TEST !== undefined) process.env.STRIPE_SECRET_KEY_TEST = ORIGINAL_TEST
     })
 
+    it('returns the configured api version (M-223)', async () => {
+      const v = await getStripeApiVersion()
+      expect(typeof v).toBe('string')
+      expect(v.length).toBeGreaterThan(0)
+      // V1 default per M-223; admin can roll forward via the admin
+      // payments page.
+      expect(v).toMatch(/^\d{4}-\d{2}-\d{2}/)
+    })
+
+    it('returns checkout options with defaults from M-223', async () => {
+      _clearConfigCache()
+      const opts = await getCheckoutOptions()
+      expect(opts).toHaveProperty('automaticTaxEnabled')
+      expect(opts).toHaveProperty('allowPromotionCodes')
+      expect(opts).toHaveProperty('billingAddressCollection')
+      expect(typeof opts.automaticTaxEnabled).toBe('boolean')
+      expect(typeof opts.allowPromotionCodes).toBe('boolean')
+      expect(['auto', 'required']).toContain(opts.billingAddressCollection)
+    })
+
     it('throws StripeNotConfiguredError with env-var entry when STRIPE_SECRET_KEY_TEST is unset', async () => {
       // Note: this asserts the env-var path only — Price ID checks
       // depend on platform_config state that other concurrent test
@@ -176,6 +198,10 @@ describe.skipIf(!hasServiceKey)('Stripe config reader', () => {
         'stripe.test.price_id.author_monthly',
         'stripe.test.price_id.pro_monthly',
         'stripe.test.price_id.byok_solo_monthly',
+        'stripe.test.price_id.writer_yearly',
+        'stripe.test.price_id.author_yearly',
+        'stripe.test.price_id.pro_yearly',
+        'stripe.test.price_id.byok_solo_yearly',
       ]
       const originals: Record<string, unknown> = {}
       for (const key of KEYS) {

@@ -1,0 +1,1008 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Stelavox — Admin Payments Page Wireframe v1.0 (Phase 9.B follow-up)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500&family=Cormorant+Garamond:ital,wght@1,300&family=Inter:wght@200;300;400;500;600;700&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --ink:#0d1014; --deep:#131820; --surface:#1a2030; --hover:#1e2838; --selected:#1f2d45;
+  --border-s:#1e2535; --border-d:#253045; --border-str:#3a4a62;
+  --text-p:#ecf0f5; --text-s:#8aa0b8; --text-m:#4a6080; --text-dis:#2a3850;
+  --verd:#3d7858; --verd-h:#5aa87a;
+  --info:#3a6090; --amber:#a8821a; --review:#a8651a; --error:#a04040; --success:#3a8a5a;
+  --spec-bg:#0a0d12; --spec-pan:#111520; --callout:#e8b840;
+}
+
+body { background: var(--spec-bg); color: var(--text-p); font-family: 'Inter', sans-serif; font-size: 13px; line-height: 1.5; padding-bottom: 80px; }
+.doc-header { background: var(--spec-pan); border-bottom: 1px solid var(--border-d); padding: 24px 48px; display:flex; align-items:baseline; justify-content:space-between; }
+.wm-s { font-family:'Cinzel',serif; font-size:14px; font-weight:500; letter-spacing:.18em; }
+.wm-v { font-family:'Cormorant Garamond',serif; font-style:italic; font-weight:300; font-size:16px; letter-spacing:.08em; opacity:.82; }
+.doc-meta { font-size:11px; font-weight:300; letter-spacing:.2em; text-transform:uppercase; color:var(--text-m); }
+
+.section { padding: 40px 48px 0; max-width: 1300px; margin: 0 auto; }
+.slabel { font-size:9px; font-weight:400; letter-spacing:.45em; text-transform:uppercase; color:var(--text-m); margin-bottom:20px; padding-bottom:12px; border-bottom:1px solid var(--border-s); }
+.intro { font-size: 13px; color: var(--text-s); margin-bottom: 28px; max-width: 920px; line-height: 1.65; }
+.intro strong { color: var(--text-p); font-weight: 500; }
+.intro code { font-family:'JetBrains Mono',monospace; background:var(--spec-pan); padding:1px 5px; border-radius:3px; font-size:11px; color:var(--text-p); }
+
+.decisions { display:grid; grid-template-columns:repeat(2,1fr); gap:14px 32px; padding-bottom:28px; font-size:12.5px; color:var(--text-s); }
+.decisions strong { color:var(--text-p); font-weight:500; }
+.decisions div { line-height: 1.5; }
+.decisions code { font-family:'JetBrains Mono',monospace; background:var(--spec-pan); padding:1px 5px; border-radius:3px; font-size:11px; color:var(--text-p); }
+
+.cn { display:inline-flex; align-items:center; justify-content:center; width:18px; height:18px; background:var(--callout); color:#0a0800; border-radius:50%; font-size:10px; font-weight:700; flex-shrink:0; position:absolute; z-index:20; }
+
+/* Admin page frame */
+.frame { background: var(--ink); border: 1px solid var(--border-s); border-radius: 8px; max-width: 1180px; margin: 0 auto 40px; overflow: hidden; position: relative; }
+.frame-head { padding: 16px 24px; border-bottom: 1px solid var(--border-s); display:flex; align-items:center; justify-content: space-between; }
+.frame-head h1 { font-size: 18px; font-weight: 600; }
+.frame-meta { font-size: 11px; color: var(--text-m); }
+.frame-meta code { font-family:'JetBrains Mono',monospace; }
+
+/* Tabs */
+.tabs { display:flex; border-bottom: 1px solid var(--border-s); padding: 0 24px; gap: 0; }
+.tab { padding: 12px 18px; font-size: 12px; color: var(--text-s); border-bottom: 2px solid transparent; cursor: pointer; font-weight: 500; }
+.tab.active { color: var(--text-p); border-bottom-color: var(--text-p); opacity: 0.9; }
+.tab-count { color: var(--text-m); font-weight: 400; margin-left: 6px; font-size: 10.5px; }
+.tab.alert .tab-count { color: var(--error); }
+
+.frame-body { padding: 22px 24px; }
+
+/* Config form rows */
+.cfg-row { display:grid; grid-template-columns: 280px 1fr 240px; gap: 20px; align-items: start; padding: 14px 0; border-bottom: 1px solid var(--border-s); }
+.cfg-row:last-child { border-bottom: 0; }
+.cfg-key { font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--text-p); padding-top: 5px; }
+.cfg-key .desc { display: block; font-family: 'Inter', sans-serif; font-size: 11px; color: var(--text-m); margin-top: 4px; line-height: 1.4; }
+.cfg-input { display:flex; flex-direction: column; gap: 4px; }
+.cfg-input input, .cfg-input select { background: var(--spec-pan); border: 1px solid var(--border-d); border-radius: 4px; padding: 6px 10px; color: var(--text-p); font-family: 'JetBrains Mono', monospace; font-size: 12px; }
+.cfg-input input[readonly] { color: var(--text-s); background: var(--ink); }
+.cfg-input input:focus, .cfg-input select:focus { border-color: var(--border-str); outline: 0; }
+.cfg-hint { font-size: 10.5px; color: var(--text-m); font-style: italic; }
+.cfg-actions { display:flex; gap: 8px; align-items: center; padding-top: 4px; }
+.cfg-actions button { background: transparent; border: 1px solid var(--border-d); color: var(--text-s); padding: 5px 12px; border-radius: 4px; font-size: 11px; cursor: pointer; }
+.cfg-actions button.save { color: var(--text-p); border-color: var(--border-str); }
+.cfg-actions button.save[disabled] { opacity: 0.4; cursor: not-allowed; }
+.cfg-actions .saved { font-size: 10.5px; color: var(--success); padding-left: 6px; }
+
+.cfg-group { margin: 0 0 28px; }
+.cfg-group-label { font-size: 10px; font-weight: 500; letter-spacing: .3em; text-transform: uppercase; color: var(--text-m); margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid var(--border-s); display:flex; justify-content: space-between; align-items: baseline; }
+.cfg-group-label .gdesc { font-family: 'Inter', sans-serif; font-size: 10.5px; color: var(--text-m); font-weight: 400; letter-spacing: 0; text-transform: none; }
+
+/* Price-ID grid */
+.pid-grid { display:grid; grid-template-columns: 110px 1fr 1fr; gap: 10px 14px; align-items: center; }
+.pid-grid .head { font-size: 9.5px; letter-spacing: .25em; text-transform: uppercase; color: var(--text-m); padding-bottom: 8px; border-bottom: 1px solid var(--border-s); }
+.pid-grid .pid-label { font-size: 12px; color: var(--text-p); padding: 4px 0; }
+.pid-grid .pid-label .sub { display: block; font-size: 10.5px; color: var(--text-m); }
+.pid-grid input { background: var(--spec-pan); border: 1px solid var(--border-d); border-radius: 4px; padding: 5px 9px; color: var(--text-p); font-family: 'JetBrains Mono', monospace; font-size: 11px; width: 100%; }
+.pid-grid input:focus { border-color: var(--border-str); outline: 0; }
+.pid-grid input.set { border-color: rgba(58,138,90,0.3); }
+.pid-grid input.empty { color: var(--text-m); }
+
+/* Subscription health cards */
+.health-grid { display:grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 24px; }
+.health-card { background: var(--spec-pan); border: 1px solid var(--border-s); border-radius: 6px; padding: 14px 16px; }
+.health-card .label { font-size: 9.5px; letter-spacing: .25em; text-transform: uppercase; color: var(--text-m); margin-bottom: 8px; }
+.health-card .value { font-size: 24px; font-weight: 600; color: var(--text-p); }
+.health-card .delta { font-size: 11px; color: var(--text-m); margin-top: 4px; }
+.health-card.alert .value { color: #d9a86a; }
+.health-card.alert .label .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--review); margin-right: 6px; vertical-align: 1px; }
+
+/* Sub-tables */
+.sub-block { border: 1px solid var(--border-s); border-radius: 6px; overflow: hidden; margin-bottom: 22px; }
+.sub-block-head { background: var(--deep); padding: 10px 14px; font-size: 10px; letter-spacing: .25em; text-transform: uppercase; color: var(--text-m); display:flex; justify-content: space-between; align-items: center; }
+.sub-block-head .actions { display:flex; gap: 8px; }
+.sub-block-head .actions span { font-size: 10.5px; color: var(--text-s); cursor: pointer; letter-spacing: 0; text-transform: none; }
+.sub-row { display: grid; grid-template-columns: 1fr 110px 130px 90px; gap: 12px; align-items: center; padding: 9px 14px; border-bottom: 1px solid var(--border-s); font-size: 11.5px; }
+.sub-row:last-child { border-bottom: 0; }
+.sub-row.head { background: rgba(0,0,0,0.2); font-size: 9.5px; letter-spacing: .2em; text-transform: uppercase; color: var(--text-m); }
+.sub-row:not(.head):hover { background: var(--hover); cursor: pointer; }
+.org-name { font-size: 12px; color: var(--text-p); }
+.org-id { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--text-m); }
+.plan-pill { display:inline-flex; padding: 2px 8px; font-size: 10px; letter-spacing: .08em; text-transform: uppercase; border-radius: 3px; background: var(--surface); color: var(--text-s); font-weight: 500; }
+.status { display:inline-flex; align-items:center; gap:6px; font-size:10.5px; letter-spacing:.08em; text-transform:uppercase; }
+.status .dot { width:7px; height:7px; border-radius:50%; }
+.status.active { color: #6ad99a; } .status.active .dot { background: var(--success); }
+.status.past_due { color: #d9a86a; } .status.past_due .dot { background: var(--review); box-shadow: 0 0 5px rgba(168,101,26,0.5); }
+.status.trialling { color: #6ab3d9; } .status.trialling .dot { background: var(--info); }
+.status.cancelled { color: var(--text-m); } .status.cancelled .dot { background: var(--text-dis); }
+
+.time-cell { color: var(--text-m); font-size: 10.5px; text-align: right; }
+
+/* Events table */
+.evt-row { display: grid; grid-template-columns: 110px 220px 1fr 200px 100px; gap: 12px; align-items: center; padding: 9px 14px; border-bottom: 1px solid var(--border-s); font-size: 11.5px; }
+.evt-row:last-child { border-bottom: 0; }
+.evt-row.head { background: rgba(0,0,0,0.2); font-size: 9.5px; letter-spacing: .2em; text-transform: uppercase; color: var(--text-m); }
+.evt-row:not(.head):hover { background: var(--hover); cursor: pointer; }
+.etype { font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: var(--text-p); }
+.meta-prev { color: var(--text-m); font-size: 10.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.stripe-link { font-size: 10.5px; color: var(--text-s); }
+
+/* Failures */
+.fail-card { background: var(--spec-pan); border: 1px solid var(--border-d); border-left: 3px solid var(--review); border-radius: 4px; padding: 14px 16px; margin-bottom: 12px; }
+.fail-card.critical { border-left-color: var(--error); }
+.fail-card .head { display:flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; }
+.fail-card .head .title { font-size: 13px; font-weight: 500; color: var(--text-p); }
+.fail-card .head .time { font-size: 10.5px; color: var(--text-m); }
+.fail-card .body { font-size: 11.5px; color: var(--text-s); line-height: 1.55; }
+.fail-card .body code { font-family: 'JetBrains Mono', monospace; background: var(--ink); padding: 1px 5px; border-radius: 3px; font-size: 10.5px; color: var(--text-p); }
+.fail-card .meta { margin-top: 10px; font-size: 10.5px; color: var(--text-m); display:flex; gap: 14px; }
+
+/* Past-due banner mockup */
+.pdb { background: var(--spec-pan); border: 1px solid rgba(168,101,26,0.5); border-radius: 6px; padding: 14px 16px; margin: 22px 0; max-width: 740px; }
+.pdb .pdb-h { display:flex; align-items:center; gap: 8px; font-size: 13px; font-weight: 500; color: #d9a86a; margin-bottom: 6px; }
+.pdb .pdb-h .dot { width: 8px; height: 8px; background: var(--review); border-radius: 50%; }
+.pdb .pdb-b { font-size: 12px; color: var(--text-s); line-height: 1.6; margin-bottom: 10px; }
+.pdb .pdb-b strong { color: var(--text-p); }
+.pdb .pdb-a { display:inline-flex; padding: 6px 14px; background: var(--text-p); color: var(--ink); border-radius: 4px; font-size: 12px; font-weight: 500; text-decoration: none; }
+
+/* Callouts list */
+.callout-list { display:grid; grid-template-columns: repeat(2,1fr); gap: 8px 28px; font-size: 12px; color: var(--text-s); padding: 16px 0 0; }
+.callout-list div { padding-left: 28px; position: relative; line-height: 1.55; }
+.callout-list .cn { left: 0; top: 1px; position: absolute; }
+.callout-list strong { color: var(--text-p); font-weight: 500; }
+
+/* Open decisions */
+.od-grid { display:grid; grid-template-columns: 1fr 1fr; gap: 18px; padding: 0 0 12px; }
+.od { background: var(--spec-pan); border: 1px dashed var(--border-d); border-radius: 6px; padding: 14px 16px; font-size: 12px; color: var(--text-s); line-height: 1.55; }
+.od strong { color: var(--text-p); font-weight: 500; display: block; margin-bottom: 6px; }
+.od .opt { padding: 6px 0; font-size: 11.5px; }
+.od .opt b { color: var(--text-p); font-weight: 500; }
+.od .rec { color: #6ad99a; font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase; margin-top: 8px; display: inline-block; }
+
+/* Inviolable audit */
+.inv-audit { background: var(--spec-pan); border: 1px solid var(--border-s); border-radius: 6px; padding: 16px 18px; margin-top: 8px; font-size: 11.5px; color: var(--text-s); line-height: 1.6; }
+.inv-audit strong { color: var(--text-p); }
+.inv-audit table { width: 100%; margin-top: 10px; border-collapse: collapse; }
+.inv-audit th { text-align: left; font-size: 9.5px; letter-spacing: .25em; text-transform: uppercase; color: var(--text-m); padding: 6px 8px; border-bottom: 1px solid var(--border-d); font-weight: 400; }
+.inv-audit td { padding: 6px 8px; border-bottom: 1px solid var(--border-s); }
+.inv-audit td:first-child { color: var(--text-p); font-weight: 500; }
+
+/* Util */
+.dim { color: var(--text-m); }
+.label-line { font-size: 11px; color: var(--text-m); margin: 18px 0 10px; }
+.placeholder { text-align: center; padding: 40px 0; color: var(--text-m); font-size: 11.5px; font-style: italic; border: 1px dashed var(--border-d); border-radius: 6px; }
+.btn-add { display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; background: var(--surface); border: 1px solid var(--border-d); border-radius: 4px; color: var(--text-s); font-size: 11px; cursor: pointer; }
+</style>
+</head>
+<body>
+
+<div class="doc-header">
+  <div>
+    <div class="wm-s">STELA<span class="wm-v">vox</span></div>
+    <div class="doc-meta" style="margin-top: 6px;">Wireframe · /admin/payments · v1.0 · Phase 9.B follow-up</div>
+  </div>
+  <div class="doc-meta">DR-070 admin surface · 2026-06-11</div>
+</div>
+
+<!-- ============================================================== -->
+<!-- INTRO + DECISIONS                                                -->
+<!-- ============================================================== -->
+<div class="section">
+  <div class="slabel">§ 1 · INTRO + LOCKED DECISIONS</div>
+  <div class="intro">
+    Single admin page at <code>/admin/payments</code> sibling to the V1.x-E <code>/admin</code> dashboard.
+    Same env-var auth (<code>PLATFORM_ADMIN_EMAILS</code>); Inter-only typography; no verdigris (admin surfaces don't host author-facing affirmative-action). 5 tabs, all server-rendered with TanStack Query for the live counters.
+    <br><br>
+    The page is the <strong>single source of truth + control surface</strong> for every payment-system parameter,
+    every observation surface, every failure path. Every config-key write is audit_log + cache-invalidate.
+  </div>
+
+  <div class="decisions">
+    <div><strong>Page shape</strong><br>Single route with 5 internal tabs (Configuration · Price IDs · Health · Events · Failures). Tabs persist via <code>?tab=</code> query param so admin can bookmark a specific surface.</div>
+    <div><strong>Write access</strong><br>In-app forms for every Stripe config key. Each write triggers <code>audit_log</code> insert with <code>{key, old_value, new_value, admin_user_id}</code> + <code>_clearConfigCache()</code> so changes reflect immediately.</div>
+    <div><strong>Auth</strong><br><code>PLATFORM_ADMIN_EMAILS</code> env-var allowlist (matches V1.x-E). Non-admin → redirect to <code>/dashboard</code>. Service-role client for all reads + writes.</div>
+    <div><strong>Past-due gate (NEW lock)</strong><br>Paid plans with <code>subscription_status='past_due'</code>: <strong>immediate</strong> Director/agent cutoff. Full app + writing access preserved during Stripe's Smart Retries window (~14 days). If retries exhaust → <code>subscription.deleted</code> → trial revert → trial-expiry redirect.</div>
+    <div><strong>Refunds + disputes (NEW lock)</strong><br>Add <code>charge.refunded</code> + <code>charge.dispute.created</code> + <code>invoice.payment_action_required</code> to <code>HANDLED_EVENT_TYPES</code>. Light handlers; no auto-action; full surface in admin Failures tab with Stripe Dashboard deep-link.</div>
+    <div><strong>Multi-currency</strong><br>USD-only V1 (matches Stripe Prices created at $20/50/120/15 USD baseline). Read-only "Current currency: USD" display on Configuration tab with "Multi-currency support — V2" note. Prices have currency baked in; multi-currency = matrix of Price IDs.</div>
+  </div>
+</div>
+
+<!-- ============================================================== -->
+<!-- TAB 1 — CONFIGURATION                                            -->
+<!-- ============================================================== -->
+<div class="section">
+  <div class="slabel">§ 2 · TAB 1 — CONFIGURATION</div>
+  <div class="intro">
+    Every Stripe + billing config key, grouped by concern. Read-only fields are env-var or display-only;
+    all editable fields write via Server Action → <code>UPDATE platform_config</code> → <code>audit_log</code> insert → <code>_clearConfigCache()</code>.
+    The <strong>save button</strong> per row activates only when the value diverges from the current DB value; on
+    success it flashes "Saved" inline for 2s, then disappears.
+  </div>
+
+  <div class="frame">
+    <div class="frame-head">
+      <div>
+        <h1>Payments</h1>
+        <div class="frame-meta" style="margin-top: 4px;">Stripe configuration + observation · service-role auth · <code>PLATFORM_ADMIN_EMAILS</code> gated</div>
+      </div>
+      <div style="display:flex; gap: 10px; align-items:center; font-size: 11.5px;">
+        <span class="dim">Mode:</span>
+        <span style="display:inline-flex; align-items:center; gap: 6px;">
+          <span style="width: 8px; height: 8px; border-radius: 50%; background: var(--info); display:inline-block;"></span>
+          <span style="text-transform: uppercase; letter-spacing: .15em; color: #6ab3d9;">TEST</span>
+        </span>
+      </div>
+    </div>
+    <div class="tabs">
+      <span class="tab active">Configuration</span>
+      <span class="tab">Price IDs <span class="tab-count">8 / 16 set</span></span>
+      <span class="tab">Health <span class="tab-count">128 active</span></span>
+      <span class="tab">Events <span class="tab-count">1,247 in 7d</span></span>
+      <span class="tab alert">Failures <span class="tab-count">3 critical</span></span>
+    </div>
+    <div class="frame-body">
+
+      <!-- Group: Stripe core -->
+      <div class="cfg-group">
+        <div class="cfg-group-label">
+          <span>Stripe core</span>
+          <span class="gdesc">Mode + API version + webhook secrets · 4 keys</span>
+        </div>
+
+        <div class="cfg-row" style="position: relative;">
+          <span class="cn" style="top: 14px; left: -30px;">1</span>
+          <div class="cfg-key">stripe.mode<span class="desc">Active Stripe mode. Swap to "live" at launch via this key (no deploy).</span></div>
+          <div class="cfg-input">
+            <select>
+              <option>test</option>
+              <option>live</option>
+            </select>
+            <div class="cfg-hint">Current: <code>test</code></div>
+          </div>
+          <div class="cfg-actions">
+            <button class="save" disabled>Save</button>
+          </div>
+        </div>
+
+        <div class="cfg-row" style="position: relative;">
+          <span class="cn" style="top: 14px; left: -30px;">2</span>
+          <div class="cfg-key">stripe.api_version<span class="desc"><strong style="color: var(--callout);">NEW · extracted from hardcode</strong> at lib/stripe/client.ts:17. Roll forward at Stripe's recommendation without a deploy.</span></div>
+          <div class="cfg-input">
+            <input type="text" value="2026-05-27.dahlia">
+            <div class="cfg-hint">Stripe's current latest stable: <code>2026-05-27.dahlia</code> · <a href="#" style="color: var(--text-s);">view dashboard</a></div>
+          </div>
+          <div class="cfg-actions">
+            <button class="save" disabled>Save</button>
+          </div>
+        </div>
+
+        <div class="cfg-row">
+          <div class="cfg-key">stripe.webhook_secret_test<span class="desc">whsec_* for test mode signature verification.</span></div>
+          <div class="cfg-input">
+            <input type="password" value="whsec_•••••••••••••••" readonly>
+            <div class="cfg-hint">Set via Stripe Dashboard → Developers → Webhooks → Signing secret. Last set: 2026-06-11 14:23 UTC</div>
+          </div>
+          <div class="cfg-actions">
+            <button>Reveal</button>
+            <button>Edit</button>
+          </div>
+        </div>
+
+        <div class="cfg-row">
+          <div class="cfg-key">stripe.webhook_secret_live<span class="desc">whsec_* for live mode.</span></div>
+          <div class="cfg-input">
+            <input type="text" value="" placeholder="Not set">
+            <div class="cfg-hint" style="color: var(--review);">Empty. Required before live-mode swap.</div>
+          </div>
+          <div class="cfg-actions">
+            <button class="save" disabled>Save</button>
+          </div>
+        </div>
+
+        <div class="cfg-row">
+          <div class="cfg-key">STRIPE_SECRET_KEY_TEST<span class="desc">Env var (Vercel + .env.local). Auth credential — never in DB.</span></div>
+          <div class="cfg-input">
+            <input type="text" value="sk_test_••••••••••••••••••••3ZTN" readonly>
+            <div class="cfg-hint">Detected in process.env. Last 4: <code>3ZTN</code>.</div>
+          </div>
+          <div class="cfg-actions">
+            <span class="dim" style="font-size: 10.5px;">env-only</span>
+          </div>
+        </div>
+
+        <div class="cfg-row">
+          <div class="cfg-key">STRIPE_SECRET_KEY_LIVE<span class="desc">Env var. Empty in dev.</span></div>
+          <div class="cfg-input">
+            <input type="text" value="" placeholder="Not set" readonly>
+            <div class="cfg-hint" style="color: var(--review);">Not detected in process.env. Required before live-mode swap.</div>
+          </div>
+          <div class="cfg-actions">
+            <span class="dim" style="font-size: 10.5px;">env-only</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Group: Checkout behaviour -->
+      <div class="cfg-group">
+        <div class="cfg-group-label">
+          <span>Checkout behaviour</span>
+          <span class="gdesc"><strong style="color: var(--callout);">NEW · 4 keys</strong> · controls Stripe Checkout Session options without redeploy</span>
+        </div>
+
+        <div class="cfg-row" style="position: relative;">
+          <span class="cn" style="top: 14px; left: -30px;">3</span>
+          <div class="cfg-key">stripe.checkout.automatic_tax_enabled<span class="desc">Stripe Tax — auto-collects sales tax / VAT based on customer location. Requires billing_address_collection='required' + Stripe Tax setup in Dashboard.</span></div>
+          <div class="cfg-input">
+            <select>
+              <option>false (off)</option>
+              <option>true (collect tax)</option>
+            </select>
+            <div class="cfg-hint">Default off. <a href="#" style="color: var(--text-s);">Stripe Tax setup ↗</a></div>
+          </div>
+          <div class="cfg-actions">
+            <button class="save" disabled>Save</button>
+          </div>
+        </div>
+
+        <div class="cfg-row">
+          <div class="cfg-key">stripe.checkout.allow_promotion_codes<span class="desc">Lets users enter promo codes at Checkout. Create codes in Stripe Dashboard → Promotion codes.</span></div>
+          <div class="cfg-input">
+            <select>
+              <option>false (off)</option>
+              <option>true (allow)</option>
+            </select>
+            <div class="cfg-hint">Default off — turn on for launch promos.</div>
+          </div>
+          <div class="cfg-actions">
+            <button class="save" disabled>Save</button>
+          </div>
+        </div>
+
+        <div class="cfg-row">
+          <div class="cfg-key">stripe.checkout.billing_address_collection<span class="desc">Whether to collect billing address at Checkout. Required if automatic_tax is on.</span></div>
+          <div class="cfg-input">
+            <select>
+              <option>auto (only if needed)</option>
+              <option>required (always)</option>
+            </select>
+            <div class="cfg-hint">Default <code>auto</code>.</div>
+          </div>
+          <div class="cfg-actions">
+            <button class="save" disabled>Save</button>
+          </div>
+        </div>
+
+        <div class="cfg-row" style="position: relative;">
+          <span class="cn" style="top: 14px; left: -30px;">4</span>
+          <div class="cfg-key">Currency<span class="desc">Inherited from each Stripe Price's own currency (baked in at Price creation).</span></div>
+          <div class="cfg-input">
+            <input type="text" value="USD" readonly>
+            <div class="cfg-hint"><strong>V1 = USD only.</strong> Multi-currency = a Price ID matrix × N currencies — V2 candidate.</div>
+          </div>
+          <div class="cfg-actions">
+            <span class="dim" style="font-size: 10.5px;">read-only</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Group: Trial + payment failure -->
+      <div class="cfg-group">
+        <div class="cfg-group-label">
+          <span>Trial + payment failure</span>
+          <span class="gdesc">3 keys · governs trial duration + past-due grace window</span>
+        </div>
+
+        <div class="cfg-row">
+          <div class="cfg-key">billing.trial_duration_days<span class="desc">New-org trial duration. Stamps <code>organisations.trial_expires_at = NOW() + N days</code> at signup.</span></div>
+          <div class="cfg-input">
+            <input type="number" value="30" min="1" max="90">
+            <div class="cfg-hint">Default 30. Existing trials are NOT retroactively changed.</div>
+          </div>
+          <div class="cfg-actions">
+            <button class="save" disabled>Save</button>
+          </div>
+        </div>
+
+        <div class="cfg-row" style="position: relative;">
+          <span class="cn" style="top: 14px; left: -30px;">5</span>
+          <div class="cfg-key">billing.payment_failure_grace_days<span class="desc"><strong style="color: var(--callout);">NEW · used by past-due gate</strong>. App access preserved for N days after past_due; LLM access cuts immediately.</span></div>
+          <div class="cfg-input">
+            <input type="number" value="7" min="0" max="30">
+            <div class="cfg-hint">Default 7. Stripe Smart Retries typically span ~14 days; this grace is for general app access only.</div>
+          </div>
+          <div class="cfg-actions">
+            <button class="save" disabled>Save</button>
+          </div>
+        </div>
+
+        <div class="cfg-row">
+          <div class="cfg-key">Stripe customer-email notifications<span class="desc">Stripe sends "failed payment" + "successful payment" + "trial ending" emails when enabled in Stripe Dashboard → Settings → Customer emails.</span></div>
+          <div class="cfg-input">
+            <input type="text" value="Configure in Stripe Dashboard" readonly>
+            <div class="cfg-hint"><a href="#" style="color: var(--text-s);">Open Stripe Customer emails ↗</a></div>
+          </div>
+          <div class="cfg-actions">
+            <span class="dim" style="font-size: 10.5px;">Stripe-side</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Group: Plan allocations -->
+      <div class="cfg-group">
+        <div class="cfg-group-label">
+          <span>Plan allocations</span>
+          <span class="gdesc">Credit allocation per plan · 6 keys · read-only here, edit on /admin (V1.x-D)</span>
+        </div>
+
+        <div class="cfg-row">
+          <div class="cfg-key">plan.{trial,writer,author,pro}_token_allocation_credits</div>
+          <div class="cfg-input">
+            <input type="text" value="1M / 1M / 4M / 16M" readonly>
+            <div class="cfg-hint">Edit on the credits admin surface to avoid cross-contamination.</div>
+          </div>
+          <div class="cfg-actions">
+            <span class="dim" style="font-size: 10.5px;">view on /admin</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================== -->
+<!-- TAB 2 — PRICE IDs                                                -->
+<!-- ============================================================== -->
+<div class="section">
+  <div class="slabel">§ 3 · TAB 2 — PRICE IDS</div>
+  <div class="intro">
+    16 Stripe Price IDs in a 4×2 grid per mode (4 plans × monthly + yearly). Empty = subscriptions for that
+    plan/cadence return 503. The <strong>Sync from Stripe</strong> button is V2 (would call Stripe API to
+    enumerate available Prices); V1 admin pastes IDs from the dashboard manually.
+  </div>
+
+  <div class="frame">
+    <div class="frame-head">
+      <div><h1>Payments</h1></div>
+      <div style="display:flex; gap: 10px; align-items:center; font-size: 11.5px;">
+        <span class="dim">Mode:</span>
+        <span style="display:inline-flex; align-items:center; gap: 6px;">
+          <span style="width: 8px; height: 8px; border-radius: 50%; background: var(--info); display:inline-block;"></span>
+          <span style="text-transform: uppercase; letter-spacing: .15em; color: #6ab3d9;">TEST</span>
+        </span>
+      </div>
+    </div>
+    <div class="tabs">
+      <span class="tab">Configuration</span>
+      <span class="tab active">Price IDs <span class="tab-count">8 / 16 set</span></span>
+      <span class="tab">Health</span>
+      <span class="tab">Events</span>
+      <span class="tab alert">Failures <span class="tab-count">3 critical</span></span>
+    </div>
+    <div class="frame-body">
+
+      <div class="label-line"><strong>Test mode</strong> · 8 IDs · 8 set</div>
+      <div style="background: var(--spec-pan); border: 1px solid var(--border-s); border-radius: 6px; padding: 16px; margin-bottom: 24px;">
+        <div class="pid-grid">
+          <div class="head">Plan</div>
+          <div class="head">Monthly</div>
+          <div class="head">Yearly</div>
+
+          <div class="pid-label">Writer<span class="sub">$20 / $192</span></div>
+          <div><input type="text" class="set" value="price_1OmK9JLkdIwHu7ix"></div>
+          <div><input type="text" class="set" value="price_1OmK9YLkdIwHu7iY"></div>
+
+          <div class="pid-label">Author<span class="sub">$50 / $480</span></div>
+          <div><input type="text" class="set" value="price_1OmKAJLkdIwHu7ix"></div>
+          <div><input type="text" class="set" value="price_1OmKAYLkdIwHu7iY"></div>
+
+          <div class="pid-label">Pro<span class="sub">$120 / $1,152</span></div>
+          <div><input type="text" class="set" value="price_1OmKBJLkdIwHu7ix"></div>
+          <div><input type="text" class="set" value="price_1OmKBYLkdIwHu7iY"></div>
+
+          <div class="pid-label">BYOK Solo<span class="sub">$15 / $144</span></div>
+          <div><input type="text" class="set" value="price_1OmKCJLkdIwHu7ix"></div>
+          <div><input type="text" class="set" value="price_1OmKCYLkdIwHu7iY"></div>
+        </div>
+        <div style="display:flex; justify-content: space-between; margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border-s);">
+          <div style="font-size: 10.5px; color: var(--text-m);">Last updated 2026-06-11 14:45 UTC by gavin.a.spain@gmail.com</div>
+          <div class="cfg-actions">
+            <button>Validate against Stripe</button>
+            <button class="save" disabled>Save changes</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="label-line"><strong>Live mode</strong> · 8 IDs · <span style="color: var(--review);">0 set — required before launch</span></div>
+      <div style="background: var(--spec-pan); border: 1px solid var(--border-s); border-radius: 6px; padding: 16px;">
+        <div class="pid-grid">
+          <div class="head">Plan</div>
+          <div class="head">Monthly</div>
+          <div class="head">Yearly</div>
+
+          <div class="pid-label">Writer<span class="sub">$20 / $192</span></div>
+          <div><input type="text" class="empty" placeholder="Not set"></div>
+          <div><input type="text" class="empty" placeholder="Not set"></div>
+
+          <div class="pid-label">Author<span class="sub">$50 / $480</span></div>
+          <div><input type="text" class="empty" placeholder="Not set"></div>
+          <div><input type="text" class="empty" placeholder="Not set"></div>
+
+          <div class="pid-label">Pro<span class="sub">$120 / $1,152</span></div>
+          <div><input type="text" class="empty" placeholder="Not set"></div>
+          <div><input type="text" class="empty" placeholder="Not set"></div>
+
+          <div class="pid-label">BYOK Solo<span class="sub">$15 / $144</span></div>
+          <div><input type="text" class="empty" placeholder="Not set"></div>
+          <div><input type="text" class="empty" placeholder="Not set"></div>
+        </div>
+      </div>
+
+      <div style="margin-top: 24px; padding: 14px 16px; background: var(--spec-pan); border: 1px dashed var(--border-d); border-radius: 6px; font-size: 11.5px; color: var(--text-s); line-height: 1.6;" id="callout-6">
+        <span class="cn" style="position: relative; left: 0; top: -2px; margin-right: 8px;">6</span>
+        <strong>Validate against Stripe</strong> button: calls Stripe API to confirm each non-empty Price ID resolves, reports product name + recurring interval + amount. Catches typos + cadence mismatches (e.g. annual ID pasted in monthly slot) BEFORE the user's Checkout attempt fails.
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================== -->
+<!-- TAB 3 — SUBSCRIPTION HEALTH                                      -->
+<!-- ============================================================== -->
+<div class="section">
+  <div class="slabel">§ 4 · TAB 3 — SUBSCRIPTION HEALTH</div>
+  <div class="intro">
+    Live counters across <code>organisations.subscription_status</code> + recent attention items.
+    All values aggregate over the active window selector (24h / 7d / 30d / all-time).
+    Past-due list is the operational priority: each row has a "Last failure" timestamp + Stripe deep-link
+    so admin can investigate without context-switching.
+  </div>
+
+  <div class="frame">
+    <div class="frame-head">
+      <div><h1>Payments</h1></div>
+      <div style="display:flex; gap: 14px; align-items:center;">
+        <div class="win-sel" style="display:inline-flex; gap:2px; background:var(--surface); border:1px solid var(--border-s); border-radius:5px; padding:2px; font-size:11px;">
+          <span style="padding:3px 10px;">24h</span>
+          <span style="padding:3px 10px; background: var(--selected); color: var(--text-p); border-radius: 3px;">7d</span>
+          <span style="padding:3px 10px;">30d</span>
+          <span style="padding:3px 10px;">all</span>
+        </div>
+      </div>
+    </div>
+    <div class="tabs">
+      <span class="tab">Configuration</span>
+      <span class="tab">Price IDs</span>
+      <span class="tab active">Health <span class="tab-count">128 active</span></span>
+      <span class="tab">Events</span>
+      <span class="tab alert">Failures <span class="tab-count">3 critical</span></span>
+    </div>
+    <div class="frame-body">
+
+      <div class="health-grid">
+        <div class="health-card">
+          <div class="label">Active</div>
+          <div class="value">128</div>
+          <div class="delta">+14 vs prior 7d</div>
+        </div>
+        <div class="health-card">
+          <div class="label">Trialing</div>
+          <div class="value">47</div>
+          <div class="delta">23 expire in &lt;7d</div>
+        </div>
+        <div class="health-card alert">
+          <div class="label"><span class="dot"></span>Past due</div>
+          <div class="value">3</div>
+          <div class="delta">Stripe retrying · gate active</div>
+        </div>
+        <div class="health-card">
+          <div class="label">Cancelled (7d)</div>
+          <div class="value">2</div>
+          <div class="delta">Both reverted to trial</div>
+        </div>
+      </div>
+
+      <div class="sub-block" style="position: relative;">
+        <span class="cn" style="left: -30px; top: 14px;">7</span>
+        <div class="sub-block-head">
+          <span>Past-due orgs · needs attention</span>
+          <div class="actions"><span>Export CSV</span></div>
+        </div>
+        <div class="sub-row head">
+          <div>Organisation</div>
+          <div>Plan</div>
+          <div>Last failure</div>
+          <div style="text-align:right;">Actions</div>
+        </div>
+        <div class="sub-row">
+          <div><div class="org-name">Sarah Chen Writing</div><div class="org-id">org_a2f4b8e1</div></div>
+          <div><span class="plan-pill">Author</span></div>
+          <div><span class="status past_due"><span class="dot"></span>3 days ago</span></div>
+          <div style="text-align:right;"><span class="stripe-link" style="color: var(--text-s);">Open in Stripe ↗</span></div>
+        </div>
+        <div class="sub-row">
+          <div><div class="org-name">Marcus Sturm</div><div class="org-id">org_c7e3a9d2</div></div>
+          <div><span class="plan-pill">Writer</span></div>
+          <div><span class="status past_due"><span class="dot"></span>5 days ago</span></div>
+          <div style="text-align:right;"><span class="stripe-link" style="color: var(--text-s);">Open in Stripe ↗</span></div>
+        </div>
+        <div class="sub-row">
+          <div><div class="org-name">Elena Vasquez</div><div class="org-id">org_d8a1f3b4</div></div>
+          <div><span class="plan-pill">Pro</span></div>
+          <div><span class="status past_due"><span class="dot"></span>1 day ago</span></div>
+          <div style="text-align:right;"><span class="stripe-link" style="color: var(--text-s);">Open in Stripe ↗</span></div>
+        </div>
+      </div>
+
+      <div class="sub-block">
+        <div class="sub-block-head">
+          <span>Trials expiring this week</span>
+          <div class="actions"><span>Notify all</span></div>
+        </div>
+        <div class="sub-row head">
+          <div>Organisation</div>
+          <div>Plan</div>
+          <div>Expires</div>
+          <div style="text-align:right;">Days left</div>
+        </div>
+        <div class="sub-row">
+          <div><div class="org-name">Jacob Reilly</div><div class="org-id">org_f1c8a2b6</div></div>
+          <div><span class="plan-pill">Trial</span></div>
+          <div><span class="status trialling"><span class="dot"></span>2026-06-13</span></div>
+          <div style="text-align:right; color: var(--text-s);">2</div>
+        </div>
+        <div class="sub-row">
+          <div><div class="org-name">Tobias Reid</div><div class="org-id">org_b3d9e4c7</div></div>
+          <div><span class="plan-pill">Trial</span></div>
+          <div><span class="status trialling"><span class="dot"></span>2026-06-15</span></div>
+          <div style="text-align:right; color: var(--text-s);">4</div>
+        </div>
+        <div class="sub-row">
+          <div><div class="org-name">Priya Singh</div><div class="org-id">org_g5h2i8j4</div></div>
+          <div><span class="plan-pill">Trial</span></div>
+          <div><span class="status trialling"><span class="dot"></span>2026-06-17</span></div>
+          <div style="text-align:right; color: var(--text-s);">6</div>
+        </div>
+      </div>
+
+      <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 18px;" id="callout-8">
+        <div style="background: var(--spec-pan); border: 1px solid var(--border-s); border-radius: 6px; padding: 14px 16px; position: relative;">
+          <span class="cn" style="left: 8px; top: 8px;">8</span>
+          <div style="margin-left: 30px;">
+            <div style="font-size: 10px; letter-spacing: .25em; text-transform: uppercase; color: var(--text-m); margin-bottom: 8px;">Webhook ingestion lag</div>
+            <div style="font-size: 22px; font-weight: 600; color: var(--text-p);">11 seconds</div>
+            <div style="font-size: 11px; color: var(--text-m); margin-top: 4px;">Last event 11s ago · expected &lt; 60s · healthy</div>
+          </div>
+        </div>
+        <div style="background: var(--spec-pan); border: 1px solid var(--border-s); border-radius: 6px; padding: 14px 16px;">
+          <div style="font-size: 10px; letter-spacing: .25em; text-transform: uppercase; color: var(--text-m); margin-bottom: 8px;">MRR · estimated</div>
+          <div style="font-size: 22px; font-weight: 600; color: var(--text-p);">$6,860</div>
+          <div style="font-size: 11px; color: var(--text-m); margin-top: 4px;">Σ active subs × plan price. Stripe Dashboard ↗ for canonical figure.</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================== -->
+<!-- TAB 4 — EVENTS                                                   -->
+<!-- ============================================================== -->
+<div class="section">
+  <div class="slabel">§ 5 · TAB 4 — EVENTS</div>
+  <div class="intro">
+    Searchable view of <code>subscription_events</code>. Filter by org / event type / date / mode.
+    Each row click expands metadata JSON (matches the audit-log viewer's pattern). Stripe Dashboard
+    deep-link per row at <code>https://dashboard.stripe.com/{mode}/events/{stripe_event_id}</code>.
+    Re-replay is intentionally NOT exposed — Stripe handles webhook retries automatically and re-replay
+    from our side would re-process via the idempotency UNIQUE index (no-op).
+  </div>
+
+  <div class="frame">
+    <div class="frame-head">
+      <div><h1>Payments</h1></div>
+      <div style="display:flex; gap: 14px; align-items:center; font-size: 11px;">
+        <span class="dim">Filter:</span>
+        <div style="background: var(--surface); border: 1px solid var(--border-s); border-radius: 5px; padding: 4px 10px; font-size: 11px;">All event types</div>
+        <div style="background: var(--surface); border: 1px solid var(--border-s); border-radius: 5px; padding: 4px 10px; font-size: 11px;">All orgs</div>
+      </div>
+    </div>
+    <div class="tabs">
+      <span class="tab">Configuration</span>
+      <span class="tab">Price IDs</span>
+      <span class="tab">Health</span>
+      <span class="tab active">Events <span class="tab-count">1,247 in 7d</span></span>
+      <span class="tab alert">Failures <span class="tab-count">3 critical</span></span>
+    </div>
+    <div class="frame-body">
+
+      <div style="border: 1px solid var(--border-s); border-radius: 6px; overflow: hidden;">
+        <div class="evt-row head">
+          <div>Time</div>
+          <div>Event type</div>
+          <div>Organisation</div>
+          <div>Metadata preview</div>
+          <div style="text-align: right;">Stripe</div>
+        </div>
+        <div class="evt-row">
+          <div class="time-cell">2m ago</div>
+          <div class="etype">customer.subscription.updated</div>
+          <div><div class="org-name">Sarah Chen Writing</div><div class="org-id">org_a2f4b8e1</div></div>
+          <div class="meta-prev">mapped_plan: author · cadence: yearly · status: active</div>
+          <div style="text-align: right;"><span class="stripe-link">evt_1OmK ↗</span></div>
+        </div>
+        <div class="evt-row">
+          <div class="time-cell">5m ago</div>
+          <div class="etype">invoice.payment_succeeded</div>
+          <div><div class="org-name">Marcus Sturm</div><div class="org-id">org_c7e3a9d2</div></div>
+          <div class="meta-prev">invoice_id: in_1OmK · amount_paid: 2000 · currency: usd</div>
+          <div style="text-align: right;"><span class="stripe-link">evt_1OmK ↗</span></div>
+        </div>
+        <div class="evt-row">
+          <div class="time-cell">8m ago</div>
+          <div class="etype" style="color: #d9a86a;">invoice.payment_failed</div>
+          <div><div class="org-name">Elena Vasquez</div><div class="org-id">org_d8a1f3b4</div></div>
+          <div class="meta-prev">attempt_count: 2 · next_attempt: 2026-06-12 14:30 UTC</div>
+          <div style="text-align: right;"><span class="stripe-link">evt_1OmK ↗</span></div>
+        </div>
+        <div class="evt-row">
+          <div class="time-cell">14m ago</div>
+          <div class="etype">checkout.session.completed</div>
+          <div><div class="org-name">Jacob Reilly</div><div class="org-id">org_f1c8a2b6</div></div>
+          <div class="meta-prev">subscription_id: sub_1OmK · amount_total: 5000 · mode: subscription</div>
+          <div style="text-align: right;"><span class="stripe-link">evt_1OmK ↗</span></div>
+        </div>
+        <div class="evt-row">
+          <div class="time-cell">22m ago</div>
+          <div class="etype" style="color: #d98080;">charge.dispute.created</div>
+          <div><div class="org-name">Tobias Reid</div><div class="org-id">org_b3d9e4c7</div></div>
+          <div class="meta-prev">dispute_id: dp_1OmK · reason: fraudulent · amount: 12000</div>
+          <div style="text-align: right;"><span class="stripe-link">evt_1OmK ↗</span></div>
+        </div>
+        <div class="evt-row">
+          <div class="time-cell">31m ago</div>
+          <div class="etype">customer.created</div>
+          <div><div class="org-name">Priya Singh</div><div class="org-id">org_g5h2i8j4</div></div>
+          <div class="meta-prev">customer_id: cus_1OmK · email: priya@example.com</div>
+          <div style="text-align: right;"><span class="stripe-link">evt_1OmK ↗</span></div>
+        </div>
+        <div class="evt-row" style="background: var(--deep);">
+          <div style="grid-column: 1/-1; padding: 14px 0;">
+            <pre style="font-family:'JetBrains Mono',monospace; font-size:10.5px; color:var(--text-s); white-space:pre-wrap; line-height: 1.6;">{
+  "subscription_id": "sub_1OmKAJLkdIwHu7ix",
+  "stripe_price_id": "price_1OmKAYLkdIwHu7iY",
+  "mapped_plan": "author",
+  "cadence": "yearly",
+  "status": "active",
+  "byok_enabled": false,
+  "current_period_start": "2026-06-11T14:43:21Z"
+}</pre>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:flex; justify-content: center; padding: 18px 0 4px; gap: 12px;">
+        <button class="btn-add">Load more (1,241 older)</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================== -->
+<!-- TAB 5 — FAILURES                                                 -->
+<!-- ============================================================== -->
+<div class="section">
+  <div class="slabel">§ 6 · TAB 5 — FAILURES</div>
+  <div class="intro">
+    Focused error surfaces. Three sub-sections: <strong>Webhook delivery failures</strong> (signature invalid + audit_write_failed),
+    <strong>Disputes + refunds</strong> (require human intervention), <strong>Past-due history</strong> (long-term view of orgs that recovered).
+    Every row links to the Stripe Dashboard event + the org's <code>/admin/organisations/{id}</code> view (V1.x-E).
+  </div>
+
+  <div class="frame">
+    <div class="frame-head">
+      <div><h1>Payments</h1></div>
+    </div>
+    <div class="tabs">
+      <span class="tab">Configuration</span>
+      <span class="tab">Price IDs</span>
+      <span class="tab">Health</span>
+      <span class="tab">Events</span>
+      <span class="tab alert active">Failures <span class="tab-count">3 critical</span></span>
+    </div>
+    <div class="frame-body">
+
+      <div class="label-line"><strong>Disputes + refunds</strong> · 2 open · last 30d</div>
+
+      <div class="fail-card critical" style="position: relative;">
+        <span class="cn" style="left: -30px; top: 12px;">9</span>
+        <div class="head">
+          <div class="title">Dispute · fraudulent · $120.00</div>
+          <div class="time">22 minutes ago · org_b3d9e4c7</div>
+        </div>
+        <div class="body">
+          Stripe received a fraudulent-charge dispute from <strong>Tobias Reid</strong>'s issuing bank.
+          Stripe automatically debited <code>$120.00</code> from your account pending evidence.
+          <strong>Action required:</strong> respond by 2026-06-25 with evidence (subscription proof, prior valid charges, product access logs) in the Stripe Dashboard, or accept the dispute and forfeit the funds.
+        </div>
+        <div class="meta">
+          <span>Dispute ID: <code style="font-family:'JetBrains Mono',monospace;">dp_1OmKLZ</code></span>
+          <span><a href="#" style="color: var(--text-s);">Open in Stripe ↗</a></span>
+          <span><a href="#" style="color: var(--text-s);">View org ↗</a></span>
+        </div>
+      </div>
+
+      <div class="fail-card" style="position: relative;">
+        <span class="cn" style="left: -30px; top: 12px;">10</span>
+        <div class="head">
+          <div class="title">Refund · partial · $20.00 of $50.00</div>
+          <div class="time">3 hours ago · org_a2f4b8e1</div>
+        </div>
+        <div class="body">
+          You issued a partial refund via Stripe Dashboard. Org's <code>subscription_status</code> is unchanged (still <code>active</code>).
+          No action required — this is an observation record. Audit log entry written with <code>severity='high'</code>.
+        </div>
+        <div class="meta">
+          <span>Charge ID: <code style="font-family:'JetBrains Mono',monospace;">ch_1OmKAB</code></span>
+          <span><a href="#" style="color: var(--text-s);">Open in Stripe ↗</a></span>
+        </div>
+      </div>
+
+      <div class="label-line" style="margin-top: 28px;"><strong>Webhook delivery failures</strong> · 1 in 7d</div>
+
+      <div class="fail-card">
+        <div class="head">
+          <div class="title">Signature verification failed · 1 occurrence</div>
+          <div class="time">2 days ago · 14:23 UTC</div>
+        </div>
+        <div class="body">
+          Stripe sent a webhook with a signature that did not match <code>stripe.webhook_secret_test</code>.
+          Stripe will retry up to 8 times with exponential backoff over 3 days; this event has since
+          succeeded on retry.
+          <br><br>
+          Common causes: webhook secret was rotated mid-flight; the deployment that received this event was running an old config cache. <strong>No action required</strong> if you don't see further occurrences.
+        </div>
+        <div class="meta">
+          <span>Event ID: <code style="font-family:'JetBrains Mono',monospace;">evt_1OmKXY</code></span>
+          <span><a href="#" style="color: var(--text-s);">View raw ↗</a></span>
+        </div>
+      </div>
+
+      <div class="label-line" style="margin-top: 28px;"><strong>Past-due recovery history</strong> · 7 in 30d (5 recovered · 2 cancelled)</div>
+      <div class="placeholder">
+        Last-30-day timeline of orgs that went past_due. Each row: org · went past_due at · recovered/cancelled at · outcome.<br>
+        Implementation: query <code>subscription_events</code> for past_due→active transitions per org.
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================== -->
+<!-- PAST-DUE BANNER ON /settings/plan                                 -->
+<!-- ============================================================== -->
+<div class="section">
+  <div class="slabel">§ 7 · PAST-DUE BANNER (user-side, /settings/plan)</div>
+  <div class="intro">
+    Surfaces on the user's own <code>/settings/plan</code> page when <code>subscription_status='past_due'</code>.
+    Single prominent "Update payment" CTA links to the Stripe Customer Portal where they can change card
+    details. Until rectified, Director and agent dispatch are blocked (writing continues).
+    A second banner fires elsewhere in-app (Director panel + project tree) explaining the LLM cutoff briefly.
+  </div>
+
+  <div class="pdb" style="position: relative;">
+    <span class="cn" style="left: -30px; top: 14px;">11</span>
+    <div class="pdb-h">
+      <span class="dot"></span>
+      <span>Payment failed</span>
+    </div>
+    <div class="pdb-b">
+      Your last payment didn't go through. We've paused Director and agent access until your card is updated.
+      You can keep writing and editing — your work is safe. <strong>Update payment within 7 days</strong>
+      to keep your account active.
+    </div>
+    <a href="#" class="pdb-a">Update payment</a>
+    <div style="font-size: 10.5px; color: var(--text-m); margin-top: 10px;">
+      Last attempted: 2026-06-08 · Next retry: 2026-06-12 · Stripe will retry your card up to 4 times.
+    </div>
+  </div>
+
+  <div style="font-size: 11.5px; color: var(--text-m); margin-top: 14px; max-width: 740px; line-height: 1.65;">
+    <strong style="color: var(--text-p);">In-Director banner</strong> (when user opens Director while past_due):
+    "Director is paused while your payment is being updated. <a href="#" style="color: var(--text-s);">Update payment →</a>"
+  </div>
+</div>
+
+<!-- ============================================================== -->
+<!-- CALLOUTS                                                         -->
+<!-- ============================================================== -->
+<div class="section">
+  <div class="slabel">§ 8 · NUMBERED CALLOUTS</div>
+  <div class="callout-list">
+    <div><span class="cn">1</span><strong>Mode swap</strong> — `stripe.mode` flip is instant; the validator re-runs on next API call to check the new mode's keys are populated. If they aren't, Checkout returns 503 with explicit `missing` list (existing behaviour).</div>
+    <div><span class="cn">2</span><strong>API version extraction</strong> — removes the only hardcoded payment parameter in the codebase. M-223 adds the config key with the current `'2026-05-27.dahlia'` as default; `lib/stripe/client.ts` reads it at client construction. Drift-guard test forbids `apiVersion:` literals.</div>
+    <div><span class="cn">3</span><strong>Checkout option keys</strong> — three new keys (automatic_tax_enabled, allow_promotion_codes, billing_address_collection) read by `createCheckoutSession`. Defaults preserve current behaviour. Validator extends to require these alongside the existing 12 (mode + 8 Price IDs + webhook secret + api_version + 3 new = 13 active checks).</div>
+    <div><span class="cn">4</span><strong>Currency display</strong> — explicit read-only field with V1=USD lock and "Multi-currency support — V2" note. Prevents the silent assumption that "we support whatever Stripe supports".</div>
+    <div><span class="cn">5</span><strong>Grace gate semantics</strong> — `billing.payment_failure_grace_days` becomes live. Past-due gate cuts LLM immediately but preserves app access for N days. After N days the org gets the trial-expiry-style hard cutoff (not implemented in V1 wireframe; ship the soft cutoff first, hard cutoff is V1.x).</div>
+    <div><span class="cn">6</span><strong>Validate-against-Stripe</strong> — admin action that hits Stripe's `prices.retrieve` for every non-empty Price ID and reports back: product name + recurring interval + amount + currency. Catches typos + cadence mismatches at admin-config time, BEFORE the user fails Checkout. Implementation: server action calling `stripe.prices.retrieve()` per ID with timeout.</div>
+    <div><span class="cn">7</span><strong>Past-due list ordering</strong> — by last-failure-time ASC (longest in past_due at top). Stripe Smart Retries typically span ~14 days; orgs at the top are closest to forced cancellation.</div>
+    <div><span class="cn">8</span><strong>Webhook ingestion lag</strong> — `NOW() - max(subscription_events.created_at)`. Healthy threshold &lt; 60s. Spikes indicate Vercel cold starts, Stripe outages, or webhook-handler bugs.</div>
+    <div><span class="cn">9</span><strong>Dispute card</strong> — `--error` border + critical severity. Pre-formatted to the standard Stripe dispute timeline (admin has ~14 days to respond with evidence). Surfaces the response deadline explicitly.</div>
+    <div><span class="cn">10</span><strong>Refund card</strong> — `--review` border (high but not critical). Refunds are admin-initiated; this is observational, not actionable.</div>
+    <div><span class="cn">11</span><strong>Past-due banner copy</strong> — emphasises "your work is safe" (matches the writing-never-blocks ethos) and "7 days" (matches `billing.payment_failure_grace_days`). The dynamic value reads from config so changing the grace updates the copy.</div>
+  </div>
+</div>
+
+<!-- ============================================================== -->
+<!-- OPEN DECISIONS                                                   -->
+<!-- ============================================================== -->
+<div class="section">
+  <div class="slabel">§ 9 · OPEN DECISIONS</div>
+  <div class="od-grid">
+    <div class="od">
+      <strong>D1 · Webhook secret edit flow</strong>
+      The wireframe shows the secret as a password field with a "Reveal" + "Edit" button. Should editing require re-confirmation (type the new secret twice, or require typing the current secret first)?
+      <div class="opt"><b>D1.a</b> Type new twice — standard pattern</div>
+      <div class="opt"><b>D1.b</b> Type current secret to unlock edit — higher friction, fewer accidents</div>
+      <div class="opt"><b>D1.c</b> No re-confirmation — trust the admin allowlist</div>
+      <div class="rec">Recommend D1.a</div>
+    </div>
+    <div class="od">
+      <strong>D2 · Trial duration change retroactivity</strong>
+      Current copy reads "Existing trials are NOT retroactively changed". Should there be a "Recompute existing trials" admin action that resets `trial_expires_at = signup_at + NEW_duration` for all current trials?
+      <div class="opt"><b>D2.a</b> Never retroactive — minimum surprise</div>
+      <div class="opt"><b>D2.b</b> Admin action with confirmation — flexible but dangerous</div>
+      <div class="rec">Recommend D2.a (and document the action exists as V1.x escape hatch)</div>
+    </div>
+    <div class="od">
+      <strong>D3 · MRR calculation source</strong>
+      Tab 3 shows an "MRR · estimated" card. Calculate from our DB (count active subs × plan price) or via Stripe API call (canonical but rate-limit-sensitive)?
+      <div class="opt"><b>D3.a</b> DB calculation — fast, no Stripe call; estimate may drift from Stripe's view by &lt; 1%</div>
+      <div class="opt"><b>D3.b</b> Stripe API call cached 5min — canonical but adds API dependency</div>
+      <div class="rec">Recommend D3.a with explicit "estimated" label + Stripe deep-link</div>
+    </div>
+    <div class="od">
+      <strong>D4 · Past-due gate enforcement layer</strong>
+      The user said "LLM access cuts immediately". Implement at: (a) credit gate `checkTokenBudget` — same layer as today; (b) `(app)/layout.tsx` — early return like trial-expiry; (c) both?
+      <div class="opt"><b>D4.a</b> Credit gate only — Director route refuses; user sees the existing 402 error</div>
+      <div class="opt"><b>D4.b</b> Layout — full app rendered but Director button disabled across all surfaces</div>
+      <div class="opt"><b>D4.c</b> Both — defence in depth + clearer UX</div>
+      <div class="rec">Recommend D4.c</div>
+    </div>
+    <div class="od">
+      <strong>D5 · Refund/dispute audit_log severity</strong>
+      Wireframe shows dispute = `critical`, refund = `high`. Confirm or adjust.
+      <div class="opt"><b>D5.a</b> As shown</div>
+      <div class="opt"><b>D5.b</b> Both critical — disputes AND refunds need attention</div>
+      <div class="rec">Recommend D5.a (refund was admin-initiated; not surprising)</div>
+    </div>
+    <div class="od">
+      <strong>D6 · Notify trial-ending users</strong>
+      Tab 3 shows "Notify all" on the trials-expiring list. Send what — Stripe trial-ending email (built-in), our own email, both?
+      <div class="opt"><b>D6.a</b> Rely on Stripe's `customer.subscription.trial_will_end` automated email (3 days before)</div>
+      <div class="opt"><b>D6.b</b> Custom email through our own provider (V1.x — needs email infrastructure not yet shipped)</div>
+      <div class="opt"><b>D6.c</b> Defer the Notify button entirely from V1 wireframe</div>
+      <div class="rec">Recommend D6.a now + D6.c hide the button (Stripe handles it)</div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================== -->
+<!-- INVIOLABLE AUDIT                                                 -->
+<!-- ============================================================== -->
+<div class="section">
+  <div class="slabel">§ 10 · INVIOLABLE AUDIT</div>
+  <div class="inv-audit">
+    <strong>None of the Six Inviolables are touched by this wireframe.</strong> Admin payments page mounts under <code>/admin/payments</code> (Inter only); no Lora; no verdigris; no Cinzel; no Cormorant Garamond italic; no prose editor; the past-due banner uses <code>--color-status-review</code> (existing token; same colour as queued status).
+    <table>
+      <tr>
+        <th>Inviolable</th>
+        <th>This wireframe</th>
+      </tr>
+      <tr><td>#1 Prose surface lowest-noise</td><td>N/A — no prose surface</td></tr>
+      <tr><td>#2 Verdigris exactly 12 places</td><td>Zero verdigris uses anywhere on this page or banner</td></tr>
+      <tr><td>#3 Cinzel only in wordmark</td><td>Wordmark mount preserved; no other Cinzel</td></tr>
+      <tr><td>#4 Typeface panel boundary</td><td>Inter everywhere; no Lora</td></tr>
+      <tr><td>#5 No prose toolbar</td><td>N/A — no prose editor</td></tr>
+      <tr><td>#6 Cormorant Garamond italic only in wordmark</td><td>Wordmark mount preserved; no other use</td></tr>
+    </table>
+  </div>
+</div>
+
+</body>
+</html>

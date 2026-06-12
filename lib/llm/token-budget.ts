@@ -71,6 +71,20 @@ export async function checkTokenBudget(
 
   const supabase = createServiceRoleClient()
 
+  // Phase 9.B admin payments (D4.c) — past-due gate. Orgs with a paid
+  // subscription whose last invoice failed lose LLM access immediately;
+  // general app + writing access is preserved (the layout surfaces a
+  // banner with the Manage subscription CTA). This is layer 1 of the
+  // defence-in-depth gate; layer 2 is in app/(app)/layout.tsx.
+  const { data: subStatusRow } = await supabase
+    .from('organisations')
+    .select('subscription_status')
+    .eq('id', organisation.id)
+    .maybeSingle()
+  if (subStatusRow?.subscription_status === 'past_due') {
+    return false
+  }
+
   const { data: orgRow, error: orgErr } = await supabase
     .from('organisations')
     .select('token_allocation_credits, token_usage_credits')

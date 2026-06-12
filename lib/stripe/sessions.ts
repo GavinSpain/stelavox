@@ -14,7 +14,12 @@
 
 import { getStripeClient } from './client'
 import type { StripeCadence, StripePlanSlug } from './config'
-import { DEFAULT_CADENCE, getStripeMode, getStripePriceId } from './config'
+import {
+  DEFAULT_CADENCE,
+  getCheckoutOptions,
+  getStripeMode,
+  getStripePriceId,
+} from './config'
 
 /**
  * Create a Stripe Checkout Session for a new subscription. Returns the
@@ -36,6 +41,8 @@ export async function createCheckoutSession(args: {
     )
   }
 
+  const options = await getCheckoutOptions()
+
   const stripe = await getStripeClient()
   const session = await stripe.checkout.sessions.create({
     mode: 'subscription',
@@ -48,6 +55,9 @@ export async function createCheckoutSession(args: {
     ],
     success_url: `${args.returnBaseUrl}/settings/plan?stripe_status=success`,
     cancel_url: `${args.returnBaseUrl}/settings/plan?stripe_status=cancelled`,
+    allow_promotion_codes: options.allowPromotionCodes,
+    billing_address_collection: options.billingAddressCollection,
+    automatic_tax: options.automaticTaxEnabled ? { enabled: true } : undefined,
     metadata: {
       organisation_id: args.organisationId,
       plan: args.plan,

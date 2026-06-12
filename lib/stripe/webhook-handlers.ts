@@ -298,6 +298,152 @@ export async function handleInvoicePaymentFailed(
 }
 
 /**
+ * Phase 9.B admin payments (C.3) — `charge.dispute.created`.
+ *
+ * Disputes require human action: respond with evidence within Stripe's
+ * timeline (~14 days) or accept the chargeback. Handler writes a
+ * critical-severity audit_log entry so the admin Failures tab can
+ * surface it; no auto-action — the admin opens Stripe Dashboard for
+ * the evidence flow.
+ */
+export async function handleChargeDisputeCreated(
+  event: Stripe.ChargeDisputeCreatedEvent,
+): Promise<WebhookHandlerOutcome> {
+  const dispute = event.data.object
+  const orgId =
+    typeof dispute.charge === 'string'
+      ? await findOrgByCustomerOrCharge(dispute.charge)
+      : null
+
+  if (orgId) {
+    const svc = createServiceRoleClient()
+    await svc.from('audit_log').insert({
+      organisation_id: orgId,
+      event_type: 'stripe_dispute_created',
+      severity: 'critical',
+      metadata: {
+        dispute_id: dispute.id,
+        charge_id: dispute.charge,
+        amount: dispute.amount,
+        currency: dispute.currency,
+        reason: dispute.reason,
+        status: dispute.status,
+        evidence_due_by: dispute.evidence_details?.due_by ?? null,
+      },
+    })
+  }
+
+  return {
+    organisationId: orgId,
+    audit: {
+      dispute_id: dispute.id,
+      amount: dispute.amount,
+      reason: dispute.reason,
+      status: dispute.status,
+    },
+  }
+}
+
+/**
+ * Phase 9.B admin payments (C.3) — `charge.refunded`.
+ *
+ * Refunds are admin-initiated (issued via Stripe Dashboard) — recording
+ * as observation, not action. severity='high' (D5.a lock).
+ */
+export async function handleChargeRefunded(
+  event: Stripe.ChargeRefundedEvent,
+): Promise<WebhookHandlerOutcome> {
+  const charge = event.data.object
+  const orgId =
+    typeof charge.customer === 'string'
+      ? await findOrgByCustomer(charge.customer)
+      : null
+
+  if (orgId) {
+    const svc = createServiceRoleClient()
+    await svc.from('audit_log').insert({
+      organisation_id: orgId,
+      event_type: 'stripe_charge_refunded',
+      severity: 'high',
+      metadata: {
+        charge_id: charge.id,
+        amount_refunded: charge.amount_refunded,
+        amount: charge.amount,
+        currency: charge.currency,
+        refunded: charge.refunded,
+      },
+    })
+  }
+
+  return {
+    organisationId: orgId,
+    audit: {
+      charge_id: charge.id,
+      amount_refunded: charge.amount_refunded,
+      amount: charge.amount,
+    },
+  }
+}
+
+/**
+ * Phase 9.B admin payments (C.3) — `invoice.payment_action_required`.
+ *
+ * 3D Secure / SCA — Stripe needs the customer to complete an
+ * authentication step. severity='high'; Stripe sends the customer an
+ * email with the action link by default.
+ */
+export async function handleInvoicePaymentActionRequired(
+  event: Stripe.InvoicePaymentActionRequiredEvent,
+): Promise<WebhookHandlerOutcome> {
+  const invoice = event.data.object
+  const orgId =
+    typeof invoice.customer === 'string'
+      ? await findOrgByCustomer(invoice.customer)
+      : null
+
+  if (orgId) {
+    const svc = createServiceRoleClient()
+    await svc.from('audit_log').insert({
+      organisation_id: orgId,
+      event_type: 'stripe_payment_action_required',
+      severity: 'high',
+      metadata: {
+        invoice_id: invoice.id,
+        amount_due: invoice.amount_due,
+        hosted_invoice_url: invoice.hosted_invoice_url,
+      },
+    })
+  }
+
+  return {
+    organisationId: orgId,
+    audit: {
+      invoice_id: invoice.id,
+      amount_due: invoice.amount_due,
+    },
+  }
+}
+
+/** Resolve org by customer OR by the charge's customer. */
+async function findOrgByCustomerOrCharge(
+  chargeOrCustomerId: string,
+): Promise<string | null> {
+  const svc = createServiceRoleClient()
+  if (chargeOrCustomerId.startsWith('cus_')) {
+    const { data } = await svc
+      .from('organisations')
+      .select('id')
+      .eq('stripe_customer_id', chargeOrCustomerId)
+      .maybeSingle()
+    return data?.id ?? null
+  }
+  // It's a charge ID — need to look up the charge's customer via Stripe.
+  // For V1 we punt and just return null; the audit row stores the
+  // charge_id so an admin can resolve manually.
+  return null
+}
+
+/**
  * Non-state-changing events — recorded for observability but no DB
  * mutation. customer.{created,updated}, invoice.upcoming,
  * payment_method.attached, customer.subscription.trial_will_end.
