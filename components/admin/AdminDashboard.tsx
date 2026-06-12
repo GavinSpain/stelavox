@@ -264,6 +264,18 @@ export function AdminDashboard() {
           </h1>
           <div style={{ fontSize: '12px', color: 'var(--color-text-tertiary)' }}>
             Live operations · refreshes every 30s · window: {data.window}
+            <a
+              href="/admin/payments"
+              style={{
+                marginLeft: 14,
+                color: 'var(--color-text-secondary)',
+                textDecoration: 'none',
+                borderBottom: '1px dotted var(--color-text-muted)',
+              }}
+              data-testid="admin-payments-link"
+            >
+              → Payments
+            </a>
           </div>
         </div>
         <WindowTabs current={windowKey} onChange={setWindowKey} />
