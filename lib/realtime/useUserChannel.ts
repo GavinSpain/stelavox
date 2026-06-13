@@ -38,7 +38,7 @@ import { REALTIME_TOPICS, dispatch, type RealtimeTopic } from './demuxer'
 
 export type RealtimeChannelStatus = 'connecting' | 'connected' | 'reconnecting' | 'failed'
 
-let globalStatusListeners: Set<(s: RealtimeChannelStatus) => void> = new Set()
+const globalStatusListeners: Set<(s: RealtimeChannelStatus) => void> = new Set()
 let globalStatus: RealtimeChannelStatus = 'connecting'
 
 function setGlobalStatus(status: RealtimeChannelStatus): void {

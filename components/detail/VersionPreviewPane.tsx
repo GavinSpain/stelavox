@@ -252,7 +252,11 @@ export function VersionPreviewPane({ nodeId, selectedVersion, getVersionFull }: 
   useEffect(() => {
     let cancelled = false
     if (selectedVersion === null) {
+      // Input-driven reset (deselect clears the pane) — legitimate, same
+      // convention as the setLoading below and useDirectorConversation.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setFull(null)
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setLoading(false)
       return () => { cancelled = true }
     }

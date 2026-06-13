@@ -570,7 +570,7 @@ test.describe('reconcile_orchestration_state recovery rules', () => {
       })
 
     // Before reconcile: workflow is stuck running with all-terminal step.
-    let { data: before } = await admin.from('workflows').select('state').eq('id', wf!.id as string).single()
+    const { data: before } = await admin.from('workflows').select('state').eq('id', wf!.id as string).single()
     expect((before as unknown as { state: string }).state).toBe('running')
 
     await admin.rpc('reconcile_orchestration_state')
