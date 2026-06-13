@@ -84,6 +84,7 @@ export async function setProgressCompleted(
     storage_path,
     signed_url,
     signed_url_expires_at,
+    file_size_bytes: output_size_bytes,   // DR-121 — admin storage aggregation
     completed_at: new Date().toISOString(),
     last_active_at: new Date().toISOString(),
   }).eq('id', exportJobId)

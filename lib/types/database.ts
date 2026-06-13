@@ -1329,6 +1329,7 @@ export type Database = {
           document_id: string
           error_message: string | null
           file_name: string | null
+          file_size_bytes: number | null
           format: string
           id: string
           last_active_at: string | null
@@ -1350,6 +1351,7 @@ export type Database = {
           document_id: string
           error_message?: string | null
           file_name?: string | null
+          file_size_bytes?: number | null
           format: string
           id?: string
           last_active_at?: string | null
@@ -1371,6 +1373,7 @@ export type Database = {
           document_id?: string
           error_message?: string | null
           file_name?: string | null
+          file_size_bytes?: number | null
           format?: string
           id?: string
           last_active_at?: string | null
@@ -3242,6 +3245,7 @@ export type Database = {
         Args: { p_document_id: string; p_goal_text: string; p_stages: Json }
         Returns: Json
       }
+      admin_ops_infra_health: { Args: never; Returns: Json }
       agent_jobs_derive_state: {
         Args: { p_queue_status: string; p_status: string }
         Returns: string
