@@ -11,7 +11,31 @@
  */
 
 import { useRouter, useSearchParams } from 'next/navigation'
-import { useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+
+/**
+ * Transient "Saved" confirmation. Returns a boolean that flips true on
+ * `markSaved()` and clears itself after `durationMs`. Replaces the prior
+ * `savedAt` timestamp + `Date.now()`-in-render check, which (a) called an
+ * impure function during render and (b) never actually hid the label,
+ * since nothing scheduled a re-render at the expiry mark.
+ */
+function useJustSaved(durationMs = 4000): [boolean, () => void] {
+  const [justSaved, setJustSaved] = useState(false)
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(
+    () => () => {
+      if (timer.current) clearTimeout(timer.current)
+    },
+    [],
+  )
+  const markSaved = useCallback(() => {
+    setJustSaved(true)
+    if (timer.current) clearTimeout(timer.current)
+    timer.current = setTimeout(() => setJustSaved(false), durationMs)
+  }, [durationMs])
+  return [justSaved, markSaved]
+}
 
 import type {
   AdminPaymentsData,
@@ -442,7 +466,7 @@ function InlineConfigEditor({ configKey, initialValue }: InlineEditorProps) {
   const [confirm, setConfirm] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [savedAt, setSavedAt] = useState<number | null>(null)
+  const [justSaved, markSaved] = useJustSaved()
 
   const isSecret = configKey.startsWith('stripe.webhook_secret_')
   const isBool = configKey.startsWith('stripe.checkout.') && configKey.endsWith('_enabled')
@@ -474,7 +498,7 @@ function InlineConfigEditor({ configKey, initialValue }: InlineEditorProps) {
         setError(json.error ?? 'save failed')
         return
       }
-      setSavedAt(Date.now())
+      markSaved()
       setConfirm('')
       router.refresh()
     } finally {
@@ -537,7 +561,7 @@ function InlineConfigEditor({ configKey, initialValue }: InlineEditorProps) {
       {error ? (
         <div style={{ fontSize: 10.5, color: 'var(--color-error)' }}>{error}</div>
       ) : null}
-      {savedAt && Date.now() - savedAt < 4000 ? (
+      {justSaved ? (
         <div style={{ fontSize: 10.5, color: 'var(--color-success, #3a8a5a)' }}>
           Saved
         </div>
@@ -781,7 +805,7 @@ function PriceIdCell({ entry }: { entry: PriceIdEntry | undefined }) {
   const [draft, setDraft] = useState(entry?.priceId ?? '')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [savedAt, setSavedAt] = useState<number | null>(null)
+  const [justSaved, markSaved] = useJustSaved()
 
   if (!entry) {
     return <div style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>—</div>
@@ -806,7 +830,7 @@ function PriceIdCell({ entry }: { entry: PriceIdEntry | undefined }) {
         setError(json.error ?? 'save failed')
         return
       }
-      setSavedAt(Date.now())
+      markSaved()
       router.refresh()
     } finally {
       setSaving(false)
@@ -840,7 +864,7 @@ function PriceIdCell({ entry }: { entry: PriceIdEntry | undefined }) {
       {error ? (
         <div style={{ fontSize: 10, color: 'var(--color-error)' }}>{error}</div>
       ) : null}
-      {savedAt && Date.now() - savedAt < 4000 ? (
+      {justSaved ? (
         <div style={{ fontSize: 10, color: 'var(--color-success, #3a8a5a)' }}>Saved</div>
       ) : null}
     </div>

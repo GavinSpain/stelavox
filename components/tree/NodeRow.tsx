@@ -28,7 +28,7 @@
 // for "progress toward target" — same conceptual use as the WordCount
 // component, just the per-row variant in the tree).
 
-import { createContext, useContext, useRef, useState } from 'react'
+import { createContext, useCallback, useContext, useRef, useState } from 'react'
 import { useLongPress } from '@/lib/touch/useLongPress'
 import type { NodeRendererProps } from 'react-arborist'
 import { NodeStatusBadge } from './NodeStatusBadge'
@@ -132,6 +132,19 @@ export function NodeRow({ node, style, dragHandle }: NodeRendererProps<ArboristN
 
   const didLongPressRef = useRef(false)
   const rowElRef = useRef<HTMLDivElement | null>(null)
+
+  // Merge react-arborist's dragHandle ref with our own rowElRef. Memoised
+  // so the ref work isn't analysed as a render-time side effect (the
+  // callback only runs at commit). react-arborist types dragHandle as a
+  // callback ref — `(el) => void` — so there's no mutable-ref-object case.
+  const setRowRef = useCallback(
+    (el: HTMLDivElement | null) => {
+      dragHandle?.(el)
+      rowElRef.current = el
+    },
+    [dragHandle],
+  )
+
   const longPressHandlers = useLongPress({
     onContextMenu: () => {
       didLongPressRef.current = true
@@ -144,11 +157,7 @@ export function NodeRow({ node, style, dragHandle }: NodeRendererProps<ArboristN
 
   return (
     <div
-      ref={(el) => {
-        if (typeof dragHandle === 'function') dragHandle(el)
-        else if (dragHandle) (dragHandle as { current: HTMLDivElement | null }).current = el
-        rowElRef.current = el
-      }}
+      ref={setRowRef}
       aria-label={`${data.name ?? '(untitled)'}, ${data.status}`}
       onClick={() => {
         if (didLongPressRef.current) {

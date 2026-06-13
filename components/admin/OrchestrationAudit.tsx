@@ -64,6 +64,10 @@ export function OrchestrationAudit() {
   }, [])
 
   useEffect(() => {
+    // Mount-time fetch — refresh() synchronously sets the loading flag
+    // before its first await. That's a legitimate fetch-on-mount, not a
+    // cascading-render hazard (same convention as useDirectorConversation).
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void refresh()
     // Poll every 30s — matches the reconcile sweep cadence.
     const interval = setInterval(refresh, 30_000)
