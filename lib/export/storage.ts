@@ -22,7 +22,7 @@ function extensionFor(format: ExportFormat): string {
   switch (format) {
     case 'docx': return 'docx'
     case 'epub': return 'epub'
-    case 'json': return 'json'
+    case 'markdown': return 'md'
     case 'outline': return 'md'
   }
 }
@@ -31,7 +31,7 @@ function contentTypeFor(format: ExportFormat): string {
   switch (format) {
     case 'docx': return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
     case 'epub': return 'application/epub+zip'
-    case 'json': return 'application/json'
+    case 'markdown': return 'text/markdown'
     case 'outline': return 'text/markdown'
   }
 }
@@ -71,10 +71,14 @@ export async function generateSignedUrl(
   supabase: SupabaseClient,
   path: string,
   ttlSeconds: number,
+  // DR-042 — Content-Disposition filename for the download (e.g.
+  // "{Series} — 01 Book One.epub"). When set, the browser saves the file
+  // under this name rather than the opaque storage path.
+  downloadName?: string | null,
 ): Promise<{ signedUrl: string; expiresAt: string }> {
   const { data, error } = await supabase.storage
     .from(BUCKET)
-    .createSignedUrl(path, ttlSeconds)
+    .createSignedUrl(path, ttlSeconds, downloadName ? { download: downloadName } : undefined)
   if (error || !data) throw new Error(`generateSignedUrl: ${error?.message ?? 'no data'}`)
   const expiresAt = new Date(Date.now() + ttlSeconds * 1000).toISOString()
   return { signedUrl: data.signedUrl, expiresAt }

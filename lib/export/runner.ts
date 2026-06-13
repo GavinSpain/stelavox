@@ -42,7 +42,7 @@ import { uploadExportFile, generateSignedUrl, ensureExportBucket } from './stora
 import { getProfileById } from './profiles'
 import type {
   ExportFormat, ContentBlock,
-  DocxProfileConfig, EpubProfileConfig, OutlineProfileConfig,
+  DocxProfileConfig, EpubProfileConfig, OutlineProfileConfig, MarkdownProfileConfig,
 } from './types'
 
 /**
@@ -61,7 +61,7 @@ export async function runExportJob(exportJobId: string): Promise<void> {
   // Load the job row.
   const { data: job, error: loadErr } = await supabase
     .from('export_jobs')
-    .select('id, organisation_id, document_id, format, profile_id, status')
+    .select('id, organisation_id, document_id, format, profile_id, status, root_node_id, file_name')
     .eq('id', exportJobId)
     .maybeSingle()
 
@@ -107,9 +107,12 @@ export async function runExportJob(exportJobId: string): Promise<void> {
     const chapterHeadingStyle =
       (config as DocxProfileConfig).chapter_heading ?? 'centred_numbered'
 
+    // DR-042 — per-book exports scope the walk to a Book subtree.
+    const rootNodeId = (job.root_node_id as string | null) ?? null
     const walked = await walkDocument(supabase, job.document_id as string, {
       scene_separator: sceneSeparator,
       chapter_heading_style: chapterHeadingStyle,
+      rootNodeId,
     })
 
     // Validate against limits. Helper handles missing keys defensively
@@ -173,9 +176,12 @@ export async function runExportJob(exportJobId: string): Promise<void> {
 
     try {
       switch (job.format as ExportFormat) {
-        case 'json': {
-          const { renderJson } = await import('./json')
-          outputBody = await renderJson(supabase, job.document_id as string, onChapterRendered)
+        case 'markdown': {
+          const { renderMarkdown } = await import('./markdown')
+          outputBody = await renderMarkdown(
+            walked, config as MarkdownProfileConfig, onChapterRendered,
+            documentName, rootNodeId,
+          )
           break
         }
         case 'outline': {
@@ -233,7 +239,8 @@ export async function runExportJob(exportJobId: string): Promise<void> {
     })
 
     const ttlHours = await safeConfigInt('export.signed_url_ttl_hours', 168)
-    const signed = await generateSignedUrl(supabase, uploaded.path, ttlHours * 3600)
+    const downloadName = (job.file_name as string | null) ?? null
+    const signed = await generateSignedUrl(supabase, uploaded.path, ttlHours * 3600, downloadName)
 
     // Stage 5: Finalize
     await setProgressCompleted(

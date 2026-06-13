@@ -8,7 +8,11 @@
  * consumed by useExportProgress on the UI side.
  */
 
-export type ExportFormat = 'docx' | 'epub' | 'json' | 'outline'
+// DR-042 (2026-06-14): JSON cut from V1 (re-homed to DR-036, export+import
+// together). Markdown manuscript added as the always-available
+// own-your-data backstop. Historical export_jobs rows may still carry
+// format='json' (the DB CHECK still permits it); no new json jobs are created.
+export type ExportFormat = 'docx' | 'epub' | 'markdown' | 'outline'
 
 /**
  * Format-agnostic intermediate. One ContentBlock per emitted unit
@@ -130,13 +134,18 @@ export interface OutlineProfileConfig {
   include_status?: boolean
 }
 
-export type JsonProfileConfig = Record<string, never>   // no config; JSON is fixed-shape per D9
+// DR-042 — Markdown manuscript: structure + final prose only, no history.
+export interface MarkdownProfileConfig {
+  scene_separator?: string
+  heading_depth_cap?: number        // cap markdown heading level (default 6)
+  include_scene_headings?: boolean  // emit a heading for scene nodes (default true)
+}
 
 export type ProfileConfig =
   | DocxProfileConfig
   | EpubProfileConfig
   | OutlineProfileConfig
-  | JsonProfileConfig
+  | MarkdownProfileConfig
 
 /**
  * Validation result from validate.ts. Plan stage returns this; runner

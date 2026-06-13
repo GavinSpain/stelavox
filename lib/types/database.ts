@@ -7,6 +7,31 @@ export type Json =
   | Json[]
 
 export type Database = {
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   public: {
     Tables: {
       agent_jobs: {
@@ -1303,12 +1328,14 @@ export type Database = {
           created_at: string
           document_id: string
           error_message: string | null
+          file_name: string | null
           format: string
           id: string
           last_active_at: string | null
           organisation_id: string
           profile_id: string | null
           progress: Json
+          root_node_id: string | null
           signed_url: string | null
           signed_url_expires_at: string | null
           status: string
@@ -1322,12 +1349,14 @@ export type Database = {
           created_at?: string
           document_id: string
           error_message?: string | null
+          file_name?: string | null
           format: string
           id?: string
           last_active_at?: string | null
           organisation_id: string
           profile_id?: string | null
           progress?: Json
+          root_node_id?: string | null
           signed_url?: string | null
           signed_url_expires_at?: string | null
           status?: string
@@ -1341,12 +1370,14 @@ export type Database = {
           created_at?: string
           document_id?: string
           error_message?: string | null
+          file_name?: string | null
           format?: string
           id?: string
           last_active_at?: string | null
           organisation_id?: string
           profile_id?: string | null
           progress?: Json
+          root_node_id?: string | null
           signed_url?: string | null
           signed_url_expires_at?: string | null
           status?: string
@@ -1373,6 +1404,20 @@ export type Database = {
             columns: ["profile_id"]
             isOneToOne: false
             referencedRelation: "export_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "export_jobs_root_node_id_fkey"
+            columns: ["root_node_id"]
+            isOneToOne: false
+            referencedRelation: "nodes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "export_jobs_root_node_id_fkey"
+            columns: ["root_node_id"]
+            isOneToOne: false
+            referencedRelation: "nodes_canonical"
             referencedColumns: ["id"]
           },
         ]
@@ -3566,6 +3611,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {},
   },
