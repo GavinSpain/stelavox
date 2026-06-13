@@ -66,13 +66,20 @@ Legend: **[derive]** = SELECT over existing data, no new capture · **[capture]*
   - **Trial** count.
   - Per paid plan (**Writer / Author / Pro / byok_solo**): active count, split **monthly vs yearly**. Cadence is derived per org by mapping `organisations.stripe_price_id` → `priceIdToPlan(...).cadence` (`lib/stripe/plans.ts`). byok_solo flagged as a BYOK plan.
   - Totals: total paid, total trial, MRR (reuse the payments-substrate estimate).
-- **Per-plan budget utilisation (non-BYOK plans only — Writer / Author / Pro)** — one row per plan:
-  - **# active users** on the plan.
-  - **Avg utilisation %** of the plan's token budget, **current period** — `avg(organisations.token_usage_credits / token_allocation_credits)` across orgs on the plan. Bar; over-100% in red.
-  - **Current-period pace** — a dual marker: **calendar elapsed %** of the period vs **budget consumed %**. When consumed > elapsed, the cohort is on track to exceed budget before period end (the run-rate warning). This is the headline "how is average usage tracking against budget" signal.
-  - **Month-on-month sparkline** — avg utilisation % per plan over the last ~6 months, from `agent_jobs.cost_credits` grouped by org + month ÷ the plan's monthly budget credits (history that `organisations` alone doesn't retain).
-  - byok_solo has **no platform token budget** (it pays the flat platform fee), so it appears in the mix but **not** in the utilisation chart.
-- *Why:* if Writer averages 95% utilisation and climbing, users are about to hit limits (churn / upsell signal, or the allocation is too small); if 20%, the plan is over-allocated / under-priced. The MoM trend shows drift; the pace marker shows whether this period is running hot.
+- **Token economics by cohort** — a table, one row per non-BYOK cohort **including Trial**, with absolute totals, not just the bar. Columns:
+  - **Users** — active count in the cohort.
+  - **Tokens (period)** — `SUM(actual_input_tokens + actual_output_tokens)` from `agent_jobs` joined to `organisations` on `plan`, `route='platform'`, current period. [derive]
+  - **Platform $ cost** — `SUM(agent_jobs.cost_usd)` for the cohort = the real Anthropic cost the platform bears for these users. [derive]
+  - **Budget utilisation** — the bar + **calendar-elapsed-vs-consumed pace marker** (fill past the marker ⇒ on track to exceed budget) + a 6-mo MoM sparkline. `avg(token_usage_credits / token_allocation_credits)`. Trial has an allocation too (`plan.trial_token_allocation_credits`), so its bar is meaningful — "are trials exhausting their grant?"
+  - **Revenue** — MRR contribution (paid plans: price × count; **Trial: $0**).
+  - **Net** — Revenue − Platform $ cost. Paid rows show margin; **Trial shows a negative number in red — pure liability.**
+  - **Totals footer** — total platform tokens, total platform $ cost, total revenue, net.
+  - byok_solo is excluded (no platform tokens / no budget — it uses its own key; its flat fee is near-pure margin, surfaced in the mix table).
+- **Trial liability callout** — a dedicated, prominent figure because trial cost is unoffset by revenue:
+  - **Trial cost this period** (= the Trial row's Platform $) + **projected month-end** (run-rate).
+  - **Avg cost per trial** + **avg cost per *converted* trial** (trial cost ÷ Band-4 conversions) — the acquisition-cost read: is the trial spend buying conversions or leaking?
+  - Framed plainly: "Trial tokens are pure cost — no offsetting revenue. Watch against the conversion rate."
+- *Why:* paid utilisation is a **margin** signal (high utilisation on a fixed price erodes margin; low means over-allocated / under-priced). Trial utilisation + absolute cost is a **liability** signal — you're paying Anthropic for users who pay nothing, justified only by conversion. Seeing tokens, $, and net side by side turns "average % full" into "what is this cohort actually costing me, and am I making money on it."
 
 ### Band 7 · LLM Provider Reconciliation  [derive]
 *The provider side — "what will the Anthropic bill be, and what tier must I be on?"*
@@ -132,5 +139,6 @@ No open decisions remain. Wireframe (Bands 1–7) approved 2026-06-14; this note
 
 ---
 **Changelog**
+**v1.2 — 2026-06-14** Band 6 deepened per author request: the budget-utilisation bars become a **token-economics-by-cohort table** with absolute totals (users · tokens · real Cost $ · util+pace · Revenue · Net) and **Trial included as a cohort**; added a dedicated **Trial liability** callout (trial cost + projected month-end + avg cost/trial + cost-per-converted-trial). Still zero new capture — `agent_jobs` grouped by `organisations.plan`. Wireframe callouts renumbered to 1–15.
 **v1.1 — 2026-06-14** Added Bands 6 (Plan & Subscriber Economics) + 7 (LLM Provider Reconciliation) per author request — plan×cadence×status mix, per-plan budget utilisation (MoM + current-period pace), per-model Anthropic-bill reconciliation, BYOK comparison. All derive-only (zero new capture; `agent_jobs` already stores actual tokens + `cost_usd` + model + route). OA-1/2/3 locked; wireframe approved; build-ready.
 **v1.0 — 2026-06-14** Initial design note. Expands DR-121 from scheduler-calibration verification to the full Admin Operations Summary (six cross-cutting gaps). Accompanies `wireframe_admin_ops_summary_v1.html`.
