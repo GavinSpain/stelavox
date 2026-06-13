@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stelavox — Admin Operations Summary Wireframe & Specification v1.0 (DR-121 expanded)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500&family=Cormorant+Garamond:ital,wght@1,300&family=Inter:wght@200;300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --ink:#0d1014; --deep:#131820; --surface:#1a2030; --hover:#1e2838; --selected:#1f2d45;
+  --border-s:#1e2535; --border-d:#253045; --border-str:#3a4a62;
+  --text-p:#ecf0f5; --text-s:#8aa0b8; --text-m:#4a6080; --text-dis:#2a3850;
+  --verd:#3d7858; --verd-h:#5aa87a; --verd-m:#1a3028;
+  --ok:#3a8a5a; --ag-run:#2e5a90; --st-rev:#b87030; --destr:#b83838; --info:#3a6090;
+  --spec-bg:#0a0d12; --spec-pan:#111520; --callout:#e8b840;
+}
+body { background: var(--spec-bg); color: var(--text-p); font-family: 'Inter', sans-serif; font-size: 13px; line-height: 1.5; }
+.doc-header { background: var(--spec-pan); border-bottom: 1px solid var(--border-d); padding: 24px 48px; display:flex; align-items:baseline; justify-content:space-between; }
+.wm-s { font-family:'Cinzel',serif; font-size:14px; font-weight:500; letter-spacing:.18em; color:var(--text-p); }
+.wm-v { font-family:'Cormorant Garamond',serif; font-style:italic; font-weight:300; font-size:16px; letter-spacing:.08em; color:var(--text-p); opacity:.82; }
+.doc-meta { font-size:11px; font-weight:300; letter-spacing:.2em; text-transform:uppercase; color:var(--text-m); }
+.intro { padding: 28px 48px 8px; color: var(--text-s); font-size: 13px; line-height: 1.65; max-width: 1140px; }
+.intro strong { color: var(--text-p); font-weight: 500; }
+.intro code { font-family:'Inter',monospace; font-size:11px; background:var(--ink); padding:1px 6px; border-radius:2px; color:var(--text-p); }
+.section { padding: 36px 48px 0; }
+.slabel { font-size:9px; font-weight:400; letter-spacing:.45em; text-transform:uppercase; color:var(--text-m); margin-bottom:18px; padding-bottom:12px; border-bottom:1px solid var(--border-s); }
+.cn { display:inline-flex; align-items:center; justify-content:center; width:18px; height:18px; background:var(--callout); color:#0a0800; border-radius:50%; font-size:10px; font-weight:700; flex-shrink:0; position:absolute; z-index:20; }
+
+.frame { background: var(--ink); border: 1px solid var(--border-s); border-radius: 8px; padding: 18px 20px; position: relative; max-width: 1000px; }
+.frame + .frame { margin-top: 14px; }
+
+/* Status banner (Band 1) */
+.health { display:flex; align-items:center; gap:16px; }
+.health-pill { font-size:13px; font-weight:600; letter-spacing:.12em; text-transform:uppercase; padding:7px 16px; border-radius:5px; }
+.h-ok { color:var(--ok); border:1px solid var(--ok); background:rgba(58,138,90,.10); }
+.h-deg { color:var(--st-rev); border:1px solid var(--st-rev); background:rgba(184,112,48,.10); }
+.h-crit { color:var(--destr); border:1px solid var(--destr); background:rgba(184,56,56,.12); }
+.health-sub { font-size:12px; color:var(--text-s); }
+.health-ts { margin-left:auto; font-size:10.5px; color:var(--text-m); }
+.issues { margin-top:14px; display:flex; flex-direction:column; gap:7px; }
+.issue { display:flex; align-items:center; gap:10px; font-size:12px; padding:8px 11px; background:var(--deep); border-radius:4px; border-left:2px solid var(--st-rev); }
+.issue.crit { border-left-color:var(--destr); }
+.issue-sev { font-size:9px; font-weight:600; letter-spacing:.12em; text-transform:uppercase; color:var(--st-rev); width:54px; flex-shrink:0; }
+.issue.crit .issue-sev { color:var(--destr); }
+.issue-txt { color:var(--text-s); flex:1; }
+.issue-link { color:var(--text-s); border-bottom:1px solid var(--border-str); font-size:11px; }
+
+/* Tile grids */
+.grid { display:grid; gap:10px; }
+.g4 { grid-template-columns: repeat(4,1fr); }
+.g3 { grid-template-columns: repeat(3,1fr); }
+.g5 { grid-template-columns: repeat(5,1fr); }
+.tile { background:var(--deep); border:1px solid var(--border-s); border-radius:5px; padding:12px 13px; position:relative; }
+.tile-l { font-size:9.5px; font-weight:500; letter-spacing:.1em; text-transform:uppercase; color:var(--text-m); margin-bottom:7px; display:flex; align-items:center; gap:7px; }
+.dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+.d-ok{background:var(--ok);} .d-amb{background:var(--st-rev);} .d-red{background:var(--destr);}
+.tile-v { font-size:18px; font-weight:300; color:var(--text-p); }
+.tile-v.sm { font-size:14px; }
+.tile-sub { font-size:10.5px; color:var(--text-m); margin-top:3px; }
+
+/* sparkline */
+.spark { height:22px; margin-top:8px; display:flex; align-items:flex-end; gap:2px; }
+.spark span { flex:1; background:var(--ag-run); opacity:.55; border-radius:1px 1px 0 0; }
+
+.legend { font-size:10.5px; color:var(--text-m); margin-top:10px; }
+.legend code { font-family:'Inter',monospace; background:var(--ink); padding:1px 5px; border-radius:2px; color:var(--text-s); }
+
+/* page map */
+.map { display:flex; flex-direction:column; gap:6px; max-width:560px; }
+.map-row { display:flex; align-items:center; gap:10px; padding:9px 13px; border-radius:5px; font-size:12.5px; }
+.map-new { background:rgba(58,138,90,.07); border:1px solid rgba(58,138,90,.25); color:var(--text-p); }
+.map-exist { background:var(--deep); border:1px solid var(--border-s); color:var(--text-s); }
+.map-tag { font-size:8.5px; font-weight:600; letter-spacing:.14em; text-transform:uppercase; padding:2px 7px; border-radius:3px; margin-left:auto; }
+.t-new { color:var(--ok); border:1px solid var(--ok); }
+.t-exist { color:var(--text-m); border:1px solid var(--border-str); }
+
+.annotations { padding: 44px 48px; background: var(--spec-pan); border-top: 1px solid var(--border-d); }
+.annotations-title { font-size:11px; font-weight:500; letter-spacing:.4em; text-transform:uppercase; color:var(--text-s); margin-bottom: 24px; padding-bottom:12px; border-bottom:1px solid var(--border-d); }
+.ann-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 18px 32px; }
+.ann-row { display: flex; gap: 12px; align-items: flex-start; }
+.ann-num { flex-shrink:0; background: var(--callout); color:#0a0800; width:22px; height:22px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; }
+.ann-text { font-size: 12px; color: var(--text-s); line-height: 1.55; }
+.ann-text strong { color: var(--text-p); font-weight: 500; }
+.ann-text code { font-family:'Inter',monospace; font-size:11px; background:var(--ink); padding:1px 6px; border-radius:2px; color:var(--text-p); }
+.tag-cap { font-size:8px; font-weight:700; letter-spacing:.1em; color:var(--st-rev); border:1px solid var(--st-rev); border-radius:3px; padding:0 4px; margin-left:4px; }
+.tag-der { font-size:8px; font-weight:700; letter-spacing:.1em; color:var(--text-m); border:1px solid var(--border-str); border-radius:3px; padding:0 4px; margin-left:4px; }
+
+.decisions { padding: 36px 48px; background: var(--spec-bg); }
+.decisions-title { font-size:11px; font-weight:500; letter-spacing:.4em; text-transform:uppercase; color:var(--text-s); margin-bottom: 20px; }
+.decision { background: var(--spec-pan); border: 1px solid var(--border-d); border-left: 3px solid var(--callout); border-radius: 4px; padding: 14px 16px; margin-bottom: 12px; font-size: 12px; color: var(--text-s); line-height: 1.6; }
+.decision strong { color: var(--text-p); }
+.decision .needs { display:inline-block; font-size:9px; font-weight:600; letter-spacing:.2em; text-transform:uppercase; color:#0a0800; background:var(--callout); padding:2px 8px; border-radius:3px; margin-left:8px; }
+
+.inv-audit { padding: 36px 48px; background: var(--spec-pan); border-top: 1px solid var(--border-d); }
+.inv-row { display: grid; grid-template-columns: 30px 1fr 110px; gap: 16px; padding: 10px 0; border-bottom: 1px solid var(--border-s); font-size: 12px; color: var(--text-s); align-items: center; }
+.inv-pass { font-size:10px; font-weight:600; letter-spacing:.15em; text-transform:uppercase; color:var(--verd-h); text-align:right; }
+.inv-row code { font-family:'Inter',monospace; font-size:11px; background:var(--ink); padding:1px 6px; border-radius:2px; color:var(--text-p); }
+.refs { padding: 28px 48px 56px; background: var(--spec-bg); border-top: 1px solid var(--border-d); font-size: 11px; color: var(--text-m); line-height: 1.7; }
+.refs strong { color: var(--text-s); font-weight: 500; }
+</style>
+</head>
+<body>
+
+<header class="doc-header">
+  <div><span class="wm-s">STELAVOX</span><span class="wm-v" style="margin-left:10px;">/ Wireframe &amp; Specification</span></div>
+  <div class="doc-meta">DR-121 expanded · Admin Operations Summary · v1.0 · 2026-06-14</div>
+</header>
+
+<div class="intro">
+  <strong>What this covers.</strong> The new <strong>Operations Summary</strong> that leads <code>/admin</code> — five bands answering
+  &ldquo;is the whole system healthy right now,&rdquo; above the existing per-subsystem sections. Folds in the six cross-cutting gaps:
+  health rollup, liveness/heartbeats, external dependencies, volume/growth, export/storage, plus the original DR-121 scheduler-calibration
+  surfaces. Tiles carry a status dot — <span style="color:var(--ok);">green</span> / <span style="color:var(--st-rev);">amber</span> /
+  <span style="color:var(--destr);">red</span>. <strong>Inter only; no verdigris</strong> — status-green is <code>--color-success</code>, a
+  distinct token from brand <code>--color-accent</code>.
+</div>
+
+<!-- §01 Band 1 -->
+<section class="section">
+  <div class="slabel">§01 · Band 1 — System Health (at-a-glance)</div>
+  <div class="frame">
+    <span class="cn" style="left:-9px; top:18px;">1</span>
+    <div class="health">
+      <span class="health-pill h-deg">Degraded</span>
+      <span class="health-sub">2 active issues — Director and writing unaffected</span>
+      <span class="health-ts">updated 12s ago · auto-refresh 30s</span>
+    </div>
+    <span class="cn" style="left:-9px; top:78px;">2</span>
+    <div class="issues">
+      <div class="issue"><span class="issue-sev">High</span><span class="issue-txt">Anthropic input-token headroom at 22% for 11 min (Sonnet 4.6)</span><span class="issue-link">View headroom →</span></div>
+      <div class="issue"><span class="issue-sev">High</span><span class="issue-txt">Cloud dispatch transport last 200 OK 7 min ago — sweep may be stalling</span><span class="issue-link">View liveness →</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- §02 Band 2 -->
+<section class="section">
+  <div class="slabel">§02 · Band 2 — Liveness &amp; Heartbeats</div>
+  <div class="frame">
+    <span class="cn" style="left:-9px; top:16px;">3</span>
+    <div class="grid g4">
+      <div class="tile"><div class="tile-l"><span class="dot d-ok"></span>Dispatcher (local)</div><div class="tile-v sm">tick 24s ago</div><div class="tile-sub">last dispatcher_tick_sample</div></div>
+      <div class="tile"><div class="tile-l"><span class="dot d-amb"></span>Cloud transport (pg_net)</div><div class="tile-v sm">200 · 7m ago</div><div class="tile-sub">net._http_response · /api/cron/dispatcher-tick</div></div>
+      <div class="tile"><div class="tile-l"><span class="dot d-ok"></span>Realtime delivery</div><div class="tile-v sm">echo 380 ms</div><div class="tile-sub">round-trip probe · 4m ago</div></div>
+      <div class="tile"><div class="tile-l"><span class="dot d-ok"></span>pg_cron (5 jobs)</div><div class="tile-v sm">5 / 5 healthy</div><div class="tile-sub">cron.job_run_details · last run + status</div></div>
+    </div>
+    <span class="cn" style="left:-9px; top:120px;">4</span>
+    <div class="legend">pg_cron detail expands to per-job rows: <code>dispatcher_sweep_http</code> · <code>route-sample</code> · <code>poll-batches</code> · <code>period-rollover</code> · <code>synthetic-probe sweep</code> — each with last-run age + ✓/✗.</div>
+  </div>
+</section>
+
+<!-- §03 Band 3 -->
+<section class="section">
+  <div class="slabel">§03 · Band 3 — External Dependencies</div>
+  <div class="frame">
+    <span class="cn" style="left:-9px; top:16px;">5</span>
+    <div class="grid g3">
+      <div class="tile"><div class="tile-l"><span class="dot d-ok"></span>Anthropic API</div><div class="tile-v sm">Reachable</div><div class="tile-sub">director_small probe pass 3m ago · 0.4% job error rate</div></div>
+      <div class="tile"><div class="tile-l"><span class="dot d-ok"></span>Database</div><div class="tile-v sm">11 ms</div><div class="tile-sub">SELECT 1 latency</div></div>
+      <div class="tile"><div class="tile-l"><span class="dot d-ok"></span>Stripe</div><div class="tile-v sm">webhook 2m ago</div><div class="tile-sub">last subscription_event · ingestion lag 1.1s</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- §04 Band 4 -->
+<section class="section">
+  <div class="slabel">§04 · Band 4 — Volume &amp; Growth <span style="color:var(--text-dis);">(window: 7d)</span></div>
+  <div class="frame">
+    <span class="cn" style="left:-9px; top:16px;">6</span>
+    <div class="grid g5">
+      <div class="tile"><div class="tile-l">Total orgs</div><div class="tile-v">38</div><div class="tile-sub">31 trial · 7 paid</div></div>
+      <div class="tile"><div class="tile-l">New (7d)</div><div class="tile-v">6</div><div class="spark"><span style="height:30%"></span><span style="height:55%"></span><span style="height:40%"></span><span style="height:80%"></span><span style="height:60%"></span><span style="height:70%"></span><span style="height:90%"></span></div></div>
+      <div class="tile"><div class="tile-l">Active orgs</div><div class="tile-v">19</div><div class="tile-sub">≥1 agent job in window</div></div>
+      <div class="tile"><div class="tile-l">Trial → paid</div><div class="tile-v">2</div><div class="tile-sub">conversions (7d)</div></div>
+      <div class="tile"><div class="tile-l">Tokens / day</div><div class="tile-v sm">4.2M</div><div class="spark"><span style="height:50%"></span><span style="height:65%"></span><span style="height:45%"></span><span style="height:75%"></span><span style="height:85%"></span><span style="height:60%"></span><span style="height:70%"></span></div></div>
+    </div>
+    <span class="cn" style="left:-9px; top:120px;">7</span>
+    <div class="legend">Secondary row: Director turns/day · agent jobs/day sparklines. All derived from <code>organisations</code> + <code>agent_jobs</code> — no new capture.</div>
+  </div>
+</section>
+
+<!-- §05 Band 5 -->
+<section class="section">
+  <div class="slabel">§05 · Band 5 — Export &amp; Storage</div>
+  <div class="frame">
+    <span class="cn" style="left:-9px; top:16px;">8</span>
+    <div class="grid g4">
+      <div class="tile"><div class="tile-l">Exports (7d)</div><div class="tile-v">54</div><div class="tile-sub">31 epub · 14 docx · 7 markdown · 2 outline</div></div>
+      <div class="tile"><div class="tile-l"><span class="dot d-ok"></span>Failed rate</div><div class="tile-v sm">1.9%</div><div class="tile-sub">1 failed / 54</div></div>
+      <div class="tile"><div class="tile-l">Storage used</div><div class="tile-v sm">312 MB</div><div class="tile-sub">non-expired export files</div></div>
+      <div class="tile"><div class="tile-l">Largest file</div><div class="tile-v sm">47 MB</div><div class="tile-sub">vs 256 MB per-file limit</div></div>
+    </div>
+    <span class="cn" style="left:-9px; top:120px;">9</span>
+    <div class="legend">Needs the new <code>export_jobs.file_size_bytes</code> column (runner already computes it at upload).</div>
+  </div>
+</section>
+
+<!-- §06 Band 6 -->
+<section class="section">
+  <div class="slabel">§06 · Band 6 — Plan &amp; Subscriber Economics (consumer side · &ldquo;am I pricing right?&rdquo;)</div>
+
+  <div class="frame">
+    <span class="cn" style="left:-9px; top:16px;">10</span>
+    <div class="tile-l" style="margin-bottom:12px;">Subscriber mix</div>
+    <table style="width:100%; border-collapse:collapse; font-size:12px;">
+      <thead><tr style="color:var(--text-m); font-size:9.5px; letter-spacing:.1em; text-transform:uppercase;">
+        <th style="text-align:left; padding:6px 8px; border-bottom:1px solid var(--border-s);">Plan</th>
+        <th style="text-align:right; padding:6px 8px; border-bottom:1px solid var(--border-s);">Active</th>
+        <th style="text-align:right; padding:6px 8px; border-bottom:1px solid var(--border-s);">Monthly</th>
+        <th style="text-align:right; padding:6px 8px; border-bottom:1px solid var(--border-s);">Yearly</th>
+        <th style="text-align:left; padding:6px 8px; border-bottom:1px solid var(--border-s);"></th>
+      </tr></thead>
+      <tbody style="color:var(--text-s);">
+        <tr><td style="padding:7px 8px;">Trial</td><td style="text-align:right;">31</td><td style="text-align:right; color:var(--text-m);">—</td><td style="text-align:right; color:var(--text-m);">—</td><td></td></tr>
+        <tr><td style="padding:7px 8px; color:var(--text-p);">Writer</td><td style="text-align:right;">3</td><td style="text-align:right;">2</td><td style="text-align:right;">1</td><td></td></tr>
+        <tr><td style="padding:7px 8px; color:var(--text-p);">Author</td><td style="text-align:right;">2</td><td style="text-align:right;">1</td><td style="text-align:right;">1</td><td></td></tr>
+        <tr><td style="padding:7px 8px; color:var(--text-p);">Pro</td><td style="text-align:right;">1</td><td style="text-align:right;">0</td><td style="text-align:right;">1</td><td></td></tr>
+        <tr><td style="padding:7px 8px; color:var(--text-p);">byok_solo</td><td style="text-align:right;">1</td><td style="text-align:right;">1</td><td style="text-align:right;">0</td><td style="color:var(--text-m); font-size:10px;">BYOK — flat fee, no token budget</td></tr>
+      </tbody>
+      <tfoot style="color:var(--text-p); font-weight:500;"><tr style="border-top:1px solid var(--border-d);">
+        <td style="padding:8px;">7 paid · 31 trial</td><td colspan="3" style="text-align:right; padding:8px;">MRR ~ $312 est.</td><td></td>
+      </tr></tfoot>
+    </table>
+  </div>
+
+  <div class="frame">
+    <span class="cn" style="left:-9px; top:16px;">11</span>
+    <div class="tile-l" style="margin-bottom:14px;">Token budget utilisation · non-BYOK plans · current period <span style="color:var(--text-dis); letter-spacing:0; text-transform:none;">(period 58% elapsed)</span></div>
+
+    <!-- Writer -->
+    <div style="display:grid; grid-template-columns:90px 1fr 150px 110px; gap:14px; align-items:center; padding:9px 0; border-bottom:1px solid var(--border-s);">
+      <div><div style="color:var(--text-p); font-size:12.5px;">Writer</div><div style="color:var(--text-m); font-size:10px;">3 users</div></div>
+      <div>
+        <div style="height:14px; background:var(--deep); border-radius:3px; position:relative; overflow:hidden;">
+          <div style="position:absolute; left:0; top:0; bottom:0; width:46%; background:var(--ag-run); opacity:.7;"></div>
+          <div style="position:absolute; left:58%; top:-2px; bottom:-2px; width:2px; background:var(--text-s);" title="calendar elapsed"></div>
+        </div>
+        <div style="font-size:10px; color:var(--text-m); margin-top:4px;">avg 46% consumed &nbsp;·&nbsp; <span style="color:var(--ok);">behind pace</span> (58% elapsed)</div>
+      </div>
+      <div class="spark" style="margin:0;"><span style="height:40%"></span><span style="height:48%"></span><span style="height:52%"></span><span style="height:50%"></span><span style="height:55%"></span><span style="height:46%"></span></div>
+      <div style="font-size:10px; color:var(--text-m); text-align:right;">avg 6-mo trend</div>
+    </div>
+
+    <!-- Author -->
+    <div style="display:grid; grid-template-columns:90px 1fr 150px 110px; gap:14px; align-items:center; padding:9px 0; border-bottom:1px solid var(--border-s);">
+      <div><div style="color:var(--text-p); font-size:12.5px;">Author</div><div style="color:var(--text-m); font-size:10px;">2 users</div></div>
+      <div>
+        <div style="height:14px; background:var(--deep); border-radius:3px; position:relative; overflow:hidden;">
+          <div style="position:absolute; left:0; top:0; bottom:0; width:79%; background:var(--st-rev); opacity:.8;"></div>
+          <div style="position:absolute; left:58%; top:-2px; bottom:-2px; width:2px; background:var(--text-s);"></div>
+        </div>
+        <div style="font-size:10px; color:var(--text-m); margin-top:4px;">avg 79% consumed &nbsp;·&nbsp; <span style="color:var(--st-rev);">ahead of pace</span> — projected ~136% by period end</div>
+      </div>
+      <div class="spark" style="margin:0;"><span style="height:55%"></span><span style="height:60%"></span><span style="height:68%"></span><span style="height:72%"></span><span style="height:78%"></span><span style="height:79%"></span></div>
+      <div style="font-size:10px; color:var(--st-rev); text-align:right;">trending up</div>
+    </div>
+
+    <!-- Pro -->
+    <div style="display:grid; grid-template-columns:90px 1fr 150px 110px; gap:14px; align-items:center; padding:9px 0;">
+      <div><div style="color:var(--text-p); font-size:12.5px;">Pro</div><div style="color:var(--text-m); font-size:10px;">1 user</div></div>
+      <div>
+        <div style="height:14px; background:var(--deep); border-radius:3px; position:relative; overflow:hidden;">
+          <div style="position:absolute; left:0; top:0; bottom:0; width:24%; background:var(--ag-run); opacity:.7;"></div>
+          <div style="position:absolute; left:58%; top:-2px; bottom:-2px; width:2px; background:var(--text-s);"></div>
+        </div>
+        <div style="font-size:10px; color:var(--text-m); margin-top:4px;">avg 24% consumed &nbsp;·&nbsp; <span style="color:var(--text-s);">well under</span> — plan likely over-allocated</div>
+      </div>
+      <div class="spark" style="margin:0;"><span style="height:30%"></span><span style="height:28%"></span><span style="height:22%"></span><span style="height:26%"></span><span style="height:25%"></span><span style="height:24%"></span></div>
+      <div style="font-size:10px; color:var(--text-m); text-align:right;">flat</div>
+    </div>
+    <div class="legend"><span class="dot" style="display:inline-block; width:2px; height:10px; background:var(--text-s); border-radius:0; vertical-align:middle;"></span> marker = calendar elapsed. Fill = avg budget consumed. Fill past the marker ⇒ cohort on track to exceed budget. Bar turns amber/red as utilisation rises.</div>
+  </div>
+</section>
+
+<!-- §07 Band 7 -->
+<section class="section">
+  <div class="slabel">§07 · Band 7 — LLM Provider Reconciliation (provider side · &ldquo;what's the Anthropic bill?&rdquo;)</div>
+
+  <div class="frame">
+    <span class="cn" style="left:-9px; top:16px;">12</span>
+    <div class="tile-l" style="margin-bottom:12px;">Platform spend this period · <code style="color:var(--text-s);">route = platform</code> only · reconcile vs Anthropic dashboard</div>
+    <table style="width:100%; border-collapse:collapse; font-size:12px;">
+      <thead><tr style="color:var(--text-m); font-size:9.5px; letter-spacing:.1em; text-transform:uppercase;">
+        <th style="text-align:left; padding:6px 8px; border-bottom:1px solid var(--border-s);">Model</th>
+        <th style="text-align:right; padding:6px 8px; border-bottom:1px solid var(--border-s);">Input</th>
+        <th style="text-align:right; padding:6px 8px; border-bottom:1px solid var(--border-s);">Output</th>
+        <th style="text-align:right; padding:6px 8px; border-bottom:1px solid var(--border-s);">Cache rd/wr</th>
+        <th style="text-align:right; padding:6px 8px; border-bottom:1px solid var(--border-s);">Actual $</th>
+      </tr></thead>
+      <tbody style="color:var(--text-s);">
+        <tr><td style="padding:7px 8px; color:var(--text-p);">Haiku 4.5</td><td style="text-align:right;">22.4M</td><td style="text-align:right;">3.1M</td><td style="text-align:right;">8.0M / 1.2M</td><td style="text-align:right; color:var(--text-p);">$31.40</td></tr>
+        <tr><td style="padding:7px 8px; color:var(--text-p);">Sonnet 4.6</td><td style="text-align:right;">14.8M</td><td style="text-align:right;">2.6M</td><td style="text-align:right;">5.1M / 0.9M</td><td style="text-align:right; color:var(--text-p);">$78.10</td></tr>
+        <tr><td style="padding:7px 8px; color:var(--text-p);">Opus 4.8</td><td style="text-align:right;">1.2M</td><td style="text-align:right;">0.4M</td><td style="text-align:right;">0.3M / 0.1M</td><td style="text-align:right; color:var(--text-p);">$42.60</td></tr>
+      </tbody>
+      <tfoot style="color:var(--text-p); font-weight:500;"><tr style="border-top:1px solid var(--border-d);">
+        <td style="padding:8px;">Total platform</td><td style="text-align:right;">38.4M</td><td style="text-align:right;">6.1M</td><td colspan="1" style="text-align:right;">—</td><td style="text-align:right;">$152.10</td>
+      </tr></tfoot>
+    </table>
+    <span class="cn" style="left:-9px; top:172px;">13</span>
+    <div style="display:flex; gap:24px; margin-top:12px;">
+      <div><div class="tile-l">Projected month-end</div><div class="tile-v sm">~$262</div><div class="tile-sub">run-rate · 58% elapsed</div></div>
+      <div><div class="tile-l">MoM platform $</div><div class="spark" style="width:160px;"><span style="height:40%"></span><span style="height:55%"></span><span style="height:50%"></span><span style="height:70%"></span><span style="height:85%"></span><span style="height:65%"></span></div></div>
+      <div style="align-self:center;"><div class="tile-sub">Tier check: current usage fits Anthropic <strong style="color:var(--text-p);">Build</strong> tier; Scale tier at ~$500/mo sustained.</div></div>
+    </div>
+  </div>
+
+  <div class="frame">
+    <span class="cn" style="left:-9px; top:16px;">14</span>
+    <div class="tile-l" style="margin-bottom:12px;">BYOK vs Platform — comparative only <span style="color:var(--text-dis); letter-spacing:0; text-transform:none;">(BYOK tokens hit the user's own provider account — $0 to platform)</span></div>
+    <div class="grid g4">
+      <div class="tile"><div class="tile-l">Platform users</div><div class="tile-v sm">6</div><div class="tile-sub">budget-capped</div></div>
+      <div class="tile"><div class="tile-l">avg tokens / user</div><div class="tile-v sm">7.4M</div><div class="tile-sub">platform · this period</div></div>
+      <div class="tile"><div class="tile-l">BYOK users</div><div class="tile-v sm">1</div><div class="tile-sub">uncapped</div></div>
+      <div class="tile"><div class="tile-l">avg tokens / user</div><div class="tile-v sm">19.2M</div><div class="tile-sub" style="color:var(--st-rev);">BYOK · ~2.6× platform</div></div>
+    </div>
+    <div class="legend">Signal: uncapped BYOK users consume materially more — useful when sizing budgets + the BYOK platform fee. Not used for any platform billing.</div>
+  </div>
+</section>
+
+<!-- §08 page map -->
+<section class="section">
+  <div class="slabel">§08 · How it stacks on <code>/admin</code> — new bands above the existing drill-down</div>
+  <div class="map">
+    <div class="map-row map-new">Band 1 · System Health<span class="map-tag t-new">New</span></div>
+    <div class="map-row map-new">Band 2 · Liveness &amp; Heartbeats<span class="map-tag t-new">New</span></div>
+    <div class="map-row map-new">Band 3 · External Dependencies<span class="map-tag t-new">New</span></div>
+    <div class="map-row map-new">Band 4 · Volume &amp; Growth<span class="map-tag t-new">New</span></div>
+    <div class="map-row map-new">Band 5 · Export &amp; Storage<span class="map-tag t-new">New</span></div>
+    <div class="map-row map-new">Band 6 · Plan &amp; Subscriber Economics<span class="map-tag t-new">New</span></div>
+    <div class="map-row map-new">Band 7 · LLM Provider Reconciliation<span class="map-tag t-new">New</span></div>
+    <div class="map-row map-exist">Scheduler throughput &nbsp;<span style="color:var(--st-rev);">+ fairness · per-pool util · per-class dispatch · queue age · window-pressure</span><span class="map-tag t-exist">Exists +DR-121</span></div>
+    <div class="map-row map-exist">Cost / spend · Failures · Synthetic probes<span class="map-tag t-exist">Exists</span></div>
+    <div class="map-row map-exist">Audit log<span class="map-tag t-exist">Exists</span></div>
+    <div class="map-row map-exist">→ Orchestration integrity (link)<span class="map-tag t-exist">/admin/orchestration</span></div>
+    <div class="map-row map-exist">→ Payments (link)<span class="map-tag t-exist">/admin/payments</span></div>
+  </div>
+</section>
+
+<!-- Annotations -->
+<div class="annotations">
+  <div class="annotations-title">Annotations · metric source <span class="tag-der">derive</span> = SELECT only · <span class="tag-cap">capture</span> = small new write</div>
+  <div class="ann-grid">
+    <div class="ann-row"><span class="ann-num">1</span><span class="ann-text"><strong>Overall health pill.</strong><span class="tag-der">derive</span> One of Healthy / Degraded / Critical, computed from capacity alerts + probe outcomes + heartbeat staleness. Critical needs a core-dependency-down or critical alert; high alerts / stale transport = Degraded. The sub-line reassures that author writing is never affected by ops state.</span></div>
+    <div class="ann-row"><span class="ann-num">2</span><span class="ann-text"><strong>Active issues.</strong><span class="tag-der">derive</span> The deduplicated list behind the pill — each row is severity + one line + a deep-link to the section that explains it. Empty list ⇒ &ldquo;All systems nominal&rdquo; on a green pill.</span></div>
+    <div class="ann-row"><span class="ann-num">3</span><span class="ann-text"><strong>Heartbeat tiles.</strong> Dispatcher <span class="tag-der">derive</span> (last tick age); <strong>cloud transport</strong> <span class="tag-der">derive</span> from <code>net._http_response</code> — the prod failure most likely to be silent; realtime <span class="tag-cap">capture</span> (new round-trip probe); pg_cron <span class="tag-der">derive</span> from <code>cron.job_run_details</code>. Green &lt; fresh · amber &lt; stale · red ≥ dead.</span></div>
+    <div class="ann-row"><span class="ann-num">4</span><span class="ann-text"><strong>pg_cron expand.</strong> Per-job rows for the 5 scheduled jobs — last-run age + ✓/✗. This is the authoritative &ldquo;are my background jobs alive&rdquo; source.</span></div>
+    <div class="ann-row"><span class="ann-num">5</span><span class="ann-text"><strong>Dependencies.</strong> Anthropic <span class="tag-der">derive</span> from the existing <code>director_small</code> probe + agent-job error rate; DB <span class="tag-der">derive</span> via <code>SELECT 1</code> latency; Stripe <span class="tag-der">derive</span> from last-webhook age + ingestion lag. All three are the things whose silent failure breaks the product.</span></div>
+    <div class="ann-row"><span class="ann-num">6</span><span class="ann-text"><strong>Volume &amp; growth.</strong><span class="tag-der">derive</span> Orgs by plan/status, new + active orgs, trial→paid conversions — all SELECTs over <code>organisations</code> + <code>agent_jobs</code> + <code>subscription_events</code>. Sparklines over the window selector (1h/24h/7d).</span></div>
+    <div class="ann-row"><span class="ann-num">7</span><span class="ann-text"><strong>Activity trends.</strong><span class="tag-der">derive</span> Tokens/day, Director turns/day, agent jobs/day. Gives the &ldquo;is usage growing&rdquo; signal the point-in-time payments counts lack.</span></div>
+    <div class="ann-row"><span class="ann-num">8</span><span class="ann-text"><strong>Export volume.</strong><span class="tag-der">derive</span> Counts by format + outcome, failed-export rate — newly relevant after the DR-042 per-book rework.</span></div>
+    <div class="ann-row"><span class="ann-num">9</span><span class="ann-text"><strong>Storage.</strong><span class="tag-cap">capture</span> Needs <code>export_jobs.file_size_bytes</code> (runner computes byte length at upload — persist it). Shown against the per-file limit raised in the DR-042 discussion.</span></div>
+    <div class="ann-row"><span class="ann-num">10</span><span class="ann-text"><strong>Subscriber mix.</strong><span class="tag-der">derive</span> Plan × status × cadence. Counts from <code>organisations</code>; monthly/yearly split from <code>stripe_price_id</code> → <code>priceIdToPlan().cadence</code>. byok_solo is flagged — it pays a flat fee and carries no token budget.</span></div>
+    <div class="ann-row"><span class="ann-num">11</span><span class="ann-text"><strong>Per-plan budget utilisation.</strong><span class="tag-der">derive</span> The headline pricing-calibration view. Fill = avg % of budget consumed (current period, from credits); the vertical marker = calendar elapsed. <strong>Fill past the marker ⇒ on track to exceed budget</strong> (Author, projected ~136%). 6-mo sparkline shows drift. Pro at 24% reads as over-allocated. byok_solo excluded (no budget).</span></div>
+    <div class="ann-row"><span class="ann-num">12</span><span class="ann-text"><strong>Platform spend by model.</strong><span class="tag-der">derive</span> <code>SUM(agent_jobs.cost_usd) WHERE route='platform' GROUP BY model_id</code> — this <em>is</em> the Anthropic invoice, per-model, cache-tier aware. Actual tokens + actual $, already captured per job. Reconcile directly against the Anthropic dashboard.</span></div>
+    <div class="ann-row"><span class="ann-num">13</span><span class="ann-text"><strong>Run-rate + MoM + tier check.</strong><span class="tag-der">derive</span> Projected month-end $ (consumed ÷ elapsed fraction); month-on-month platform $ trend for capacity planning; a plain-language note on which Anthropic tier the current usage fits.</span></div>
+    <div class="ann-row"><span class="ann-num">14</span><span class="ann-text"><strong>BYOK comparison — informational only.</strong><span class="tag-der">derive</span> <code>route='byok'</code> rows: count + avg tokens/user vs platform. Surfaces that uncapped BYOK users burn ~2.6× — useful for budget + fee sizing. <strong>$0 to the platform; never used for internal billing.</strong></span></div>
+  </div>
+</div>
+
+<!-- Decisions -->
+<div class="decisions">
+  <div class="decisions-title">Decisions — locked 2026-06-14 (wireframe Bands 1–7 approved)</div>
+  <div class="decision" style="border-left-color:var(--ok);"><strong>OA-1 · Placement.</strong> Operations Summary renders as bands atop the existing <code>/admin</code>; not a separate route.</div>
+  <div class="decision" style="border-left-color:var(--ok);"><strong>OA-2 · Endpoint.</strong> New <code>/api/admin/ops</code> — keeps the existing dashboard payload stable; ops reads independently cacheable.</div>
+  <div class="decision" style="border-left-color:var(--ok);"><strong>OA-3 · Realtime probe cadence.</strong> Every 5 min — realtime failures are rare; a per-minute sentinel write adds noise.</div>
+</div>
+
+<!-- Inviolable audit -->
+<div class="inv-audit">
+  <div class="annotations-title">Inviolable audit</div>
+  <div class="inv-row"><span>1</span><span><strong style="color:var(--text-p);">Prose surface lowest-noise.</strong> N/A — admin chrome.</span><span class="inv-pass">N/A</span></div>
+  <div class="inv-row"><span>2</span><span><strong style="color:var(--text-p);">Verdigris in exactly twelve places.</strong> Zero verdigris. Status-green is <code>--color-success</code> (#3a8a5a), a distinct operational token — <strong>not</strong> brand <code>--color-accent</code> (#3d7858). Amber <code>--color-status-review</code>, red <code>--color-error</code>. Count remains <strong style="color:var(--verd-h);">12</strong>.</span><span class="inv-pass">Pass · 12</span></div>
+  <div class="inv-row"><span>3·6</span><span><strong style="color:var(--text-p);">Cinzel / Cormorant only in the wordmark.</strong> Admin is Inter throughout.</span><span class="inv-pass">Pass</span></div>
+  <div class="inv-row"><span>4</span><span><strong style="color:var(--text-p);">Typeface boundary.</strong> No Lora — admin is structural chrome.</span><span class="inv-pass">Pass</span></div>
+  <div class="inv-row"><span>5</span><span><strong style="color:var(--text-p);">No prose toolbar.</strong> N/A.</span><span class="inv-pass">N/A</span></div>
+</div>
+
+<div class="refs">
+  <strong>References.</strong> Design note <code>stelavox_dr121_admin_ops_summary_design_v1_0.md</code>. &nbsp;·&nbsp;
+  V1 Deliverables Register DR-121 (expanded). &nbsp;·&nbsp;
+  Existing admin — <code>app/api/admin/dashboard/route.ts</code>, <code>components/admin/AdminDashboard.tsx</code>, <code>/admin/orchestration</code>, <code>/admin/payments</code>. &nbsp;·&nbsp;
+  Capture substrate — <code>dispatcher_tick_samples</code>, <code>metrics_minute_buckets</code>, <code>synthetic_probe_runs</code>, <code>cron.job_run_details</code>, <code>net._http_response</code>. &nbsp;·&nbsp;
+  Wireframe-first per <code>feedback_wireframe_first_for_ui</code>.
+</div>
+
+</body>
+</html>
