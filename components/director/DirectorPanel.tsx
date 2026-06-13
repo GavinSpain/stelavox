@@ -36,6 +36,7 @@ import { ProjectProfileAmendmentCard } from './ProjectProfileAmendmentCard'
 import { DirectorMark, DirectorLabel } from './DirectorMark'
 import { ConversationClearButton } from './ConversationClearButton'
 import { StopButton } from './StopButton'
+import { StoppedFollowOnBanner } from './StoppedFollowOnBanner'
 import { streamDirectorMessage } from '@/lib/director/streamMessage'
 import { findProposalInToolCalls } from '@/lib/director/parse-message-proposals'
 
@@ -69,6 +70,7 @@ export function DirectorPanel({
     isLoading,
     error,
     currentWorkflow,
+    interruptedMessageId,
     refresh,
     appendMessage,
   } = useDirectorConversation(documentId)
@@ -368,6 +370,23 @@ export function DirectorPanel({
           }}
         >
           Director — {streamError ?? error}
+        </div>
+      ) : null}
+
+      {/* Phase 9.E (DR-066) — surface a resume prompt when a previous
+          Director turn was left interrupted (crash / disconnect mid-turn).
+          Not shown while a stream is live, since the active turn owns the
+          conversation. The resume endpoint finds the interrupted turn by
+          conversation id, so the message id is used only as the dismiss key. */}
+      {interruptedMessageId && conversation && streaming === null ? (
+        <div style={{ margin: '12px 20px 0' }}>
+          <StoppedFollowOnBanner
+            variant="interrupted"
+            turnId={interruptedMessageId}
+            conversationId={conversation.id}
+            onResumed={() => void refresh()}
+            onCancelled={() => void refresh()}
+          />
         </div>
       ) : null}
 

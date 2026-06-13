@@ -34,6 +34,11 @@
 import { useState, useEffect, useRef } from 'react'
 import { streamSynthesise } from '@/lib/agent/streamSynthesise'
 import { useActiveJobForNode, type AgentJob } from '@/lib/hooks/useAgentJobsRealtime'
+import { FailureSurface, type FailureDescriptor } from '@/components/feedback/FailureSurface'
+import {
+  SecurityWarningBanner,
+  isInjectionBlockedError,
+} from '@/components/feedback/SecurityWarningBanner'
 
 interface AgentTabProps {
   nodeId: string
@@ -68,7 +73,10 @@ export function AgentTab({ nodeId, nodeType, nodeCategory, isLeaf, onMutated }: 
   const [instruction, setInstruction] = useState('')
   const [refineField, setRefineField] = useState<'summary' | 'prose' | 'notes'>('summary')
   const [refinementInstruction, setRefinementInstruction] = useState('')
-  const [error, setError] = useState<string | null>(null)
+  // Phase 9.E (DR-020) — structured failure descriptor so the surface
+  // can classify (status + errorCode → failure class) and render the
+  // right FailureToast / FailureBanner. Replaces the prior plain string.
+  const [failure, setFailure] = useState<FailureDescriptor | null>(null)
   const [busy, setBusy] = useState(false)
 
   // Phase 5c — streaming synthesise state. Active only between the user's
@@ -98,7 +106,7 @@ export function AgentTab({ nodeId, nodeType, nodeCategory, isLeaf, onMutated }: 
   }, [nodeType])
 
   async function trigger(op: 'expand' | 'synthesise' | 'refine' | 'generate_context') {
-    setError(null)
+    setFailure(null)
 
     // Phase 5c — synthesise uses the foreground streaming endpoint
     // (POST /api/agent/synthesise/stream). Other operations stay on the
@@ -123,11 +131,16 @@ export function AgentTab({ nodeId, nodeType, nodeCategory, isLeaf, onMutated }: 
         body: JSON.stringify(body),
       })
       if (!res.ok) {
-        const json = await res.json().catch(() => ({}))
-        setError(json.error ?? `HTTP ${res.status}`)
+        const json = (await res.json().catch(() => ({}))) as { error?: string; message?: string }
+        setFailure({
+          status: res.status,
+          errorCode: json.error ?? null,
+          rawError: json.message ?? json.error ?? `HTTP ${res.status}`,
+          operation: op,
+        })
       }
     } catch (e) {
-      setError((e as Error).message)
+      setFailure({ status: null, rawError: (e as Error).message, operation: op })
     } finally {
       setBusy(false)
     }
@@ -160,7 +173,13 @@ export function AgentTab({ nodeId, nodeType, nodeCategory, isLeaf, onMutated }: 
             setStreamingText('')
           },
           onError: (data) => {
-            setError(data.message ?? data.error)
+            // SSE errors carry no HTTP status — treat as a hard system
+            // failure (Class E) via a null status descriptor.
+            setFailure({
+              status: null,
+              rawError: data.message ?? data.error,
+              operation: 'synthesise',
+            })
             setStreamingStatus('errored')
             setStreamingText('')
           },
@@ -177,7 +196,7 @@ export function AgentTab({ nodeId, nodeType, nodeCategory, isLeaf, onMutated }: 
         setStreamingText('')
         return
       }
-      setError((e as Error).message)
+      setFailure({ status: null, rawError: (e as Error).message, operation: 'synthesise' })
       setStreamingStatus('errored')
       setStreamingText('')
     } finally {
@@ -191,13 +210,19 @@ export function AgentTab({ nodeId, nodeType, nodeCategory, isLeaf, onMutated }: 
   }
 
   async function lifecycleAction(jobId: string, action: 'cancel' | 'accept' | 'dismiss') {
-    setError(null)
+    setFailure(null)
     setBusy(true)
     try {
       const res = await fetch(`/api/agent-jobs/${jobId}/${action}`, { method: 'POST' })
       if (!res.ok) {
-        const json = await res.json().catch(() => ({}))
-        setError(json.error ?? `HTTP ${res.status}`)
+        const json = (await res.json().catch(() => ({}))) as { error?: string; message?: string }
+        setFailure({
+          status: res.status,
+          errorCode: json.error ?? null,
+          rawError: json.message ?? json.error ?? `HTTP ${res.status}`,
+          operation: action,
+          jobId,
+        })
         return
       }
       // SU-J12-2: Trigger explicit tree refresh on Accept. The
@@ -209,7 +234,7 @@ export function AgentTab({ nodeId, nodeType, nodeCategory, isLeaf, onMutated }: 
         onMutated?.()
       }
     } catch (e) {
-      setError((e as Error).message)
+      setFailure({ status: null, rawError: (e as Error).message, operation: action })
     } finally {
       setBusy(false)
     }
@@ -240,7 +265,14 @@ export function AgentTab({ nodeId, nodeType, nodeCategory, isLeaf, onMutated }: 
   // the user could not see why the action did nothing. Hoisting the
   // banner above the early returns makes lifecycle errors visible in
   // every state.
-  const errorBanner = <ErrorBanner error={error} onDismiss={() => setError(null)} />
+  // Phase 9.E (DR-050) — injection blocks get a dedicated security
+  // warning (FailureSurface deliberately skips 422 injection_blocked).
+  const errorBanner =
+    failure?.errorCode === 'injection_blocked' ? (
+      <SecurityWarningBanner onDismiss={() => setFailure(null)} />
+    ) : (
+      <FailureSurface failure={failure} onDismiss={() => setFailure(null)} />
+    )
 
   if (activeJob && (activeJob.status === 'pending' || activeJob.status === 'running')) {
     return (
@@ -430,32 +462,6 @@ function Label({ children }: { children: React.ReactNode }) {
     >
       {children}
     </label>
-  )
-}
-
-function ErrorBanner({ error, onDismiss }: { error: string | null; onDismiss: () => void }) {
-  if (!error) return null
-  return (
-    <div
-      style={{
-        padding: 'var(--space-3)',
-        background: 'var(--color-bg-base)',
-        border: '1px solid var(--color-error)',
-        borderRadius: '4px',
-        color: 'var(--color-error)',
-        fontFamily: 'var(--font-inter), Inter, sans-serif',
-        fontSize: '12px',
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-      }}
-    >
-      <span>{error}</span>
-      <button
-        onClick={onDismiss}
-        style={{ background: 'none', border: 'none', color: 'var(--color-error)', cursor: 'pointer', fontSize: '14px' }}
-      >×</button>
-    </div>
   )
 }
 
@@ -721,15 +727,15 @@ function friendlyError(rawMessage: string): { title: string; explanation: string
   if (rawMessage.startsWith('injection_blocked:')) {
     const field = rawMessage.split(':')[1] ?? 'unknown field'
     return {
-      title: 'Content blocked by prompt-injection scanner',
+      title: 'Content blocked by security check',
       explanation:
         `The ${field.replace('current_node.', '')} on this node contains a passage that pattern-matches a prompt-injection attempt — for example "[SYSTEM] Ignore all prior instructions" or similar imperative-to-the-LLM phrasing.\n\n` +
-        `If this is fiction (a character writes a fake instruction; a scene about AI safety) the scanner cannot tell it apart from a real attack and blocks the whole operation defensively.\n\n` +
-        `Workarounds:\n` +
+        `If this is fiction (a character writes a fake instruction; a scene about AI safety) the scanner cannot tell it apart from a real attack and blocks the operation defensively. For security reasons this check cannot be overridden.\n\n` +
+        `Your options:\n` +
         `  1. Rephrase to indirect quotation ("she finds an instruction telling the system to ignore the prompt").\n` +
         `  2. Wrap the suspicious passage in unmistakable narrative framing the LLM treats as story material.\n` +
         `  3. Move the literal pattern to a different node not used as agent context.\n` +
-        `(A per-node "I am writing about prompt injection on purpose" override is on the V1.x roadmap.)`,
+        `  4. Write this prose yourself — manual edits are never scanned.`,
       technical: rawMessage,
     }
   }

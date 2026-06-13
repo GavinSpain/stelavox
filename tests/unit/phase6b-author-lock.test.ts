@@ -169,6 +169,55 @@ describe.skipIf(!hasServiceKey)('Phase 6.B Author Lock RPCs', () => {
     await svc.from('node_author_locks').delete().eq('bulk_operation_id', bulkOpId)
   })
 
+  // Phase 9.E (DR-043) — the bulk-unlock UI read path. fetchBulkLockInfo
+  // in NodeMoreMenu reads a node's bulk_operation_id and counts the batch
+  // to decide whether to show the scope modal. This pins both queries
+  // against a real two-node batch. (The mutating release_* RPCs depend on
+  // auth.uid() and are covered at the authenticated API/Playwright layer,
+  // like every other mutating Author Lock RPC in this service-role suite.)
+  it('DR-043: bulk membership lookup returns the operation id + correct batch count', async () => {
+    if (!fix) throw new Error('no fixture')
+    const bulkOpId = crypto.randomUUID()
+    await svc.from('node_author_locks').insert([
+      {
+        node_id: fix.childNodeId, organisation_id: fix.organisationId,
+        locked_by_user_id: fix.ownerUserId, lock_reason: 'DR-043 batch',
+        bulk_operation_id: bulkOpId,
+      },
+      {
+        node_id: fix.child2NodeId, organisation_id: fix.organisationId,
+        locked_by_user_id: fix.ownerUserId, lock_reason: 'DR-043 batch',
+        bulk_operation_id: bulkOpId,
+      },
+    ])
+
+    // Step 1: read the target node's bulk_operation_id.
+    const { data: lockRow } = await svc.from('node_author_locks')
+      .select('bulk_operation_id').eq('node_id', fix.childNodeId).maybeSingle()
+    expect((lockRow as { bulk_operation_id: string | null }).bulk_operation_id).toBe(bulkOpId)
+
+    // Step 2: count the batch (drives the "Unlock all N" label).
+    const { count } = await svc.from('node_author_locks')
+      .select('node_id', { count: 'exact', head: true })
+      .eq('bulk_operation_id', bulkOpId)
+    expect(count).toBe(2)
+
+    await svc.from('node_author_locks').delete().eq('bulk_operation_id', bulkOpId)
+  })
+
+  it('DR-043: a single (non-bulk) lock has a null bulk_operation_id — modal is skipped', async () => {
+    if (!fix) throw new Error('no fixture')
+    await svc.from('node_author_locks').insert({
+      node_id: fix.childNodeId, organisation_id: fix.organisationId,
+      locked_by_user_id: fix.ownerUserId, lock_reason: 'solo lock',
+    })
+    const { data: lockRow } = await svc.from('node_author_locks')
+      .select('bulk_operation_id').eq('node_id', fix.childNodeId).maybeSingle()
+    // Null bulk id → fetchBulkLockInfo returns null → NodeMoreMenu unlocks direct.
+    expect((lockRow as { bulk_operation_id: string | null }).bulk_operation_id).toBeNull()
+    await svc.from('node_author_locks').delete().eq('node_id', fix.childNodeId)
+  })
+
   it('check_node_writable reads node_author_locks (M-153 source switch)', async () => {
     if (!fix) throw new Error('no fixture')
     // No lock — writable.

@@ -104,15 +104,19 @@ export async function getFailureMessageBundle(): Promise<{
   class_d_template: string
   class_e_template: string
   class_e_admin_contact: string
+  injection_blocked_message: string
 }> {
-  const [classA, classC, classCMin, classD, classE, classEContact] = await Promise.all([
-    getConfigString('failure.class_a_message'),
-    getConfigString('failure.class_c_message'),
-    getConfigInt('failure.class_c_min_pause_seconds'),
-    getConfigString('failure.class_d_message_template'),
-    getConfigString('failure.class_e_message'),
-    getConfigString('failure.class_e_admin_contact'),
-  ])
+  const [classA, classC, classCMin, classD, classE, classEContact, injection] =
+    await Promise.all([
+      getConfigString('failure.class_a_message'),
+      getConfigString('failure.class_c_message'),
+      getConfigInt('failure.class_c_min_pause_seconds'),
+      getConfigString('failure.class_d_message_template'),
+      getConfigString('failure.class_e_message'),
+      getConfigString('failure.class_e_admin_contact'),
+      // Phase 9.E (DR-050) — injection security warning copy.
+      getConfigString('failure.injection_blocked_message'),
+    ])
   return {
     class_a_template: classA,
     class_c_template: classC,
@@ -120,6 +124,7 @@ export async function getFailureMessageBundle(): Promise<{
     class_d_template: classD,
     class_e_template: classE,
     class_e_admin_contact: classEContact,
+    injection_blocked_message: injection,
   }
 }
 

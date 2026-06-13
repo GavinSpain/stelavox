@@ -35,7 +35,21 @@ import { useState } from 'react'
 interface StoppedFollowOnBannerProps {
   turnId: string
   conversationId: string
-  iterationCount: number
+  /**
+   * Iteration count for the body copy. Optional for the interrupted
+   * variant (DR-066), where the count isn't cheaply available from the
+   * conversation GET payload — omit it and the body shows the generic
+   * "progress is saved" framing instead of the per-iteration line.
+   */
+  iterationCount?: number
+  /**
+   * Phase 9.E (DR-066) — distinguishes a user-driven Stop ('stopped',
+   * default; backward compatible with V1.x-D) from a crash / disconnect
+   * that left a turn mid-flight ('interrupted'). Both share the
+   * Resume/Cancel/View machinery and the same resume endpoint; only the
+   * framing copy differs.
+   */
+  variant?: 'stopped' | 'interrupted'
   onResumed?: () => void
   onCancelled?: () => void
   onView?: () => void
@@ -67,10 +81,12 @@ export function StoppedFollowOnBanner({
   turnId,
   conversationId,
   iterationCount,
+  variant = 'stopped',
   onResumed,
   onCancelled,
   onView,
 }: StoppedFollowOnBannerProps) {
+  const isInterrupted = variant === 'interrupted'
   const [submitting, setSubmitting] = useState<'resume' | 'cancel' | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [hidden, setHidden] = useState(() => isBannerDismissed(turnId))
@@ -115,8 +131,13 @@ export function StoppedFollowOnBanner({
   return (
     <div
       data-testid="director-turn-followon-banner"
+      data-variant={variant}
       role="region"
-      aria-label="Director stopped — choose what to do next"
+      aria-label={
+        isInterrupted
+          ? 'Director was interrupted — choose what to do next'
+          : 'Director stopped — choose what to do next'
+      }
       style={{
         background: 'var(--color-bg-base)',
         border: '1px solid var(--color-border-default)',
@@ -128,12 +149,14 @@ export function StoppedFollowOnBanner({
       }}
     >
       <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--color-text-primary)', marginBottom: 4 }}>
-        Director stopped
+        {isInterrupted ? 'Director was interrupted' : 'Director stopped'}
       </div>
       <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', lineHeight: 1.5 }}>
-        {iterationCount === 0
-          ? 'Halted before any iterations completed. State preserved.'
-          : `${iterationCount} iteration${iterationCount === 1 ? '' : 's'} completed before stop. State preserved.`}
+        {isInterrupted
+          ? 'The Director didn’t finish — the connection dropped or the turn was cut short. Your progress is saved. Resume to continue from where it left off.'
+          : iterationCount === undefined || iterationCount === 0
+            ? 'Halted before any iterations completed. State preserved.'
+            : `${iterationCount} iteration${iterationCount === 1 ? '' : 's'} completed before stop. State preserved.`}
       </div>
 
       {error ? (
