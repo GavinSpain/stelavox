@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stelavox — Export Format Lineup Wireframe & Specification v1.0 (DR-042)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500&family=Cormorant+Garamond:ital,wght@1,300&family=Inter:wght@200;300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --ink:#0d1014; --deep:#131820; --surface:#1a2030; --hover:#1e2838; --selected:#1f2d45;
+  --border-s:#1e2535; --border-d:#253045; --border-str:#3a4a62;
+  --text-p:#ecf0f5; --text-s:#8aa0b8; --text-m:#4a6080; --text-dis:#2a3850;
+  --verd:#3d7858; --verd-h:#5aa87a; --verd-m:#1a3028;
+  --ag-run:#2e5a90; --st-rev:#b87030; --destr:#b83838;
+  --info:#3a6090;
+  --spec-bg:#0a0d12; --spec-pan:#111520; --callout:#e8b840;
+}
+
+body { background: var(--spec-bg); color: var(--text-p); font-family: 'Inter', sans-serif; font-size: 13px; line-height: 1.5; }
+
+.doc-header { background: var(--spec-pan); border-bottom: 1px solid var(--border-d); padding: 24px 48px; display:flex; align-items:baseline; justify-content:space-between; }
+.wm-s { font-family:'Cinzel',serif; font-size:14px; font-weight:500; letter-spacing:.18em; color:var(--text-p); }
+.wm-v { font-family:'Cormorant Garamond',serif; font-style:italic; font-weight:300; font-size:16px; letter-spacing:.08em; color:var(--text-p); opacity:.82; }
+.doc-meta { font-size:11px; font-weight:300; letter-spacing:.2em; text-transform:uppercase; color:var(--text-m); }
+
+.intro { padding: 28px 48px 8px; color: var(--text-s); font-size: 13px; line-height: 1.65; max-width: 1100px; }
+.intro strong { color: var(--text-p); font-weight: 500; }
+.intro code { font-family:'Inter',monospace; font-size:11px; background:var(--ink); padding:1px 6px; border-radius:2px; color:var(--text-p); }
+
+.section { padding: 40px 48px 0; }
+.slabel { font-size:9px; font-weight:400; letter-spacing:.45em; text-transform:uppercase; color:var(--text-m); margin-bottom:20px; padding-bottom:12px; border-bottom:1px solid var(--border-s); }
+
+.cn { display:inline-flex; align-items:center; justify-content:center; width:18px; height:18px; background:var(--callout); color:#0a0800; border-radius:50%; font-size:10px; font-weight:700; flex-shrink:0; position:absolute; z-index:20; }
+
+.stage-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; align-items: start; padding-bottom: 40px; }
+.stage-grid.full { grid-template-columns: 1fr; max-width: 620px; }
+.stage-frame { background: var(--ink); border: 1px solid var(--border-s); border-radius: 8px; padding: 20px; position: relative; }
+.stage-title { font-size: 10px; font-weight: 500; letter-spacing: .22em; text-transform: uppercase; color: var(--text-s); margin-bottom: 14px; }
+
+/* Modal sim */
+.modal { background: var(--surface); border: 1px solid var(--border-d); border-radius: 8px; overflow: hidden; position: relative; }
+.modal-head { padding: 16px 18px 12px; }
+.modal-title { font-size: 15px; font-weight: 500; color: var(--text-p); }
+.modal-body { padding: 4px 18px 18px; }
+
+.field-label { font-size:9px; font-weight:500; letter-spacing:.14em; text-transform:uppercase; color:var(--text-m); margin: 14px 0 8px; }
+
+/* Format tiles */
+.tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.tile { padding: 11px 12px; border: 1px solid var(--border-d); background: var(--ink); border-radius: 4px; cursor: pointer; position: relative; }
+.tile.sel { border-color: var(--text-m); background: var(--deep); }
+.tile-t { font-size: 12.5px; font-weight: 500; color: var(--text-p); }
+.tile-d { font-size: 10.5px; color: var(--text-m); margin-top: 3px; line-height: 1.4; }
+.tile-badge { position:absolute; top:8px; right:9px; font-size:8px; font-weight:600; letter-spacing:.12em; text-transform:uppercase; color:var(--verd-h); }
+
+/* Book picker */
+.picker { border:1px solid var(--border-d); border-radius:5px; background:var(--ink); overflow:hidden; }
+.picker-head { display:flex; align-items:center; justify-content:space-between; padding:9px 12px; border-bottom:1px solid var(--border-s); background:var(--deep); }
+.picker-head-l { font-size:11px; color:var(--text-s); }
+.picker-head-a { font-size:11px; color:var(--text-s); border-bottom:1px solid var(--border-str); cursor:pointer; }
+.book-row { display:flex; align-items:center; gap:10px; padding:9px 12px; border-bottom:1px solid var(--border-s); }
+.book-row:last-child { border-bottom:none; }
+.cbox { width:15px; height:15px; border:1px solid var(--border-str); border-radius:3px; flex-shrink:0; display:inline-flex; align-items:center; justify-content:center; font-size:10px; color:var(--ink); }
+.cbox.on { background:var(--text-s); border-color:var(--text-s); }
+.book-meta { flex:1; }
+.book-name { font-size:12.5px; color:var(--text-p); }
+.book-sub { font-size:10.5px; color:var(--text-m); margin-top:1px; }
+.book-ord { font-size:10px; font-family:'Inter',monospace; color:var(--text-m); background:var(--deep); border:1px solid var(--border-s); border-radius:3px; padding:1px 6px; }
+
+.select { width:100%; padding:8px 10px; background:var(--ink); border:1px solid var(--border-d); border-radius:3px; color:var(--text-p); font-size:12px; }
+.hint { font-size:10.5px; color:var(--text-m); margin-top:5px; font-style:italic; }
+.fname { font-family:'Inter',monospace; font-size:11px; color:var(--text-s); background:var(--ink); border:1px solid var(--border-s); border-radius:3px; padding:6px 9px; margin-top:8px; }
+
+.modal-foot { display:flex; gap:8px; justify-content:flex-end; margin-top:18px; }
+.btn { padding:8px 16px; border-radius:3px; font-size:12px; cursor:pointer; font-weight:500; }
+.btn-ghost { background:transparent; color:var(--text-s); border:1px solid var(--border-d); }
+.btn-primary { background:var(--text-p); color:var(--ink); border:none; }
+.btn-primary.dis { background:var(--text-dis); color:var(--text-m); cursor:not-allowed; }
+
+/* Progress stack sim */
+.chip { width:300px; background:var(--deep); border:1px solid var(--border-s); border-left:3px solid var(--ag-run); border-radius:6px; padding:11px 13px; margin-bottom:8px; position:relative; }
+.chip.done { border-left-color:var(--verd); }
+.chip.fail { border-left-color:var(--destr); }
+.chip-t { font-size:12px; color:var(--text-p); font-weight:500; }
+.chip-s { font-size:10.5px; color:var(--text-m); margin-top:3px; }
+.chip-act { font-size:11px; color:var(--text-s); border-bottom:1px solid var(--border-str); cursor:pointer; margin-top:7px; display:inline-block; }
+.chip-fail-msg { font-size:11px; color:var(--text-s); margin-top:6px; line-height:1.5; }
+
+/* Annotations */
+.annotations { padding: 44px 48px; background: var(--spec-pan); border-top: 1px solid var(--border-d); }
+.annotations-title { font-size:11px; font-weight:500; letter-spacing:.4em; text-transform:uppercase; color:var(--text-s); margin-bottom: 24px; padding-bottom:12px; border-bottom:1px solid var(--border-d); }
+.ann-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px 32px; }
+.ann-row { display: flex; gap: 12px; align-items: flex-start; }
+.ann-num { flex-shrink:0; background: var(--callout); color:#0a0800; width:22px; height:22px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; }
+.ann-text { font-size: 12px; color: var(--text-s); line-height: 1.55; }
+.ann-text strong { color: var(--text-p); font-weight: 500; }
+.ann-text code { font-family:'Inter',monospace; font-size:11px; background:var(--ink); padding:1px 6px; border-radius:2px; color:var(--text-p); }
+
+/* Decisions */
+.decisions { padding: 36px 48px; background: var(--spec-bg); }
+.decisions-title { font-size:11px; font-weight:500; letter-spacing:.4em; text-transform:uppercase; color:var(--text-s); margin-bottom: 20px; }
+.decision { background: var(--spec-pan); border: 1px solid var(--border-d); border-left: 3px solid var(--info); border-radius: 4px; padding: 14px 16px; margin-bottom: 12px; font-size: 12px; color: var(--text-s); line-height: 1.6; }
+.decision.open { border-left-color: var(--callout); }
+.decision strong { color: var(--text-p); }
+.decision .locked { display:inline-block; font-size:9px; font-weight:600; letter-spacing:.2em; text-transform:uppercase; color:var(--verd-h); background:var(--verd-m); padding:2px 8px; border-radius:3px; margin-left:8px; }
+.decision .needs { display:inline-block; font-size:9px; font-weight:600; letter-spacing:.2em; text-transform:uppercase; color:#0a0800; background:var(--callout); padding:2px 8px; border-radius:3px; margin-left:8px; }
+
+/* Inviolable audit */
+.inv-audit { padding: 36px 48px; background: var(--spec-pan); border-top: 1px solid var(--border-d); }
+.inv-row { display: grid; grid-template-columns: 30px 1fr 110px; gap: 16px; padding: 10px 0; border-bottom: 1px solid var(--border-s); font-size: 12px; color: var(--text-s); align-items: center; }
+.inv-pass { font-size:10px; font-weight:600; letter-spacing:.15em; text-transform:uppercase; color:var(--verd-h); text-align:right; }
+.inv-row code { font-family:'Inter',monospace; font-size:11px; background:var(--ink); padding:1px 6px; border-radius:2px; color:var(--text-p); }
+
+.refs { padding: 28px 48px 56px; background: var(--spec-bg); border-top: 1px solid var(--border-d); font-size: 11px; color: var(--text-m); line-height: 1.7; }
+.refs strong { color: var(--text-s); font-weight: 500; }
+</style>
+</head>
+<body>
+
+<header class="doc-header">
+  <div>
+    <span class="wm-s">STELAVOX</span>
+    <span class="wm-v" style="margin-left: 10px;">/ Wireframe &amp; Specification</span>
+  </div>
+  <div class="doc-meta">DR-042 · Export Format Lineup · v1.0 · 2026-06-13</div>
+</header>
+
+<div class="intro">
+  <strong>What this covers.</strong> The reworked export modal locked 2026-06-13 (register v3.4). Four states: a Novel
+  document (whole-document, no picker), a Series document exporting a publishing format (per-book picker), the resulting
+  per-book jobs in the progress stack, and a runtime failure routed through the 9.E failure surfaces. <strong>Lineup:</strong>
+  <strong>DOCX</strong> + <strong>EPUB</strong> are per-book publishing artifacts; <strong>Markdown</strong> (new) is the
+  whole-document own-your-data backstop; <strong>Outline</strong> is the structural snapshot. <strong>JSON is removed</strong>
+  (re-homed to DR-036 as export+import together). Export action stays neutral primary — <strong>not verdigris</strong>.
+</div>
+
+<!-- ── §01 · Novel document — whole-document, no picker ───────────── -->
+<section class="section">
+  <div class="slabel">§01 · Export modal — Novel document (single book, no picker)</div>
+  <div class="stage-grid full">
+    <div class="stage-frame">
+      <div class="stage-title">A Novel document is already one book — format tiles only</div>
+      <div class="modal">
+        <div class="modal-head"><div class="modal-title">Export &ldquo;The Sundered Coast&rdquo;</div></div>
+        <div class="modal-body">
+          <span class="cn" style="left:-9px; top:74px;">1</span>
+          <div class="field-label">Format</div>
+          <div class="tiles">
+            <div class="tile sel"><div class="tile-t">📄 DOCX</div><div class="tile-d">Word — editors, contests, KDP print</div></div>
+            <div class="tile"><div class="tile-t">📚 EPUB</div><div class="tile-d">E-book — Kindle / Kobo / Apple Books</div></div>
+            <div class="tile"><span class="tile-badge">always available</span><div class="tile-t">⌶ Markdown</div><div class="tile-d">Plain-text manuscript — take it anywhere</div></div>
+            <div class="tile"><div class="tile-t">📋 Outline</div><div class="tile-d">Structural summary (Markdown)</div></div>
+          </div>
+          <span class="cn" style="left:-9px; top:208px;">2</span>
+          <div class="field-label">Profile</div>
+          <div class="select">📐 DOCX — Manuscript · built-in ▾</div>
+          <div class="hint">Choose a saved configuration. Author-saved profiles attach to this project.</div>
+          <div class="modal-foot">
+            <div class="btn btn-ghost">Cancel</div>
+            <div class="btn btn-primary">Export</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── §02 · Series document — per-book picker ────────────────────── -->
+<section class="section">
+  <div class="slabel">§02 · Export modal — Series document, publishing format (DOCX/EPUB) → book picker</div>
+  <div class="stage-grid full">
+    <div class="stage-frame">
+      <div class="stage-title">Series + DOCX/EPUB — deliberate pick (nothing checked by default)</div>
+      <div class="modal">
+        <div class="modal-head"><div class="modal-title">Export &ldquo;The Tidewright Cycle&rdquo;</div></div>
+        <div class="modal-body">
+          <span class="cn" style="left:-9px; top:74px;">3</span>
+          <div class="field-label">Format</div>
+          <div class="tiles">
+            <div class="tile sel"><div class="tile-t">📚 EPUB</div><div class="tile-d">E-book — Kindle / Kobo / Apple Books</div></div>
+            <div class="tile"><div class="tile-t">📄 DOCX</div><div class="tile-d">Word — editors, contests, KDP print</div></div>
+            <div class="tile"><span class="tile-badge">always available</span><div class="tile-t">⌶ Markdown</div><div class="tile-d">Whole series, plain text</div></div>
+            <div class="tile"><div class="tile-t">📋 Outline</div><div class="tile-d">Structural summary (Markdown)</div></div>
+          </div>
+
+          <span class="cn" style="left:-9px; top:206px;">4</span>
+          <div class="field-label">Which books?</div>
+          <div class="picker">
+            <div class="picker-head">
+              <span class="picker-head-l">Select the books to export — one file each</span>
+              <span class="picker-head-a">Select all</span>
+            </div>
+            <div class="book-row"><span class="cbox on">✓</span><span class="book-ord">01</span><div class="book-meta"><div class="book-name">Saltbound</div><div class="book-sub">112,400 words · 38 chapters</div></div></div>
+            <div class="book-row"><span class="cbox"></span><span class="book-ord">02</span><div class="book-meta"><div class="book-name">The Drowned Court</div><div class="book-sub">128,900 words · 41 chapters</div></div></div>
+            <div class="book-row"><span class="cbox on">✓</span><span class="book-ord">03</span><div class="book-meta"><div class="book-name">Tideturn</div><div class="book-sub">working draft · 96,200 words · 31 chapters</div></div></div>
+          </div>
+          <span class="cn" style="left:-9px; top:392px;">5</span>
+          <div class="fname">The Tidewright Cycle — 01 Saltbound.epub &nbsp;·&nbsp; … — 03 Tideturn.epub</div>
+
+          <div class="modal-foot">
+            <span class="cn" style="right:78px; top:-2px;">6</span>
+            <div class="btn btn-ghost">Cancel</div>
+            <div class="btn btn-primary">Export 2 books</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="stage-frame">
+      <div class="stage-title">Series + Markdown / Outline — whole document, NO picker</div>
+      <div class="modal">
+        <div class="modal-head"><div class="modal-title">Export &ldquo;The Tidewright Cycle&rdquo;</div></div>
+        <div class="modal-body">
+          <div class="field-label">Format</div>
+          <div class="tiles">
+            <div class="tile"><div class="tile-t">📚 EPUB</div><div class="tile-d">E-book</div></div>
+            <div class="tile"><div class="tile-t">📄 DOCX</div><div class="tile-d">Word</div></div>
+            <div class="tile sel"><span class="tile-badge">always available</span><div class="tile-t">⌶ Markdown</div><div class="tile-d">Whole series, plain text</div></div>
+            <div class="tile"><div class="tile-t">📋 Outline</div><div class="tile-d">Structural summary</div></div>
+          </div>
+          <span class="cn" style="left:-9px; top:206px;">7</span>
+          <div class="field-label">Scope</div>
+          <div class="select" style="color:var(--text-s);">Whole document — entire series in one file</div>
+          <div class="hint">Markdown is the take-it-anywhere backstop: structure + final prose, no history, no internal data.</div>
+          <div class="fname">The Tidewright Cycle.md</div>
+          <div class="modal-foot">
+            <div class="btn btn-ghost">Cancel</div>
+            <div class="btn btn-primary">Export</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── §03 · Per-book jobs in the progress stack ─────────────────── -->
+<section class="section">
+  <div class="slabel">§03 · Result — N independent jobs in the existing ExportProgressStack</div>
+  <div class="stage-grid full">
+    <div class="stage-frame">
+      <div class="stage-title">Two books → two jobs (reuses 9.E stack / retry / history)</div>
+      <span class="cn" style="left:312px; top:64px;">8</span>
+      <div class="chip"><div class="chip-t">EPUB · 01 Saltbound</div><div class="chip-s">Rendering — chapter 22 / 38 · ~40s left</div></div>
+      <div class="chip done"><div class="chip-t">EPUB · 03 Tideturn</div><div class="chip-s">Done · 4.6 MB</div><span class="chip-act">Download</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ── §04 · Runtime no-silent-failure ───────────────────────────── -->
+<section class="section">
+  <div class="slabel">§04 · Runtime failure — always a reason, never silent (routed through 9.E surfaces)</div>
+  <div class="stage-grid full">
+    <div class="stage-frame">
+      <div class="stage-title">A render that fails reports why + the recovery path</div>
+      <span class="cn" style="left:312px; top:60px;">9</span>
+      <div class="chip fail">
+        <div class="chip-t">DOCX · 02 The Drowned Court</div>
+        <div class="chip-s">Export failed</div>
+        <div class="chip-fail-msg">~6,400 pages exceeds the DOCX limit (~6,000). This book is unusually large — try EPUB, or split it into parts. <span style="color:var(--text-m);">DOCX removed for this book until it fits.</span></div>
+        <span class="chip-act">Try EPUB instead</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Annotations ───────────────────────────────────────────────── -->
+<div class="annotations">
+  <div class="annotations-title">Annotations</div>
+  <div class="ann-grid">
+    <div class="ann-row"><span class="ann-num">1</span><span class="ann-text"><strong>Format tiles — JSON is gone.</strong> Four tiles: DOCX, EPUB, <strong>Markdown</strong> (new), Outline. Markdown carries an <code>always available</code> badge — it can never be disabled, the guaranteed escape hatch. Selected tile uses <code>--color-text-muted</code> border + <code>--color-bg-base</code> fill (no verdigris).</span></div>
+    <div class="ann-row"><span class="ann-num">2</span><span class="ann-text"><strong>Profile</strong> unchanged from Phase 7 — filtered to the chosen format. Markdown manuscript ships with a built-in profile; no author-config needed to use it.</span></div>
+    <div class="ann-row"><span class="ann-num">3</span><span class="ann-text"><strong>Series document detected.</strong> The picker appears only when the document has more than one node at the Book layer <em>and</em> the format is a per-book publishing format (DOCX/EPUB). A Novel document (§01) skips it entirely.</span></div>
+    <div class="ann-row"><span class="ann-num">4</span><span class="ann-text"><strong>Book picker — deliberate pick.</strong> Nothing is checked on open (author's locked choice) — you must consciously select what you publish. Per-book counts (words · chapters) and a draft tag orient the choice. <code>Select all</code> is one click for the export-everything case.</span></div>
+    <div class="ann-row"><span class="ann-num">5</span><span class="ann-text"><strong>Filename preview.</strong> <code>{Series} — {NN} {Book Title}.{ext}</code> with a zero-padded ordinal so a multi-book drop sorts itself. Shown live as the selection changes.</span></div>
+    <div class="ann-row"><span class="ann-num">6</span><span class="ann-text"><strong>Export button reflects the count</strong> — &ldquo;Export 2 books&rdquo;. Disabled (muted) while zero are checked, enforcing the deliberate pick. Neutral primary token — <strong>not</strong> verdigris (export is not an agent-proposal trigger).</span></div>
+    <div class="ann-row"><span class="ann-num">7</span><span class="ann-text"><strong>Markdown / Outline = whole document.</strong> No picker — these are the take-everything formats. One <code>.md</code> for the entire series; tiny even for a 10-book epic (~9 MB), so it never hits a size wall.</span></div>
+    <div class="ann-row"><span class="ann-num">8</span><span class="ann-text"><strong>One job per selected book.</strong> Each carries <code>export_jobs.root_node_id = bookId</code> and renders that book's subtree only. They reuse the existing <code>ExportProgressStack</code>, per-job retry, signed URL, and history rows — the UI is essentially free.</span></div>
+    <div class="ann-row"><span class="ann-num">9</span><span class="ann-text"><strong>No silent failure.</strong> Every failure shows a concrete reason via the 9.E <code>classifyFailure</code> / FailureBanner surfaces, plus the recovery path. If a format is provably unrecoverable for a book (a hard limit the pre-flight missed), it is dropped from that book's options.</span></div>
+  </div>
+</div>
+
+<!-- ── Open decisions ────────────────────────────────────────────── -->
+<div class="decisions">
+  <div class="decisions-title">Decisions — locked at the 2026-06-13 design discussion</div>
+  <div class="decision"><strong>Per-book DOCX/EPUB; whole-document Markdown/Outline.</strong><span class="locked">Locked</span> Publishing formats split by book; the take-everything formats stay whole-document.</div>
+  <div class="decision"><strong>Book picker = deliberate pick.</strong><span class="locked">Locked</span> Nothing checked by default; Export disabled at zero. &ldquo;Select all&rdquo; covers export-everything.</div>
+  <div class="decision"><strong>Markdown manuscript = the backstop.</strong><span class="locked">Locked</span> Structure + final prose only, no history, no internal ids. Always available; cannot be disabled.</div>
+  <div class="decision"><strong>JSON cut from V1.</strong><span class="locked">Locked</span> Re-homed to DR-036 as a future export+import feature, shipped together. Removed from the modal + renderer.</div>
+  <div class="decision"><strong>Filename pattern.</strong><span class="locked">Locked</span> <code>{Series} — {NN} {Book Title}.{ext}</code>, zero-padded ordinal.</div>
+
+  <div class="decisions-title" style="margin-top:28px;">Decisions — locked 2026-06-14 (wireframe approved)</div>
+  <div class="decision"><strong>D1 · Picker trigger rule.</strong><span class="locked">Locked</span> Show the picker when the document has &gt;1 node at the Book layer (covers both the &ldquo;Series&rdquo; layer-stack and a Novel document holding multiple Book siblings) — not keyed on <code>document_type</code>. Follows real structure, not the stack label.</div>
+  <div class="decision"><strong>D2 · Markdown placement.</strong><span class="locked">Locked</span> Markdown manuscript ships as its own tile (clearest intent), not an &ldquo;include prose&rdquo; toggle on Outline.</div>
+  <div class="decision"><strong>D3 · Quick-export default.</strong><span class="locked">Locked</span> Quick-export on a Series document produces the always-available <strong>Markdown (whole series)</strong> rather than opening the picker.</div>
+</div>
+
+<!-- ── Inviolable audit ──────────────────────────────────────────── -->
+<div class="inv-audit">
+  <div class="annotations-title">Inviolable audit</div>
+  <div class="inv-row"><span>1</span><span><strong style="color:var(--text-p);">Prose surface lowest-noise.</strong> N/A — export modal is chrome, never the prose surface.</span><span class="inv-pass">N/A</span></div>
+  <div class="inv-row"><span>2</span><span><strong style="color:var(--text-p);">Verdigris in exactly twelve places.</strong> This rework adds <strong>zero</strong> verdigris uses. Format tiles use <code>--color-text-muted</code> selection; the Export button is neutral primary (<code>--color-text-primary</code>); checkboxes use <code>--color-text-secondary</code>; failure surfaces use <code>--color-error</code> / <code>--color-status-review</code>. Count remains <strong style="color:var(--verd-h);">12</strong>.</span><span class="inv-pass">Pass · 12</span></div>
+  <div class="inv-row"><span>3·6</span><span><strong style="color:var(--text-p);">Cinzel / Cormorant only in the wordmark.</strong> Modal is Inter throughout.</span><span class="inv-pass">Pass</span></div>
+  <div class="inv-row"><span>4</span><span><strong style="color:var(--text-p);">Typeface boundary.</strong> No Lora — the modal is structural chrome, Inter only.</span><span class="inv-pass">Pass</span></div>
+  <div class="inv-row"><span>5</span><span><strong style="color:var(--text-p);">No prose toolbar.</strong> N/A — not a prose surface.</span><span class="inv-pass">N/A</span></div>
+</div>
+
+<div class="refs">
+  <strong>References.</strong> V1 Deliverables Register v3.4 — DR-042 (rescope) + DR-036 (re-home). &nbsp;·&nbsp;
+  Memory <code>project_export_format_lineup_locked</code>. &nbsp;·&nbsp;
+  Phase 7 export baseline — <code>wireframe_phase7_export_v1.html</code>, <code>lib/export/*</code>, <code>components/export/*</code>. &nbsp;·&nbsp;
+  Runtime failure surfaces — Phase 9.E <code>lib/ui/classifyFailure.ts</code> + <code>components/feedback/FailureBanner.tsx</code>. &nbsp;·&nbsp;
+  Wireframe-first per <code>feedback_wireframe_first_for_ui</code> — review before any component code.
+</div>
+
+</body>
+</html>
