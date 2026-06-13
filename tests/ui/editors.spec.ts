@@ -284,7 +284,11 @@ test.describe('Phase 3 — editors', () => {
     expect(status).toBe(423)
     const banner = page.getByTestId('conflict-banner')
     await expect(banner).toBeVisible({ timeout: 3000 })
-    await expect(banner.getByRole('button', { name: /use latest/i })).toBeVisible()
+    // Phase 9.E (DR-046) — the lock-case primary action is "Reload" (no
+    // competing version to choose); "Use latest" is reserved for the
+    // 409-conflict case. Banner copy now guides the author to unlock.
+    await expect(banner.getByRole('button', { name: /reload/i })).toBeVisible()
+    await expect(banner).toContainText(/unlock/i)
     // Keep mine should NOT be present in 423 banner
     await expect(banner.getByRole('button', { name: /keep mine/i })).toBeHidden()
     await disposeFixture(f)

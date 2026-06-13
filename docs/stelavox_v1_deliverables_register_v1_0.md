@@ -214,12 +214,13 @@
 - Proposed bucket: V1.x
 - Rationale: V1 launch is one user (the author). Push notifications matter when there are paying users to protect. Soon-after-launch work.
 
-#### DR-020 — FailureToast / FailureBanner per-surface adoption
+#### DR-020 — FailureToast / FailureBanner per-surface adoption ✅ SHIPPED 2026-06-13
 - Origin: V1.x-F SHIPPED memo
 - Description: V1.x-F shipped the components as pure-render substrate. Per-surface adoption (AgentTab, SchedulerPanel, AppShell global) was deliberately deferred — existing working error paths untouched.
 - Effort: M  ·  V1-risk: Medium
-- Proposed bucket: V1
+- Bucket: **V1 — SHIPPED Phase 9.E (E.1)**
 - Rationale: Failure UX is a core part of "would my real user feel safe using this" — the author launch test will exercise failure modes. Worth landing the per-surface mounts before launch.
+- **Closeout:** New `FailureSurface` wrapper classifies an HTTP status → failure class (`lib/ui/classifyFailure.ts`) and renders the matching V1.x-F `FailureToast` (A/C) or `FailureBanner` (D/E), reading admin-tunable copy from `/api/failure-messages` (H-12). Adopted in `AgentTab` (6 setError→setFailure sites) and `SchedulerPanel`. "AppShell global" is satisfied by the existing RealtimeBadge global indicator — a redundant global failure bus was judged out of scope. 423 (lock) and 422 injection_blocked are deliberately excluded by the classifier so the dedicated surfaces (DR-046 ConflictBanner / DR-050 SecurityWarningBanner) own them without double-rendering.
 
 #### DR-021 — Admin user-base migration to users.is_platform_admin column
 - Origin: V1.x-E SHIPPED memo
@@ -408,12 +409,13 @@
 
 ### 2.4 Document-ops V1 partial closures
 
-#### DR-043 — BulkUnlockConfirmModal wiring
+#### DR-043 — BulkUnlockConfirmModal wiring ✅ SHIPPED 2026-06-13
 - Origin: Phase 6 SHIPPED memo
 - Description: Backend ships in Phase 6 (lock release per bulk_operation_id RPC + API route). UI listed in wireframe but not wired into NodeMoreMenu.
 - Effort: S  ·  V1-risk: Medium
-- Proposed bucket: V1
+- Bucket: **V1 — SHIPPED Phase 9.E (E.5)**
 - Rationale: Phase 6 polish that didn't quite land. If author author-locks a subtree in V1 launch, they'll want to unlock as a unit. Small finish-the-job task.
+- **Closeout:** New `BulkUnlockConfirmModal` offers two scopes — "Unlock all N" (DELETE `/api/nodes/[id]/lock/bulk-operation/[bulkOpId]`) and "Unlock just this one" (DELETE `/api/nodes/[id]/lock`). `NodeMoreMenu` reads the target lock's `bulk_operation_id` + batch count directly from `node_author_locks` (RLS allows org-member reads) when the self-blocker is `author_locked`; a non-null bulk id swaps the Unlock item to open the modal, otherwise unlock proceeds direct. The Unlock label surfaces the batch size: "🔓 Unlock… (N in batch)".
 
 #### DR-044 — Brief-aware lock conflict (Brief amendments-in-flight check)
 - Origin: Phase 6 SHIPPED memo
@@ -429,12 +431,13 @@
 - Proposed bucket: V1.x
 - Rationale: Backend is queryable manually; UI is admin convenience.
 
-#### DR-046 — Editor 423-handling refinement
+#### DR-046 — Editor 423-handling refinement ✅ SHIPPED 2026-06-13
 - Origin: Phase 6 SHIPPED memo
 - Description: Falls back to existing Phase 3 conflict-toast pattern when a write 423s due to author-lock. Could be more explicit.
 - Effort: S  ·  V1-risk: Low
-- Proposed bucket: V1
+- Bucket: **V1 — SHIPPED Phase 9.E (E.2)**
 - Rationale: Author launch test will encounter this if they edit while a lock changes. Refinement is small.
+- **Closeout:** Refined the existing `ConflictBanner` (already mounted in NodeDetailPanel, already consuming the editor-store `lockedReason`) rather than adding a parallel banner — a parallel FailureBanner on 423 would double-render. The lock branch now distinguishes author-lock from parent-lock, guides the author to "⋯ → Unlock", states that edits up to the lock are saved, and labels the action "Reload" (vs "Use latest" for a 409 content conflict). TC-U-11 updated to assert the Reload label + unlock guidance.
 
 #### DR-047 — VersionHistory restore UI editor 423-handling
 - Origin: project_phase3_restore_deferral memory
@@ -481,12 +484,13 @@
 
 ### 3.3 V1 polish carry-overs
 
-#### DR-050 — SU-J11-1 — Injection scanner rejection UX (security warning, NO override)
+#### DR-050 — SU-J11-1 — Injection scanner rejection UX (security warning, NO override) ✅ SHIPPED 2026-06-13
 - Origin: Phase 5d Mars-series investigation memo
 - Description: Injection scanner flags legitimate fictional content (e.g. a notebook scene mimicking prompt-injection). **Rescoped 2026-06-10 by author decision:** there will be NO override mechanism — security is paramount and is not compromised. The deliverable is a clear, well-written security warning explaining WHY the content was rejected, so the author understands their options: rewrite the flagged text to something benign, or write that prose manually without AI assistance.
 - Effort: S (was M — override machinery dropped from scope)  ·  V1-risk: Medium
-- Bucket: **V1 — LOCKED 2026-06-10**
+- Bucket: **V1 — SHIPPED Phase 9.E (E.3)** (LOCKED 2026-06-10)
 - Rationale: Author: "Security is paramount and we can not compromise on security. The author is completely free to manually enter the prose themselves and not use the AI." The scanner's behaviour is correct; only the explanation surface is missing.
+- **Closeout:** New `SecurityWarningBanner` on the FailureBanner chassis — `--color-status-review` left border (caution, not error-red, because the scanner firing is the system working as intended), ⛊ icon, title "Content blocked by security check". Copy comes from `platform_config` (`failure.injection_blocked_message`, M-224) via the failure-message bundle so it's admin-tunable; the locked copy states there is no override and lists the two options (rewrite the flagged text / write the prose manually). `isInjectionBlockedError()` recognises the runner-persisted `injection_blocked:<field>` shape; AgentTab routes injection failures to the dedicated banner (never the generic FailureSurface) and its `friendlyError()` injection branch had its stale "override is on the V1.x roadmap" promise removed to match the author lock. **No override affordance anywhere.**
 
 #### DR-051 — Director context-node capability: create + link ✅ SHIPPED 2026-06-11
 - Origin: Phase 5d Mars-series Bug 4 memo (SU-J11-2), scope broadened 2026-06-10
@@ -627,12 +631,13 @@
 - Proposed bucket: V1.x
 - Rationale: Platform batched_24h ships in V1.x-B.2. BYOK extension is mirror work; needed for BYOK users who can afford the 24h latency.
 
-#### DR-066 — CK-2 "Director was interrupted; resume?" UI
+#### DR-066 — CK-2 "Director was interrupted; resume?" UI ✅ SHIPPED 2026-06-13
 - Origin: V1.x-B.2 SHIPPED memo
 - Description: When the cooperative-abort happens mid-iteration, the user should see "Director was interrupted; resume?" — substrate ships, UI surface deferred.
 - Effort: S  ·  V1-risk: Medium
-- Proposed bucket: V1
+- Bucket: **V1 — SHIPPED Phase 9.E (E.4)**
 - Rationale: Author will hit this in V1 launch test. Crash recovery without the resume prompt looks like data loss.
+- **Closeout:** The conversation GET route already computed `interrupted_message_id` (Phase 5b I-12) but nothing consumed it. Threaded it through `useDirectorConversation` (new `interruptedMessageId` field) and mounted the existing `StoppedFollowOnBanner` in DirectorPanel with a new `variant="interrupted"` (title "Director was interrupted" + "resume to continue from where it left off" copy) when an interrupted turn is present and no stream is live. Resume/Cancel/View machinery + the resume endpoint are shared with the V1.x-D stopped variant; `iterationCount` became optional for the interrupted case (not cheaply available from the GET payload).
 
 ### 5.2 Data store realtime / performance
 
@@ -1016,8 +1021,8 @@ The audit's biggest signal is the recurring patterns, not the individual finding
 
 | Bucket | Count | Contents |
 |---|---|---|
-| **V1 shipped** | 14 | Phase 9.1 (9 items) + Phase 9.2 (3 items) + Phase 9.D DR-051 (1 item) + Phase 9.B DR-070 (1 item, two sessions) — see Test Reports + register entries; merged 2026-06-11 |
-| **V1 remaining** | 8 | Work package E (UX batch × 5), + 3 Phase-10 folds |
+| **V1 shipped** | 19 | Phase 9.1 (9 items) + Phase 9.2 (3 items) + Phase 9.D DR-051 (1 item) + Phase 9.B DR-070 (1 item, two sessions) + Phase 9.E work package E (5 items: DR-020/043/046/050/066) — see Test Reports + register entries; 9.E merged 2026-06-13 |
+| **V1 remaining** | 3 | 3 Phase-10 folds (DR-042 size banners, DR-057/058 Inviolable audit close, DR-121 Day-1 admin observability verification) |
 | **V1.x** | ~42 | Calibration, audit cleanup themes, polish, dev docs, cloud auto-backup, org settings, push notifications |
 | **V2+** | ~40 | Director extensions, Phase 14, Document Operations, multi-user orgs + invitations, top-up, read-sharing |
 | **V3** (soft-drop) | 2 | DR-038 KDP submission, DR-114 brief amendments |
@@ -1048,12 +1053,12 @@ The audit's biggest signal is the recurring patterns, not the individual finding
 **Work package D — Director capability ✅ SHIPPED 2026-06-11 (Phase 9.D):**
 14. ~~DR-051 — Director context-node create + link~~ ✅ — substrate already live at workflow-executor.ts:496-578 (SU-J11-2 Option B); M-218 publishes Director config v1.29 with prompt parity (both halves — create + link — were always shipped together in the executor's `node_context_links insert`)
 
-**Work package E — UX finish-the-job batch — OPEN:**
-15. DR-020 — FailureToast/Banner per-surface adoption
-16. DR-043 — BulkUnlockConfirmModal wiring
-17. DR-046 — editor 423-handling refinement
-18. DR-050 — injection-scanner rejection warning UX (no override)
-19. DR-066 — "Director interrupted — resume?" UI
+**Work package E — UX finish-the-job batch ✅ SHIPPED 2026-06-13 (Phase 9.E):**
+15. ~~DR-020 — FailureToast/Banner per-surface adoption~~ ✅ — FailureSurface wrapper + classifier; adopted in AgentTab + SchedulerPanel (AppShell-global satisfied by RealtimeBadge)
+16. ~~DR-043 — BulkUnlockConfirmModal wiring~~ ✅ — modal + NodeMoreMenu bulk-membership read + unlock-all / unlock-one scopes
+17. ~~DR-046 — editor 423-handling refinement~~ ✅ — refined the existing ConflictBanner lock branch (Reload + unlock guidance)
+18. ~~DR-050 — injection-scanner rejection warning UX (no override)~~ ✅ — SecurityWarningBanner; M-224 admin-tunable copy; NO override anywhere
+19. ~~DR-066 — "Director interrupted — resume?" UI~~ ✅ — StoppedFollowOnBanner `variant="interrupted"` mounted in DirectorPanel via the conversation GET's `interrupted_message_id`
 
 **Folded into Phase 10 (pre-launch test) rather than standalone — OPEN:**
 20. DR-042 — export size-limit banners
@@ -1078,7 +1083,10 @@ The audit's biggest signal is the recurring patterns, not the individual finding
 - **9.E slot** ✅ — five work packages numbered (A cloud · B Stripe · C hardening · D Director context · E UX batch)
 - **9.1 work package C (hardening)** ✅ SHIPPED 2026-06-11 — see `stelavox_phase9_1_2_test_report_v1_0.md`
 - **9.2 work package A (cloud cutover)** ✅ SHIPPED 2026-06-11 — same Test Report
-- **Open:** packages B (Stripe), D (Director context — needs Tier-B design), E (UX batch × 5), + 3 Phase-10 folds
+- **9.B work package B (Stripe)** ✅ SHIPPED 2026-06-11/13 — substrate + yearly cadence + admin payments page
+- **9.D work package D (Director context)** ✅ SHIPPED 2026-06-11
+- **9.E work package E (UX batch × 5)** ✅ SHIPPED 2026-06-13 — DR-020/043/046/050/066; merged `claude/phase9-e-ux-batch`
+- **Open:** 3 Phase-10 folds (DR-042 / DR-057+058 / DR-121) — all V1, addressed during Phase 10 pre-launch test rather than standalone
 
 ---
 
@@ -1088,6 +1096,8 @@ The audit's biggest signal is the recurring patterns, not the individual finding
 - **Living document.** Items can change bucket; new items get the next DR number. Each change adds a changelog note.
 
 # Changelog
+
+**v3.3 — 2026-06-13** **Phase 9.E SHIPPED — work package E (UX finish-the-job batch).** All five items closed on `claude/phase9-e-ux-batch`: **DR-020** (FailureToast/Banner per-surface adoption) — new `FailureSurface` wrapper + `lib/ui/classifyFailure.ts` status→class mapping + `/api/failure-messages` route; adopted in AgentTab + SchedulerPanel; AppShell-global judged satisfied by the existing RealtimeBadge; classifier deliberately excludes 423 + 422-injection so dedicated surfaces own them. **DR-046** (editor 423-handling) — refined the already-mounted `ConflictBanner` lock branch (Reload label + "⋯ → Unlock" guidance + "edits saved" reassurance) rather than double-rendering a parallel banner. **DR-050** (injection-scanner rejection UX) — new `SecurityWarningBanner` on the FailureBanner chassis, `--color-status-review` caution border, copy from `platform_config` (`failure.injection_blocked_message`, M-224); **NO override anywhere** per the author lock; AgentTab's stale "override on the roadmap" promise removed. **DR-066** ("Director interrupted — resume?") — threaded the conversation GET's pre-existing `interrupted_message_id` through `useDirectorConversation` and mounted `StoppedFollowOnBanner variant="interrupted"` in DirectorPanel. **DR-043** (BulkUnlockConfirmModal) — new modal + `NodeMoreMenu` bulk-membership read from `node_author_locks` + unlock-all / unlock-one scopes against the existing bulk-operation DELETE route. **Verification:** type-check clean; new + extended Vitest (classify-failure, injection-warning, phase6b DR-043 membership cases) PASS; the only full-suite failure is the documented `m173-m174-h26-audit #12` local-DB-state flake (unrelated — no director_turns rollup code touched). **Migration count 223 → 224.** **No Inviolables changed; verdigris-use count remains 12** (feedback surfaces use neutral / status-review / error tokens only). Bucket distribution: V1 shipped 14 → 19; V1 remaining 8 → 3 (only the 3 Phase-10 folds remain, all addressed during the Phase 10 pre-launch test). **All five V1 work packages (A–E) are now SHIPPED.**
 
 **v3.2 — 2026-06-11** **Phase 9.B SHIPPED (DR-070).** Stripe integration in two consecutive sessions: substrate + trial-gate + Checkout/Portal (Session 1) → webhook handler + plan transitions + UI polish + Tier-A close (Session 2). 3 migrations (M-219/220/221), `stripe@22.2.0`, `lib/stripe/*`, 3 API routes, 11 webhook event types, idempotency via UNIQUE index, trial-expiry redirect, 32 new Vitest PASS. Substrate-only ships safely (503 stripe_not_configured until Stripe account provisioned). Apply-time discoveries: subscription_status CHECK uses British spelling (handled via normaliseSubscriptionStatus); platform_config cross-test race surfaced 60s in-process cache + warranted `_clearConfigCache` test helper. Locks made during scoping: test mode default with `stripe.mode` live-swap; trial expiry redirects (no data loss); BYOK flat $15/mo; comprehensive webhook scope; Price IDs in platform_config; monthly cadence only. Bucket distribution: V1 shipped 13 → 14; V1 remaining 9 → 8. Work-package B marked SHIPPED. End-to-end activation gated by user-driven Stripe account setup — checklist in Session 1 Test Report §6.
 

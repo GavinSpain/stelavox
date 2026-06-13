@@ -27,8 +27,35 @@ import {
 } from '@/components/ui/dialog'
 import { LockReasonModal } from './LockReasonModal'
 import { LockConflictModal } from './LockConflictModal'
+import { BulkUnlockConfirmModal } from './BulkUnlockConfirmModal'
 import type { LockConflictJob } from '@/lib/locking/authorLock'
 import { createClient as createSupabaseBrowserClient } from '@/lib/supabase/client'
+
+/**
+ * Phase 9.E (DR-043) — bulk-lock membership for the unlock affordance.
+ * Read directly from node_author_locks (RLS allows org members to read).
+ * Non-null when this node was locked as part of a "Lock all descendants"
+ * batch; drives the BulkUnlockConfirmModal scope choice.
+ */
+type BulkLockInfo = { bulkOperationId: string; count: number }
+
+async function fetchBulkLockInfo(
+  supabase: ReturnType<typeof createSupabaseBrowserClient>,
+  nodeId: string,
+): Promise<BulkLockInfo | null> {
+  const { data: lockRow } = await supabase
+    .from('node_author_locks')
+    .select('bulk_operation_id')
+    .eq('node_id', nodeId)
+    .maybeSingle()
+  const bulkOperationId = (lockRow as { bulk_operation_id: string | null } | null)?.bulk_operation_id
+  if (!bulkOperationId) return null
+  const { count } = await supabase
+    .from('node_author_locks')
+    .select('node_id', { count: 'exact', head: true })
+    .eq('bulk_operation_id', bulkOperationId)
+  return { bulkOperationId, count: count ?? 1 }
+}
 
 // Phase 6: status reduces from 4 values to 2. `in_review` (vestigial)
 // and `locked` (collapsed into Author Lock as its own axis) dropped.
@@ -147,6 +174,9 @@ export function NodeMoreMenu({
   const [lockOpen, setLockOpen] = useState(false)
   const [conflictOpen, setConflictOpen] = useState(false)
   const [conflicts, setConflicts] = useState<LockConflictJob[]>([])
+  // Phase 9.E (DR-043) — bulk-lock membership + the unlock-scope modal.
+  const [bulkInfo, setBulkInfo] = useState<BulkLockInfo | null>(null)
+  const [bulkUnlockOpen, setBulkUnlockOpen] = useState(false)
 
   // Server-truth writability check. The API routes route every node
   // mutation through enforceWritable(node) and (for delete)
@@ -177,6 +207,12 @@ export function NodeMoreMenu({
       setSelfBlocker(self)
       setParentBlocker(parent)
       setLockLoaded(true)
+      // Only this node's own author lock can carry bulk membership; if
+      // the self-blocker isn't an author lock there's nothing to fetch.
+      if (self === 'author_locked') {
+        const info = await fetchBulkLockInfo(supabase, nodeId)
+        if (!cancelled) setBulkInfo(info)
+      }
     })().catch(() => {
       // On RPC error treat as writable — the server will surface its
       // own 423 if it disagrees. Failing closed (disabling the menu on
@@ -189,7 +225,7 @@ export function NodeMoreMenu({
   const { isAuthorLocked, isLocked, deleteBlocked, selfReason, deleteReason } =
     computeMenuGates(selfBlocker, parentBlocker)
 
-  const dialogOpen = renameOpen || deleteOpen || lockOpen || conflictOpen
+  const dialogOpen = renameOpen || deleteOpen || lockOpen || conflictOpen || bulkUnlockOpen
 
   // Anchor position: place menu directly below the More button by
   // default. The useLayoutEffect below measures the menu's actual size
@@ -415,8 +451,16 @@ export function NodeMoreMenu({
           // Unlock is the affordance OUT of the author-locked state, so
           // it must stay enabled while author-locked. It still disables
           // on busy + while the writable check is in flight.
-          <MenuButton onClick={unlock} disabled={busy || !lockLoaded} data-testid="node-menu-unlock">
-            🔓 Unlock this node
+          //
+          // DR-043: when the lock belongs to a bulk "Lock all descendants"
+          // batch, open the scope modal (unlock-all vs unlock-one) instead
+          // of releasing just this node silently. Single locks unlock direct.
+          <MenuButton
+            onClick={bulkInfo ? () => setBulkUnlockOpen(true) : unlock}
+            disabled={busy || !lockLoaded}
+            data-testid="node-menu-unlock"
+          >
+            {bulkInfo ? `🔓 Unlock… (${bulkInfo.count} in batch)` : '🔓 Unlock this node'}
           </MenuButton>
         ) : (
           // Lock proposal does a server-side conflict check on pending
@@ -509,6 +553,18 @@ export function NodeMoreMenu({
         conflicts={conflicts}
         onClose={() => { setConflictOpen(false); onClose() }}
       />
+
+      {bulkInfo ? (
+        <BulkUnlockConfirmModal
+          open={bulkUnlockOpen}
+          nodeId={nodeId}
+          nodeName={nodeName}
+          bulkOperationId={bulkInfo.bulkOperationId}
+          bulkCount={bulkInfo.count}
+          onClose={() => { setBulkUnlockOpen(false); onClose() }}
+          onUnlocked={onMutated}
+        />
+      ) : null}
     </>
   )
 }

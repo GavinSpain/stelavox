@@ -107,6 +107,13 @@ export interface UseDirectorConversationResult {
   conversation: ConversationDto | null
   messages: ConversationMessageDto[]
   currentWorkflow: WorkflowDto | null
+  /**
+   * Phase 9.E (DR-066) — the id of an assistant message left in
+   * turn_state='interrupted' (a crash/disconnect mid-turn). Non-null
+   * means the conversation has a resumable interrupted turn; DirectorPanel
+   * surfaces a resume prompt. Null in the common case.
+   */
+  interruptedMessageId: string | null
   isLoading: boolean
   error: string | null
   /** Refetch everything from the server. */
@@ -121,6 +128,7 @@ interface MountResponse {
   conversation: ConversationDto
   recent_messages: ConversationMessageDto[]
   current_workflow: WorkflowDto | null
+  interrupted_message_id?: string | null
 }
 
 export function useDirectorConversation(
@@ -129,6 +137,7 @@ export function useDirectorConversation(
   const [conversation, setConversation] = useState<ConversationDto | null>(null)
   const [messages, setMessages] = useState<ConversationMessageDto[]>([])
   const [currentWorkflow, setCurrentWorkflow] = useState<WorkflowDto | null>(null)
+  const [interruptedMessageId, setInterruptedMessageId] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState<boolean>(documentId !== null)
   const [error, setError] = useState<string | null>(null)
 
@@ -160,6 +169,7 @@ export function useDirectorConversation(
       setConversation(json.conversation)
       setMessages(json.recent_messages ?? [])
       setCurrentWorkflow(json.current_workflow ?? null)
+      setInterruptedMessageId(json.interrupted_message_id ?? null)
     } catch (e) {
       if (activeDocIdRef.current !== documentId) return
       setError(e instanceof Error ? e.message : 'Failed to load conversation')
@@ -180,6 +190,7 @@ export function useDirectorConversation(
       setConversation(null)
       setMessages([])
       setCurrentWorkflow(null)
+      setInterruptedMessageId(null)
       setIsLoading(false)
       setError(null)
       /* eslint-enable react-hooks/set-state-in-effect */
@@ -254,6 +265,7 @@ export function useDirectorConversation(
     conversation,
     messages,
     currentWorkflow,
+    interruptedMessageId,
     isLoading,
     error,
     refresh,

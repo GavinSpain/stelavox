@@ -30,6 +30,7 @@ import { createClient } from '@/lib/supabase/client'
 // one-off non-Realtime read against the briefs table.
 import { useRealtimeTopic } from '@/lib/realtime/useRealtimeTopic'
 import type { BriefQueueState } from '@/lib/brief/types'
+import { FailureSurface, type FailureDescriptor } from '@/components/feedback/FailureSurface'
 
 interface SchedulerPanelProps {
   projectId: string
@@ -77,21 +78,33 @@ const NON_TERMINAL = new Set(['pending', 'running'])
 export function SchedulerPanel({ projectId, documentId, documentName }: SchedulerPanelProps) {
   const [data, setData] = useState<QueuePayload | null>(null)
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  // Phase 9.E (DR-020) — structured failure descriptor so the queue-load
+  // error surfaces through FailureSurface (Class E hard / Class D 4xx)
+  // instead of a bare inline string.
+  const [failure, setFailure] = useState<FailureDescriptor | null>(null)
 
   const refresh = useCallback(async () => {
     try {
       const res = await fetch(`/api/scheduler/queue?document_id=${documentId}`, { cache: 'no-store' })
       if (!res.ok) {
         const body = (await res.json().catch(() => null)) as { message?: string; error?: string } | null
-        setError(body?.message ?? body?.error ?? `Failed (${res.status})`)
+        setFailure({
+          status: res.status,
+          errorCode: body?.error ?? null,
+          rawError: body?.message ?? body?.error ?? `Failed (${res.status})`,
+          operation: 'load the scheduler queue',
+        })
         return
       }
       const body = (await res.json()) as { brief: BriefQueueState; jobs: AgentJobRow[] }
       setData({ brief: body.brief, jobs: body.jobs })
-      setError(null)
+      setFailure(null)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Network error')
+      setFailure({
+        status: null,
+        rawError: e instanceof Error ? e.message : 'Network error',
+        operation: 'load the scheduler queue',
+      })
     } finally {
       setLoading(false)
     }
@@ -130,8 +143,12 @@ export function SchedulerPanel({ projectId, documentId, documentName }: Schedule
   if (loading) {
     return <div style={{ padding: 24, color: 'var(--color-text-muted)', fontFamily: 'var(--font-inter), Inter, sans-serif' }}>Loading scheduler queue…</div>
   }
-  if (error) {
-    return <div role="alert" style={{ padding: 24, color: 'var(--color-text-primary)', fontFamily: 'var(--font-inter), Inter, sans-serif' }}>Could not load queue: {error}</div>
+  if (failure) {
+    return (
+      <div style={{ padding: 24, fontFamily: 'var(--font-inter), Inter, sans-serif' }}>
+        <FailureSurface failure={failure} onDismiss={() => setFailure(null)} />
+      </div>
+    )
   }
   if (!data) {
     return <div style={{ padding: 24, color: 'var(--color-text-muted)' }}>No data.</div>

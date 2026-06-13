@@ -27,10 +27,15 @@ export function ConflictBanner() {
   const isLock = lockedReason !== null
   const isConflict = !isLock && conflictCurrent !== null
 
+  // Phase 9.E (DR-046) — explicit lock messaging. Distinguish author-lock
+  // from parent-lock, state that editing is paused, and guide the author
+  // to the unlock affordance so the dead-end is actionable. V1 =
+  // single-user orgs, so the locker is always this author — "unlock it"
+  // is accurate guidance.
   const message = isLock
     ? lockedReason === 'parent_locked'
-      ? 'A parent node is now locked. This node is read-only.'
-      : 'This node is now locked. It is read-only.'
+      ? 'A parent node is locked, so editing here is paused. Unlock the parent from its node menu (⋯ → Unlock) to resume editing this node.'
+      : 'This node is locked, so editing is paused. Unlock it from the node menu (⋯ → Unlock) to resume — your edits up to the lock are saved.'
     : 'This node was modified by someone else while you were editing.'
 
   async function onUseLatest() {
@@ -80,7 +85,7 @@ export function ConflictBanner() {
             cursor: 'pointer',
           }}
         >
-          Use latest
+          {isLock ? 'Reload' : 'Use latest'}
         </button>
         {isConflict && (
           <button
