@@ -228,50 +228,79 @@ body { background: var(--spec-bg); color: var(--text-p); font-family: 'Inter', s
 
   <div class="frame">
     <span class="cn" style="left:-9px; top:16px;">11</span>
-    <div class="tile-l" style="margin-bottom:14px;">Token budget utilisation · non-BYOK plans · current period <span style="color:var(--text-dis); letter-spacing:0; text-transform:none;">(period 58% elapsed)</span></div>
+    <div class="tile-l" style="margin-bottom:12px;">Token economics by cohort · <code style="color:var(--text-s);">route = platform</code> · current period <span style="color:var(--text-dis); letter-spacing:0; text-transform:none;">(58% elapsed)</span></div>
+    <table style="width:100%; border-collapse:collapse; font-size:11.5px;">
+      <thead><tr style="color:var(--text-m); font-size:9px; letter-spacing:.08em; text-transform:uppercase;">
+        <th style="text-align:left; padding:6px 8px; border-bottom:1px solid var(--border-s);">Cohort</th>
+        <th style="text-align:right; padding:6px 8px; border-bottom:1px solid var(--border-s);">Users</th>
+        <th style="text-align:right; padding:6px 8px; border-bottom:1px solid var(--border-s);">Tokens</th>
+        <th style="text-align:right; padding:6px 8px; border-bottom:1px solid var(--border-s);">Cost $</th>
+        <th style="text-align:left; padding:6px 8px; border-bottom:1px solid var(--border-s); width:170px;">Budget util · pace</th>
+        <th style="text-align:right; padding:6px 8px; border-bottom:1px solid var(--border-s);">Revenue</th>
+        <th style="text-align:right; padding:6px 8px; border-bottom:1px solid var(--border-s);">Net</th>
+      </tr></thead>
+      <tbody style="color:var(--text-s);">
+        <!-- Trial -->
+        <tr style="background:rgba(184,56,56,.06);">
+          <td style="padding:8px; color:var(--text-p);">Trial <span style="color:var(--destr); font-size:9px; letter-spacing:.1em;">LIABILITY</span></td>
+          <td style="text-align:right;">31</td>
+          <td style="text-align:right;">9.1M</td>
+          <td style="text-align:right; color:var(--text-p);">$58.20</td>
+          <td>
+            <div style="height:11px; background:var(--deep); border-radius:2px; position:relative; overflow:hidden;">
+              <div style="position:absolute; left:0; top:0; bottom:0; width:62%; background:var(--st-rev); opacity:.75;"></div>
+              <div style="position:absolute; left:58%; top:-2px; bottom:-2px; width:2px; background:var(--text-s);"></div>
+            </div>
+            <div style="font-size:9px; color:var(--text-m); margin-top:3px;">avg 62% of grant · slightly ahead</div>
+          </td>
+          <td style="text-align:right; color:var(--text-m);">$0</td>
+          <td style="text-align:right; color:var(--destr); font-weight:500;">−$58.20</td>
+        </tr>
+        <!-- Writer -->
+        <tr style="border-top:1px solid var(--border-s);">
+          <td style="padding:8px; color:var(--text-p);">Writer</td><td style="text-align:right;">3</td><td style="text-align:right;">12.4M</td><td style="text-align:right; color:var(--text-p);">$44.10</td>
+          <td>
+            <div style="height:11px; background:var(--deep); border-radius:2px; position:relative; overflow:hidden;"><div style="position:absolute; left:0; top:0; bottom:0; width:46%; background:var(--ag-run); opacity:.7;"></div><div style="position:absolute; left:58%; top:-2px; bottom:-2px; width:2px; background:var(--text-s);"></div></div>
+            <div style="font-size:9px; color:var(--ok); margin-top:3px;">avg 46% · behind pace</div>
+          </td>
+          <td style="text-align:right;">$48</td><td style="text-align:right; color:var(--ok); font-weight:500;">+$3.90</td>
+        </tr>
+        <!-- Author -->
+        <tr style="border-top:1px solid var(--border-s);">
+          <td style="padding:8px; color:var(--text-p);">Author</td><td style="text-align:right;">2</td><td style="text-align:right;">21.8M</td><td style="text-align:right; color:var(--text-p);">$71.40</td>
+          <td>
+            <div style="height:11px; background:var(--deep); border-radius:2px; position:relative; overflow:hidden;"><div style="position:absolute; left:0; top:0; bottom:0; width:79%; background:var(--st-rev); opacity:.8;"></div><div style="position:absolute; left:58%; top:-2px; bottom:-2px; width:2px; background:var(--text-s);"></div></div>
+            <div style="font-size:9px; color:var(--st-rev); margin-top:3px;">avg 79% · ahead — proj ~136%</div>
+          </td>
+          <td style="text-align:right;">$80</td><td style="text-align:right; color:var(--ok); font-weight:500;">+$8.60</td>
+        </tr>
+        <!-- Pro -->
+        <tr style="border-top:1px solid var(--border-s);">
+          <td style="padding:8px; color:var(--text-p);">Pro</td><td style="text-align:right;">1</td><td style="text-align:right;">9.6M</td><td style="text-align:right; color:var(--text-p);">$38.40</td>
+          <td>
+            <div style="height:11px; background:var(--deep); border-radius:2px; position:relative; overflow:hidden;"><div style="position:absolute; left:0; top:0; bottom:0; width:24%; background:var(--ag-run); opacity:.7;"></div><div style="position:absolute; left:58%; top:-2px; bottom:-2px; width:2px; background:var(--text-s);"></div></div>
+            <div style="font-size:9px; color:var(--text-m); margin-top:3px;">avg 24% · over-allocated?</div>
+          </td>
+          <td style="text-align:right;">$96</td><td style="text-align:right; color:var(--ok); font-weight:500;">+$57.60</td>
+        </tr>
+      </tbody>
+      <tfoot style="color:var(--text-p); font-weight:500;"><tr style="border-top:1px solid var(--border-d);">
+        <td style="padding:9px 8px;">Total platform</td><td style="text-align:right;">37</td><td style="text-align:right;">52.9M</td><td style="text-align:right;">$212.10</td><td></td><td style="text-align:right;">$224</td><td style="text-align:right; color:var(--ok);">+$11.90</td>
+      </tr></tfoot>
+    </table>
+    <div class="legend"><span style="display:inline-block; width:2px; height:10px; background:var(--text-s); vertical-align:middle;"></span> marker = calendar elapsed · fill = avg budget consumed; past the marker ⇒ on track to exceed. Cost $ = real Anthropic spend (<code>SUM agent_jobs.cost_usd</code>). Net = Revenue − Cost.</div>
+  </div>
 
-    <!-- Writer -->
-    <div style="display:grid; grid-template-columns:90px 1fr 150px 110px; gap:14px; align-items:center; padding:9px 0; border-bottom:1px solid var(--border-s);">
-      <div><div style="color:var(--text-p); font-size:12.5px;">Writer</div><div style="color:var(--text-m); font-size:10px;">3 users</div></div>
-      <div>
-        <div style="height:14px; background:var(--deep); border-radius:3px; position:relative; overflow:hidden;">
-          <div style="position:absolute; left:0; top:0; bottom:0; width:46%; background:var(--ag-run); opacity:.7;"></div>
-          <div style="position:absolute; left:58%; top:-2px; bottom:-2px; width:2px; background:var(--text-s);" title="calendar elapsed"></div>
-        </div>
-        <div style="font-size:10px; color:var(--text-m); margin-top:4px;">avg 46% consumed &nbsp;·&nbsp; <span style="color:var(--ok);">behind pace</span> (58% elapsed)</div>
-      </div>
-      <div class="spark" style="margin:0;"><span style="height:40%"></span><span style="height:48%"></span><span style="height:52%"></span><span style="height:50%"></span><span style="height:55%"></span><span style="height:46%"></span></div>
-      <div style="font-size:10px; color:var(--text-m); text-align:right;">avg 6-mo trend</div>
+  <div class="frame" style="border-color:rgba(184,56,56,.3);">
+    <span class="cn" style="left:-9px; top:16px;">12</span>
+    <div class="tile-l" style="margin-bottom:12px; color:var(--destr);">Trial liability — pure cost, no offsetting revenue</div>
+    <div class="grid g4">
+      <div class="tile"><div class="tile-l">Trial cost (period)</div><div class="tile-v" style="color:var(--destr);">$58</div><div class="tile-sub">31 trials · 9.1M tokens</div></div>
+      <div class="tile"><div class="tile-l">Projected month-end</div><div class="tile-v sm" style="color:var(--destr);">~$100</div><div class="tile-sub">run-rate · 58% elapsed</div></div>
+      <div class="tile"><div class="tile-l">Avg cost / trial</div><div class="tile-v sm">$1.88</div><div class="tile-sub">per trial this period</div></div>
+      <div class="tile"><div class="tile-l">Cost / converted trial</div><div class="tile-v sm">$29</div><div class="tile-sub">$58 ÷ 2 conversions (7d)</div></div>
     </div>
-
-    <!-- Author -->
-    <div style="display:grid; grid-template-columns:90px 1fr 150px 110px; gap:14px; align-items:center; padding:9px 0; border-bottom:1px solid var(--border-s);">
-      <div><div style="color:var(--text-p); font-size:12.5px;">Author</div><div style="color:var(--text-m); font-size:10px;">2 users</div></div>
-      <div>
-        <div style="height:14px; background:var(--deep); border-radius:3px; position:relative; overflow:hidden;">
-          <div style="position:absolute; left:0; top:0; bottom:0; width:79%; background:var(--st-rev); opacity:.8;"></div>
-          <div style="position:absolute; left:58%; top:-2px; bottom:-2px; width:2px; background:var(--text-s);"></div>
-        </div>
-        <div style="font-size:10px; color:var(--text-m); margin-top:4px;">avg 79% consumed &nbsp;·&nbsp; <span style="color:var(--st-rev);">ahead of pace</span> — projected ~136% by period end</div>
-      </div>
-      <div class="spark" style="margin:0;"><span style="height:55%"></span><span style="height:60%"></span><span style="height:68%"></span><span style="height:72%"></span><span style="height:78%"></span><span style="height:79%"></span></div>
-      <div style="font-size:10px; color:var(--st-rev); text-align:right;">trending up</div>
-    </div>
-
-    <!-- Pro -->
-    <div style="display:grid; grid-template-columns:90px 1fr 150px 110px; gap:14px; align-items:center; padding:9px 0;">
-      <div><div style="color:var(--text-p); font-size:12.5px;">Pro</div><div style="color:var(--text-m); font-size:10px;">1 user</div></div>
-      <div>
-        <div style="height:14px; background:var(--deep); border-radius:3px; position:relative; overflow:hidden;">
-          <div style="position:absolute; left:0; top:0; bottom:0; width:24%; background:var(--ag-run); opacity:.7;"></div>
-          <div style="position:absolute; left:58%; top:-2px; bottom:-2px; width:2px; background:var(--text-s);"></div>
-        </div>
-        <div style="font-size:10px; color:var(--text-m); margin-top:4px;">avg 24% consumed &nbsp;·&nbsp; <span style="color:var(--text-s);">well under</span> — plan likely over-allocated</div>
-      </div>
-      <div class="spark" style="margin:0;"><span style="height:30%"></span><span style="height:28%"></span><span style="height:22%"></span><span style="height:26%"></span><span style="height:25%"></span><span style="height:24%"></span></div>
-      <div style="font-size:10px; color:var(--text-m); text-align:right;">flat</div>
-    </div>
-    <div class="legend"><span class="dot" style="display:inline-block; width:2px; height:10px; background:var(--text-s); border-radius:0; vertical-align:middle;"></span> marker = calendar elapsed. Fill = avg budget consumed. Fill past the marker ⇒ cohort on track to exceed budget. Bar turns amber/red as utilisation rises.</div>
+    <div class="legend">Trial tokens are acquisition spend, not margin. Watch this against the trial→paid conversion rate (Band 4): converting ⇒ investment, leaking ⇒ tighten the trial grant.</div>
   </div>
 </section>
 
@@ -280,7 +309,7 @@ body { background: var(--spec-bg); color: var(--text-p); font-family: 'Inter', s
   <div class="slabel">§07 · Band 7 — LLM Provider Reconciliation (provider side · &ldquo;what's the Anthropic bill?&rdquo;)</div>
 
   <div class="frame">
-    <span class="cn" style="left:-9px; top:16px;">12</span>
+    <span class="cn" style="left:-9px; top:16px;">13</span>
     <div class="tile-l" style="margin-bottom:12px;">Platform spend this period · <code style="color:var(--text-s);">route = platform</code> only · reconcile vs Anthropic dashboard</div>
     <table style="width:100%; border-collapse:collapse; font-size:12px;">
       <thead><tr style="color:var(--text-m); font-size:9.5px; letter-spacing:.1em; text-transform:uppercase;">
@@ -299,7 +328,7 @@ body { background: var(--spec-bg); color: var(--text-p); font-family: 'Inter', s
         <td style="padding:8px;">Total platform</td><td style="text-align:right;">38.4M</td><td style="text-align:right;">6.1M</td><td colspan="1" style="text-align:right;">—</td><td style="text-align:right;">$152.10</td>
       </tr></tfoot>
     </table>
-    <span class="cn" style="left:-9px; top:172px;">13</span>
+    <span class="cn" style="left:-9px; top:172px;">14</span>
     <div style="display:flex; gap:24px; margin-top:12px;">
       <div><div class="tile-l">Projected month-end</div><div class="tile-v sm">~$262</div><div class="tile-sub">run-rate · 58% elapsed</div></div>
       <div><div class="tile-l">MoM platform $</div><div class="spark" style="width:160px;"><span style="height:40%"></span><span style="height:55%"></span><span style="height:50%"></span><span style="height:70%"></span><span style="height:85%"></span><span style="height:65%"></span></div></div>
@@ -308,7 +337,7 @@ body { background: var(--spec-bg); color: var(--text-p); font-family: 'Inter', s
   </div>
 
   <div class="frame">
-    <span class="cn" style="left:-9px; top:16px;">14</span>
+    <span class="cn" style="left:-9px; top:16px;">15</span>
     <div class="tile-l" style="margin-bottom:12px;">BYOK vs Platform — comparative only <span style="color:var(--text-dis); letter-spacing:0; text-transform:none;">(BYOK tokens hit the user's own provider account — $0 to platform)</span></div>
     <div class="grid g4">
       <div class="tile"><div class="tile-l">Platform users</div><div class="tile-v sm">6</div><div class="tile-sub">budget-capped</div></div>
@@ -353,10 +382,11 @@ body { background: var(--spec-bg); color: var(--text-p); font-family: 'Inter', s
     <div class="ann-row"><span class="ann-num">8</span><span class="ann-text"><strong>Export volume.</strong><span class="tag-der">derive</span> Counts by format + outcome, failed-export rate — newly relevant after the DR-042 per-book rework.</span></div>
     <div class="ann-row"><span class="ann-num">9</span><span class="ann-text"><strong>Storage.</strong><span class="tag-cap">capture</span> Needs <code>export_jobs.file_size_bytes</code> (runner computes byte length at upload — persist it). Shown against the per-file limit raised in the DR-042 discussion.</span></div>
     <div class="ann-row"><span class="ann-num">10</span><span class="ann-text"><strong>Subscriber mix.</strong><span class="tag-der">derive</span> Plan × status × cadence. Counts from <code>organisations</code>; monthly/yearly split from <code>stripe_price_id</code> → <code>priceIdToPlan().cadence</code>. byok_solo is flagged — it pays a flat fee and carries no token budget.</span></div>
-    <div class="ann-row"><span class="ann-num">11</span><span class="ann-text"><strong>Per-plan budget utilisation.</strong><span class="tag-der">derive</span> The headline pricing-calibration view. Fill = avg % of budget consumed (current period, from credits); the vertical marker = calendar elapsed. <strong>Fill past the marker ⇒ on track to exceed budget</strong> (Author, projected ~136%). 6-mo sparkline shows drift. Pro at 24% reads as over-allocated. byok_solo excluded (no budget).</span></div>
-    <div class="ann-row"><span class="ann-num">12</span><span class="ann-text"><strong>Platform spend by model.</strong><span class="tag-der">derive</span> <code>SUM(agent_jobs.cost_usd) WHERE route='platform' GROUP BY model_id</code> — this <em>is</em> the Anthropic invoice, per-model, cache-tier aware. Actual tokens + actual $, already captured per job. Reconcile directly against the Anthropic dashboard.</span></div>
-    <div class="ann-row"><span class="ann-num">13</span><span class="ann-text"><strong>Run-rate + MoM + tier check.</strong><span class="tag-der">derive</span> Projected month-end $ (consumed ÷ elapsed fraction); month-on-month platform $ trend for capacity planning; a plain-language note on which Anthropic tier the current usage fits.</span></div>
-    <div class="ann-row"><span class="ann-num">14</span><span class="ann-text"><strong>BYOK comparison — informational only.</strong><span class="tag-der">derive</span> <code>route='byok'</code> rows: count + avg tokens/user vs platform. Surfaces that uncapped BYOK users burn ~2.6× — useful for budget + fee sizing. <strong>$0 to the platform; never used for internal billing.</strong></span></div>
+    <div class="ann-row"><span class="ann-num">11</span><span class="ann-text"><strong>Token economics by cohort.</strong><span class="tag-der">derive</span> The headline table — <strong>Trial included</strong>. Per cohort: users · tokens · real Cost $ (<code>SUM agent_jobs.cost_usd</code>) · budget-util bar with calendar-elapsed pace marker · Revenue · <strong>Net</strong>. Past the marker ⇒ on track to exceed budget (Author, proj ~136%). Pro at 24% reads as over-allocated. Totals footer. byok_solo excluded (no platform tokens / budget).</span></div>
+    <div class="ann-row"><span class="ann-num">12</span><span class="ann-text"><strong>Trial liability.</strong><span class="tag-der">derive</span> Broken out because trial tokens are <strong>pure cost, no offsetting revenue</strong>. Trial cost this period + projected month-end + avg cost/trial + <strong>cost per converted trial</strong> (÷ Band-4 conversions) — the acquisition-spend read. Converting ⇒ investment; leaking ⇒ tighten the trial grant.</span></div>
+    <div class="ann-row"><span class="ann-num">13</span><span class="ann-text"><strong>Platform spend by model.</strong><span class="tag-der">derive</span> <code>SUM(agent_jobs.cost_usd) WHERE route='platform' GROUP BY model_id</code> — this <em>is</em> the Anthropic invoice, per-model, cache-tier aware. Actual tokens + actual $, already captured per job. Reconcile directly against the Anthropic dashboard.</span></div>
+    <div class="ann-row"><span class="ann-num">14</span><span class="ann-text"><strong>Run-rate + MoM + tier check.</strong><span class="tag-der">derive</span> Projected month-end $ (consumed ÷ elapsed fraction); month-on-month platform $ trend for capacity planning; a plain-language note on which Anthropic tier the current usage fits.</span></div>
+    <div class="ann-row"><span class="ann-num">15</span><span class="ann-text"><strong>BYOK comparison — informational only.</strong><span class="tag-der">derive</span> <code>route='byok'</code> rows: count + avg tokens/user vs platform. Surfaces that uncapped BYOK users burn ~2.6× — useful for budget + fee sizing. <strong>$0 to the platform; never used for internal billing.</strong></span></div>
   </div>
 </div>
 
