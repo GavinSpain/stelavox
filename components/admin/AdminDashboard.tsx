@@ -22,6 +22,7 @@
  */
 
 import { useCallback, useEffect, useState } from 'react'
+import { OperationsSummary } from './OperationsSummary'
 
 type WindowKey = '1h' | '24h' | '7d'
 
@@ -280,6 +281,9 @@ export function AdminDashboard() {
         </div>
         <WindowTabs current={windowKey} onChange={setWindowKey} />
       </header>
+
+      {/* DR-121 — Operations Summary (7 bands) leads the dashboard (OA-1). */}
+      <OperationsSummary windowKey={windowKey} />
 
       {/* Capacity alerts — only shown when there are firing alerts. */}
       {data.capacity_alerts.length > 0 && (

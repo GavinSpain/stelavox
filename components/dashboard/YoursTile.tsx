@@ -45,7 +45,9 @@ export function YoursTile() {
             width: 8,
             height: 8,
             borderRadius: '50%',
-            background: 'var(--color-accent)',
+            // DR-057: decorative dot, not a catalogued verdigris use →
+            // neutral token (keeps Inviolable #2 enumeration exact at 12).
+            background: 'var(--color-text-muted)',
             display: 'inline-block',
           }}
         />
@@ -94,7 +96,8 @@ export function YoursTile() {
             width: 4,
             height: 4,
             borderRadius: '50%',
-            background: 'var(--color-accent)',
+            // DR-057: decorative lock-line dot → neutral token (not verdigris).
+            background: 'var(--color-text-muted)',
             display: 'inline-block',
           }}
         />

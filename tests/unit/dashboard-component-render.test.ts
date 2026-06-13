@@ -23,10 +23,13 @@ describe('YoursTile', () => {
     // CSS makes it uppercase visually but the literal text is title-case.
   })
 
-  it('renders the verdigris dot (use #1 brand-mark family pending audit)', () => {
+  it('decorative dots are NEUTRAL, not verdigris (DR-057 Inviolable #2 audit close)', () => {
     const html = renderToString(React.createElement(YoursTile))
-    expect(html).toMatch(/data-testid="yours-tile-dot"/)
-    expect(html).toMatch(/var\(--color-accent\)/)
+    // DR-057 (2026-06-14): the two decorative dots were uncatalogued
+    // verdigris uses → neutral --color-text-muted, keeping the Inviolable #2
+    // enumeration exact at 12.
+    expect(html).not.toMatch(/var\(--color-accent\)/)
+    expect(html).toMatch(/var\(--color-text-muted\)/)
   })
 })
 

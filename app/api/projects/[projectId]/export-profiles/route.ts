@@ -17,7 +17,7 @@ interface Context { params: Promise<{ projectId: string }> }
 
 const profilePostSchema = z.object({
   name: z.string().min(1).max(200),
-  format: z.enum(['docx', 'epub', 'json', 'outline']),
+  format: z.enum(['docx', 'epub', 'markdown', 'outline']),
   config: z.record(z.string(), z.unknown()),
 }).strict()
 

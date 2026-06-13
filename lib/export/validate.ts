@@ -39,7 +39,7 @@ const WORDS_PER_PAGE = 250
 // time estimate only — not a hard gate.
 function estimateRenderSeconds(words: number, format: ExportFormat): number {
   const wps =
-    format === 'json' ? 50000 :
+    format === 'markdown' ? 50000 :
     format === 'outline' ? 30000 :
     format === 'epub' ? 5000 :
     3000  // docx
@@ -48,12 +48,12 @@ function estimateRenderSeconds(words: number, format: ExportFormat): number {
 
 function estimateOutputMb(words: number, format: ExportFormat): number {
   // Approximate output size:
-  //   - JSON: ~150 bytes per word (includes version snapshots = ~3x prose)
+  //   - Markdown: ~6 bytes per word (prose only, no history — the backstop)
   //   - DOCX: ~30 bytes per word (compressed zip is dense)
   //   - EPUB: ~35 bytes per word (per-chapter XHTML adds overhead)
   //   - Outline: ~10 bytes per word
   const bytesPerWord =
-    format === 'json' ? 150 :
+    format === 'markdown' ? 6 :
     format === 'outline' ? 10 :
     format === 'epub' ? 35 :
     30

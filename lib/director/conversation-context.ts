@@ -281,7 +281,10 @@ export async function buildConversationContext(
       result.length > 0 && result[0].role === 'user' && result[0].content.startsWith('[Earlier conversation summary:')
     const head = hasSummaryPrefix ? [result[0]] : []
     const body = hasSummaryPrefix ? result.slice(1) : result
-    if (body.length > maxMessagesInWindow) {
+    const evicted = body.length > maxMessagesInWindow
+    // DR-121 — fire-and-forget window-pressure proxy (never blocks the turn).
+    recordWindowPressure(supabase, hasSummaryPrefix, evicted)
+    if (evicted) {
       return [...head, ...body.slice(body.length - maxMessagesInWindow)]
     }
   }
@@ -327,6 +330,18 @@ async function readWindowTurns(supabase: SupabaseClient): Promise<number> {
   if (data.value_type !== 'integer') return 0
   const n = typeof data.value === 'number' ? data.value : Number(data.value)
   return Number.isFinite(n) && n > 0 ? n : 0
+}
+
+/**
+ * DR-121 — record the conversation-window pressure proxy. Fire-and-forget:
+ * the RPC is best-effort and any error is swallowed so it never affects a
+ * Director turn. `summaryActive` = a running summary was in play;
+ * `evicted` = the rolling-window slice dropped recent messages.
+ */
+function recordWindowPressure(supabase: SupabaseClient, summaryActive: boolean, evicted: boolean): void {
+  void supabase
+    .rpc('bump_conversation_window_pressure', { p_summary_active: summaryActive, p_evicted: evicted })
+    .then(() => {}, () => {})
 }
 
 /**

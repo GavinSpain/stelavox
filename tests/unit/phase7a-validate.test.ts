@@ -86,8 +86,8 @@ describe('Phase 7.A validate', () => {
     expect(r.errors.some(e => /chapters/i.test(e))).toBe(true)
   })
 
-  it('JSON and outline never produce soft warnings (they are fast)', () => {
-    for (const format of ['json', 'outline'] as const) {
+  it('Markdown and outline never produce soft warnings (they are fast)', () => {
+    for (const format of ['markdown', 'outline'] as const) {
       const r = validateForExport(
         { total_words: 950_000, total_chapters: 75, format },
         STANDARD_LIMITS,

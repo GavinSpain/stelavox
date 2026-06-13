@@ -400,7 +400,7 @@
 - Proposed bucket: V1.x
 - Rationale: V1 author can launch with built-in seeds; editor adds polish.
 
-#### DR-042 — Export format lineup rework: per-book publishing + Markdown backstop, JSON cut
+#### DR-042 — Export format lineup rework: per-book publishing + Markdown backstop, JSON cut ✅ SHIPPED 2026-06-14
 - Origin: Phase 7 SHIPPED memo; **rescoped 2026-06-13** after a design discussion that started on size-limit banners and reframed the whole export model.
 - **Bucket: V1 — LOCKED 2026-06-13** (Phase 10 build).
 - **What changed and why:** the original DR-042 was "wrap the size-limit validator messages in dedicated banner components." Tracing the actual export pipeline reframed the problem. Three findings drove the rework: (1) a "Series" is **one document** in V1 (`Series → Book → Act → …` tree), so a whole-series export is one giant file — but **per-book is the real unit of publishing** (you submit each book to KDP separately, and you export the book you just finished, not the omnibus); (2) the **JSON export is a half-feature** — it serialises the internal DB shape (node_versions, locks, context-link rows, ordinal paths) yet **has no importer** (DR-036) and isn't even on the backlog with one, so it delivers neither portability (too internal to be usable elsewhere) nor backup (can't be restored); exposing the internal schema also couples future schema changes to files on users' disks; (3) the genuine launch need is **data ownership / exit** — a user must always be able to walk away with their work in an open, usable form, needing nothing from Stelavox.
@@ -556,14 +556,14 @@
 
 ### 4.1 Open Inviolable audit items
 
-#### DR-057 — YoursTile decorative verdigris dot — audit
+#### DR-057 — YoursTile decorative verdigris dot — audit ✅ SHIPPED 2026-06-14
 - Origin: Phase 8.01 wireframe lock (CLAUDE.md v1.46)
 - Description: Decorative verdigris dot strictly counts as a 10th use category. Recommended treating as brand-mark reinforcement under use #1 family pending audit.
 - Effort: S  ·  V1-risk: None
 - Proposed bucket: V1
 - Rationale: Inviolable #2 lives or dies on the precise enumeration. Resolve before launch — either fold into use #1 explicitly or drop the verdigris from the tile.
 
-#### DR-058 — Mentioned-node tree-row left border — audit
+#### DR-058 — Mentioned-node tree-row left border — audit ✅ SHIPPED 2026-06-14
 - Origin: Phase 8.01 wireframe lock (CLAUDE.md v1.46)
 - Description: Reuses the active-node use #9 treatment. Logically a second function under the same use; no broadening but worth recording.
 - Effort: S  ·  V1-risk: None
@@ -669,7 +669,7 @@
 
 (DR-019 push-model notifications + DR-020 per-surface adoption captured under Agent System. DR-066 resume-prompt UI captured under Data + Infra. Audit-log themes captured below.)
 
-#### DR-121 — Admin Operations Summary (expanded from scheduler-calibration observability)
+#### DR-121 — Admin Operations Summary (expanded from scheduler-calibration observability) ✅ SHIPPED 2026-06-14
 - Origin: Category 1 lock discussion 2026-06-10; **expanded 2026-06-14** in the ops-summary design review.
 - **Original scope:** verify the scheduler-calibration metrics (WFQ fairness per class, per-pool bucket utilisation, class distribution of dispatches, queue ages, conversation-window pressure, probe outcomes) are captured + surfaced so the V1.x Group-B tunings can happen later. Author: "I want observability in the admin in V1 so that from Day 1 I have visibility of what is going on."
 - **Expanded scope (2026-06-14):** a full **Operations Summary** atop `/admin` — the cross-cutting "is the whole thing healthy" view the per-subsystem dashboard lacks. **Seven bands:** (1) System Health rollup + active-issue list; (2) Liveness & heartbeats — dispatcher tick, cloud pg_net transport, realtime round-trip, pg_cron 5-job health; (3) External dependencies — Anthropic / DB / Stripe; (4) Volume & growth — orgs, active, activity trends; (5) Export & storage; (6) **Plan & Subscriber Economics** — plan×cadence×status mix + per-plan budget utilisation (avg % vs budget, current-period pace marker, 6-mo MoM); (7) **LLM Provider Reconciliation** — per-model platform spend = the Anthropic invoice (`SUM(agent_jobs.cost_usd) WHERE route='platform' GROUP BY model_id`, cache-tier aware), run-rate projection, MoM, tier check, + BYOK-vs-platform comparison (informational, $0 to platform).
@@ -1030,8 +1030,8 @@ The audit's biggest signal is the recurring patterns, not the individual finding
 
 | Bucket | Count | Contents |
 |---|---|---|
-| **V1 shipped** | 19 | Phase 9.1 (9 items) + Phase 9.2 (3 items) + Phase 9.D DR-051 (1 item) + Phase 9.B DR-070 (1 item, two sessions) + Phase 9.E work package E (5 items: DR-020/043/046/050/066) — see Test Reports + register entries; 9.E merged 2026-06-13 |
-| **V1 remaining** | 3 | 3 Phase-10 folds (DR-042 size banners, DR-057/058 Inviolable audit close, DR-121 Day-1 admin observability verification) |
+| **V1 shipped** | 23 | Phase 9.1 (9 items) + Phase 9.2 (3 items) + Phase 9.D DR-051 (1 item) + Phase 9.B DR-070 (1 item, two sessions) + Phase 9.E work package E (5 items: DR-020/043/046/050/066) — see Test Reports + register entries; 9.E merged 2026-06-13 |
+| **V1 remaining** | 0 | **All V1 deliverables shipped.** The 3 Phase-10 folds (DR-042 / DR-057+058 / DR-121) shipped 2026-06-14 on `claude/phase10-export-ops`. |
 | **V1.x** | ~42 | Calibration, audit cleanup themes, polish, dev docs, cloud auto-backup, org settings, push notifications |
 | **V2+** | ~40 | Director extensions, Phase 14, Document Operations, multi-user orgs + invitations, top-up, read-sharing |
 | **V3** (soft-drop) | 2 | DR-038 KDP submission, DR-114 brief amendments |
@@ -1069,10 +1069,12 @@ The audit's biggest signal is the recurring patterns, not the individual finding
 18. ~~DR-050 — injection-scanner rejection warning UX (no override)~~ ✅ — SecurityWarningBanner; M-224 admin-tunable copy; NO override anywhere
 19. ~~DR-066 — "Director interrupted — resume?" UI~~ ✅ — StoppedFollowOnBanner `variant="interrupted"` mounted in DirectorPanel via the conversation GET's `interrupted_message_id`
 
-**Folded into Phase 10 (pre-launch test) rather than standalone — OPEN:**
-20. DR-042 — export size-limit banners
-21. DR-057 + DR-058 — Inviolable audit close (one combined task)
-22. DR-121 — Day-1 admin observability verification + gap-close
+**Phase 10 folds ✅ SHIPPED 2026-06-14 (`claude/phase10-export-ops`):**
+20. ~~DR-042 — export rework~~ ✅ — per-book DOCX/EPUB (book picker + subtree walk) + Markdown manuscript backstop + JSON cut. M-225.
+21. ~~DR-057 + DR-058 — Inviolable audit close~~ ✅ — YoursTile dots → neutral; mentioned-node use #9 recorded; SearchChip hover deviation fixed. Count stays 12.
+22. ~~DR-121 — admin Operations Summary~~ ✅ — 7-band ops summary atop /admin (health · liveness · dependencies · volume · export/storage · plan economics · provider reconciliation). M-226/227/228.
+
+**🎉 All 22 V1 deliverables are SHIPPED.**
 
 ## Product-scope locks made during this review
 
@@ -1105,6 +1107,8 @@ The audit's biggest signal is the recurring patterns, not the individual finding
 - **Living document.** Items can change bucket; new items get the next DR number. Each change adds a changelog note.
 
 # Changelog
+
+**v3.6 — 2026-06-14** **Phase 10 SHIPPED — the final three V1 folds (DR-042 + DR-057/058 + DR-121). ALL 22 V1 DELIVERABLES NOW SHIPPED.** Built on `claude/phase10-export-ops`. **DR-042** — M-225 (`export_jobs.root_node_id` + `file_name`, Markdown built-in profile, JSON profile removed); subtree-scoped tree walk; new `markdown.ts` manuscript renderer; `POST /api/exports` accepts `book_node_ids[]` → N per-book jobs; ExportModal book picker + Markdown tile + JSON removed; `json.ts` deleted; `ExportFormat` drops json/adds markdown. **DR-057/058** — YoursTile's two decorative verdigris dots → neutral (uncatalogued uses removed; enumeration exact at 12); mentioned-node tree-row border recorded as use #9's second function; audit also caught + fixed SearchChip's hover-state verdigris (a §5.4 violation). **DR-121** — M-226 (`export_jobs.file_size_bytes`) + M-227 (`admin_ops_infra_health()` RPC for cron/pg_net/publication liveness) + M-228 (`bump_conversation_window_pressure()` proxy); `GET /api/admin/ops` 7-band feed (almost all derived — per-model Anthropic reconciliation is `SUM(agent_jobs.cost_usd) WHERE route='platform'`); `OperationsSummary` component atop `/admin`; runner persists file size; context-builder fires window-pressure fire-and-forget; queue-age + realtime-health derive live. **Migration count 224 → 228.** **Verification:** type-check clean; production build PASS; new Vitest PASS (DR-042 ×16 incl. subtree scoping + Markdown render; DR-121 ×4 infra-health/window-pressure/file_size; DR-057 dashboard test updated to assert neutral). Full unit suite 1158/1159 (sole failure the documented `m173-m174-h26-audit #12` local-DB flake). **No Inviolable changes; verdigris-use count remains 12.** Bucket distribution: V1 shipped 19 → 23; **V1 remaining 3 → 0.**
 
 **v3.5 — 2026-06-14** **DR-121 expanded → Admin Operations Summary; wireframe + design note approved, build-ready.** The DR-121 verification pass grew (author: "all of these need to be included … finish it off in admin") into a full seven-band Operations Summary atop `/admin`: System Health rollup · Liveness/heartbeats (dispatcher, cloud pg_net transport, realtime probe, pg_cron) · External dependencies (Anthropic/DB/Stripe) · Volume & growth · Export & storage · **Plan & Subscriber Economics** (plan×cadence×status mix + per-plan budget utilisation with a current-period pace marker + 6-mo MoM) · **LLM Provider Reconciliation** (per-model platform spend = the Anthropic invoice via `agent_jobs.cost_usd` + `route` + `model_id`, run-rate, MoM, tier check, BYOK-vs-platform comparison). **Key grounding:** the economics bands are zero-new-capture — `agent_jobs` already stores actual tokens + `cost_usd` + model + route; cadence derives from `stripe_price_id`. Only four small captures remain (export size column · realtime probe · queue-age rollup · window-pressure), no new tables. Artifacts: `wireframe_admin_ops_summary_v1.html` + `stelavox_dr121_admin_ops_summary_design_v1_0.md` v1.1. OA-1/2/3 locked (bands atop `/admin` · new `/api/admin/ops` · 5-min realtime probe). No bucket-count change (DR-121 was already V1-remaining). No code yet — Phase 10 build.
 

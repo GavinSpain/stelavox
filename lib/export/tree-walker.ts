@@ -53,6 +53,10 @@ interface NodeRow {
 interface WalkOptions {
   scene_separator?: string    // e.g. "* * *"; pulled from profile config
   chapter_heading_style?: 'centred_numbered' | 'centred_split' | 'centred_name_only' | 'left_numbered' | 'plain'
+  // DR-042 — when set (a Book node id), walk only that node's subtree
+  // (the node itself + its descendants). NULL/undefined = whole document.
+  // Used for per-book exports of a Series document.
+  rootNodeId?: string | null
 }
 
 // Layers that emit a heading by default. Per D11, Chapter = Heading 1
@@ -180,10 +184,25 @@ export async function walkDocument(
     return false
   }
 
+  // DR-042 — subtree scoping. A node is in scope when rootNodeId is unset
+  // (whole document) OR the node IS rootNodeId OR rootNodeId is one of its
+  // ancestors. Nodes outside the subtree are skipped without emitting.
+  const rootNodeId = options.rootNodeId ?? null
+  function inSubtree(id: string): boolean {
+    if (!rootNodeId) return true
+    let current: string | null = id
+    while (current) {
+      if (current === rootNodeId) return true
+      current = idToParent.get(current) ?? null
+    }
+    return false
+  }
+
   // Track last scene to insert scene_separator between siblings
   let lastSceneParent: string | null = null
 
   for (const node of (rows as unknown as NodeRow[])) {
+    if (!inSubtree(node.id)) continue
     if (!node.export_include || ancestorSkipped(node.parent_id)) {
       skippedIds.add(node.id)
       continue

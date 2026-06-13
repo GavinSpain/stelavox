@@ -41,7 +41,9 @@ export function SearchChip({ label = 'Search' }: SearchChipProps) {
         transition: 'border-color 120ms ease, color 120ms ease',
       }}
       onPointerEnter={(e) => {
-        e.currentTarget.style.borderColor = 'var(--color-accent-hover)'
+        // DR-058 audit: generic hover-state verdigris is forbidden
+        // (Brand Identity §5.4 — only use #12 Open-link is admitted).
+        e.currentTarget.style.borderColor = 'var(--color-border-strong)'
         e.currentTarget.style.color = 'var(--color-text-primary)'
       }}
       onPointerLeave={(e) => {
