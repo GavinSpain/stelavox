@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stelavox — Landing Page Wireframe v1.0 (Phase 13.1)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600&family=Cormorant+Garamond:ital,wght@1,300;1,400&family=Inter:wght@200;300;400;500;600;700&family=Lora:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  /* app dark surface */
+  --ink:#0d1014; --deep:#131820; --surface:#1a2030; --hover:#1e2838;
+  --border-s:#1e2535; --border-d:#253045; --border-str:#3a4a62;
+  --text-p:#ecf0f5; --text-s:#8aa0b8; --text-m:#4a6080;
+  --verd:#3d7858; --verd-h:#5aa87a; --verd-deep:#254a38;
+  /* brand light (warm paper) */
+  --paper:#f2ede4; --paper-2:#e9e1d3; --paper-line:#d9cfbd;
+  --ink-on-paper:#1c2230; --ink-soft:#55617a; --verd-paper:#254a38;
+  /* spec chrome */
+  --spec-bg:#0a0d12; --spec-pan:#111520; --callout:#e8b840; --info:#3a6090;
+}
+body { background: var(--spec-bg); color: var(--text-p); font-family:'Inter',sans-serif; font-size:13px; line-height:1.5; }
+
+.doc-header { background: var(--spec-pan); border-bottom:1px solid var(--border-d); padding:24px 48px; display:flex; align-items:baseline; justify-content:space-between; }
+.wm-s { font-family:'Cinzel',serif; font-size:14px; font-weight:600; letter-spacing:.18em; }
+.wm-v { font-family:'Cormorant Garamond',serif; font-style:italic; font-weight:300; font-size:16px; opacity:.85; }
+.doc-meta { font-size:11px; font-weight:300; letter-spacing:.2em; text-transform:uppercase; color:var(--text-m); }
+.intro { padding:24px 48px 4px; color:var(--text-s); font-size:13px; line-height:1.65; max-width:1080px; }
+.intro strong { color:var(--text-p); font-weight:500; }
+.slabel { font-size:9px; font-weight:400; letter-spacing:.45em; text-transform:uppercase; color:var(--text-m); margin:34px 48px 16px; padding-bottom:12px; border-bottom:1px solid var(--border-s); }
+
+/* device frame to hold a "page" */
+.frame { margin:0 48px; border:1px solid var(--border-d); border-radius:10px; overflow:hidden; max-width:1080px; }
+.browserbar { background:#0c0f15; border-bottom:1px solid var(--border-d); padding:8px 12px; display:flex; align-items:center; gap:6px; }
+.dot { width:10px; height:10px; border-radius:50%; }
+.url { margin-left:12px; font-size:11px; color:var(--text-m); font-family:ui-monospace,monospace; }
+
+/* ============ brand wordmark ============ */
+.brand { display:inline-flex; align-items:center; gap:8px; }
+.lozenge { width:11px; height:11px; background:var(--verd); transform:rotate(45deg); border-radius:2px; box-shadow:0 0 8px rgba(90,168,122,.45); flex-shrink:0; }
+.brandtext { font-family:'Cinzel',serif; font-weight:600; letter-spacing:.14em; }
+.brandtext .v { font-family:'Cormorant Garamond',serif; font-style:italic; font-weight:400; letter-spacing:.02em; }
+
+/* ============ DARK landing surface ============ */
+.lp { background:var(--ink); color:var(--text-p); }
+.lp .nav { display:flex; align-items:center; justify-content:space-between; padding:18px 40px; border-bottom:1px solid var(--border-s); }
+.lp .nav .brandtext { color:var(--text-p); font-size:19px; }
+.lp .nav .lozenge { width:13px; height:13px; }
+/* hero brand lockup — confident brand moment above the eyebrow */
+.hero-brand { display:inline-flex; align-items:center; gap:13px; margin-bottom:28px; }
+.hero-brand .lozenge { width:18px; height:18px; box-shadow:0 0 18px rgba(90,168,122,.6); }
+.hero-brand .brandtext { font-size:30px; color:var(--text-p); letter-spacing:.18em; }
+.hero-brand .brandtext .v { font-size:34px; }
+.lp.paper .hero-brand .brandtext { color:var(--ink-on-paper); }
+.lp .nav-r { display:flex; align-items:center; gap:18px; }
+.lp .nav-link { font-size:13px; color:var(--text-s); }
+.lp .btn { font-size:13px; font-weight:500; padding:9px 16px; border-radius:6px; cursor:pointer; border:none; }
+.lp .btn-primary { background:var(--verd); color:#eafff2; }
+.lp .btn-ghost { background:transparent; color:var(--text-s); border:1px solid var(--border-str); }
+
+.hero { padding:72px 40px 64px; text-align:center; max-width:820px; margin:0 auto; }
+.eyebrow { font-size:11px; font-weight:500; letter-spacing:.28em; text-transform:uppercase; color:var(--verd-h); margin-bottom:22px; }
+.h-title { font-family:'Lora',serif; font-weight:500; font-size:42px; line-height:1.18; color:var(--text-p); letter-spacing:-.01em; }
+.h-sub { font-size:17px; line-height:1.6; color:var(--text-s); margin:22px auto 30px; max-width:620px; }
+.cta-row { display:flex; gap:10px; justify-content:center; align-items:center; flex-wrap:wrap; }
+.cta-email { display:flex; gap:8px; }
+.cta-input { background:var(--deep); border:1px solid var(--border-str); border-radius:6px; padding:11px 14px; color:var(--text-p); font-size:14px; width:260px; }
+.cta-note { font-size:11px; color:var(--text-m); margin-top:12px; }
+
+/* hero visual — illustration (tree + director) */
+.viz { margin:44px auto 0; max-width:720px; border:1px solid var(--border-d); border-radius:10px; background:var(--deep); overflow:hidden; }
+.viz-bar { background:var(--ink); border-bottom:1px solid var(--border-s); padding:7px 12px; font-size:10px; color:var(--text-m); letter-spacing:.16em; text-transform:uppercase; }
+.viz-body { display:grid; grid-template-columns:200px 1fr; min-height:230px; }
+.viz-tree { border-right:1px solid var(--border-s); padding:14px 10px; }
+.tnode { font-size:11px; color:var(--text-s); padding:4px 8px; border-radius:4px; margin-bottom:2px; display:flex; gap:7px; align-items:center; }
+.tnode .lab { font-family:ui-monospace,monospace; font-size:9px; color:var(--text-m); border:1px solid var(--border-s); border-radius:3px; padding:0 4px; }
+.tnode.act { padding-left:18px; } .tnode.ch { padding-left:32px; } .tnode.sc { padding-left:46px; }
+.tnode.sel { background:var(--surface); color:var(--text-p); border-left:2px solid var(--verd); }
+.viz-dir { padding:16px; }
+.dirmark { color:var(--verd-h); font-size:13px; }
+.dirmsg { font-size:11px; color:var(--text-s); line-height:1.55; margin-top:8px; background:var(--ink); border:1px solid var(--border-s); border-radius:6px; padding:10px; }
+.dirplan { margin-top:8px; border:1px solid var(--verd-deep); border-left:2px solid var(--verd); border-radius:5px; padding:8px 10px; font-size:10.5px; color:var(--text-s); }
+
+.section-lp { padding:60px 40px; border-top:1px solid var(--border-s); }
+.s-wrap { max-width:880px; margin:0 auto; }
+.turn { text-align:center; max-width:680px; margin:0 auto; }
+.turn h2 { font-family:'Lora',serif; font-weight:500; font-size:26px; color:var(--text-p); line-height:1.35; }
+.turn p { font-size:15px; color:var(--text-s); line-height:1.7; margin-top:14px; }
+.props { display:grid; grid-template-columns:repeat(3,1fr); gap:20px; }
+.prop { background:var(--deep); border:1px solid var(--border-s); border-radius:8px; padding:22px; }
+.prop-ico { width:30px; height:30px; border-radius:7px; background:var(--verd-deep); color:var(--verd-h); display:flex; align-items:center; justify-content:center; font-size:15px; margin-bottom:14px; }
+.prop h3 { font-size:15px; color:var(--text-p); font-weight:600; margin-bottom:8px; }
+.prop p { font-size:12.5px; color:var(--text-s); line-height:1.6; }
+.howrow { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-top:8px; }
+.howstep { text-align:left; }
+.hownum { font-family:'Lora',serif; font-size:22px; color:var(--verd-h); }
+.howstep h4 { font-size:13px; color:var(--text-p); margin:6px 0 4px; font-weight:600; }
+.howstep p { font-size:11.5px; color:var(--text-m); line-height:1.5; }
+.sec-h { font-family:'Lora',serif; font-weight:500; font-size:24px; color:var(--text-p); text-align:center; margin-bottom:30px; }
+.pricing-teaser { text-align:center; font-size:16px; color:var(--text-s); }
+.pricing-teaser a { color:var(--verd-h); border-bottom:1px solid var(--verd-deep); }
+.faq { max-width:680px; margin:0 auto; }
+.faq-q { border-top:1px solid var(--border-s); padding:16px 0; }
+.faq-q .q { font-size:14px; color:var(--text-p); font-weight:500; }
+.faq-q .a { font-size:12.5px; color:var(--text-m); margin-top:6px; line-height:1.6; }
+.lp-foot { padding:36px 40px; border-top:1px solid var(--border-s); display:flex; align-items:center; justify-content:space-between; font-size:12px; color:var(--text-m); }
+.foot-links { display:flex; gap:18px; }
+.foot-links a { color:var(--text-s); }
+
+/* screenshot-style hero visual (mock of a real capture) */
+.shot { filter:saturate(1.05); }
+.shot .viz-body { background:linear-gradient(180deg,#0e131b,#0b0f15); }
+
+/* ============ LIGHT (warm paper) variant ============ */
+.lp.paper { background:var(--paper); color:var(--ink-on-paper); }
+.lp.paper .nav { border-color:var(--paper-line); }
+.lp.paper .nav .brandtext, .lp.paper .h-title { color:var(--ink-on-paper); }
+.lp.paper .nav-link, .lp.paper .h-sub { color:var(--ink-soft); }
+.lp.paper .eyebrow { color:var(--verd-paper); }
+.lp.paper .btn-ghost { color:var(--ink-soft); border-color:var(--paper-line); }
+.lp.paper .cta-input { background:#fff; border-color:var(--paper-line); color:var(--ink-on-paper); }
+.lp.paper .cta-note { color:#8a8273; }
+
+/* tone gallery cards */
+.tone-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin:0 48px; max-width:1200px; }
+.tone-card { border:1px solid var(--border-d); border-radius:10px; overflow:hidden; }
+.tone-tag { font-size:10px; letter-spacing:.18em; text-transform:uppercase; color:var(--text-m); padding:8px 12px; background:var(--spec-pan); border-bottom:1px solid var(--border-d); }
+.mini-hero { padding:30px 22px; text-align:center; }
+.mini-eye { font-size:9px; letter-spacing:.24em; text-transform:uppercase; margin-bottom:12px; }
+.mini-title { line-height:1.2; }
+.mini-sub { font-size:11px; margin:12px 0 16px; line-height:1.55; }
+.mini-btn { font-size:11px; font-weight:500; padding:7px 13px; border-radius:5px; display:inline-block; }
+
+/* two-up */
+.twoup { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin:0 48px; max-width:1200px; }
+.twoup .tone-card { }
+
+.cn { display:inline-flex; align-items:center; justify-content:center; width:18px; height:18px; background:var(--callout); color:#0a0800; border-radius:50%; font-size:10px; font-weight:700; position:absolute; z-index:20; }
+.rel { position:relative; }
+
+.annotations { padding:44px 48px; background:var(--spec-pan); border-top:1px solid var(--border-d); margin-top:36px; }
+.annotations-title { font-size:11px; font-weight:500; letter-spacing:.4em; text-transform:uppercase; color:var(--text-s); margin-bottom:24px; padding-bottom:12px; border-bottom:1px solid var(--border-d); }
+.ann-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:18px 32px; }
+.ann-row { display:flex; gap:12px; align-items:flex-start; }
+.ann-num { flex-shrink:0; background:var(--callout); color:#0a0800; width:22px; height:22px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; }
+.ann-text { font-size:12px; color:var(--text-s); line-height:1.55; }
+.ann-text strong { color:var(--text-p); font-weight:500; }
+.ann-text code { font-family:'Inter',monospace; font-size:11px; background:var(--ink); padding:1px 6px; border-radius:2px; color:var(--text-p); }
+.decisions { padding:36px 48px; background:var(--spec-bg); }
+.decisions-title { font-size:11px; font-weight:500; letter-spacing:.4em; text-transform:uppercase; color:var(--text-s); margin-bottom:20px; }
+.decision { background:var(--spec-pan); border:1px solid var(--border-d); border-left:3px solid var(--callout); border-radius:4px; padding:14px 16px; margin-bottom:12px; font-size:12px; color:var(--text-s); line-height:1.6; }
+.decision strong { color:var(--text-p); }
+.decision .pick { display:inline-block; font-size:9px; font-weight:600; letter-spacing:.2em; text-transform:uppercase; color:var(--verd-h); background:var(--verd-deep); padding:2px 8px; border-radius:3px; margin-left:8px; }
+.refs { padding:28px 48px 56px; background:var(--spec-bg); border-top:1px solid var(--border-d); font-size:11px; color:var(--text-m); line-height:1.7; }
+</style>
+</head>
+<body>
+
+<header class="doc-header">
+  <div><span class="wm-s">STELAVOX</span> <span class="wm-v">/ Wireframe</span></div>
+  <div class="doc-meta">Phase 13.1 · Landing Page · v1.0 · 2026-06-14</div>
+</header>
+
+<div class="intro">
+  <strong>What this covers.</strong> The full landing-page scroll (§01), then the two decisions you wanted to see rather than describe:
+  <strong>§02 — the hero, two ways</strong> (real-screenshot style vs illustration, D1), and <strong>§03 — three tone treatments</strong>
+  (D4: quiet-literary → confident-literary → warmer-marketing, all in the brand system). Copy is the spec v1.1 draft, speaking to both
+  audiences — the structured thinker (the tree) and the authorship-preserving writer (the Director). Pick a hero + a tone and I build it.
+</div>
+
+<!-- ============ §01 FULL PAGE ============ -->
+<div class="slabel">§01 · Full landing page — dark surface, illustration hero (the &ldquo;main&rdquo; mock)</div>
+<div class="frame rel">
+  <span class="cn" style="left:-9px; top:54px;">1</span>
+  <div class="browserbar"><span class="dot" style="background:#e0564f"></span><span class="dot" style="background:#e6b04a"></span><span class="dot" style="background:#5aa87a"></span><span class="url">stelavox.com</span></div>
+  <div class="lp">
+    <!-- nav -->
+    <div class="nav">
+      <span class="brand"><span class="lozenge"></span><span class="brandtext">Stela<span class="v">vox</span></span></span>
+      <div class="nav-r">
+        <a class="nav-link">How it works</a><a class="nav-link">Pricing</a>
+        <a class="nav-link">Sign in</a>
+        <button class="btn btn-primary">Join the waitlist</button>
+      </div>
+    </div>
+    <!-- hero -->
+    <div class="hero rel">
+      <span class="cn" style="left:-30px; top:34px;">2</span>
+      <div class="hero-brand"><span class="lozenge"></span><span class="brandtext">Stela<span class="v">vox</span></span></div>
+      <div class="eyebrow">A writing workspace, not a ghostwriter</div>
+      <div class="h-title">Structure stays in your hands.<br>AI helps where you ask it to.</div>
+      <div class="h-sub">Build your story as a tree — Book to Beat — and write at any layer. Call on a Director that assists where you point it, and never takes over.</div>
+      <span class="cn" style="left:50%; top:150px;">3</span>
+      <div class="cta-row">
+        <div class="cta-email">
+          <input class="cta-input" placeholder="you@email.com">
+          <button class="btn btn-primary">Join the waitlist</button>
+        </div>
+      </div>
+      <div class="cta-note">Be first in when we open. No spam — one note at launch.</div>
+      <!-- illustration visual -->
+      <span class="cn" style="left:-30px; top:300px;">4</span>
+      <div class="viz">
+        <div class="viz-bar">Your manuscript · live structure</div>
+        <div class="viz-body">
+          <div class="viz-tree">
+            <div class="tnode"><span class="lab">Book</span> The Tidewright Cycle</div>
+            <div class="tnode act"><span class="lab">Act 1</span> Saltbound</div>
+            <div class="tnode ch"><span class="lab">Ch 1</span> The Drowned Bell</div>
+            <div class="tnode sc sel"><span class="lab">Sc 2</span> At the harbour</div>
+            <div class="tnode ch"><span class="lab">Ch 2</span> Low Water</div>
+            <div class="tnode act"><span class="lab">Act 2</span> The Reckoning</div>
+          </div>
+          <div class="viz-dir">
+            <div class="dirmark">◆ Director</div>
+            <div class="dirmsg">&ldquo;Expand the harbour scene — keep the tide imagery, raise the tension before the bell.&rdquo;</div>
+            <div class="dirplan">▸ Plan · 1 step · expand &ldquo;At the harbour&rdquo; &nbsp;·&nbsp; <span style="color:var(--verd-h)">Approve</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- the turn -->
+    <div class="section-lp"><div class="turn rel">
+      <span class="cn" style="left:-30px; top:0;">5</span>
+      <h2>If you think in structure, a blank page works against you.</h2>
+      <p>And most AI tools go further — they write the book <em>for</em> you. Stelavox is built the other way around: a workspace shaped like your outline, where you hold the pen and the AI works only where you point it.</p>
+    </div></div>
+    <!-- value props -->
+    <div class="section-lp"><div class="s-wrap rel">
+      <span class="cn" style="left:-30px; top:0;">6</span>
+      <div class="props">
+        <div class="prop"><div class="prop-ico">⌗</div><h3>Structure-first writing</h3><p>For writers who think in hierarchy, not a linear scroll. Your outline is a living tree — every layer a place to think, plan, and write. Rearrange freely; the structure holds.</p></div>
+        <div class="prop"><div class="prop-ico">◆</div><h3>A Director, not an author</h3><p>Propose, approve, done. The AI executes against <em>your</em> plan — nothing is written without your say-so.</p></div>
+        <div class="prop"><div class="prop-ico">🔒</div><h3>Your work, yours alone</h3><p>Encrypted at rest, private to your account. Export anytime in standard formats. No lock-in, ever.</p></div>
+      </div>
+    </div></div>
+    <!-- how it works -->
+    <div class="section-lp"><div class="s-wrap rel">
+      <span class="cn" style="left:-30px; top:0;">7</span>
+      <div class="sec-h">How it works</div>
+      <div class="howrow">
+        <div class="howstep"><div class="hownum">1</div><h4>Build your structure</h4><p>Lay out Book → Act → Chapter → Scene → Beat. Or grow it as you go.</p></div>
+        <div class="howstep"><div class="hownum">2</div><h4>Write, or ask</h4><p>Write at any layer yourself, or point the Director at a node.</p></div>
+        <div class="howstep"><div class="hownum">3</div><h4>Approve the plan</h4><p>The Director proposes; you approve before a word is written.</p></div>
+        <div class="howstep"><div class="hownum">4</div><h4>Export</h4><p>Your manuscript, per book — DOCX, EPUB, or Markdown.</p></div>
+      </div>
+    </div></div>
+    <!-- pricing teaser -->
+    <div class="section-lp"><div class="s-wrap rel">
+      <span class="cn" style="left:-30px; top:0;">8</span>
+      <div class="pricing-teaser">A free trial, then simple plans from Writer to Pro — plus bring-your-own-key. <a>See pricing →</a></div>
+    </div></div>
+    <!-- faq -->
+    <div class="section-lp"><div class="faq rel">
+      <span class="cn" style="left:-30px; top:0;">9</span>
+      <div class="sec-h">Questions</div>
+      <div class="faq-q"><div class="q">Is my writing private?</div><div class="a">Yes — encrypted at rest, private to your account, and exportable any time.</div></div>
+      <div class="faq-q"><div class="q">Does the AI write for me?</div><div class="a">Only where you point it, and only after you approve its plan. You can also write everything yourself.</div></div>
+      <div class="faq-q"><div class="q">Do I have to outline everything before I start?</div><div class="a">No. The tree supports structured thinking, but you can write at any layer, in any order, and grow the structure as you go.</div></div>
+      <div class="faq-q"><div class="q">Can I export and leave?</div><div class="a">Always. Standard formats, no lock-in.</div></div>
+      <div class="faq-q"><div class="q">When does it open?</div><div class="a">Soon — join the waitlist and you'll be first to know.</div></div>
+    </div></div>
+    <!-- footer -->
+    <div class="lp-foot">
+      <span class="brand"><span class="lozenge" style="width:9px;height:9px"></span><span class="brandtext" style="font-size:12px">Stela<span class="v">vox</span></span></span>
+      <div class="foot-links"><a>Privacy</a><a>Terms</a><a>hello@stelavox.com</a></div>
+      <span>© 2026 Stelavox</span>
+    </div>
+  </div>
+</div>
+
+<!-- ============ §02 D1 — HERO TWO WAYS ============ -->
+<div class="slabel">§02 · D1 — Hero visual, two ways (pick one)</div>
+<div class="twoup">
+  <div class="tone-card rel">
+    <span class="cn" style="left:-9px; top:30px;">10</span>
+    <div class="tone-tag">Option A · Illustration (stylised tree + Director)</div>
+    <div class="lp"><div style="padding:30px 24px; text-align:center;">
+      <div class="h-title" style="font-size:26px">Structure stays in your hands.</div>
+      <div class="viz" style="margin-top:24px">
+        <div class="viz-bar">live structure</div>
+        <div class="viz-body" style="min-height:170px">
+          <div class="viz-tree"><div class="tnode"><span class="lab">Book</span> …</div><div class="tnode act"><span class="lab">Act</span> …</div><div class="tnode ch sel"><span class="lab">Ch 1</span> …</div><div class="tnode sc"><span class="lab">Sc</span> …</div></div>
+          <div class="viz-dir"><div class="dirmark">◆ Director</div><div class="dirplan" style="margin-top:10px">▸ expand · <span style="color:var(--verd-h)">Approve</span></div></div>
+        </div>
+      </div>
+    </div></div>
+  </div>
+  <div class="tone-card rel">
+    <span class="cn" style="left:-9px; top:30px;">11</span>
+    <div class="tone-tag">Option B · Real screenshot (actual app capture)</div>
+    <div class="lp"><div style="padding:30px 24px; text-align:center;">
+      <div class="h-title" style="font-size:26px">Structure stays in your hands.</div>
+      <div class="viz shot" style="margin-top:24px">
+        <div class="viz-bar" style="background:#090c11">⌂ stelavox.com/app · Edit mode</div>
+        <div class="viz-body" style="min-height:170px">
+          <div class="viz-tree" style="background:#0c1119">
+            <div class="tnode"><span class="lab">Book</span> The Tidewright Cycle</div>
+            <div class="tnode act"><span class="lab">Act 1</span> Saltbound</div>
+            <div class="tnode ch"><span class="lab">Ch 1</span> The Drowned Bell</div>
+            <div class="tnode sc sel"><span class="lab">Sc 2</span> At the harbour</div>
+          </div>
+          <div class="viz-dir" style="font-family:'Lora',serif; color:var(--text-s); font-size:11px; line-height:1.7">The bell had not rung in forty years. Maren counted the gulls instead, the way her mother had taught her, and waited for the tide to turn…</div>
+        </div>
+      </div>
+    </div></div>
+  </div>
+</div>
+
+<!-- ============ §03 D4 — TONE TREATMENTS ============ -->
+<div class="slabel">§03 · D4 — Three tone treatments (pick the &ldquo;restrained-but-with-pull&rdquo; point)</div>
+<div class="tone-grid rel">
+  <span class="cn" style="left:-9px; top:30px;">12</span>
+  <!-- quiet literary, light paper -->
+  <div class="tone-card">
+    <div class="tone-tag">A · Quiet · warm paper</div>
+    <div class="lp paper"><div class="mini-hero">
+      <div class="mini-eye" style="color:var(--verd-paper)">A writing workspace</div>
+      <div class="mini-title h-title" style="font-size:21px; color:var(--ink-on-paper)">Structure stays in your hands.</div>
+      <div class="mini-sub" style="color:var(--ink-soft)">Build your story as a tree. Ask the Director only where you choose.</div>
+      <span class="mini-btn" style="background:var(--verd-paper); color:#eafff2">Join the waitlist</span>
+    </div></div>
+  </div>
+  <!-- confident literary, dark (the main) -->
+  <div class="tone-card">
+    <div class="tone-tag">B · Confident · dark (the §01 main)</div>
+    <div class="lp"><div class="mini-hero">
+      <div class="mini-eye" style="color:var(--verd-h)">A writing workspace, not a ghostwriter</div>
+      <div class="mini-title h-title" style="font-size:23px">Structure stays in your hands.</div>
+      <div class="mini-sub" style="color:var(--text-s)">Build your story as a tree — Book to Beat. The Director assists where you point it, never takes over.</div>
+      <span class="mini-btn" style="background:var(--verd); color:#eafff2">Join the waitlist</span>
+    </div></div>
+  </div>
+  <!-- warmer marketing, paper + stronger accent + bolder -->
+  <div class="tone-card">
+    <div class="tone-tag">C · Warmer · paper + bolder pull</div>
+    <div class="lp paper"><div class="mini-hero" style="background:linear-gradient(180deg,var(--paper),var(--paper-2))">
+      <div class="mini-eye" style="color:var(--verd-paper); font-weight:700">Write with structure. Keep the pen.</div>
+      <div class="mini-title" style="font-family:'Lora',serif; font-weight:600; font-size:24px; color:var(--ink-on-paper)">The AI writing tool that doesn't write <span style="font-style:italic; color:var(--verd-paper)">for</span> you.</div>
+      <div class="mini-sub" style="color:var(--ink-soft)">A workspace shaped like your outline — and AI strictly on your terms.</div>
+      <span class="mini-btn" style="background:var(--verd-paper); color:#fff; font-weight:600; padding:9px 16px">Join the waitlist →</span>
+    </div></div>
+  </div>
+</div>
+
+<!-- annotations -->
+<div class="annotations">
+  <div class="annotations-title">Annotations</div>
+  <div class="ann-grid">
+    <div class="ann-row"><span class="ann-num">1</span><span class="ann-text"><strong>Nav wordmark — sized up.</strong> Bumped from a timid 15px to a confident 19px with a larger glowing lozenge, so the mark is &ldquo;immediately recognizable&rdquo; per header-logo guidance — quiet, not timid. Phased CTA: waitlist → open via <code>marketing.signup_mode</code>.</span></div>
+    <div class="ann-row"><span class="ann-num">2</span><span class="ann-text"><strong>Brand lockup + benefit headline.</strong> A confident wordmark lockup (30px Cinzel + Cormorant <em>vox</em> + glowing lozenge) gives the <em>pre-launch, unknown</em> brand a recall moment and uses the distinctive mark as the asset it is — <strong>but the benefit headline (Lora, largest element) still leads</strong>, per the research: message converts, brand signs. Eyebrow names the category; headline in the prose typeface ties the page to writing.</span></div>
+    <div class="ann-row"><span class="ann-num">3</span><span class="ann-text"><strong>Phased CTA — waitlist mode shown.</strong> Email + button → <code>POST /api/waitlist</code>. In open mode this becomes a single &ldquo;Get started&rdquo; button. Verdigris is the brand colour here (marketing surface — not bound by the app's 12-use rule).</span></div>
+    <div class="ann-row"><span class="ann-num">4</span><span class="ann-text"><strong>Hero visual.</strong> Speaks to the structured thinker — the tree front-and-centre, with the Director proposing a step. Two renderings compared in §02.</span></div>
+    <div class="ann-row"><span class="ann-num">5</span><span class="ann-text"><strong>The turn — both pains.</strong> Sentence 1 = the structured-thinker's frustration (blank linear page); sentence 2 = the authorship pain (AI writes for you); then the promise to both.</span></div>
+    <div class="ann-row"><span class="ann-num">6</span><span class="ann-text"><strong>Three value props (locked).</strong> Structure-first (leads — the distinctive hook) · Director-not-author (the trust pillar) · Your-work-yours.</span></div>
+    <div class="ann-row"><span class="ann-num">7</span><span class="ann-text"><strong>How it works.</strong> Four steps; step 4 reflects the new per-book export (DOCX/EPUB/Markdown).</span></div>
+    <div class="ann-row"><span class="ann-num">8</span><span class="ann-text"><strong>Pricing teaser (D2).</strong> One line → future <code>/pricing</code>. No full table on the landing page for V1.</span></div>
+    <div class="ann-row"><span class="ann-num">9</span><span class="ann-text"><strong>FAQ.</strong> Objection-handling incl. the new &ldquo;do I have to outline everything?&rdquo; (reassures discovery writers) + the waitlist &ldquo;when does it open?&rdquo;.</span></div>
+    <div class="ann-row"><span class="ann-num">10·11</span><span class="ann-text"><strong>D1 — hero two ways.</strong> A = stylised illustration (controllable, always on-brand). B = real app screenshot (more credible — shows real prose in Lora). Lean: B once the UI is settled; A as a fallback / for pre-screenshot launch.</span></div>
+    <div class="ann-row"><span class="ann-num">12</span><span class="ann-text"><strong>D4 — three tones.</strong> A quiet warm-paper (most literary, calmest). B confident dark (the §01 main — the app's signature surface). C warmer paper with a bolder, punchier headline (&ldquo;doesn't write <em>for</em> you&rdquo;) for more marketing pull. All within the brand system.</span></div>
+  </div>
+</div>
+
+<!-- decisions -->
+<div class="decisions">
+  <div class="decisions-title">Decisions — your call from the mocks</div>
+  <div class="decision"><strong>D1 · Hero visual.</strong><span class="pick">Pick A or B</span> Illustration (§02 left) vs real screenshot (§02 right). Recommend B once the live UI is camera-ready; A is the safe pre-screenshot option.</div>
+  <div class="decision"><strong>D4 · Tone.</strong><span class="pick">Pick A / B / C</span> Quiet-paper vs confident-dark vs warmer-paper (§03). My read: <strong>B (confident dark)</strong> is the truest to the app and most distinctive; <strong>C</strong> if you want more overt marketing pull; <strong>A</strong> if you want maximum calm. Mixing is possible (e.g. C's punchier headline on B's dark surface).</div>
+  <div class="decision"><strong>D2 · Pricing</strong><span class="pick">Set</span> teaser line → future /pricing. &nbsp; <strong>D3 · Analytics</strong><span class="pick">Set</span> Vercel Analytics.</div>
+  <div class="decision"><strong>Also confirm:</strong> the eyebrow / headline wording, the &ldquo;hello@stelavox.com&rdquo; contact placeholder, and whether the nav keeps both &ldquo;How it works&rdquo; + &ldquo;Pricing&rdquo; anchors pre-launch.</div>
+</div>
+
+<div class="refs">
+  <strong>References.</strong> Spec <code>stelavox_landing_page_spec_v1_0.md</code> v1.1 · brand wordmark + tokens reused · phased CTA <code>marketing.signup_mode</code> · build target: <code>app/(marketing)/</code> route group. Wireframe-first per <code>feedback_wireframe_first_for_ui</code> — pick a hero + tone, then I build.
+</div>
+
+</body>
+</html>

@@ -32,6 +32,7 @@
     "@tiptap/react": "3.22.5",
     "@tiptap/starter-kit": "3.22.5",
     "@types/pg": "^8.20.0",
+    "@vercel/analytics": "^2.0.1",
     "@vercel/functions": "^3.5.0",
     "ai": "^6.0.174",
     "class-variance-authority": "^0.7.1",

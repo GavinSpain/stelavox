@@ -18,7 +18,7 @@ import type { CSSProperties, MouseEventHandler } from 'react'
 
 interface WordmarkProps {
   /** Display size variant. Default 'compact' (header use). */
-  size?: 'compact' | 'hero'
+  size?: 'compact' | 'hero' | 'marketing'
   /** Render as an anchor link if true; otherwise a static div. */
   as?: 'div' | 'a'
   /** href when as='a'. Ignored otherwise. */
@@ -43,7 +43,21 @@ interface SizeSpec {
   gap: string
 }
 
-const SIZES: Record<'compact' | 'hero', SizeSpec> = {
+const SIZES: Record<'compact' | 'hero' | 'marketing', SizeSpec> = {
+  // Marketing-scale lockup — a brand "recall moment" on the public landing
+  // page that stays deliberately below the benefit headline (Lora 42px), per
+  // the landing-page wireframe annotation #2 (message converts, brand signs).
+  marketing: {
+    stelaFontSize: '26px',
+    voxFontSize: '28px',
+    voxWeight: 400,
+    ruleWidth: '168px',
+    ruleMarginTop: '6px',
+    lozengeSize: '12px',
+    lozengeLeft: '-4px',
+    lozengeTop: '-5px',
+    gap: '0',
+  },
   compact: {
     stelaFontSize: '17px',
     voxFontSize: '19px',
