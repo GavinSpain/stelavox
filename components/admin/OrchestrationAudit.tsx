@@ -27,6 +27,7 @@ interface AuditResponse {
     entity_table: string
     entity_id: string
     violation: string
+    entity_ts: string | null
     details: unknown
   }>
   audited_at: string
@@ -201,6 +202,7 @@ Audit logged:          ${reconcileResult.audit_violations_logged}`}
                 <th style={cellHeader}>Invariant</th>
                 <th style={cellHeader}>Entity</th>
                 <th style={cellHeader}>ID</th>
+                <th style={cellHeader}>When</th>
                 <th style={cellHeader}>Violation</th>
               </tr>
             </thead>
@@ -210,6 +212,11 @@ Audit logged:          ${reconcileResult.audit_violations_logged}`}
                   <td style={cell}>{v.invariant_id}</td>
                   <td style={cell}>{v.entity_table}</td>
                   <td style={{ ...cell, fontFamily: 'monospace', fontSize: 11 }}>{v.entity_id}</td>
+                  <td style={{ ...cell, fontSize: 11, color: 'var(--color-text-muted)', whiteSpace: 'nowrap' }}>
+                    {v.entity_ts
+                      ? new Date(v.entity_ts).toLocaleString(undefined, { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+                      : '—'}
+                  </td>
                   <td style={cell}>{v.violation}</td>
                 </tr>
               ))}

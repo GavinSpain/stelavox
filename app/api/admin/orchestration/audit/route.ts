@@ -51,12 +51,49 @@ export async function GET(_req: NextRequest): Promise<Response> {
     byEntity[v.entity_table] = (byEntity[v.entity_table] ?? 0) + 1
   }
 
+  // Issue #3 — enrich each violation with the flagged entity's timestamp
+  // so the operator can tell current vs old-test residue. The audit RPC is
+  // a live state scan and carries no timestamp. workflow_steps has no
+  // created_at (only started_at); other tables use created_at.
+  const TS_COL: Record<string, string> = {
+    agent_jobs: 'created_at',
+    workflows: 'created_at',
+    briefs: 'created_at',
+    brief_stages: 'created_at',
+    director_turns: 'created_at',
+    workflow_steps: 'started_at',
+  }
+  const idsByTable = new Map<string, Set<string>>()
+  for (const v of violations) {
+    if (!TS_COL[v.entity_table]) continue
+    let set = idsByTable.get(v.entity_table)
+    if (!set) { set = new Set(); idsByTable.set(v.entity_table, set) }
+    set.add(v.entity_id)
+  }
+  const tsLookup = new Map<string, string | null>()
+  await Promise.all(
+    [...idsByTable.entries()].map(async ([table, ids]) => {
+      const col = TS_COL[table]
+      const { data: rows } = await svc
+        .from(table as 'agent_jobs')   // dynamic table; cast for the typed client
+        .select(`id, ${col}`)
+        .in('id', [...ids])
+      for (const r of (rows ?? []) as unknown as Array<Record<string, unknown>>) {
+        tsLookup.set(`${table}:${String(r.id)}`, (r[col] as string | null) ?? null)
+      }
+    }),
+  )
+  const enriched = violations.map((v) => ({
+    ...v,
+    entity_ts: tsLookup.get(`${v.entity_table}:${v.entity_id}`) ?? null,
+  }))
+
   return NextResponse.json({
     clean: violations.length === 0,
     total_violations: violations.length,
     by_invariant: byInvariant,
     by_entity: byEntity,
-    violations,
+    violations: enriched,
     audited_at: new Date().toISOString(),
   })
 }
