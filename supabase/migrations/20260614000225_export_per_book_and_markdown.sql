@@ -27,8 +27,16 @@ COMMENT ON COLUMN export_jobs.file_name IS
   'DR-042: user-facing download filename, set at job creation.';
 
 -- export_profiles format CHECK must admit 'markdown' for the built-in
--- manuscript profile.
+-- manuscript profile. NOTE: the JSON built-in profile must be removed
+-- BEFORE the new CHECK is added — otherwise the existing json row violates
+-- the new constraint and the ADD fails.
 ALTER TABLE export_profiles DROP CONSTRAINT IF EXISTS export_profiles_format_check;
+
+-- JSON export is cut from V1. Remove the built-in JSON profile(s); any
+-- historical export_jobs.profile_id pointing at them becomes NULL via the
+-- M-159 ON DELETE SET NULL FK. Files already produced remain downloadable.
+DELETE FROM export_profiles WHERE is_builtin = TRUE AND format = 'json';
+
 ALTER TABLE export_profiles
   ADD CONSTRAINT export_profiles_format_check
   CHECK (format IN ('docx', 'epub', 'markdown', 'outline'));
@@ -45,8 +53,3 @@ INSERT INTO export_profiles (name, format, config, is_builtin) VALUES
     ),
     TRUE
   );
-
--- JSON export is cut from V1. Remove the built-in JSON profile(s); any
--- historical export_jobs.profile_id pointing at them becomes NULL via the
--- M-159 ON DELETE SET NULL FK. Files already produced remain downloadable.
-DELETE FROM export_profiles WHERE is_builtin = TRUE AND format = 'json';
