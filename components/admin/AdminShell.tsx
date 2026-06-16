@@ -16,6 +16,7 @@ import SignOutButton from '@/components/auth/SignOutButton'
 
 const NAV: { href: string; label: string; icon: string; exact?: boolean }[] = [
   { href: '/admin', label: 'Operations', icon: '◷', exact: true },
+  { href: '/admin/models', label: 'Models', icon: '◇' },
   { href: '/admin/payments', label: 'Payments', icon: '$' },
   { href: '/admin/orchestration', label: 'Orchestration', icon: '⛓' },
 ]

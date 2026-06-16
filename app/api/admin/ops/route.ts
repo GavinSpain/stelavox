@@ -68,7 +68,7 @@ export async function GET(req: NextRequest) {
   const dbStart = Date.now()
   const [
     infra, orgsRes, jobsRes, jobsMoMRes, queuedRes, exportsRes,
-    probesRes, subEventsRes, periodDays,
+    probesRes, subEventsRes, meteringRes, periodDays,
   ] = await Promise.all([
     svc.rpc('admin_ops_infra_health'),
     svc.from('organisations').select(
@@ -84,6 +84,7 @@ export async function GET(req: NextRequest) {
     svc.from('export_jobs').select('format, status, file_size_bytes, created_at').gte('created_at', sinceIso),
     svc.from('synthetic_probe_runs').select('probe_id, outcome, triggered_at, duration_ms').order('triggered_at', { ascending: false }).limit(20),
     svc.from('subscription_events').select('created_at').order('created_at', { ascending: false }).limit(1),
+    svc.rpc('audit_metering_integrity'),
     getConfigInt('plan.period_length_days').catch(() => 30),
   ])
   const dbLatencyMs = Date.now() - dbStart
@@ -262,12 +263,30 @@ export async function GET(req: NextRequest) {
       issues.push({ severity: 'high', text: `pg_cron job ${c.jobname}: ${c.status}`, link: 'liveness' })
     }
   }
+  // Model Governance — metering integrity backstop. All counts must be zero;
+  // any non-zero is a credit-leakage signal and a top-priority critical.
+  const meteringRow = (Array.isArray(meteringRes.data) ? meteringRes.data[0] : meteringRes.data) as
+    | { unmetered_completed_jobs: number; unpriced_agent_profiles: number; unpriced_director_config: number }
+    | undefined
+  const meteringIntegrity = {
+    unmetered_completed_jobs: Number(meteringRow?.unmetered_completed_jobs ?? 0),
+    unpriced_agent_profiles: Number(meteringRow?.unpriced_agent_profiles ?? 0),
+    unpriced_director_config: Number(meteringRow?.unpriced_director_config ?? 0),
+  }
+  if (meteringIntegrity.unmetered_completed_jobs > 0) {
+    issues.push({ severity: 'critical', text: `${meteringIntegrity.unmetered_completed_jobs} unmetered completed jobs — credit leakage`, link: 'metering' })
+  }
+  if (meteringIntegrity.unpriced_agent_profiles + meteringIntegrity.unpriced_director_config > 0) {
+    issues.push({ severity: 'critical', text: 'Unpriced model assigned to a tool or the Director', link: 'metering' })
+  }
+
   const status = issues.some(i => i.severity === 'critical') ? 'critical'
     : issues.length > 0 ? 'degraded' : 'healthy'
 
   return NextResponse.json({
     window,
     health: { status, issues },
+    metering_integrity: meteringIntegrity,
     liveness: {
       dispatcher_last_tick_age_sec: dispatcherAge,
       cloud_transport_last_ok_age_sec: cloudOkAge,

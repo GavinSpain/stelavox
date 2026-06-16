@@ -22,6 +22,10 @@ vi.mock('@/lib/supabase/service', () => ({
   createServiceRoleClient: vi.fn(),
 }))
 
+// Model Governance P0 — the fail-closed branch writes a critical audit;
+// stub it so the gate's mock client doesn't need an audit_log insert.
+vi.mock('@/lib/security/audit', () => ({ writeAuditLogEntry: vi.fn() }))
+
 import { createServiceRoleClient } from '@/lib/supabase/service'
 
 const mockedCreateClient = createServiceRoleClient as unknown as ReturnType<typeof vi.fn>
@@ -274,11 +278,11 @@ describe('V1.x-C.2 — checkTokenBudget credit-based admission', () => {
     expect(opusResult).toBe(false)
   })
 
-  it('missing pricing_rates row passes through with warning (V1.x-C.2 policy)', async () => {
-    // No pricing row for the requested model — gate logs a warning and
-    // returns true rather than refusing (V1 launches with the four
-    // supported models all seeded; unknown models are a misconfig signal
-    // not an admission decision).
+  it('missing pricing_rates row FAILS CLOSED (Model Governance P0)', async () => {
+    // An unpriced model cannot be metered, so dispatching it is revenue
+    // leakage. Policy reversed from V1.x-C.2's fail-open: the gate now
+    // REFUSES (and audits) rather than admitting free usage. Assignment
+    // integrity (M-232) makes this unreachable in normal operation.
     mockedCreateClient.mockReturnValue(
       buildClient({
         organisationsRow: { token_allocation_credits: 1_000_000, token_usage_credits: 0 },
@@ -292,6 +296,6 @@ describe('V1.x-C.2 — checkTokenBudget credit-based admission', () => {
       100_000,
       'unknown-model-id',
     )
-    expect(result).toBe(true)
+    expect(result).toBe(false)
   })
 })
