@@ -74,7 +74,7 @@ import { preflightCheck } from '@/lib/constraints/preflight'
 import { recordViolation } from '@/lib/constraints/recordViolation'
 import { getProvider } from '@/lib/llm/factory'
 import { computeCostUsd } from '@/lib/llm/cost'
-import { computeJobCostCredits } from '@/lib/cost/pricing'
+import { computeCompletionCredits } from '@/lib/cost/completionCredits'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 import type {
   AssembledContentBlock,
@@ -704,8 +704,10 @@ async function* runIterationInner(
   // credits (pricing_rates → cost_credits). Both lookups are tolerant
   // (null on missing rate) — the iteration completes and downstream
   // metrics surfaces show "rate missing" rather than failing the turn.
-  const costUsd = await computeCostUsd(iterationUsage, modelId).catch(() => null)
-  const costCredits = await computeJobCostCredits(
+  // Model Governance P0 — credits guaranteed non-null (fallback debit +
+  // critical audit on the should-never-happen unpriced case). cost_usd is
+  // derived from credits when the $-rate is missing (credits are micro-dollars).
+  const { credits: costCredits } = await computeCompletionCredits(
     supabase,
     modelId,
     new Date(),
@@ -715,9 +717,11 @@ async function* runIterationInner(
       cacheWrite: iterationUsage.tokens_cache_write,
       cacheRead: iterationUsage.tokens_cache_read,
     },
-  ).catch(() => null)
-  if (costCredits === null) {
-    console.warn('[iteration-runner] no pricing_rates row for model', modelId)
+    { jobId, organisationId: jobRow.organisation_id },
+  )
+  let costUsd = await computeCostUsd(iterationUsage, modelId).catch(() => null)
+  if (costUsd === null) {
+    costUsd = costCredits / 1_000_000
   }
 
   // Build the assistant message content for THIS iteration (text +

@@ -30,9 +30,16 @@ function formatIcon(format: ExportJob['format']): string {
   switch (format) {
     case 'docx': return '📄'
     case 'epub': return '📚'
-    case 'json': return '{ }'
+    case 'markdown': return '⌶'
     case 'outline': return '📋'
   }
+}
+
+// DR-042 issue #2 — absolute created date+time (e.g. "14 Jun 2026, 01:23").
+function formatCreatedAt(iso: string): string {
+  return new Date(iso).toLocaleString(undefined, {
+    day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
+  })
 }
 
 function timeAgo(iso: string): string {
@@ -204,7 +211,9 @@ export function ExportHistoryPanel({ documentId, documentName }: ExportHistoryPa
             <div>
               <div style={{ fontSize: 12, color: 'var(--color-text-primary)', display: 'flex', alignItems: 'center', gap: 8 }}>
                 <span>
-                  {job.format.toUpperCase()}
+                  {/* DR-042 issue #2 — file/book name when available
+                      (per-book exports), else the format. */}
+                  {job.file_name ?? job.format.toUpperCase()}
                   {job.attempt_count > 1 ? ` · attempt ${job.attempt_count}` : ''}
                 </span>
                 {isInFlight && (
@@ -240,7 +249,9 @@ export function ExportHistoryPanel({ documentId, documentName }: ExportHistoryPa
                 )}
               </div>
               <div style={{ fontSize: 10, color: 'var(--color-text-muted)', marginTop: 2 }}>
-                {timeAgo(job.created_at)}
+                {/* DR-042 issue #2 — absolute created date+time, with
+                    relative age as a secondary hint. */}
+                {formatCreatedAt(job.created_at)} · {timeAgo(job.created_at)}
                 {job.progress.output_size_bytes
                   ? ` · ${(job.progress.output_size_bytes / 1024 / 1024).toFixed(1)} MB`
                   : ''}

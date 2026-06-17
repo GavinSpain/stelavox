@@ -38,6 +38,7 @@ import 'server-only'
 import { getConfigInt } from '@/lib/config/platform-config'
 import { lookupRate } from '@/lib/cost/pricing'
 import { isByok } from '@/lib/llm/byok'
+import { writeAuditLogEntry } from '@/lib/security/audit'
 import { createServiceRoleClient } from '@/lib/supabase/service'
 
 /** Subset of organisations row read by the gate. */
@@ -117,15 +118,22 @@ export async function checkTokenBudget(
   // earlier).
   const rate = await lookupRate(supabase, modelId, new Date())
   if (!rate) {
-    // No pricing row for this model. Falling back to "not enforced" is
-    // the consistent V1.x-C.2 policy — admission gate's job is to
-    // prevent runaway spend on KNOWN-priced models. Unknown-priced
-    // models are flagged at completion-write time (where cost_credits
-    // ends up NULL and the usage trigger does not fire).
-    console.warn(
-      `[token-budget] no pricing_rates row for model ${modelId}; skipping credit gate.`,
-    )
-    return true
+    // Model Governance P0 — FAIL CLOSED. An unpriced model cannot be metered,
+    // so dispatching it is revenue leakage (the platform pays Anthropic; the
+    // customer is charged nothing). Assignment integrity (M-232) should make
+    // this impossible, so reaching here is a real misconfiguration — refuse
+    // and raise a critical audit rather than admit free usage. (Was: fail
+    // open / return true — the leak this whole work package closes.)
+    await writeAuditLogEntry({
+      event_type: 'unpriced_model_dispatch_blocked',
+      severity: 'critical',
+      organisation_id: organisation.id,
+      metadata: {
+        model_id: modelId,
+        note: 'Admission gate refused dispatch: model has no current pricing row, so it cannot meter credits. Register/price the model before assigning it.',
+      },
+    })
+    return false
   }
 
   const estimatedCredits = (estimatedTokens * rate.inputCreditsPerMillion) / 1_000_000

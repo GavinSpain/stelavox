@@ -38,7 +38,7 @@ import {
   updateUsageRecords,
 } from '@/lib/agent/job-lifecycle'
 import { getConfigInt } from '@/lib/config/platform-config'
-import { computeJobCostCredits } from '@/lib/cost/pricing'
+import { computeCompletionCredits } from '@/lib/cost/completionCredits'
 import { startHeartbeat } from '@/lib/director/heartbeat'
 import { InjectionDetectedError } from '@/lib/llm/context-assembler'
 import { computeCostUsd } from '@/lib/llm/cost'
@@ -146,8 +146,11 @@ export async function runAgentJob(jobId: string): Promise<void> {
     // (pricing_rates → cost_credits) at completion. Credits lookup is
     // tolerant: null on missing rate, logged + written as NULL on the
     // row (matches FinalResultParams contract).
-    const costUsd = await computeCostUsd(llmResponse.usage, llmResponse.model)
-    const costCredits = await computeJobCostCredits(
+    // Model Governance P0 — credits are GUARANTEED non-null (fallback debit +
+    // critical audit on the should-never-happen unpriced case), so usage can
+    // never go unmetered. cost_usd is derived from credits when the $-rate is
+    // missing (credits are micro-dollars; 1M credits = $1).
+    const { credits: costCredits } = await computeCompletionCredits(
       supabase,
       llmResponse.model,
       new Date(),
@@ -157,14 +160,18 @@ export async function runAgentJob(jobId: string): Promise<void> {
         cacheWrite: llmResponse.usage.tokens_cache_write,
         cacheRead: llmResponse.usage.tokens_cache_read,
       },
+      { jobId, organisationId: job.organisation_id },
     )
-    if (costCredits === null) {
-      console.warn('[agent-runner] no pricing_rates row for model', llmResponse.model)
+    let costUsd: number
+    try {
+      costUsd = await computeCostUsd(llmResponse.usage, llmResponse.model)
+    } catch {
+      costUsd = costCredits / 1_000_000
     }
     let resultColumns: Record<string, unknown>
     let totalUsage = { ...llmResponse.usage }
     let totalCost = costUsd
-    let totalCostCredits: number | null = costCredits
+    let totalCostCredits: number = costCredits
     let finalContent = llmResponse.content
     let finalProvider = llmResponse.provider
     let finalModel = llmResponse.model
@@ -191,8 +198,7 @@ export async function runAgentJob(jobId: string): Promise<void> {
         ...assembled,
         config: { ...assembled.config, model: modelId },
       })
-      const retryCost = await computeCostUsd(retry.usage, retry.model)
-      const retryCredits = await computeJobCostCredits(
+      const { credits: retryCredits } = await computeCompletionCredits(
         supabase,
         retry.model,
         new Date(),
@@ -202,7 +208,14 @@ export async function runAgentJob(jobId: string): Promise<void> {
           cacheWrite: retry.usage.tokens_cache_write,
           cacheRead: retry.usage.tokens_cache_read,
         },
+        { jobId, organisationId: job.organisation_id },
       )
+      let retryCost: number
+      try {
+        retryCost = await computeCostUsd(retry.usage, retry.model)
+      } catch {
+        retryCost = retryCredits / 1_000_000
+      }
       // Track BOTH calls' usage and cost so the author sees the true spend.
       totalUsage = {
         tokens_input: llmResponse.usage.tokens_input + retry.usage.tokens_input,
@@ -213,13 +226,8 @@ export async function runAgentJob(jobId: string): Promise<void> {
           llmResponse.usage.tokens_cache_read + retry.usage.tokens_cache_read,
       }
       totalCost = costUsd + retryCost
-      // Credits totals: sum when both legs returned a value; preserve
-      // null if either leg missed (forced ambiguity rather than silent
-      // under-count).
-      totalCostCredits =
-        costCredits !== null && retryCredits !== null
-          ? costCredits + retryCredits
-          : null
+      // Both legs guarantee a credit value — sum is always real (never null).
+      totalCostCredits = costCredits + retryCredits
       finalContent = retry.content
       finalProvider = retry.provider
       finalModel = retry.model
@@ -495,9 +503,10 @@ export async function* runAgentJobInline(
       throw new Error('stream ended without usage info')
     }
 
-    // 10. Compute cost + persist final result.
-    const costUsd = await computeCostUsd(usage, modelIdUsed)
-    const costCredits = await computeJobCostCredits(
+    // 10. Compute cost + persist final result. Model Governance P0 — credits
+    // guaranteed non-null (fallback + critical audit); cost_usd derived from
+    // credits when the $-rate is missing.
+    const { credits: costCredits } = await computeCompletionCredits(
       supabase,
       modelIdUsed,
       new Date(),
@@ -507,9 +516,13 @@ export async function* runAgentJobInline(
         cacheWrite: usage.tokens_cache_write,
         cacheRead: usage.tokens_cache_read,
       },
+      { jobId, organisationId: job.organisation_id },
     )
-    if (costCredits === null) {
-      console.warn('[agent-runner-inline] no pricing_rates row for model', modelIdUsed)
+    let costUsd: number
+    try {
+      costUsd = await computeCostUsd(usage, modelIdUsed)
+    } catch {
+      costUsd = costCredits / 1_000_000
     }
     await persistFinalResult(supabase, jobId, {
       resultColumns: result,

@@ -25,7 +25,11 @@ export interface ExportJob {
   id: string
   organisation_id: string
   document_id: string
-  format: 'docx' | 'epub' | 'json' | 'outline'
+  // DR-042: json cut, markdown added.
+  format: 'docx' | 'epub' | 'markdown' | 'outline'
+  // DR-042: per-book / whole-doc download filename (NULL on pre-DR-042 rows).
+  file_name: string | null
+  root_node_id: string | null
   profile_id: string | null
   status:
     | 'queued' | 'pending' | 'planning' | 'rendering' | 'assembling'
@@ -270,5 +274,17 @@ export function useExportHistory(documentId: string | null): ExportJob[] {
   // tab focus refetches — that's the symptom we want to see while
   // chasing the underlying issue.
 
-  return jobs
+  // DR-042 issue #1 — hide completed exports whose download has expired.
+  // The Vercel purge cron deletes file+row daily on prod (never on local),
+  // so without this filter expired rows linger in the list. Failed /
+  // cancelled / in-flight rows keep their own retention + countdown.
+  const now = Date.now()
+  return jobs.filter(
+    (j) =>
+      !(
+        j.status === 'completed' &&
+        j.signed_url_expires_at != null &&
+        new Date(j.signed_url_expires_at).getTime() < now
+      ),
+  )
 }

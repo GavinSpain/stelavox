@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stelavox — Admin Shell Wireframe & Specification v1.0</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500&family=Cormorant+Garamond:ital,wght@1,300&family=Inter:wght@200;300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --ink:#0d1014; --deep:#131820; --surface:#1a2030; --hover:#1e2838; --selected:#1f2d45;
+  --border-s:#1e2535; --border-d:#253045; --border-str:#3a4a62;
+  --text-p:#ecf0f5; --text-s:#8aa0b8; --text-m:#4a6080; --text-dis:#2a3850;
+  --verd:#3d7858; --verd-h:#5aa87a; --verd-m:#1a3028;
+  --ok:#3a8a5a; --ag-run:#2e5a90; --st-rev:#b87030; --destr:#b83838; --info:#3a6090;
+  --spec-bg:#0a0d12; --spec-pan:#111520; --callout:#e8b840;
+}
+body { background: var(--spec-bg); color: var(--text-p); font-family: 'Inter', sans-serif; font-size: 13px; line-height: 1.5; }
+.doc-header { background: var(--spec-pan); border-bottom: 1px solid var(--border-d); padding: 24px 48px; display:flex; align-items:baseline; justify-content:space-between; }
+.wm-s { font-family:'Cinzel',serif; font-size:14px; font-weight:500; letter-spacing:.18em; color:var(--text-p); }
+.wm-v { font-family:'Cormorant Garamond',serif; font-style:italic; font-weight:300; font-size:16px; color:var(--text-p); opacity:.82; }
+.doc-meta { font-size:11px; font-weight:300; letter-spacing:.2em; text-transform:uppercase; color:var(--text-m); }
+.intro { padding: 28px 48px 8px; color: var(--text-s); font-size: 13px; line-height: 1.65; max-width: 1100px; }
+.intro strong { color: var(--text-p); font-weight: 500; }
+.intro code { font-family:'Inter',monospace; font-size:11px; background:var(--ink); padding:1px 6px; border-radius:2px; color:var(--text-p); }
+.section { padding: 36px 48px 0; }
+.slabel { font-size:9px; font-weight:400; letter-spacing:.45em; text-transform:uppercase; color:var(--text-m); margin-bottom:18px; padding-bottom:12px; border-bottom:1px solid var(--border-s); }
+.cn { display:inline-flex; align-items:center; justify-content:center; width:18px; height:18px; background:var(--callout); color:#0a0800; border-radius:50%; font-size:10px; font-weight:700; flex-shrink:0; position:absolute; z-index:20; }
+
+/* Admin shell mock */
+.shell { display:grid; grid-template-columns: 210px 1fr; background:var(--ink); border:1px solid var(--border-s); border-radius:10px; overflow:hidden; min-height:520px; max-width:1040px; position:relative; }
+.rail { background:var(--deep); border-right:1px solid var(--border-s); display:flex; flex-direction:column; }
+.rail-head { padding:18px 16px 16px; border-bottom:1px solid var(--border-s); }
+.rail-title { font-size:13px; font-weight:600; color:var(--text-p); letter-spacing:.02em; }
+.rail-sub { font-size:9px; font-weight:500; letter-spacing:.22em; text-transform:uppercase; color:var(--text-m); margin-top:4px; }
+.rail-nav { padding:10px 8px; flex:1; display:flex; flex-direction:column; gap:2px; }
+.nav-item { display:flex; align-items:center; gap:10px; padding:9px 12px; border-radius:6px; font-size:13px; color:var(--text-s); cursor:pointer; border-left:2px solid transparent; }
+.nav-item:hover { background:var(--hover); }
+.nav-item.active { background:var(--selected); color:var(--text-p); border-left-color:var(--text-s); font-weight:500; }
+.nav-ico { width:16px; text-align:center; opacity:.8; }
+.rail-foot { padding:12px 14px; border-top:1px solid var(--border-s); }
+.rail-user { font-size:11px; color:var(--text-s); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.rail-signout { margin-top:8px; font-size:11px; color:var(--text-s); background:transparent; border:1px solid var(--border-d); border-radius:5px; padding:6px 10px; cursor:pointer; width:100%; text-align:left; }
+.rail-signout:hover { border-color:var(--border-str); color:var(--text-p); }
+
+.main { display:flex; flex-direction:column; min-width:0; }
+.main-bar { padding:14px 22px; border-bottom:1px solid var(--border-s); display:flex; align-items:center; justify-content:space-between; }
+.main-title { font-size:15px; font-weight:500; color:var(--text-p); }
+.win-tabs { display:flex; gap:4px; }
+.win-tab { font-size:11px; color:var(--text-m); border:1px solid var(--border-d); border-radius:5px; padding:4px 10px; }
+.win-tab.on { color:var(--text-p); background:var(--surface); }
+.main-body { padding:22px; flex:1; }
+.ph-card { background:var(--surface); border:1px solid var(--border-s); border-radius:8px; padding:14px 16px; margin-bottom:12px; }
+.ph-l { font-size:9px; font-weight:500; letter-spacing:.18em; text-transform:uppercase; color:var(--text-m); margin-bottom:10px; }
+.ph-row { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; }
+.ph-tile { background:var(--ink); border:1px solid var(--border-s); border-radius:5px; padding:11px; }
+.ph-tn { font-size:9px; color:var(--text-m); text-transform:uppercase; letter-spacing:.08em; }
+.ph-tv { font-size:16px; color:var(--text-p); font-weight:300; margin-top:5px; }
+.ph-pill { display:inline-block; font-size:11px; font-weight:600; letter-spacing:.1em; text-transform:uppercase; color:var(--ok); border:1px solid var(--ok); border-radius:5px; padding:5px 12px; }
+
+.annotations { padding: 44px 48px; background: var(--spec-pan); border-top: 1px solid var(--border-d); }
+.annotations-title { font-size:11px; font-weight:500; letter-spacing:.4em; text-transform:uppercase; color:var(--text-s); margin-bottom: 24px; padding-bottom:12px; border-bottom:1px solid var(--border-d); }
+.ann-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 18px 32px; }
+.ann-row { display: flex; gap: 12px; align-items: flex-start; }
+.ann-num { flex-shrink:0; background: var(--callout); color:#0a0800; width:22px; height:22px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; }
+.ann-text { font-size: 12px; color: var(--text-s); line-height: 1.55; }
+.ann-text strong { color: var(--text-p); font-weight: 500; }
+.ann-text code { font-family:'Inter',monospace; font-size:11px; background:var(--ink); padding:1px 6px; border-radius:2px; color:var(--text-p); }
+.decisions { padding: 36px 48px; background: var(--spec-bg); }
+.decisions-title { font-size:11px; font-weight:500; letter-spacing:.4em; text-transform:uppercase; color:var(--text-s); margin-bottom: 20px; }
+.decision { background: var(--spec-pan); border: 1px solid var(--border-d); border-left: 3px solid var(--ok); border-radius: 4px; padding: 14px 16px; margin-bottom: 12px; font-size: 12px; color: var(--text-s); line-height: 1.6; }
+.decision strong { color: var(--text-p); }
+.decision .locked { display:inline-block; font-size:9px; font-weight:600; letter-spacing:.2em; text-transform:uppercase; color:var(--verd-h); background:var(--verd-m); padding:2px 8px; border-radius:3px; margin-left:8px; }
+.inv-audit { padding: 36px 48px; background: var(--spec-pan); border-top: 1px solid var(--border-d); }
+.inv-row { display: grid; grid-template-columns: 30px 1fr 110px; gap: 16px; padding: 10px 0; border-bottom: 1px solid var(--border-s); font-size: 12px; color: var(--text-s); align-items: center; }
+.inv-pass { font-size:10px; font-weight:600; letter-spacing:.15em; text-transform:uppercase; color:var(--verd-h); text-align:right; }
+.inv-row code { font-family:'Inter',monospace; font-size:11px; background:var(--ink); padding:1px 6px; border-radius:2px; color:var(--text-p); }
+.refs { padding: 28px 48px 56px; background: var(--spec-bg); border-top: 1px solid var(--border-d); font-size: 11px; color: var(--text-m); line-height: 1.7; }
+.refs strong { color: var(--text-s); font-weight: 500; }
+</style>
+</head>
+<body>
+
+<header class="doc-header">
+  <div><span class="wm-s">STELAVOX</span><span class="wm-v" style="margin-left:10px;">/ Wireframe &amp; Specification</span></div>
+  <div class="doc-meta">Admin Shell · v1.0 · 2026-06-14</div>
+</header>
+
+<div class="intro">
+  <strong>What this covers.</strong> Admin becomes a <strong>self-contained operational interface</strong> with its own
+  chrome — no AppShell project/node panels, no app navigation, no Dashboard back-link. One entry point (<code>/admin</code>),
+  a left-rail nav to move between the three sections, and Admin's own auth gate. Achieved by lifting the routes out of the
+  <code>(app)</code> group into a new <code>(admin)</code> group with its own <code>layout.tsx</code> + <code>AdminShell</code>.
+  <strong>Inter only; no verdigris</strong> — status-green is <code>--color-success</code>.
+</div>
+
+<section class="section">
+  <div class="slabel">§01 · AdminShell — left-rail nav + content (Operations section active)</div>
+  <div class="shell">
+    <span class="cn" style="left:-9px; top:18px;">1</span>
+    <div class="rail">
+      <div class="rail-head">
+        <div class="rail-title">Stelavox Admin</div>
+        <div class="rail-sub">Operations console</div>
+      </div>
+      <span class="cn" style="left:201px; top:96px;">2</span>
+      <div class="rail-nav">
+        <div class="nav-item active"><span class="nav-ico">◷</span> Operations</div>
+        <div class="nav-item"><span class="nav-ico">$</span> Payments</div>
+        <div class="nav-item"><span class="nav-ico">⛓</span> Orchestration</div>
+      </div>
+      <span class="cn" style="left:201px; top:438px;">3</span>
+      <div class="rail-foot">
+        <div class="rail-user">author@stelavox.local</div>
+        <button class="rail-signout">Sign out</button>
+      </div>
+    </div>
+    <div class="main">
+      <div class="main-bar">
+        <div class="main-title">Operations</div>
+        <span class="cn" style="right:120px; top:-2px;">4</span>
+        <div class="win-tabs"><span class="win-tab">1h</span><span class="win-tab on">24h</span><span class="win-tab">7d</span></div>
+      </div>
+      <div class="main-body">
+        <span class="cn" style="left:8px; top:150px;">5</span>
+        <div class="ph-card">
+          <span class="ph-pill">Healthy</span>
+          <span style="font-size:12px; color:var(--text-s); margin-left:14px;">All systems nominal — writing unaffected</span>
+        </div>
+        <div class="ph-card">
+          <div class="ph-l">Liveness &amp; heartbeats</div>
+          <div class="ph-row">
+            <div class="ph-tile"><div class="ph-tn">Dispatcher</div><div class="ph-tv">tick 24s</div></div>
+            <div class="ph-tile"><div class="ph-tn">Cloud transport</div><div class="ph-tv">200 · 1m</div></div>
+            <div class="ph-tile"><div class="ph-tn">Realtime</div><div class="ph-tv">14 tables</div></div>
+            <div class="ph-tile"><div class="ph-tn">pg_cron</div><div class="ph-tv">5 / 5 ok</div></div>
+          </div>
+        </div>
+        <div class="ph-card" style="color:var(--text-m); font-size:11px;">… the existing Operations Summary bands + dashboard sections render here, unchanged — only the surrounding chrome changes.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="annotations">
+  <div class="annotations-title">Annotations</div>
+  <div class="ann-grid">
+    <div class="ann-row"><span class="ann-num">1</span><span class="ann-text"><strong>AdminShell, not AppShell.</strong> A new <code>app/(admin)/layout.tsx</code> renders this shell instead of the app's three-panel <code>AppShell</code>. The admin routes move from <code>app/(app)/admin/*</code> to <code>app/(admin)/admin/*</code> — URLs stay <code>/admin</code>, <code>/admin/payments</code>, <code>/admin/orchestration</code> (route groups are invisible in the path).</span></div>
+    <div class="ann-row"><span class="ann-num">2</span><span class="ann-text"><strong>Left-rail nav.</strong> The three sections — Operations · Payments · Orchestration. Active item: <code>--color-bg-selected</code> fill + a neutral <code>--color-text-secondary</code> left border (<strong>not</strong> verdigris). This is the internal navigation; no app nav, no Dashboard link.</span></div>
+    <div class="ann-row"><span class="ann-num">3</span><span class="ann-text"><strong>Sign out only.</strong> Foot of the rail shows the admin's email + a Sign out button. No "return to app" affordance, per the brief — Admin is a separate operational interface.</span></div>
+    <div class="ann-row"><span class="ann-num">4</span><span class="ann-text"><strong>Per-section controls stay.</strong> The Operations window selector (1h/24h/7d) and the Payments tabs continue to live inside each section's content — the rail is top-level nav only.</span></div>
+    <div class="ann-row"><span class="ann-num">5</span><span class="ann-text"><strong>Pages unchanged.</strong> The existing Operations Summary, dashboard sections, Payments, and Orchestration render in the content area exactly as today. This is a chrome change only — no page logic touched.</span></div>
+  </div>
+</div>
+
+<div class="decisions">
+  <div class="decisions-title">Decisions — locked at the 2026-06-14 design discussion</div>
+  <div class="decision"><strong>Self-contained Admin.</strong><span class="locked">Locked</span> Own route group + layout; no AppShell, no app nav integration.</div>
+  <div class="decision"><strong>Left-rail navigation.</strong><span class="locked">Locked</span> Scales as Operations later splits into sub-views. Three items: Operations / Payments / Orchestration.</div>
+  <div class="decision"><strong>One entry point.</strong><span class="locked">Locked</span> <code>/admin</code>; the rail handles the rest.</div>
+  <div class="decision"><strong>Sign out only, no Dashboard back-link.</strong><span class="locked">Locked</span> Operators don't navigate back into the authoring app from the admin chrome.</div>
+  <div class="decision"><strong>Auth in the layout.</strong><span class="locked">Locked</span> <code>(admin)/layout.tsx</code> gates on logged-in + <code>isPlatformAdmin</code> (redirect to <code>/login</code> otherwise). No trial-expiry / past-due gating — those are author concerns.</div>
+</div>
+
+<div class="inv-audit">
+  <div class="annotations-title">Inviolable audit</div>
+  <div class="inv-row"><span>1</span><span><strong style="color:var(--text-p);">Prose surface lowest-noise.</strong> N/A — admin chrome.</span><span class="inv-pass">N/A</span></div>
+  <div class="inv-row"><span>2</span><span><strong style="color:var(--text-p);">Verdigris in exactly twelve places.</strong> AdminShell adds none — active nav uses <code>--color-bg-selected</code> + neutral border; status-green is <code>--color-success</code>. Count remains <strong style="color:var(--verd-h);">12</strong>.</span><span class="inv-pass">Pass · 12</span></div>
+  <div class="inv-row"><span>3·6</span><span><strong style="color:var(--text-p);">Cinzel / Cormorant only in the wordmark.</strong> "Stelavox Admin" is plain Inter — no Cinzel mount in the rail.</span><span class="inv-pass">Pass</span></div>
+  <div class="inv-row"><span>4</span><span><strong style="color:var(--text-p);">Typeface boundary.</strong> Inter throughout; no Lora.</span><span class="inv-pass">Pass</span></div>
+  <div class="inv-row"><span>5</span><span><strong style="color:var(--text-p);">No prose toolbar.</strong> N/A.</span><span class="inv-pass">N/A</span></div>
+</div>
+
+<div class="refs">
+  <strong>References.</strong> Current routes <code>app/(app)/admin/*</code> → move to <code>app/(admin)/admin/*</code>. &nbsp;·&nbsp;
+  New <code>app/(admin)/layout.tsx</code> + <code>components/admin/AdminShell.tsx</code>. &nbsp;·&nbsp;
+  Auth helper <code>lib/admin/isPlatformAdmin.ts</code>. &nbsp;·&nbsp; Pages unchanged: AdminDashboard (+ OperationsSummary), AdminPayments, OrchestrationAudit. &nbsp;·&nbsp;
+  Wireframe-first per <code>feedback_wireframe_first_for_ui</code>.
+</div>
+
+</body>
+</html>
