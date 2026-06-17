@@ -40,7 +40,7 @@ export function WaitlistForm() {
         setMessage(
           body.alreadyOnList
             ? "You're already in the founding queue — we'll be in touch before we open."
-            : "You're in. We'll send your founding offer before we open.",
+            : "You're in. We'll send your founding access before we open.",
         )
         return
       }

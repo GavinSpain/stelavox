@@ -67,7 +67,8 @@ export function Landing({ mode }: { mode: 'waitlist' | 'open' }) {
             <WaitlistForm />
             <p className={styles.foundingNote}>
               Join the list and you&rsquo;re first in line for <strong>founding membership: 50% off
-              annual, locked in for life</strong>. A limited first cohort — it closes the day we open.
+              your first year on annual (or your first month on monthly), and a direct line on what
+              we build next</strong>. A limited first cohort — it closes the day we open.
             </p>
           </>
         ) : (
@@ -182,20 +183,24 @@ export function Landing({ mode }: { mode: 'waitlist' | 'open' }) {
         <div className={styles.wrap}>
           {waitlist ? (
             <div className={styles.foundingBand}>
-              <p className={styles.foundingKicker}>Founding membership · limited · closes at launch</p>
-              <h2 className={styles.foundingHeading}>Join now, and lock in 50% off — for life.</h2>
+              <p className={styles.foundingKicker}>Founding membership · early access · closes at launch</p>
+              <h2 className={styles.foundingHeading}>Join now — 50% off your first year, and a hand in what comes next.</h2>
               <p className={styles.foundingBody}>
                 Everyone who joins the list before we open is first in line for founding membership:{' '}
-                <strong>50% off annual membership, for as long as you stay subscribed</strong>. The
-                founding cohort is deliberately limited — a first group small enough for us to look
-                after properly — and it closes the day we launch. Only writers on the list get the
-                offer, and you&rsquo;ll get it before we open to everyone.
+                <strong>50% off your first year on annual, or 50% off your first month on monthly</strong>.
+                The founding cohort is deliberately limited — a first group small enough for us to look
+                after properly — and it closes the day we launch. Beyond the discount, founding members
+                get a direct line for feedback. <strong>We&rsquo;re launching in early access, and we want to
+                build what comes next with serious writers — not just for them.</strong>
+              </p>
+              <p className={styles.foundingPriceLine}>
+                Plans from $15/month — Writer to Pro, plus bring-your-own-key.
               </p>
               <a className={styles.btnPrimary} href="#join">Claim founding access</a>
             </div>
           ) : (
             <p className={styles.pricingTeaser}>
-              A free trial, then simple plans from Writer to Pro.{' '}
+              A free trial, then simple plans from $15/month — Writer to Pro, plus bring-your-own-key.{' '}
               <Link href="/signup">Get started →</Link>
             </p>
           )}
@@ -237,12 +242,12 @@ export function Landing({ mode }: { mode: 'waitlist' | 'open' }) {
           {waitlist ? (
             <>
               <FaqItem
-                q="What is founding membership?"
-                a="Writers who join the list before we open are first in line for founding membership: 50% off annual membership, locked in for as long as you stay subscribed. The cohort is limited and closes the day we launch."
+                q="What does being a founding member mean?"
+                a="Three things. First, the discount — 50% off your first year on annual, or 50% off your first month on monthly. Second, you're in early — before we open to everyone. Third, you have a direct line on what we build next; we read everything founding members tell us and ship improvements based on it."
               />
               <FaqItem
                 q="When does it open?"
-                a="Soon. Join the list and you'll be among the first in — and we'll send your founding offer before we open to everyone."
+                a="Soon. Join the list and we'll send your founding access before we open to everyone."
               />
             </>
           ) : (
