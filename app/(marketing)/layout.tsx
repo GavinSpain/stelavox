@@ -14,20 +14,25 @@
 import { Analytics } from '@vercel/analytics/next'
 import type { CSSProperties } from 'react'
 
+// "Warm dusk library" — the marketing front door uses a warmer, more
+// inviting palette than the app's cool dark (walnut-dark + ivory pages +
+// verdigris as the green reading-lamp). The marketing surface is a separate
+// brand surface (landing-page spec §5) and isn't bound by the app's tokens;
+// verdigris stays the brand accent, everything else warms toward candlelight.
 const DARK_SURFACE = {
-  '--color-bg-base': '#0d1014',
-  '--color-bg-surface': '#131820',
-  '--color-bg-elevated': '#1a2030',
-  '--color-border-subtle': '#1e2535',
-  '--color-border-default': '#253045',
-  '--color-border-strong': '#3a4a62',
-  '--color-text-primary': '#ecf0f5',
-  '--color-text-secondary': '#8aa0b8',
-  '--color-text-muted': '#6884a4',
+  '--color-bg-base': '#12100c',
+  '--color-bg-surface': '#1a160f',
+  '--color-bg-elevated': '#221d14',
+  '--color-border-subtle': '#272016',
+  '--color-border-default': '#332a1d',
+  '--color-border-strong': '#4a3f2c',
+  '--color-text-primary': '#f1ead9',
+  '--color-text-secondary': '#b0a48d',
+  '--color-text-muted': '#7c7159',
   '--color-accent': '#3d7858',
-  '--color-accent-hover': '#5aa87a',
-  '--color-accent-muted': '#1a3028',
-  '--color-error': '#b03c3c',
+  '--color-accent-hover': '#62b583',
+  '--color-accent-muted': '#1d2a1c',
+  '--color-error': '#c25a4a',
 } as CSSProperties
 
 export default function MarketingLayout({ children }: { children: React.ReactNode }) {

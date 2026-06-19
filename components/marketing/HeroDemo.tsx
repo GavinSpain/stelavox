@@ -1,22 +1,20 @@
 'use client'
 
 /**
- * HeroDemo — the animated, cinematic product preview in the landing hero.
+ * HeroDemo — the animated product preview in the landing hero.
  *
- * A looping three-act sequence, each act framed by an interstitial title
- * card that names + sells the capability, with fade-through transitions:
+ * A looping three-act demo where the app frame stays FULL at all times (the
+ * tree is always visible; act content cross-fades inside the right panel),
+ * with a narrated lower line naming the current act. This deliberately
+ * replaces the earlier full-screen "title cards" that left the frame empty
+ * between acts — the centrepiece should never look like a void.
  *
- *   01 · Structure first   → create a beat and write prose into it
- *   02 · Ask anything      → ask the Director about pacing; it advises
- *   03 · You direct        → direct a fix; approve; the prose updates
- *
- * Tells the whole product story in one frame so a cold visitor sees it's a
- * live demo, not an image to puzzle over. A "live preview" pill + caption
- * make that explicit.
+ *   01 Structure — create a beat and write prose into it
+ *   02 Ask       — ask the Director about pacing; it advises
+ *   03 Direct    — direct a fix; approve; the prose updates
  *
  * Accessibility: one role="img" with a descriptive label; the churning inner
- * content is aria-hidden. Honours prefers-reduced-motion — no timers / caret /
- * transitions; renders a representative static frame (prose in a new beat).
+ * content is aria-hidden. Honours prefers-reduced-motion (static frame).
  *
  * Still a CSS mock of the real UI; swap for a real screen capture once the
  * live UI is camera-ready (spec D1·B).
@@ -27,7 +25,7 @@ import { useEffect, useState } from 'react'
 import styles from './landing.module.css'
 
 const PROSE_A =
-  'The rope bit her palms. Mara hauled once, twice — and far below the pier the great bell answered, tolling up through the black water.'
+  'The rope bit her palms. Mara hauled once, twice — and far below the pier the great bell answered, tolling up through the black water. She had not rung it. No one had rung it in ninety years, and yet the sound climbed the harbour like a tide coming in.'
 const Q_B = 'Does the harbour chapter drag before the reveal?'
 const ADVICE_B =
   'A little — beats two and three repeat the same tension. Try cutting one and letting the bell arrive sooner; the reveal will land harder.'
@@ -35,40 +33,32 @@ const DIR_C = 'Tighten the opening line — keep the tide imagery.'
 const PROSE_C =
   'The tide hung wrong that morning — too still, too low — as if the sea were holding its breath.'
 
-const CARDS = {
-  structure: { k: '01', t: 'Structure first', l: 'Build your book as a tree — then write straight into it.' },
-  ask: { k: '02', t: 'Ask anything', l: 'Stuck on a scene? The Director is a thinking partner — never a ghostwriter.' },
-  direct: { k: '03', t: 'You direct — it executes', l: 'Point it at a fix. Nothing changes until you approve.' },
+const NARR = {
+  create: { n: '01', t: 'Shaping a beat — and writing into it.' },
+  advise: { n: '02', t: 'Asking the Director about pacing.' },
+  fix: { n: '03', t: 'Directing a fix — you approve, it writes.' },
 } as const
 
-type Stage = 'card' | 'create' | 'advice' | 'fix' | 'black'
+type Phase = 'create' | 'advise' | 'fix'
 
 export function HeroDemo() {
-  const [stage, setStage] = useState<Stage>('card')
-  const [card, setCard] = useState<{ k: string; t: string; l: string }>(CARDS.structure)
-  const [reduced, setReduced] = useState(false)
-
-  // scene 1 (create)
-  const [beatAdded, setBeatAdded] = useState(false)
+  const [phase, setPhase] = useState<Phase>('create')
   const [proseA, setProseA] = useState('')
-  // scene 2 (advice)
   const [qB, setQB] = useState('')
   const [thinkingB, setThinkingB] = useState(false)
   const [adviceB, setAdviceB] = useState('')
-  // scene 3 (fix)
   const [dirC, setDirC] = useState('')
   const [planC, setPlanC] = useState(false)
   const [approvedC, setApprovedC] = useState(false)
   const [proseC, setProseC] = useState('')
+  const [reduced, setReduced] = useState(false)
 
   useEffect(() => {
     const mq = window.matchMedia('(prefers-reduced-motion: reduce)')
     if (mq.matches) {
-      // Representative static frame: a new beat with prose in it.
       /* eslint-disable react-hooks/set-state-in-effect */
       setReduced(true)
-      setStage('create')
-      setBeatAdded(true)
+      setPhase('create')
       setProseA(PROSE_A)
       /* eslint-enable react-hooks/set-state-in-effect */
       return
@@ -83,76 +73,54 @@ export function HeroDemo() {
         await wait(per)
       }
     }
-    // Fade out to black, then bring the next stage up.
-    const cut = async (next: Stage) => {
-      setStage('black')
-      await wait(360)
-      if (cancelled) return false
-      setStage(next)
-      await wait(140)
-      return !cancelled
-    }
-
     const run = async () => {
       while (!cancelled) {
         // ACT 1 — create + write
-        setCard(CARDS.structure)
-        if (!(await cut('card'))) return
-        await wait(2300)
-        if (cancelled) return
-        setBeatAdded(false)
         setProseA('')
-        if (!(await cut('create'))) return
-        await wait(750)
-        if (cancelled) return
-        setBeatAdded(true)
-        await wait(1000)
+        setPhase('create')
+        await wait(520)
         if (cancelled) return
         await type(PROSE_A, setProseA, 26)
-        await wait(1900)
+        await wait(2000)
         if (cancelled) return
 
-        // ACT 2 — ask + advice
-        setCard(CARDS.ask)
-        if (!(await cut('card'))) return
-        await wait(2300)
-        if (cancelled) return
+        // ACT 2 — ask + advise
         setQB('')
         setAdviceB('')
         setThinkingB(false)
-        if (!(await cut('advice'))) return
+        setPhase('advise')
+        await wait(520)
+        if (cancelled) return
         await type(Q_B, setQB, 30)
-        await wait(550)
+        await wait(500)
         if (cancelled) return
         setThinkingB(true)
-        await wait(1200)
+        await wait(1150)
         if (cancelled) return
         setThinkingB(false)
         await type(ADVICE_B, setAdviceB, 21)
-        await wait(2500)
+        await wait(2400)
         if (cancelled) return
 
         // ACT 3 — direct + fix
-        setCard(CARDS.direct)
-        if (!(await cut('card'))) return
-        await wait(2300)
-        if (cancelled) return
         setDirC('')
         setPlanC(false)
         setApprovedC(false)
         setProseC('')
-        if (!(await cut('fix'))) return
+        setPhase('fix')
+        await wait(520)
+        if (cancelled) return
         await type(DIR_C, setDirC, 30)
-        await wait(450)
+        await wait(420)
         if (cancelled) return
         setPlanC(true)
-        await wait(1200)
+        await wait(1150)
         if (cancelled) return
         setApprovedC(true)
-        await wait(950)
+        await wait(900)
         if (cancelled) return
         await type(PROSE_C, setProseC, 24)
-        await wait(2600)
+        await wait(2400)
         if (cancelled) return
       }
     }
@@ -163,7 +131,8 @@ export function HeroDemo() {
   }, [])
 
   const caret = () => (reduced ? null : <span className={styles.caret} />)
-  const on = (s: Stage) => (stage === s ? styles.stageLayerActive : '')
+  const active = (p: Phase) => (phase === p ? styles.demoLayerActive : '')
+  const narr = NARR[phase]
 
   return (
     <figure className={styles.demoFigure}>
@@ -182,51 +151,40 @@ export function HeroDemo() {
           </span>
         </div>
 
-        <div className={styles.stage} aria-hidden="true">
-          {/* interstitial framing card */}
-          <div className={`${styles.stageLayer} ${styles.cardLayer} ${on('card')}`}>
-            <span className={styles.cardKicker}>{card.k}</span>
-            <span className={styles.cardTitle}>{card.t}</span>
-            <span className={styles.cardLine}>{card.l}</span>
-          </div>
-
-          {/* ACT 1 — create + write */}
-          <div className={`${styles.stageLayer} ${on('create')}`}>
-            <div className={styles.sceneGrid}>
-              <div className={styles.sceneTree}>
-                <div className={styles.vizCaption}>Live structure</div>
-                <div className={styles.tnode}><span className={styles.tlab}>Book</span> The Tidewright Cycle</div>
-                <div className={`${styles.tnode} ${styles.act}`}><span className={styles.tlab}>Act 1</span> Saltbound</div>
-                <div className={`${styles.tnode} ${styles.ch}`}><span className={styles.tlab}>Ch 1</span> The Drowned Bell</div>
-                <div className={`${styles.tnode} ${styles.sc} ${beatAdded ? '' : styles.tsel}`}>
-                  <span className={styles.tlab}>Sc 2</span> At the harbour
-                </div>
-                {beatAdded && (
-                  <div className={`${styles.tnode} ${styles.bt} ${styles.tsel} ${styles.tnodeWriting} ${styles.beatNew}`}>
-                    <span className={styles.tlab}>Bt 3</span> The bell tolls
-                  </div>
-                )}
-                <div className={`${styles.tnode} ${styles.ch}`}><span className={styles.tlab}>Ch 2</span> Low Water</div>
-              </div>
-              <div className={styles.scenePanel}>
-                {beatAdded ? (
-                  <>
-                    <div className={styles.proseHead}>Bt 3 · The bell tolls — new beat</div>
-                    <p className={styles.proseText}>
-                      {proseA}
-                      {proseA.length < PROSE_A.length && proseA.length > 0 && caret()}
-                    </p>
-                  </>
-                ) : (
-                  <div className={styles.proseHead}>+ New beat…</div>
-                )}
-              </div>
+        {/* The frame body is ALWAYS full: tree on the left, act content cross-
+            fading on the right. */}
+        <div className={styles.vizBody} aria-hidden="true">
+          <div className={styles.vizTree}>
+            <div className={styles.vizCaption}>Live structure</div>
+            <div className={styles.tnode}><span className={styles.tlab}>Book</span> The Tidewright Cycle</div>
+            <div className={`${styles.tnode} ${styles.act}`}><span className={styles.tlab}>Act 1</span> Saltbound</div>
+            <div className={`${styles.tnode} ${styles.ch}`}><span className={styles.tlab}>Ch 1</span> The Drowned Bell</div>
+            <div
+              className={`${styles.tnode} ${styles.sc} ${phase === 'create' ? '' : `${styles.tsel} ${styles.tnodeWriting}`}`}
+            >
+              <span className={styles.tlab}>Sc 2</span> At the harbour
             </div>
+            <div
+              className={`${styles.tnode} ${styles.sc} ${phase === 'create' ? `${styles.tsel} ${styles.tnodeWriting}` : ''}`}
+              style={{ paddingLeft: 60 }}
+            >
+              <span className={styles.tlab}>Bt 3</span> The bell tolls
+            </div>
+            <div className={`${styles.tnode} ${styles.ch}`}><span className={styles.tlab}>Ch 2</span> Low Water</div>
           </div>
 
-          {/* ACT 2 — ask + advice */}
-          <div className={`${styles.stageLayer} ${on('advice')}`}>
-            <div className={styles.convo}>
+          <div className={styles.demoRight}>
+            {/* ACT 1 — create + write */}
+            <div className={`${styles.demoLayer} ${active('create')}`}>
+              <div className={styles.proseHead}>Bt 3 · The bell tolls — new beat</div>
+              <p className={styles.proseText}>
+                {proseA}
+                {proseA.length < PROSE_A.length && proseA.length > 0 && caret()}
+              </p>
+            </div>
+
+            {/* ACT 2 — ask + advise */}
+            <div className={`${styles.demoLayer} ${active('advise')}`}>
               <div className={styles.dirmark}>◆ Director</div>
               <div className={styles.userWho}>You</div>
               <div className={styles.userBubble}>
@@ -241,11 +199,9 @@ export function HeroDemo() {
                 </div>
               )}
             </div>
-          </div>
 
-          {/* ACT 3 — direct + fix */}
-          <div className={`${styles.stageLayer} ${on('fix')}`}>
-            <div className={styles.convo}>
+            {/* ACT 3 — direct + fix */}
+            <div className={`${styles.demoLayer} ${active('fix')}`}>
               <div className={styles.dirmark}>◆ Director</div>
               <div className={styles.userWho}>You</div>
               <div className={styles.userBubble}>
@@ -274,8 +230,9 @@ export function HeroDemo() {
         </div>
       </div>
 
-      <figcaption className={styles.demoCaption}>
-        Structure, a thinking-partner Director, and edits you approve — all in one workspace.
+      <figcaption className={styles.demoNarration} aria-hidden="true">
+        <span className={styles.demoNarrationNum}>{narr.n}</span>
+        <span className={styles.demoNarrationText}>{narr.t}</span>
       </figcaption>
     </figure>
   )
