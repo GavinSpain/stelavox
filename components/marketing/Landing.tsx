@@ -45,21 +45,14 @@ export function Landing({ mode }: { mode: 'waitlist' | 'open' }) {
 
       {/* ---- hero ---- */}
       <header className={styles.hero} id="join">
-        <div className={styles.heroBrand}>
-          <Wordmark size="marketing" />
-        </div>
         <p className={styles.eyebrow}>
           {waitlist ? 'Founding access · opening soon' : 'A writing workspace, not a ghostwriter'}
         </p>
-        <h1 className={styles.title}>
-          Write the book you&rsquo;ve been carrying
-          <br />
-          — without losing the thread.
-        </h1>
+        <h1 className={styles.title}>Write the book you&rsquo;ve been carrying.</h1>
         <p className={styles.sub}>
-          Stelavox is a structured writing workspace: plan your story as a living tree, write at
-          any layer, and call on a Director that only ever helps where you point it. The work is
-          yours — every word.
+          A writing workspace shaped like your outline — lay your story out as a living tree, write
+          at any layer, and call on a Director that helps only where you point it. You hold the pen.
+          Always.
         </p>
 
         {waitlist ? (
@@ -128,6 +121,17 @@ export function Landing({ mode }: { mode: 'waitlist' | 'open' }) {
               </p>
             </div>
           </div>
+        </div>
+      </section>
+
+      {/* ---- founder voice ---- */}
+      <section className={styles.section}>
+        <div className={styles.founderNote}>
+          <p>
+            We didn&rsquo;t want a ghostwriter. We wanted a better desk — one shaped like the story
+            in our heads, with help that <em>waits to be asked</em>. So we built it.
+          </p>
+          <p className={styles.founderSign}>— the writers behind Stelavox</p>
         </div>
       </section>
 
