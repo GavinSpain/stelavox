@@ -25,7 +25,7 @@ import { useEffect, useState } from 'react'
 import styles from './landing.module.css'
 
 const PROSE_A =
-  'The rope bit her palms. Mara hauled once, twice — and far below the pier the great bell answered, tolling up through the black water.'
+  'The rope bit her palms. Mara hauled once, twice — and far below the pier the great bell answered, tolling up through the black water. She had not rung it. No one had rung it in ninety years, and yet the sound climbed the harbour like a tide coming in.'
 const Q_B = 'Does the harbour chapter drag before the reveal?'
 const ADVICE_B =
   'A little — beats two and three repeat the same tension. Try cutting one and letting the bell arrive sooner; the reveal will land harder.'

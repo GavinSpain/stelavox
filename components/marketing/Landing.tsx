@@ -50,9 +50,8 @@ export function Landing({ mode }: { mode: 'waitlist' | 'open' }) {
         </p>
         <h1 className={styles.title}>Write the book you&rsquo;ve been carrying.</h1>
         <p className={styles.sub}>
-          A writing workspace shaped like your outline — lay your story out as a living tree, write
-          at any layer, and call on a Director that helps only where you point it. You hold the pen.
-          Always.
+          A workspace shaped like your outline — write at any layer, and call on a Director that
+          helps only where you point it. You hold the pen, always.
         </p>
 
         {waitlist ? (
@@ -92,7 +91,7 @@ export function Landing({ mode }: { mode: 'waitlist' | 'open' }) {
         </div>
       </section>
 
-      {/* ---- value props ---- */}
+      {/* ---- value props (quiet, supporting) ---- */}
       <section className={styles.section}>
         <div className={styles.wrap}>
           <div className={styles.props}>
@@ -101,7 +100,7 @@ export function Landing({ mode }: { mode: 'waitlist' | 'open' }) {
               <h3>Structure-first writing</h3>
               <p>
                 Think in acts, chapters, beats? Your outline is a living tree you write straight
-                into — at any layer, in any order. Rearrange freely; the structure holds.
+                into — at any layer, in any order. Rearrange freely; the shape holds.
               </p>
             </div>
             <div className={styles.prop}>
@@ -128,15 +127,17 @@ export function Landing({ mode }: { mode: 'waitlist' | 'open' }) {
       <section className={styles.section}>
         <div className={styles.founderNote}>
           <p>
-            We didn&rsquo;t want a ghostwriter. We wanted a better desk — one shaped like the story
-            in our heads, with help that <em>waits to be asked</em>. So we built it.
+            We didn&rsquo;t want a ghostwriter. We wanted to hold the whole story at once — every
+            act, chapter, and beat — and write into it ourselves, with a collaborator that never
+            forgets <em>whose book it is</em>: it helps where you ask, and waits where you don&rsquo;t.
+            So we built it.
           </p>
           <p className={styles.founderSign}>— the writers behind Stelavox</p>
         </div>
       </section>
 
-      {/* ---- ownership manifesto (definitive) ---- */}
-      <section className={styles.section}>
+      {/* ---- ownership manifesto — the page's bold moment ---- */}
+      <section className={`${styles.section} ${styles.bandOwnership}`}>
         <div className={styles.ownership}>
           <h2 className={styles.ownershipHeading}>Your book is yours. Full stop.</h2>
           <p className={styles.ownershipBody}>
